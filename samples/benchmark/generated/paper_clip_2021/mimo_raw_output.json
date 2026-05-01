@@ -1,0 +1,664 @@
+{
+  "paper_skeleton": {
+    "problem": "当前最先进的计算机视觉系统被训练来预测一组固定的预设物体类别，这种受限的监督形式限制了其通用性和可用性，因为需要额外的标注数据来指定任何其他视觉概念。",
+    "motivation": "直接从关于图像的原始文本中学习是一个有前景的替代方案，它利用了更广泛的监督来源。自然语言能够表达并因此监督更广泛的视觉概念。",
+    "core_idea": "通过一个简单的预训练任务——预测哪个标题与哪个图像配对——在从互联网收集的4亿（图像，文本）对数据集上从头开始学习SOTA图像表示。预训练后，使用自然语言来引用学习到的视觉概念（或描述新的概念），并通过将图像特征与自然语言中指定的类别的文本特征进行比较，实现对数据集的零样本迁移。",
+    "method": "CLIP（对比语言-图像预训练）联合训练一个图像编码器和一个文本编码器，以预测一批（图像，文本）训练样本的正确配对。在测试时，学习到的文本编码器通过嵌入目标数据集类别的名称或描述来合成一个零样本线性分类器。",
+    "experiments": "在27个不同的数据集上评估了零样本迁移性能，并与线性探针表示学习进行了比较。研究了CLIP的可扩展性，训练了跨越近2个数量级计算量的8个模型。评估了对自然分布偏移的鲁棒性。",
+    "claims": [
+      "CLIP是一种高效且可扩展的方法，可以从自然语言监督中学习SOTA图像表示。",
+      "零样本CLIP在多个数据集上与完全监督的线性探针基线具有竞争力。",
+      "CLIP的特征比在ImageNet上预训练的模型对任务偏移更鲁棒。",
+      "CLIP的零样本性能随着计算量的增加而平滑地扩展。",
+      "CLIP学习了一组比以前在单一计算机视觉模型中展示的更广泛的任务。"
+    ],
+    "limitations": [
+      "在具有训练集的数据集上，零样本CLIP的性能平均与简单的监督基线（ResNet-50特征上的线性分类器）相当，但低于当前最先进的性能。",
+      "需要大约1000倍的计算量增加才能使零样本CLIP达到整体最先进的性能，这在当前硬件上是不可行的。",
+      "CLIP仍然仅限于从给定零样本分类器中的概念中进行选择，这与图像描述等真正灵活的方法相比是一个显著限制。",
+      "尽管专注于零样本迁移，但开发过程中反复查询完整验证集的性能，这对于真正的零样本场景是不现实的。",
+      "评估数据集的选择与CLIP的开发共同适应，可能无法完全代表真实世界的分布。",
+      "许多复杂的任务和视觉概念难以仅通过文本指定。"
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "数据集构建",
+        "label": "数据准备",
+        "summary": "构建了一个包含4亿（图像，文本）对的大规模数据集WIT（WebImageText），用于预训练。",
+        "description": "从互联网收集了4亿（图像，文本）对。通过查询一组“视觉”概念来平衡数据集，每个查询最多包含20,000对。数据集的总词数与用于训练GPT-2的WebText数据集相似。",
+        "type": "data_preparation",
+        "anchors": [
+          "anc_00020",
+          "anc_00032"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "图像编码器",
+        "label": "模型组件",
+        "summary": "使用ResNet或Vision Transformer（ViT）架构作为图像编码器，将图像映射到多模态嵌入空间。",
+        "description": "图像编码器可以是ResNet（如ResNet-50）或Vision Transformer（ViT）。它接收图像作为输入，并输出一个特征向量，该向量被线性投影到多模态嵌入空间中。",
+        "type": "model_component",
+        "anchors": [
+          "anc_00065",
+          "anc_00066"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "文本编码器",
+        "label": "模型组件",
+        "summary": "使用Transformer架构作为文本编码器，将文本映射到多模态嵌入空间。",
+        "description": "文本编码器是一个Transformer模型。文本序列以[SOS]和[EOS]标记为界，最高层Transformer在[EOS]标记处的激活被视为文本的特征表示，经过层归一化后线性投影到多模态嵌入空间。使用了掩码自注意力。",
+        "type": "model_component",
+        "anchors": [
+          "anc_00065"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "对比预训练",
+        "label": "训练目标",
+        "summary": "通过对比学习目标联合训练图像和文本编码器，预测正确的图像-文本配对。",
+        "description": "预训练任务是预测一批（图像，文本）训练样本中的正确配对。使用对称的交叉熵损失（InfoNCE损失）进行优化。损失函数在图像和文本两个方向上计算。",
+        "type": "training_objective",
+        "anchors": [
+          "anc_00057",
+          "anc_00058",
+          "anc_00060"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "零样本迁移",
+        "label": "推理应用",
+        "summary": "在测试时，通过将图像特征与文本编码器生成的类别文本特征进行比较，实现零样本分类。",
+        "description": "对于零样本迁移，首先将目标数据集每个类别的文本转换为其嵌入表示，然后根据模型计算其概率，预测得分最高的类别。这可以看作是一个超网络，文本编码器根据指定视觉概念的文本生成线性分类器的权重。",
+        "type": "inference_application",
+        "anchors": [
+          "anc_00006",
+          "anc_00008",
+          "anc_00083"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "提示工程与集成",
+        "label": "性能优化",
+        "summary": "通过定制提示文本和集成多个提示来提高零样本性能。",
+        "description": "类似于GPT-3的“提示工程”，通过为每个任务定制提示文本可以显著提高零样本性能。例如，在细粒度分类数据集上指定类别（如“一张{标签}的照片，一种宠物”）。还使用了提示集成。",
+        "type": "optimization_technique",
+        "anchors": [
+          "anc_00099",
+          "anc_00097"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "线性探针评估",
+        "label": "评估方法",
+        "summary": "通过在冻结的CLIP特征上训练线性分类器来评估表示学习质量。",
+        "description": "为了评估表示学习能力，在CLIP的特征上训练线性分类器（线性探针）。这种方法可以突出显示预训练阶段学习通用和鲁棒表示的失败。",
+        "type": "evaluation_method",
+        "anchors": [
+          "anc_00151",
+          "anc_00158"
+        ]
+      },
+      {
+        "node_id": "node_008",
+        "title": "鲁棒性评估",
+        "label": "评估分析",
+        "summary": "评估CLIP对自然分布偏移的鲁棒性，并与ImageNet模型进行比较。",
+        "description": "研究了CLIP在自然分布偏移下的性能变化。使用了一组7个分布偏移数据集（如ImageNetV2、ImageNet Sketch等）。发现零样本CLIP比标准ImageNet模型对分布偏移更鲁棒。",
+        "type": "evaluation_analysis",
+        "anchors": [
+          "anc_00172",
+          "anc_00176",
+          "anc_00193"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_004",
+        "label": "提供训练数据",
+        "description": "WIT数据集为对比预训练提供了4亿（图像，文本）对。",
+        "anchors": [
+          "anc_00020"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_004",
+        "label": "提供图像特征",
+        "description": "图像编码器为对比损失提供图像嵌入。",
+        "anchors": [
+          "anc_00065"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "提供文本特征",
+        "description": "文本编码器为对比损失提供文本嵌入。",
+        "anchors": [
+          "anc_00065"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_002",
+        "label": "训练图像编码器",
+        "description": "对比预训练目标优化图像编码器的参数。",
+        "anchors": [
+          "anc_00057",
+          "anc_00058"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_003",
+        "label": "训练文本编码器",
+        "description": "对比预训练目标优化文本编码器的参数。",
+        "anchors": [
+          "anc_00057",
+          "anc_00058"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_005",
+        "label": "提供图像嵌入",
+        "description": "在推理时，图像编码器为零样本分类提供图像特征。",
+        "anchors": [
+          "anc_00006"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_005",
+        "label": "生成分类器权重",
+        "description": "文本编码器根据类别文本生成线性分类器的权重（超网络）。",
+        "anchors": [
+          "anc_00083"
+        ]
+      },
+      {
+        "source": "node_006",
+        "target": "node_005",
+        "label": "优化输入文本",
+        "description": "提示工程通过优化输入到文本编码器的文本来提高零样本性能。",
+        "anchors": [
+          "anc_00099"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_007",
+        "label": "提供特征用于评估",
+        "description": "CLIP图像编码器的特征被用于线性探针评估。",
+        "anchors": [
+          "anc_00151"
+        ]
+      },
+      {
+        "source": "node_005",
+        "target": "node_008",
+        "label": "评估零样本鲁棒性",
+        "description": "零样本迁移性能被用于评估对分布偏移的鲁棒性。",
+        "anchors": [
+          "anc_00193"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "先前的自然语言监督方法（如VirTex、ICMLM、ConVIRT）在小规模数据集（1-20万图像）上训练，计算效率低，性能远低于监督学习方法。先前的弱监督方法（如Mahajan等人的Instagram标签预测）需要大量计算（19 GPU年），且监督范围有限（仅1000个ImageNet类别）。",
+    "new_method": "CLIP（对比语言-图像预训练）在4亿（图像，文本）对的大规模数据集上，使用简化的对比目标（而非生成式目标）联合训练图像和文本编码器，实现高效的零样本迁移。",
+    "deltas": [
+      {
+        "before": "使用生成式目标（如语言建模）进行预训练，计算效率低。",
+        "after": "使用对比目标（InfoNCE损失）进行预训练，计算效率高4倍。",
+        "why_it_matters": "对比目标使得在大规模数据上训练变得可行，从而能够利用互联网上几乎无限的自然语言监督。",
+        "anchors": [
+          "anc_00023",
+          "anc_00034"
+        ]
+      },
+      {
+        "before": "在小规模数据集（1-20万图像）上训练。",
+        "after": "在4亿（图像，文本）对的大规模数据集WIT上训练。",
+        "why_it_matters": "大规模数据是CLIP学习广泛视觉概念和实现强大零样本迁移能力的关键。",
+        "anchors": [
+          "anc_00020",
+          "anc_00032"
+        ]
+      },
+      {
+        "before": "监督范围有限（如仅1000个ImageNet类别）。",
+        "after": "监督范围广泛，自然语言可以表达几乎任何视觉概念。",
+        "why_it_matters": "使模型能够泛化到训练期间未见过的新概念和任务，实现真正的零样本学习。",
+        "anchors": [
+          "anc_00005",
+          "anc_00015"
+        ]
+      },
+      {
+        "before": "使用静态softmax分类器进行预测，缺乏动态输出机制。",
+        "after": "使用文本编码器作为超网络，动态生成针对新类别的线性分类器。",
+        "why_it_matters": "提供了极大的灵活性，无需重新训练即可适应新的分类任务。",
+        "anchors": [
+          "anc_00016",
+          "anc_00083"
+        ]
+      },
+      {
+        "before": "模型对特定数据集分布过拟合，对分布偏移鲁棒性差。",
+        "after": "零样本CLIP对自然分布偏移表现出更强的鲁棒性。",
+        "why_it_matters": "表明在大规模多样化数据上进行预训练，并结合零样本评估，可以产生更鲁棒的系统。",
+        "anchors": [
+          "anc_00172",
+          "anc_00193",
+          "anc_00214"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\mathcal{L}_i = -\\log \\frac{\\exp(\\text{sim}(I_i, T_i)/\\tau)}{\\sum_{j=1}^{N} \\exp(\\text{sim}(I_i, T_j)/\\tau)}",
+        "variables": [
+          {
+            "name": "\\mathcal{L}_i",
+            "description": "图像i的对比损失",
+            "confidence": "high",
+            "anchors": [
+              "anc_00057"
+            ]
+          },
+          {
+            "name": "I_i",
+            "description": "图像i的嵌入向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00065"
+            ]
+          },
+          {
+            "name": "T_i",
+            "description": "与图像i配对的文本i的嵌入向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00065"
+            ]
+          },
+          {
+            "name": "\\text{sim}(I_i, T_j)",
+            "description": "图像嵌入I_i和文本嵌入T_j之间的余弦相似度",
+            "confidence": "high",
+            "anchors": [
+              "anc_00060"
+            ]
+          },
+          {
+            "name": "\\tau",
+            "description": "可学习的温度参数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00042"
+            ]
+          },
+          {
+            "name": "N",
+            "description": "批次大小",
+            "confidence": "high",
+            "anchors": [
+              "anc_00060"
+            ]
+          }
+        ],
+        "dependencies": [
+          "图像编码器",
+          "文本编码器"
+        ],
+        "intuition": "这是一个对称的交叉熵损失（InfoNCE损失），用于对比学习。它鼓励配对的图像和文本嵌入相似（分子），同时将不配对的嵌入推开（分母）。温度参数τ控制分布的锐度。",
+        "anchors": [
+          "anc_00057",
+          "anc_00058",
+          "anc_00060"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "\\text{logits} = \\text{sim}(I, T^\\top) \\cdot \\exp(t)",
+        "variables": [
+          {
+            "name": "\\text{logits}",
+            "description": "图像-文本相似度矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00060"
+            ]
+          },
+          {
+            "name": "I",
+            "description": "一批图像的嵌入矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00060"
+            ]
+          },
+          {
+            "name": "T",
+            "description": "一批文本的嵌入矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00060"
+            ]
+          },
+          {
+            "name": "t",
+            "description": "可学习的温度参数的对数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00042"
+            ]
+          }
+        ],
+        "dependencies": [
+          "图像编码器",
+          "文本编码器"
+        ],
+        "intuition": "计算批次中所有图像和文本对之间的相似度得分，并通过可学习的温度进行缩放。这是计算对比损失的基础。",
+        "anchors": [
+          "anc_00060"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "\\text{prediction} = \\arg\\max_{c} \\text{sim}(I_{\\text{test}}, T_{\\text{prompt}(c)})",
+        "variables": [
+          {
+            "name": "I_{\\text{test}}",
+            "description": "测试图像的嵌入",
+            "confidence": "high",
+            "anchors": [
+              "anc_00006"
+            ]
+          },
+          {
+            "name": "T_{\\text{prompt}(c)}",
+            "description": "类别c的提示文本（如“一张狗的照片”）的嵌入",
+            "confidence": "high",
+            "anchors": [
+              "anc_00006",
+              "anc_00099"
+            ]
+          },
+          {
+            "name": "c",
+            "description": "目标数据集中的类别",
+            "confidence": "high",
+            "anchors": [
+              "anc_00006"
+            ]
+          }
+        ],
+        "dependencies": [
+          "图像编码器",
+          "文本编码器",
+          "提示工程"
+        ],
+        "intuition": "零样本分类的核心公式。对于测试图像，计算其与所有类别提示文本嵌入的相似度，并预测相似度最高的类别。这等价于使用文本编码器生成的权重作为线性分类器。",
+        "anchors": [
+          "anc_00006",
+          "anc_00008",
+          "anc_00083"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "在27个数据集上评估零样本迁移性能，并与线性探针基线进行比较。",
+      "key_findings": "零样本CLIP在多个数据集上与完全监督的线性探针基线（在ResNet-50特征上训练）具有竞争力。在Food101等数据集上，零样本CLIP甚至优于逻辑回归基线。",
+      "anchors": [
+        "anc_00101",
+        "anc_00102",
+        "anc_00104"
+      ]
+    },
+    "ablation": {
+      "description": "研究了数据集规模、模型架构和预训练目标的影响。",
+      "key_findings": "使用WIT数据集（4亿对）比使用YFCC100M数据集（过滤后）性能显著更好。对比目标比生成式目标（如图像描述）效率高4倍。更大的模型（如ViT-L/14）性能更好。",
+      "anchors": [
+        "anc_00023",
+        "anc_00034",
+        "anc_00477"
+      ]
+    },
+    "robustness": {
+      "description": "评估对自然分布偏移的鲁棒性。",
+      "key_findings": "零样本CLIP比在ImageNet上训练或微调的标准模型对分布偏移更鲁棒。CLIP的特征在任务偏移下也更鲁棒。",
+      "anchors": [
+        "anc_00172",
+        "anc_00176",
+        "anc_00193",
+        "anc_00182"
+      ]
+    },
+    "scaling": {
+      "description": "研究CLIP性能随计算量的扩展规律。",
+      "key_findings": "平均零样本误差与计算量呈对数-线性趋势，跨越44倍的计算范围。性能平滑地随计算量增加而提高。",
+      "anchors": [
+        "anc_00146",
+        "anc_00148"
+      ]
+    },
+    "case_study": {
+      "description": "分析了CLIP在特定任务上的表现，如OCR、动作识别、地理定位。",
+      "key_findings": "CLIP在OCR（SST-2渲染数据集）上达到80.5%的准确率，与使用GloVe的CBOW基线相当。在动作识别（UCF-101）上，线性探针匹配了先前最佳结果。在地理定位（Country211）上表现出能力。",
+      "anchors": [
+        "anc_00485",
+        "anc_00492",
+        "anc_00497",
+        "anc_00501"
+      ]
+    },
+    "human_eval": {
+      "description": "与人类零样本和少样本学习进行了比较。",
+      "key_findings": "在Oxford Pets数据集上，CLIP的零样本性能接近人类零样本性能，但低于人类少样本性能。这表明CLIP在任务学习方面与人类存在差距。",
+      "anchors": [
+        "anc_00232"
+      ]
+    },
+    "benchmark": {
+      "description": "在多个标准基准上评估，包括ImageNet、Kornblith等人的12个数据集套件以及27个数据集套件。",
+      "key_findings": "CLIP的最佳模型（ViT-L/14@336px微调）在27个数据集套件上平均优于最佳现有模型2.6%。在12个数据集套件上也表现优异。",
+      "anchors": [
+        "anc_00164",
+        "anc_00168",
+        "anc_00169"
+      ]
+    },
+    "efficiency": {
+      "description": "评估训练和推理效率。",
+      "key_findings": "对比目标比生成式目标训练效率高4倍。零样本推理无需额外训练，但需要为每个新任务计算所有类别的文本嵌入。",
+      "anchors": [
+        "anc_00023",
+        "anc_00034"
+      ]
+    }
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "CLIP是一种高效且可扩展的方法，可以从自然语言监督中学习SOTA图像表示。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00020",
+          "anc_00023",
+          "anc_00164"
+        ],
+        "risk_flags": [
+          "训练需要大量计算资源（数百GPU天）"
+        ]
+      },
+      {
+        "claim": "零样本CLIP在多个数据集上与完全监督的线性探针基线具有竞争力。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00101",
+          "anc_00102",
+          "anc_00104"
+        ],
+        "risk_flags": [
+          "在部分专业或复杂任务上表现较弱"
+        ]
+      },
+      {
+        "claim": "CLIP的特征比在ImageNet上预训练的模型对任务偏移更鲁棒。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00172",
+          "anc_00176",
+          "anc_00193",
+          "anc_00182"
+        ],
+        "risk_flags": [
+          "鲁棒性可能部分归因于零样本评估方式，而非特征本身"
+        ]
+      },
+      {
+        "claim": "CLIP的零样本性能随着计算量的增加而平滑地扩展。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00146",
+          "anc_00148"
+        ],
+        "risk_flags": [
+          "仅测试了有限范围的计算量（44倍）"
+        ]
+      },
+      {
+        "claim": "CLIP学习了一组比以前在单一计算机视觉模型中展示的更广泛的任务。",
+        "evidence_source_type": "定性分析",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00164"
+        ],
+        "risk_flags": [
+          "许多任务（如地理定位、OCR）未在标准基准中量化评估"
+        ]
+      },
+      {
+        "claim": "使用自然语言监督和大规模数据可以产生更鲁棒的系统。",
+        "evidence_source_type": "实验结果与分析",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00214",
+          "anc_00215"
+        ],
+        "risk_flags": [
+          "需要进一步研究以分离数据规模、自然语言监督和零样本评估各自的影响"
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "CLIP": "对比语言-图像预训练。一种通过对比学习目标联合训练图像和文本编码器的方法。",
+    "零样本迁移": "在没有针对目标任务进行任何训练样本的情况下，将预训练模型应用于新任务的能力。",
+    "对比学习": "一种自监督学习方法，通过拉近正样本对的表示并推远负样本对的表示来学习表示。",
+    "InfoNCE损失": "一种用于对比学习的损失函数，形式为对称的交叉熵损失。",
+    "提示工程": "通过精心设计输入文本（提示）来引导模型生成期望输出的技术。",
+    "线性探针": "在冻结的预训练特征上训练一个线性分类器，以评估特征表示的质量。",
+    "超网络": "一个生成其他网络权重的网络。在CLIP中，文本编码器充当超网络，为线性分类器生成权重。",
+    "WIT": "WebImageText，CLIP预训练使用的包含4亿（图像，文本）对的数据集。",
+    "自然语言监督": "使用自然语言文本（如标题、描述）作为训练信号来学习其他领域（如视觉）的表示。",
+    "分布偏移": "训练数据分布与测试数据分布之间的差异。"
+  },
+  "reproduction_roadmap": {
+    "required_datasets": [
+      {
+        "name": "WIT (WebImageText)",
+        "description": "包含4亿（图像，文本）对的大规模数据集，从互联网收集。",
+        "availability": "未公开发布，但论文描述了构建方法。",
+        "anchors": [
+          "anc_00020",
+          "anc_00032"
+        ]
+      },
+      {
+        "name": "27个评估数据集",
+        "description": "用于零样本和线性探针评估的数据集套件，包括ImageNet、CIFAR10等。",
+        "availability": "大多数为公开数据集。",
+        "anchors": [
+          "anc_00101",
+          "anc_00444",
+          "anc_00447"
+        ]
+      }
+    ],
+    "required_models": [
+      {
+        "name": "图像编码器",
+        "description": "ResNet-50、ResNet-101、ViT-B/32、ViT-L/14等变体。",
+        "availability": "论文提供了模型规格，但未发布预训练权重。",
+        "anchors": [
+          "anc_00065",
+          "anc_00066"
+        ]
+      },
+      {
+        "name": "文本编码器",
+        "description": "12层Transformer，宽度512，8个注意力头。",
+        "availability": "论文提供了模型规格，但未发布预训练权重。",
+        "anchors": [
+          "anc_00065"
+        ]
+      }
+    ],
+    "compute_requirements": {
+      "description": "训练最大的模型（ViT-L/14）需要数百GPU天。论文提到估计需要1000倍的计算量才能达到整体SOTA。",
+      "anchors": [
+        "anc_00034",
+        "anc_00262"
+      ]
+    },
+    "code_availability": {
+      "status": "未在论文中提及官方代码库。",
+      "details": "论文提供了核心训练循环的伪代码（图3），但完整的训练代码和超参数未公开。"
+    },
+    "reproduction_steps": [
+      "1. 收集或构建一个大规模（图像，文本）对数据集（如WIT）。",
+      "2. 实现图像编码器（ResNet或ViT）和文本编码器（Transformer）。",
+      "3. 实现对比预训练目标（对称的InfoNCE损失）。",
+      "4. 在大规模数据上训练模型，需要大量计算资源。",
+      "5. 实现零样本迁移评估：为每个评估数据集设计提示模板，计算类别文本嵌入，进行分类。",
+      "6. 实现线性探针评估：在冻结的CLIP特征上训练线性分类器。"
+    ],
+    "missing_details": [
+      "完整的训练代码和超参数（如学习率调度、批大小、优化器细节）。",
+      "WIT数据集的完整构建脚本和过滤规则。",
+      "提示模板的完整列表和选择策略。",
+      "模型权重和检查点。"
+    ],
+    "risk_points": [
+      "数据收集和过滤可能引入偏差，影响模型公平性和鲁棒性。",
+      "训练需要巨大的计算资源，可能难以复现。",
+      "零样本评估依赖于提示设计，不同的提示可能导致显著不同的性能。",
+      "模型可能继承预训练数据中的社会偏见。"
+    ]
+  }
+}

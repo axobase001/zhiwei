@@ -1,0 +1,1193 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "大型语言模型（LLMs）的推理能力（如思维链提示）和行动能力（如动作计划生成）通常被分开研究，缺乏协同作用，导致推理过程是静态黑箱，无法与外部环境交互获取信息。",
+      "anchors": [
+        "anc_00004",
+        "anc_00006"
+      ]
+    },
+    "motivation": {
+      "summary": "人类智能的一个独特特征是能够将任务导向的动作与语言推理（内心言语）无缝结合，这对于自我调节、策略制定和维持工作记忆至关重要。当前LLMs的推理和行动分离限制了其在复杂决策任务中的表现。",
+      "anchors": [
+        "anc_00006"
+      ]
+    },
+    "core_idea": {
+      "summary": "提出ReAct框架，通过让LLMs以交错方式生成推理轨迹（Thought）和任务特定动作（Action），实现推理与行动的协同：推理帮助模型归纳、跟踪和更新动作计划并处理异常，动作则允许模型与外部知识库或环境交互获取额外信息。",
+      "anchors": [
+        "anc_00004",
+        "anc_00072"
+      ]
+    },
+    "method": {
+      "summary": "ReAct通过扩展动作空间至A∪L（L为语言空间），在每一步生成动作at（可以是外部动作或语言推理），并更新上下文ct+1 = (ct, at)以支持后续推理或行动。使用PaLM-540B等LLMs，通过少样本上下文学习（few-shot in-context learning）进行提示，无需额外训练。",
+      "anchors": [
+        "anc_00072",
+        "anc_00074",
+        "anc_00076"
+      ]
+    },
+    "experiments": {
+      "summary": "在四个多样化基准上评估：问答（HotPotQA）、事实验证（FEVER）、文本游戏（ALFWorld）和网页导航（WebShop）。与标准提示、思维链（CoT）、仅行动（Act）等基线比较，ReAct在多数任务上表现更优或具有竞争力。",
+      "anchors": [
+        "anc_00067",
+        "anc_00091",
+        "anc_00118",
+        "anc_00124"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "ReAct通过交错推理和行动，比单独推理或行动更有效。",
+        "anchors": [
+          "anc_00102",
+          "anc_00105",
+          "anc_00135"
+        ]
+      },
+      {
+        "claim_id": "claim_2",
+        "claim": "ReAct生成的轨迹更可解释、可诊断和可控。",
+        "anchors": [
+          "anc_00168"
+        ]
+      },
+      {
+        "claim_id": "claim_3",
+        "claim": "ReAct在知识密集型任务中能通过行动获取准确信息，减少幻觉。",
+        "anchors": [
+          "anc_00105",
+          "anc_00034",
+          "anc_00035",
+          "anc_00036",
+          "anc_00037"
+        ]
+      },
+      {
+        "claim_id": "claim_4",
+        "claim": "ReAct与思维链结合可进一步提升性能。",
+        "anchors": [
+          "anc_00067"
+        ]
+      },
+      {
+        "claim_id": "claim_5",
+        "claim": "ReAct在少样本学习下表现良好，且可通过微调进一步提升。",
+        "anchors": [
+          "anc_00093",
+          "anc_00106",
+          "anc_00107"
+        ]
+      },
+      {
+        "claim_id": "claim_6",
+        "claim": "ReAct在ALFWorld中显著优于Inner Monologue风格提示。",
+        "anchors": [
+          "anc_00140"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "ReAct依赖LLMs的上下文学习能力，对模型规模敏感。",
+        "anchors": [
+          "anc_00106",
+          "anc_00107"
+        ]
+      },
+      {
+        "limitation": "在HotPotQA上，ReAct略逊于CoT，可能由于贪婪解码次优。",
+        "anchors": [
+          "anc_00105"
+        ]
+      },
+      {
+        "limitation": "实验仅限于特定网站（Wikipedia、WebShop），未涉及更广泛或危险的环境。",
+        "anchors": [
+          "anc_00171",
+          "anc_00172"
+        ]
+      },
+      {
+        "limitation": "推理轨迹的质量依赖于人工编写的少样本示例。",
+        "anchors": [
+          "anc_00093"
+        ]
+      },
+      {
+        "limitation": "未探索与强化学习等范式的深度结合。",
+        "anchors": [
+          "anc_00167"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "ReAct框架核心",
+        "label": "核心方法",
+        "summary": "ReAct通过扩展动作空间，让LLMs在每一步生成推理轨迹或任务动作，实现推理与行动的协同。",
+        "description": "ReAct将动作空间扩展为A∪L，其中A是外部动作空间，L是语言空间（推理轨迹）。在每一步，模型根据上下文ct生成动作at（可以是外部动作或语言推理），并更新上下文ct+1 = (ct, at)以支持后续决策。这允许推理指导行动，行动提供信息给推理。",
+        "type": "method",
+        "anchors": [
+          "anc_00072",
+          "anc_00074"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "推理轨迹（Thought）",
+        "label": "推理组件",
+        "summary": "推理轨迹是语言形式的思考，用于分解问题、提取信息、常识推理、搜索重述和综合答案。",
+        "description": "在ReAct中，推理轨迹（Thought）是自由形式的语言，用于多种目的：分解问题（如“我需要搜索x，找到y，然后找到z”）、从观察中提取信息（如“x始于1844年”）、常识推理（如“x不是y，所以z必须是...”）、搜索重述（如“也许我可以搜索/查找x”）和综合最终答案（如“所以答案是x”）。这些轨迹帮助模型跟踪进度、处理异常和调整计划。",
+        "type": "component",
+        "anchors": [
+          "anc_00093",
+          "anc_00006"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "动作（Action）",
+        "label": "行动组件",
+        "summary": "动作是与外部环境（如知识库、游戏环境）交互的具体操作，用于获取信息或推进任务。",
+        "description": "动作包括外部动作（如搜索Wikipedia、在ALFWorld中移动或拾取物品）和语言动作（如生成推理轨迹）。外部动作允许模型从环境获取观察（Observation），从而为推理提供新信息。动作空间根据任务定义，例如在HotPotQA中是Wikipedia API调用。",
+        "type": "component",
+        "anchors": [
+          "anc_00072",
+          "anc_00093"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "上下文更新",
+        "label": "状态管理",
+        "summary": "每一步后，上下文ct被更新为ct+1 = (ct, at)，以累积历史信息支持后续决策。",
+        "description": "上下文ct包含历史观察和动作序列：ct = (o1, a1, ..., ot-1, at-1, ot)。在每一步，模型生成动作at后，上下文更新为ct+1 = (ct, at)，这允许模型维护工作记忆，跟踪任务进度，并基于历史信息进行推理或行动。",
+        "type": "mechanism",
+        "anchors": [
+          "anc_00070",
+          "anc_00074"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "少样本提示",
+        "label": "学习方式",
+        "summary": "ReAct通过少样本上下文学习实现，使用人工编写的轨迹作为提示示例，无需额外训练。",
+        "description": "对于每个任务，从训练集中随机选择少量案例（如HotPotQA选6个，FEVER选3个），人工编写ReAct格式的轨迹作为少样本示例。这些示例在提示中展示，引导LLMs生成类似轨迹。模型通过上下文学习模仿这些示例，无需梯度更新。",
+        "type": "learning",
+        "anchors": [
+          "anc_00093",
+          "anc_00076"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "基线方法",
+        "label": "对比方法",
+        "summary": "基线包括标准提示、思维链（CoT）、仅行动（Act）和自一致性（CoT-SC），用于消融研究。",
+        "description": "通过系统消融ReAct轨迹构建基线：(a) 标准提示（Standard）：移除所有思考、动作、观察；(b) 思维链提示（CoT）：移除动作和观察，仅保留推理；(c) 仅行动提示（Act）：移除思考，仅保留动作和观察；(d) 自一致性（CoT-SC）：采样多个CoT轨迹并投票。这些基线用于隔离推理和行动的贡献。",
+        "type": "baseline",
+        "anchors": [
+          "anc_00100",
+          "anc_00065"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "实验评估",
+        "label": "评估框架",
+        "summary": "在四个基准上评估ReAct：HotPotQA、FEVER、ALFWorld和WebShop，涵盖问答、事实验证、游戏和导航。",
+        "description": "评估使用PaLM-540B作为基础模型，通过提示和微调进行。指标包括准确率、成功率等。ReAct与基线比较，展示其在知识检索、推理和决策任务中的优势。实验还包括消融研究（如ReAct-IM）和缩放分析。",
+        "type": "evaluation",
+        "anchors": [
+          "anc_00067",
+          "anc_00091",
+          "anc_00118",
+          "anc_00124"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "包含",
+        "description": "ReAct框架包含推理轨迹组件，用于生成语言思考。",
+        "anchors": [
+          "anc_00072"
+        ]
+      },
+      {
+        "source": "node_001",
+        "target": "node_003",
+        "label": "包含",
+        "description": "ReAct框架包含动作组件，用于与环境交互。",
+        "anchors": [
+          "anc_00072"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "指导",
+        "description": "推理轨迹指导动作的选择和执行，例如通过分解问题决定下一步搜索什么。",
+        "anchors": [
+          "anc_00004",
+          "anc_00093"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_002",
+        "label": "提供信息",
+        "description": "动作产生的观察为推理提供新信息，用于更新思考和计划。",
+        "anchors": [
+          "anc_00004",
+          "anc_00093"
+        ]
+      },
+      {
+        "source": "node_001",
+        "target": "node_004",
+        "label": "依赖",
+        "description": "ReAct框架依赖上下文更新机制来维护历史状态。",
+        "anchors": [
+          "anc_00070",
+          "anc_00074"
+        ]
+      },
+      {
+        "source": "node_005",
+        "target": "node_001",
+        "label": "实现",
+        "description": "少样本提示是实现ReAct框架的主要学习方式。",
+        "anchors": [
+          "anc_00093",
+          "anc_00076"
+        ]
+      },
+      {
+        "source": "node_006",
+        "target": "node_001",
+        "label": "对比",
+        "description": "基线方法用于与ReAct对比，以验证推理和行动协同的有效性。",
+        "anchors": [
+          "anc_00100"
+        ]
+      },
+      {
+        "source": "node_007",
+        "target": "node_001",
+        "label": "评估",
+        "description": "实验评估用于验证ReAct框架在多个任务上的性能。",
+        "anchors": [
+          "anc_00067"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00100",
+        "anc_00065"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00072",
+        "anc_00074"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "CoT：模型仅生成推理轨迹，不与环境交互，推理基于内部知识，可能产生幻觉。",
+        "after": "ReAct：模型生成推理轨迹和动作，动作允许从外部环境获取信息，推理基于观察更新。",
+        "why_it_matters": "在知识密集型任务（如FEVER）中，ReAct通过行动获取准确信息，减少幻觉，提高事实验证准确率（60.9 vs. 56.3）。",
+        "anchors": [
+          "anc_00105",
+          "anc_00004"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "Act：模型仅执行动作，缺乏推理指导，可能盲目行动，难以综合最终答案。",
+        "after": "ReAct：推理轨迹指导动作选择，帮助分解问题、跟踪进度和处理异常，提高任务成功率。",
+        "why_it_matters": "在ALFWorld游戏中，ReAct（71%成功率）显著优于Act，因为推理帮助确定探索位置和购买时机。",
+        "anchors": [
+          "anc_00102",
+          "anc_00135"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "标准提示：模型直接生成答案，无推理或行动过程，可解释性差。",
+        "after": "ReAct：生成可解释的轨迹，包括思考、动作和观察，便于诊断和调试。",
+        "why_it_matters": "ReAct轨迹更人类可解释，有助于理解模型决策过程，增强可控性。",
+        "anchors": [
+          "anc_00168",
+          "anc_00004"
+        ],
+        "delta_id": "delta_3"
+      },
+      {
+        "before": "Inner Monologue（IM）：使用环境反馈作为“内心独白”，但反馈仅限于环境状态和目标完成情况。",
+        "after": "ReAct：推理轨迹灵活多样，包括分解、提取、常识推理等，不限于外部反馈。",
+        "why_it_matters": "在ALFWorld中，ReAct（71%）大幅优于IM风格提示（53%），因为内部推理比简单反应更有效。",
+        "anchors": [
+          "anc_00139",
+          "anc_00140"
+        ],
+        "delta_id": "delta_4"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "c_t = (o_1, a_1, \\ldots, o_{t-1}, a_{t-1}, o_t)",
+        "variables": [
+          {
+            "name": "c_t",
+            "description": "时间步t的上下文，包含历史观察和动作序列。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00070"
+            ]
+          },
+          {
+            "name": "o_i",
+            "description": "时间步i的观察，来自环境反馈。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00070"
+            ]
+          },
+          {
+            "name": "a_i",
+            "description": "时间步i的动作，可以是外部动作或语言推理。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00070"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "上下文c_t累积了所有历史信息，作为模型决策的依据。这类似于人类的工作记忆，跟踪任务进度和收集的信息。",
+        "anchors": [
+          "anc_00070"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "\\hat{A} = A \\cup L",
+        "variables": [
+          {
+            "name": "\\hat{A}",
+            "description": "扩展的动作空间，包含外部动作和语言空间。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00072"
+            ]
+          },
+          {
+            "name": "A",
+            "description": "外部动作空间，如API调用、游戏动作。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00072"
+            ]
+          },
+          {
+            "name": "L",
+            "description": "语言空间，用于生成推理轨迹（Thought）。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00072"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "ReAct的核心创新是将语言推理纳入动作空间，使模型能在每一步选择生成思考或执行外部动作，实现推理与行动的无缝切换。",
+        "anchors": [
+          "anc_00072"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "a_t \\sim \\pi(a_t | c_t)",
+        "variables": [
+          {
+            "name": "a_t",
+            "description": "时间步t的动作，从策略π中采样。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00070"
+            ]
+          },
+          {
+            "name": "\\pi",
+            "description": "策略，由LLM隐式定义，基于上下文生成动作。",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00070"
+            ]
+          },
+          {
+            "name": "c_t",
+            "description": "时间步t的上下文。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00070"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "模型根据当前上下文生成下一步动作，这可以是推理或行动。策略π由LLM的提示和上下文学习能力实现，无需显式训练。",
+        "anchors": [
+          "anc_00070"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "latex": "c_{t+1} = (c_t, a_t)",
+        "variables": [
+          {
+            "name": "c_{t+1}",
+            "description": "更新后的上下文，包含历史信息和最新动作。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00074"
+            ]
+          },
+          {
+            "name": "c_t",
+            "description": "当前上下文。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00074"
+            ]
+          },
+          {
+            "name": "a_t",
+            "description": "当前动作。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00074"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "上下文更新机制确保模型维护完整的历史轨迹，支持连续推理和行动。这允许模型基于过去经验调整计划。",
+        "anchors": [
+          "anc_00074"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "在HotPotQA、FEVER、ALFWorld和WebShop上，ReAct与基线比较的结果。",
+      "results": [
+        {
+          "task": "HotPotQA",
+          "metric": "EM准确率",
+          "value": "27.4%",
+          "baseline_comparison": "优于Act（26.7%），略逊于CoT（29.4%）",
+          "anchors": [
+            "anc_00102",
+            "anc_00105"
+          ]
+        },
+        {
+          "task": "FEVER",
+          "metric": "准确率",
+          "value": "60.9%",
+          "baseline_comparison": "优于CoT（56.3%）和Act（55.2%）",
+          "anchors": [
+            "anc_00105"
+          ]
+        },
+        {
+          "task": "ALFWorld",
+          "metric": "平均成功率",
+          "value": "71%",
+          "baseline_comparison": "优于Act（65%）和IM风格提示（53%）",
+          "anchors": [
+            "anc_00135",
+            "anc_00140"
+          ]
+        },
+        {
+          "task": "WebShop",
+          "metric": "分数/成功率",
+          "value": "分数100.8/成功率29.1%",
+          "baseline_comparison": "优于Act（分数99.1/成功率28.7%）",
+          "anchors": [
+            "anc_00134"
+          ]
+        }
+      ]
+    },
+    "ablation": {
+      "description": "消融研究比较ReAct与基线（Standard、CoT、Act）以及ReAct-IM变体。",
+      "results": [
+        {
+          "ablation_type": "推理 vs. 行动",
+          "finding": "ReAct优于Act，证明推理对行动的指导价值；ReAct在FEVER上优于CoT，证明行动对推理的信息价值。",
+          "anchors": [
+            "anc_00102",
+            "anc_00105"
+          ]
+        },
+        {
+          "ablation_type": "内部推理 vs. 外部反馈",
+          "finding": "ReAct（71%）大幅优于ReAct-IM（53%），表明灵活内部推理比简单外部反馈更有效。",
+          "anchors": [
+            "anc_00140"
+          ]
+        }
+      ]
+    },
+    "robustness": {
+      "description": "通过不同提示示例和任务实例评估鲁棒性。",
+      "results": [
+        {
+          "aspect": "提示变化",
+          "finding": "对于ALFWorld，构建6个提示通过排列组合，ReAct表现稳定。",
+          "anchors": [
+            "anc_00123"
+          ]
+        },
+        {
+          "aspect": "任务泛化",
+          "finding": "ReAct在四个不同领域（问答、验证、游戏、导航）均有效，显示一定泛化能力。",
+          "anchors": [
+            "anc_00067"
+          ]
+        }
+      ]
+    },
+    "scaling": {
+      "description": "缩放分析比较不同模型规模（PaLM-8B/62B/540B）下的提示和微调性能。",
+      "results": [
+        {
+          "setting": "提示",
+          "finding": "随着模型规模增大，ReAct性能提升，但所有提示方法仍远低于领域特定SOTA。",
+          "anchors": [
+            "anc_00106",
+            "anc_00107"
+          ]
+        },
+        {
+          "setting": "微调",
+          "finding": "微调ReAct显著优于微调Standard或CoT，例如PaLM-8B微调ReAct超过所有PaLM-62B提示方法。",
+          "anchors": [
+            "anc_00106",
+            "anc_00107"
+          ]
+        }
+      ]
+    },
+    "case_study": {
+      "description": "案例研究展示ReAct轨迹示例，如HotPotQA和ALFWorld中的推理-行动过程。",
+      "results": [
+        {
+          "example": "HotPotQA问题：Apple Remote最初设计用于控制什么程序？",
+          "finding": "ReAct通过搜索和推理找到答案（iPod），而CoT可能基于内部知识出错。",
+          "anchors": [
+            "anc_00034",
+            "anc_00035",
+            "anc_00036",
+            "anc_00037"
+          ]
+        },
+        {
+          "example": "ALFWorld任务：将胡椒瓶放入抽屉。",
+          "finding": "ReAct通过推理确定探索位置，逐步完成子目标，而Act可能盲目行动。",
+          "anchors": [
+            "anc_00009",
+            "anc_00010",
+            "anc_00011",
+            "anc_00012",
+            "anc_00013",
+            "anc_00014",
+            "anc_00015",
+            "anc_00016",
+            "anc_00017",
+            "anc_00018"
+          ]
+        }
+      ]
+    },
+    "human_eval": {
+      "description": "人工评估ReAct和CoT轨迹的成功和失败模式。",
+      "results": [
+        {
+          "evaluation": "随机抽样200个轨迹，人工标注成功/失败模式。",
+          "finding": "ReAct在信息综合和异常处理上更优，CoT在内部知识推理上有时更准。",
+          "anchors": [
+            "anc_00104",
+            "anc_00105"
+          ]
+        }
+      ]
+    },
+    "benchmark": {
+      "description": "使用的基准数据集。",
+      "benchmarks": [
+        {
+          "name": "HotPotQA",
+          "description": "多跳问答基准，需要推理两个或更多Wikipedia段落。",
+          "anchors": [
+            "anc_00091"
+          ]
+        },
+        {
+          "name": "FEVER",
+          "description": "事实验证基准，基于Wikipedia验证声明。",
+          "anchors": [
+            "anc_00091"
+          ]
+        },
+        {
+          "name": "ALFWorld",
+          "description": "文本游戏基准，需要在家庭环境中完成高级目标。",
+          "anchors": [
+            "anc_00118"
+          ]
+        },
+        {
+          "name": "WebShop",
+          "description": "网页导航基准，模拟在线购物。",
+          "anchors": [
+            "anc_00124"
+          ]
+        }
+      ]
+    },
+    "efficiency": {
+      "description": "效率方面，ReAct通过少样本学习实现，无需额外训练，但推理轨迹可能增加计算开销。",
+      "results": [
+        {
+          "aspect": "学习效率",
+          "finding": "ReAct仅需少量人工示例（如6个）即可工作，但轨迹生成可能比标准提示更长。",
+          "anchors": [
+            "anc_00093"
+          ]
+        },
+        {
+          "aspect": "微调效率",
+          "finding": "微调ReAct需要更多步骤（如4000步）以获得更好性能。",
+          "anchors": [
+            "anc_00332"
+          ]
+        }
+      ]
+    },
+    "experiments": []
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim_id": "claim_001",
+        "claim": "ReAct通过交错推理和行动，比单独推理或行动更有效。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00102",
+          "anc_00105",
+          "anc_00135"
+        ],
+        "risk_flags": [
+          "在HotPotQA上略逊于CoT，可能由于贪婪解码次优"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "ev_001",
+            "description": "在HotPotQA上，ReAct（27.4%）优于Act（26.7%），但略逊于CoT（29.4%）。",
+            "anchors": [
+              "anc_00102",
+              "anc_00105"
+            ]
+          },
+          {
+            "evidence_id": "ev_002",
+            "description": "在FEVER上，ReAct（60.9%）优于CoT（56.3%）和Act（55.2%）。",
+            "anchors": [
+              "anc_00105"
+            ]
+          },
+          {
+            "evidence_id": "ev_003",
+            "description": "在ALFWorld上，ReAct（71%）显著优于Act（65%）和IM风格提示（53%）。",
+            "anchors": [
+              "anc_00135",
+              "anc_00140"
+            ]
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_002",
+        "claim": "ReAct生成的轨迹更可解释、可诊断和可控。",
+        "evidence_source_type": "方法描述和案例研究",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00168",
+          "anc_00004",
+          "anc_00009"
+        ],
+        "risk_flags": [
+          "可解释性基于人工观察，未量化评估"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "ev_004",
+            "description": "ReAct生成包含思考、动作和观察的轨迹，便于人类理解和调试。",
+            "anchors": [
+              "anc_00168",
+              "anc_00004"
+            ]
+          },
+          {
+            "evidence_id": "ev_005",
+            "description": "案例研究展示ReAct在HotPotQA和ALFWorld中的可解释轨迹。",
+            "anchors": [
+              "anc_00009",
+              "anc_00034",
+              "anc_00035",
+              "anc_00036",
+              "anc_00037"
+            ]
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_003",
+        "claim": "ReAct在知识密集型任务中能通过行动获取准确信息，减少幻觉。",
+        "evidence_source_type": "实验结果和案例分析",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00105",
+          "anc_00034",
+          "anc_00035",
+          "anc_00036",
+          "anc_00037"
+        ],
+        "risk_flags": [
+          "仅限于Wikipedia API，未测试其他知识源"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "ev_006",
+            "description": "在FEVER上，ReAct通过行动获取准确信息，准确率（60.9%）高于CoT（56.3%）。",
+            "anchors": [
+              "anc_00105"
+            ]
+          },
+          {
+            "evidence_id": "ev_007",
+            "description": "案例研究显示ReAct通过搜索Wikipedia找到正确答案，而CoT可能基于内部知识出错。",
+            "anchors": [
+              "anc_00034",
+              "anc_00035",
+              "anc_00036",
+              "anc_00037"
+            ]
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_004",
+        "claim": "ReAct与思维链结合可进一步提升性能。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00067",
+          "anc_00100"
+        ],
+        "risk_flags": [
+          "结合方法细节未充分说明"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "ev_008",
+            "description": "论文提到ReAct与CoT结合是最佳方法，但未提供具体数值结果。",
+            "anchors": [
+              "anc_00067"
+            ]
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_005",
+        "claim": "ReAct在少样本学习下表现良好，且可通过微调进一步提升。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00093",
+          "anc_00106",
+          "anc_00107"
+        ],
+        "risk_flags": [
+          "微调需要人工编写轨迹，成本较高"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "ev_009",
+            "description": "ReAct仅需少量人工示例（如6个）即可工作，通过少样本提示实现。",
+            "anchors": [
+              "anc_00093"
+            ]
+          },
+          {
+            "evidence_id": "ev_010",
+            "description": "微调ReAct显著优于微调Standard或CoT，例如PaLM-8B微调ReAct超过所有PaLM-62B提示方法。",
+            "anchors": [
+              "anc_00106",
+              "anc_00107"
+            ]
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_006",
+        "claim": "ReAct在ALFWorld中显著优于Inner Monologue风格提示。",
+        "evidence_source_type": "消融实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00140"
+        ],
+        "risk_flags": [
+          "仅在一个任务上测试"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "ev_011",
+            "description": "在ALFWorld上，ReAct（71%）大幅优于IM风格提示（53%）。",
+            "anchors": [
+              "anc_00140"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "ReAct",
+        "definition": "推理与行动协同框架，让语言模型交错生成推理轨迹和任务动作。",
+        "context": "本文提出的核心方法，旨在结合推理和行动的优势。",
+        "anchors": [
+          "anc_00001",
+          "anc_00072"
+        ],
+        "appears_in": [
+          "anc_00001",
+          "anc_00072"
+        ]
+      },
+      {
+        "term": "推理轨迹（Thought）",
+        "definition": "语言形式的思考，用于分解问题、提取信息、常识推理等。",
+        "context": "ReAct中的推理组件，帮助模型规划和处理异常。",
+        "anchors": [
+          "anc_00093",
+          "anc_00006"
+        ],
+        "appears_in": [
+          "anc_00093",
+          "anc_00006"
+        ]
+      },
+      {
+        "term": "动作（Action）",
+        "definition": "与外部环境交互的操作，如API调用或游戏动作。",
+        "context": "ReAct中的行动组件，用于获取信息或推进任务。",
+        "anchors": [
+          "anc_00072",
+          "anc_00093"
+        ],
+        "appears_in": [
+          "anc_00072",
+          "anc_00093"
+        ]
+      },
+      {
+        "term": "观察（Observation）",
+        "definition": "环境对动作的反馈，提供新信息给模型。",
+        "context": "动作执行后从环境获得的结果，用于更新上下文。",
+        "anchors": [
+          "anc_00070"
+        ],
+        "appears_in": [
+          "anc_00070"
+        ]
+      },
+      {
+        "term": "上下文（Context）",
+        "definition": "历史观察和动作的序列，作为模型决策的依据。",
+        "context": "ReAct中维护的状态，支持连续推理和行动。",
+        "anchors": [
+          "anc_00070",
+          "anc_00074"
+        ],
+        "appears_in": [
+          "anc_00070",
+          "anc_00074"
+        ]
+      },
+      {
+        "term": "少样本提示（Few-shot Prompting）",
+        "definition": "使用少量示例在提示中引导模型生成类似输出。",
+        "context": "ReAct的主要学习方式，无需额外训练。",
+        "anchors": [
+          "anc_00093",
+          "anc_00076"
+        ],
+        "appears_in": [
+          "anc_00093",
+          "anc_00076"
+        ]
+      },
+      {
+        "term": "思维链（Chain-of-Thought, CoT）",
+        "definition": "提示方法，让模型生成推理步骤以解决问题。",
+        "context": "ReAct的基线之一，仅进行推理，不与环境交互。",
+        "anchors": [
+          "anc_00100",
+          "anc_00065"
+        ],
+        "appears_in": [
+          "anc_00100",
+          "anc_00065"
+        ]
+      },
+      {
+        "term": "仅行动（Act-only）",
+        "definition": "提示方法，让模型仅执行动作，缺乏推理指导。",
+        "context": "ReAct的基线之一，用于隔离行动的贡献。",
+        "anchors": [
+          "anc_00100",
+          "anc_00065"
+        ],
+        "appears_in": [
+          "anc_00100",
+          "anc_00065"
+        ]
+      },
+      {
+        "term": "Inner Monologue（IM）",
+        "definition": "使用环境反馈作为内心独白的提示方法。",
+        "context": "ReAct的对比基线，其反馈仅限于环境状态。",
+        "anchors": [
+          "anc_00139",
+          "anc_00140"
+        ],
+        "appears_in": [
+          "anc_00139",
+          "anc_00140"
+        ]
+      },
+      {
+        "term": "HotPotQA",
+        "definition": "多跳问答基准，需要推理多个Wikipedia段落。",
+        "context": "ReAct评估的任务之一，测试知识检索和推理。",
+        "anchors": [
+          "anc_00091"
+        ],
+        "appears_in": [
+          "anc_00091"
+        ]
+      },
+      {
+        "term": "FEVER",
+        "definition": "事实验证基准，基于Wikipedia验证声明。",
+        "context": "ReAct评估的任务之一，测试事实核查能力。",
+        "anchors": [
+          "anc_00091"
+        ],
+        "appears_in": [
+          "anc_00091"
+        ]
+      },
+      {
+        "term": "ALFWorld",
+        "definition": "文本游戏基准，需要在家庭环境中完成高级目标。",
+        "context": "ReAct评估的任务之一，测试决策和规划。",
+        "anchors": [
+          "anc_00118"
+        ],
+        "appears_in": [
+          "anc_00118"
+        ]
+      },
+      {
+        "term": "WebShop",
+        "definition": "网页导航基准，模拟在线购物。",
+        "context": "ReAct评估的任务之一，测试交互式决策。",
+        "anchors": [
+          "anc_00124"
+        ],
+        "appears_in": [
+          "anc_00124"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        {
+          "name": "HotPotQA",
+          "description": "多跳问答数据集，需要从Wikipedia检索信息。",
+          "anchors": [
+            "anc_00091"
+          ]
+        },
+        {
+          "name": "FEVER",
+          "description": "事实验证数据集，基于Wikipedia。",
+          "anchors": [
+            "anc_00091"
+          ]
+        },
+        {
+          "name": "ALFWorld",
+          "description": "文本游戏环境，基于TextWorld。",
+          "anchors": [
+            "anc_00118"
+          ]
+        },
+        {
+          "name": "WebShop",
+          "description": "网页导航环境，模拟在线购物。",
+          "anchors": [
+            "anc_00124"
+          ]
+        }
+      ],
+      "required_models": [
+        {
+          "name": "PaLM-540B",
+          "description": "大型语言模型，用于提示和微调。",
+          "anchors": [
+            "anc_00076"
+          ]
+        },
+        {
+          "name": "PaLM-8B/62B",
+          "description": "较小规模的PaLM模型，用于缩放分析。",
+          "anchors": [
+            "anc_00106",
+            "anc_00107"
+          ]
+        },
+        {
+          "name": "GPT-3 (text-davinci-002)",
+          "description": "替代LLM，用于比较。",
+          "anchors": [
+            "anc_00213"
+          ]
+        }
+      ],
+      "required_compute": "未知，但训练PaLM-540B需要大量计算资源。微调实验使用批量大小64，步数1000-4000。",
+      "code_available": "是，项目页面提供代码：https://react-lm.github.io/",
+      "steps": [
+        {
+          "step": 1,
+          "description": "准备数据集：下载HotPotQA、FEVER、ALFWorld、WebShop数据集和环境。",
+          "anchors": [
+            "anc_00091",
+            "anc_00118",
+            "anc_00124"
+          ]
+        },
+        {
+          "step": 2,
+          "description": "构建提示：为每个任务编写少样本ReAct轨迹示例（如HotPotQA选6个，FEVER选3个）。",
+          "anchors": [
+            "anc_00093"
+          ]
+        },
+        {
+          "step": 3,
+          "description": "实现ReAct框架：扩展动作空间，实现上下文更新机制。",
+          "anchors": [
+            "anc_00072",
+            "anc_00074"
+          ]
+        },
+        {
+          "step": 4,
+          "description": "运行提示实验：使用PaLM-540B或GPT-3进行少样本提示，生成轨迹并评估。",
+          "anchors": [
+            "anc_00076",
+            "anc_00095"
+          ]
+        },
+        {
+          "step": 5,
+          "description": "运行微调实验：使用人工编写轨迹微调PaLM-8B/62B模型。",
+          "anchors": [
+            "anc_00332"
+          ]
+        },
+        {
+          "step": 6,
+          "description": "评估和比较：计算准确率、成功率等指标，与基线比较。",
+          "anchors": [
+            "anc_00067"
+          ]
+        }
+      ],
+      "missing_details": [
+        "具体提示模板和示例轨迹的详细格式。",
+        "微调时的超参数设置（如学习率、优化器）。",
+        "评估指标的具体计算方式（如EM准确率的定义）。",
+        "ALFWorld和WebShop环境的具体设置和交互协议。"
+      ],
+      "risk_points": [
+        "需要访问大型语言模型（如PaLM-540B），可能涉及高计算成本和API访问限制。",
+        "人工编写少样本示例需要领域专业知识和时间。",
+        "实验结果可能受提示示例选择的影响，需要多次运行取平均。",
+        "微调需要大量标注数据，可能难以获取。"
+      ]
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-01T13:50:46+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_react_2022",
+    "title": "ReAct: Synergizing Reasoning and Acting in Language Models",
+    "authors": [
+      "Shunyu Yao et al."
+    ],
+    "venue": "ICLR",
+    "year": 2022,
+    "arxiv_id": "2210.03629",
+    "doi": null,
+    "language": "en",
+    "uploaded_at": "2026-05-01T13:48:47+00:00",
+    "paper_type": "Agent / Tool-use / Reasoning and Acting"
+  }
+}

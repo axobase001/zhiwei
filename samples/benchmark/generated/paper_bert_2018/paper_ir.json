@@ -1,0 +1,3077 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "现有语言模型预训练方法（如OpenAI GPT）使用单向（从左到右）架构，限制了预训练表示的能力，尤其在需要双向上下文的句子级和词元级任务中表现不佳。",
+      "anchors": [
+        "anc_00004",
+        "anc_00010"
+      ]
+    },
+    "motivation": {
+      "summary": "单向语言模型在预训练时只能利用左侧或右侧上下文，这对于需要同时理解左右上下文的任务（如问答、自然语言推理）是次优的。需要一种能够进行深度双向预训练的方法。",
+      "anchors": [
+        "anc_00004",
+        "anc_00010"
+      ]
+    },
+    "core_idea": {
+      "summary": "提出BERT（Bidirectional Encoder Representations from Transformers），通过掩码语言模型（MLM）和下一句预测（NSP）两个预训练任务，在无标签文本上预训练深度双向Transformer表示，然后通过微调一个额外的输出层来适应各种下游任务。",
+      "anchors": [
+        "anc_00004",
+        "anc_00011"
+      ]
+    },
+    "method": {
+      "summary": "1. 预训练：使用掩码语言模型（随机掩码15%的词元并预测）和下一句预测（判断两个句子是否连续）任务，在大型无标签语料库（BooksCorpus和Wikipedia）上预训练双向Transformer模型。2. 微调：在预训练模型基础上，针对特定下游任务添加一个简单的输出层，并使用任务特定的有标签数据对所有参数进行微调。",
+      "anchors": [
+        "anc_00034",
+        "anc_00051",
+        "anc_00060"
+      ]
+    },
+    "experiments": {
+      "summary": "在多个NLP基准上进行了广泛实验，包括GLUE（通用语言理解评估）基准、SQuAD（斯坦福问答数据集）v1.1和v2.0、SWAG（情境与对抗生成）数据集、CoNLL-2003命名实体识别等。结果表明，BERT在11项NLP任务上达到了当时的最优性能。",
+      "anchors": [
+        "anc_00061",
+        "anc_00070",
+        "anc_00085",
+        "anc_00092",
+        "anc_00098",
+        "anc_00148"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "深度双向预训练对于语言表示至关重要。",
+        "anchors": [
+          "anc_00011",
+          "anc_00114",
+          "anc_00118",
+          "anc_00119"
+        ]
+      },
+      {
+        "claim_id": "claim_2",
+        "claim": "BERT通过MLM和NSP任务能够学习到有效的双向上下文表示。",
+        "anchors": [
+          "anc_00004",
+          "anc_00011",
+          "anc_00070",
+          "anc_00075",
+          "anc_00085",
+          "anc_00087"
+        ]
+      },
+      {
+        "claim_id": "claim_3",
+        "claim": "预训练的BERT模型可以通过微调一个额外的输出层，在广泛的任务上达到最优性能，而无需对架构进行大量任务特定的修改。",
+        "anchors": [
+          "anc_00004",
+          "anc_00015",
+          "anc_00070",
+          "anc_00075",
+          "anc_00085",
+          "anc_00087",
+          "anc_00098"
+        ]
+      },
+      {
+        "claim_id": "claim_4",
+        "claim": "更大的模型尺寸（更多层、更大的隐藏层）在下游任务上带来了一致的准确率提升。",
+        "anchors": [
+          "anc_00122",
+          "anc_00125",
+          "anc_00126"
+        ]
+      },
+      {
+        "claim_id": "claim_5",
+        "claim": "微调方法通常优于特征提取方法。",
+        "anchors": [
+          "anc_00142",
+          "anc_00149",
+          "anc_00150"
+        ]
+      },
+      {
+        "claim_id": "claim_6",
+        "claim": "NSP预训练任务对于学习句子间关系是有益的。",
+        "anchors": [
+          "anc_00111",
+          "anc_00112",
+          "anc_00118"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "1. 预训练计算成本高昂（需要4天在16个Cloud TPU上）。2. MLM预训练中引入的[MASK]标记在微调时不存在，导致预训练和微调之间存在不匹配。3. 模型尺寸大，推理时可能较慢。4. 主要针对英语，其他语言的适用性需要进一步研究。",
+        "anchors": [
+          "anc_00051",
+          "anc_00190"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "输入表示构建",
+        "label": "Input Representation",
+        "summary": "构建BERT的输入表示，包括词元嵌入、段落嵌入和位置嵌入的求和。",
+        "description": "BERT的输入表示由三种嵌入求和而成：词元嵌入（WordPiece）、段落嵌入（用于区分句子A和B）和位置嵌入。对于单句或句对任务，输入序列以特殊标记[CLS]开始，句子之间用[SEP]分隔。",
+        "type": "preprocessing",
+        "anchors": [
+          "anc_00034",
+          "anc_00060"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "掩码语言模型预训练",
+        "label": "Masked Language Model (MLM)",
+        "summary": "通过随机掩码输入词元并预测被掩码的词元，实现双向上下文建模。",
+        "description": "在预训练期间，随机选择输入序列中15%的词元进行掩码。对于被选中的词元，80%的时间替换为[MASK]标记，10%替换为随机词元，10%保持不变。模型需要预测这些被掩码词元的原始身份。这使得模型能够融合左右上下文信息。",
+        "type": "pretraining_task",
+        "anchors": [
+          "anc_00011",
+          "anc_00051"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "下一句预测预训练",
+        "label": "Next Sentence Prediction (NSP)",
+        "summary": "预测两个句子在原始文档中是否连续，以学习句子间关系。",
+        "description": "为了理解句子间的关系，预训练了一个二分类的下一句预测任务。训练数据中，50%的情况是句子B确实是句子A的下一句（IsNext），50%的情况是从语料库中随机抽取的句子（NotNext）。",
+        "type": "pretraining_task",
+        "anchors": [
+          "anc_00011",
+          "anc_00060"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "双向Transformer编码器",
+        "label": "Bidirectional Transformer Encoder",
+        "summary": "使用多层双向Transformer作为骨干网络，处理输入序列并生成上下文表示。",
+        "description": "BERT使用标准的Transformer编码器架构。与GPT的单向（从左到右）Transformer不同，BERT的Transformer允许每个位置关注输入序列中的所有位置（双向）。模型有两种尺寸：BERTBASE（L=12, H=768, A=12）和BERTLARGE（L=24, H=1024, A=16）。",
+        "type": "model_architecture",
+        "anchors": [
+          "anc_00004",
+          "anc_00010",
+          "anc_00129"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "微调适配层",
+        "label": "Fine-tuning Output Layer",
+        "summary": "为不同下游任务添加特定的输出层，并对整个模型进行微调。",
+        "description": "对于不同的下游任务，在预训练的BERT模型上添加一个简单的输出层。例如，对于分类任务，使用[CLS]标记对应的最终隐藏状态C，并添加一个分类层权重W，计算log(softmax(CW^T))。对于问答任务，使用每个词元的表示来预测答案的起始和结束位置。所有参数（包括预训练参数）都在下游任务数据上进行联合微调。",
+        "type": "task_adaptation",
+        "anchors": [
+          "anc_00034",
+          "anc_00060",
+          "anc_00064",
+          "anc_00065"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "特征提取方法",
+        "label": "Feature-based Approach",
+        "summary": "作为微调的替代方案，从预训练的BERT中提取固定特征用于下游任务。",
+        "description": "除了微调，也可以将预训练的BERT作为固定的特征提取器。例如，在命名实体识别任务中，可以从BERT的某一层或多层提取上下文嵌入，然后输入到一个随机初始化的BiLSTM和分类层中。实验表明，微调方法通常优于特征提取方法。",
+        "type": "alternative_approach",
+        "anchors": [
+          "anc_00142",
+          "anc_00149"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_004",
+        "label": "输入送入编码器",
+        "description": "构建好的输入表示被送入双向Transformer编码器进行处理。",
+        "anchors": [
+          "anc_00034"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_004",
+        "label": "MLM任务驱动编码器训练",
+        "description": "掩码语言模型任务作为预训练目标之一，驱动双向Transformer编码器学习上下文表示。",
+        "anchors": [
+          "anc_00011"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "NSP任务驱动编码器训练",
+        "description": "下一句预测任务作为另一个预训练目标，驱动编码器学习句子间关系。",
+        "anchors": [
+          "anc_00011"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "label": "编码器输出用于微调",
+        "description": "预训练好的双向Transformer编码器的输出（上下文表示）被用于微调阶段的特定任务输出层。",
+        "anchors": [
+          "anc_00034",
+          "anc_00060"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_006",
+        "label": "编码器输出用于特征提取",
+        "description": "预训练好的编码器的输出也可以作为固定特征，用于特征提取方法。",
+        "anchors": [
+          "anc_00142",
+          "anc_00149"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00004",
+        "anc_00010",
+        "anc_00173"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00004",
+        "anc_00011",
+        "anc_00173"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "使用单向（从左到右）Transformer语言模型进行预训练，每个词元只能关注左侧的上下文。",
+        "after": "使用双向Transformer编码器进行预训练，每个词元可以同时关注左右两侧的上下文。",
+        "why_it_matters": "双向上下文对于许多NLP任务（如问答、自然语言推理）至关重要，单向模型限制了表示的能力。BERT的双向性使其能够更好地理解词元在完整上下文中的含义。",
+        "anchors": [
+          "anc_00004",
+          "anc_00010",
+          "anc_00173"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "预训练目标通常是单向语言建模（预测下一个词）。",
+        "after": "引入两个新的预训练任务：掩码语言模型（MLM）和下一句预测（NSP）。",
+        "why_it_matters": "MLM任务通过随机掩码并预测词元，强制模型学习双向上下文表示，这是实现深度双向预训练的关键。NSP任务帮助模型理解句子间的关系，对问答、自然语言推理等任务有益。",
+        "anchors": [
+          "anc_00011",
+          "anc_00051",
+          "anc_00060"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "预训练和微调之间可能存在架构差异（例如，GPT的[SEP]和[CLS]标记仅在微调时引入）。",
+        "after": "BERT在预训练阶段就学习[SEP]、[CLS]和句子A/B的嵌入，使得预训练和微调的架构更加一致。",
+        "why_it_matters": "减少了预训练和微调之间的不匹配，可能使模型更容易适应下游任务。",
+        "anchors": [
+          "anc_00201"
+        ],
+        "delta_id": "delta_3"
+      },
+      {
+        "before": "模型尺寸相对较小（例如，GPT的Transformer层较少）。",
+        "after": "探索了更大的模型尺寸（BERTBASE和BERTLARGE），并证明了在非常小的任务上，扩大模型尺寸也能带来显著的准确率提升。",
+        "why_it_matters": "表明了模型容量的重要性，更大的预训练模型可以学习到更丰富的表示，从而在下游任务上表现更好。",
+        "anchors": [
+          "anc_00122",
+          "anc_00125",
+          "anc_00126",
+          "anc_00135"
+        ],
+        "delta_id": "delta_4"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "formula": "P_i = \\frac{e^{S \\cdot T_i}}{\\sum_j e^{S \\cdot T_j}}",
+        "variables": [
+          {
+            "name": "P_i",
+            "description": "答案起始位置为词元i的概率",
+            "confidence": "high",
+            "anchors": [
+              "anc_00077",
+              "anc_00078"
+            ]
+          },
+          {
+            "name": "S",
+            "description": "起始位置的表示向量（来自BERT输出）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00076"
+            ]
+          },
+          {
+            "name": "T_i",
+            "description": "段落中第i个词元的上下文表示向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00076"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "这是SQuAD问答任务中用于预测答案起始位置的公式。它计算了每个词元作为答案起始位置的概率，通过计算起始位置向量S与每个词元表示T_i的点积，然后进行softmax归一化。模型选择得分最高的连续区间作为答案。",
+        "anchors": [
+          "anc_00076",
+          "anc_00077",
+          "anc_00078",
+          "anc_00081",
+          "anc_00082",
+          "anc_00083"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "formula": "\\text{Loss} = \\log(\\text{softmax}(C W^T))",
+        "variables": [
+          {
+            "name": "C",
+            "description": "[CLS]标记对应的最终隐藏状态向量，作为整个输入序列的聚合表示",
+            "confidence": "high",
+            "anchors": [
+              "anc_00064"
+            ]
+          },
+          {
+            "name": "W",
+            "description": "分类层的权重矩阵，维度为K×H，其中K是类别数，H是隐藏层大小",
+            "confidence": "high",
+            "anchors": [
+              "anc_00064"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "这是GLUE等分类任务中使用的标准分类损失函数。它将[CLS]标记的表示C与分类权重W的转置相乘，然后通过softmax得到每个类别的概率，并计算交叉熵损失。这是微调阶段的主要优化目标。",
+        "anchors": [
+          "anc_00064",
+          "anc_00065"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "formula": "\\text{预训练损失} = \\text{平均掩码语言模型似然} + \\text{平均下一句预测似然}",
+        "variables": [
+          {
+            "name": "平均掩码语言模型似然",
+            "description": "MLM任务中，对被掩码词元预测的对数似然的平均值",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00190"
+            ]
+          },
+          {
+            "name": "平均下一句预测似然",
+            "description": "NSP任务中，对句子关系预测的对数似然的平均值",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00190"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "这是BERT预训练阶段的总损失函数，是两个预训练任务损失的简单相加。MLM损失鼓励模型学习双向上下文表示，NSP损失鼓励模型学习句子间关系。这个联合损失函数驱动了整个预训练过程。",
+        "anchors": [
+          "anc_00190"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "task": "GLUE基准（平均准确率）",
+        "result": "BERTLARGE在GLUE测试集上达到80.5的平均分，比OpenAI GPT的72.8分高出7.7分。",
+        "anchors": [
+          "anc_00070",
+          "anc_00075"
+        ]
+      },
+      {
+        "task": "SQuAD v1.1（F1分数）",
+        "result": "BERT的单模型在SQuAD v1.1测试集上达到93.2的F1分数，超过了排行榜上最好的集成系统（92.4 F1）。",
+        "anchors": [
+          "anc_00085",
+          "anc_00087",
+          "anc_00088"
+        ]
+      },
+      {
+        "task": "SQuAD v2.0（F1分数）",
+        "result": "BERT在SQuAD v2.0测试集上达到83.1的F1分数，比之前的最佳系统高出5.1 F1。",
+        "anchors": [
+          "anc_00092",
+          "anc_00103"
+        ]
+      },
+      {
+        "task": "SWAG（准确率）",
+        "result": "BERTLARGE在SWAG测试集上达到86.3%的准确率，比OpenAI GPT高出8.3%。",
+        "anchors": [
+          "anc_00098",
+          "anc_00107"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "study": "预训练任务消融",
+        "description": "比较了不同预训练任务组合的效果：完整的BERT（MLM+NSP）、没有NSP的BERT、以及从左到右（LTR）且没有NSP的模型。",
+        "finding": "移除NSP会损害QNLI、MNLI和SQuAD 1.1的性能。LTR模型在所有任务上都比MLM模型差，尤其是在MRPC和SQuAD上下降明显。在LTR模型上添加BiLSTM可以改善SQuAD，但仍然远不如预训练的双向模型，并且会损害GLUE任务。",
+        "anchors": [
+          "anc_00111",
+          "anc_00112",
+          "anc_00114",
+          "anc_00118",
+          "anc_00119",
+          "anc_00120"
+        ]
+      },
+      {
+        "study": "模型尺寸消融",
+        "description": "比较了不同层数、隐藏单元数和注意力头数的BERT模型在GLUE任务上的表现。",
+        "finding": "更大的模型在所有四个数据集上都带来了一致的准确率提升，即使对于只有3600个训练样本的MRPC任务也是如此。",
+        "anchors": [
+          "anc_00122",
+          "anc_00123",
+          "anc_00125",
+          "anc_00126"
+        ]
+      },
+      {
+        "study": "掩码策略消融",
+        "description": "比较了MLM预训练中不同的掩码策略：总是用[MASK]替换、总是保持原样、总是替换为随机词元，以及BERT使用的混合策略（80% [MASK], 10% 保持, 10% 随机）。",
+        "finding": "微调对不同的掩码策略相当鲁棒。然而，对于特征提取方法（如NER），仅使用[MASK]策略是有问题的，而仅使用随机词元策略表现更差。",
+        "anchors": [
+          "anc_00220",
+          "anc_00221",
+          "anc_00223",
+          "anc_00224",
+          "anc_00225",
+          "anc_00230"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "aspect": "微调超参数敏感性",
+        "description": "论文提到，对于大型数据集（10万+训练样本），微调对超参数选择的敏感性远低于小型数据集。",
+        "anchors": [
+          "anc_00195"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "dimension": "模型尺寸",
+        "observation": "从BERTBASE（1.1亿参数）到BERTLARGE（3.4亿参数），在所有下游任务上都观察到了显著的性能提升，尤其是在训练数据很少的任务上。",
+        "anchors": [
+          "anc_00075",
+          "anc_00122",
+          "anc_00125",
+          "anc_00126"
+        ]
+      },
+      {
+        "dimension": "预训练数据量",
+        "observation": "BERT使用了BooksCorpus（8亿词）和Wikipedia（25亿词）进行预训练，比GPT使用的BooksCorpus数据量更大。",
+        "anchors": [
+          "anc_00201"
+        ]
+      },
+      {
+        "dimension": "预训练步数",
+        "observation": "实验表明，更多的预训练步数（例如100万步 vs 50万步）可以带来额外的准确率提升（约1%在MNLI上）。",
+        "anchors": [
+          "anc_00218",
+          "anc_00219"
+        ]
+      }
+    ],
+    "case_study": [],
+    "human_eval": [],
+    "benchmark": [
+      {
+        "name": "GLUE",
+        "description": "通用语言理解评估基准，包含9个句子级和词元级任务。",
+        "anchors": [
+          "anc_00064",
+          "anc_00070"
+        ]
+      },
+      {
+        "name": "SQuAD v1.1",
+        "description": "斯坦福问答数据集，一个阅读理解数据集。",
+        "anchors": [
+          "anc_00075",
+          "anc_00085"
+        ]
+      },
+      {
+        "name": "SQuAD v2.0",
+        "description": "SQuAD的扩展版本，包含无法回答的问题。",
+        "anchors": [
+          "anc_00092"
+        ]
+      },
+      {
+        "name": "SWAG",
+        "description": "情境与对抗生成数据集，评估基于常识的推理。",
+        "anchors": [
+          "anc_00098"
+        ]
+      },
+      {
+        "name": "CoNLL-2003 NER",
+        "description": "命名实体识别数据集。",
+        "anchors": [
+          "anc_00148"
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "metric": "预训练时间",
+        "value": "BERTBASE在4个Cloud TPU（16个TPU芯片）上训练4天；BERTLARGE在16个Cloud TPU（64个TPU芯片）上训练4天。",
+        "anchors": [
+          "anc_00190"
+        ]
+      },
+      {
+        "metric": "微调时间",
+        "value": "所有结果都可以在单个Cloud TPU上最多1小时内复现，或者在GPU上几小时内复现。",
+        "anchors": [
+          "anc_00060"
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "task": "GLUE基准（平均准确率）",
+        "result": "BERTLARGE在GLUE测试集上达到80.5的平均分，比OpenAI GPT的72.8分高出7.7分。",
+        "anchors": [
+          "anc_00070",
+          "anc_00075"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "GLUE基准（平均准确率）",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "BERTLARGE在GLUE测试集上达到80.5的平均分，比OpenAI GPT的72.8分高出7.7分。",
+        "what_it_tries_to_prove": "BERTLARGE在GLUE测试集上达到80.5的平均分，比OpenAI GPT的72.8分高出7.7分。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "task": "SQuAD v1.1（F1分数）",
+        "result": "BERT的单模型在SQuAD v1.1测试集上达到93.2的F1分数，超过了排行榜上最好的集成系统（92.4 F1）。",
+        "anchors": [
+          "anc_00085",
+          "anc_00087",
+          "anc_00088"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "main_result",
+        "name": "SQuAD v1.1（F1分数）",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "BERT的单模型在SQuAD v1.1测试集上达到93.2的F1分数，超过了排行榜上最好的集成系统（92.4 F1）。",
+        "what_it_tries_to_prove": "BERT的单模型在SQuAD v1.1测试集上达到93.2的F1分数，超过了排行榜上最好的集成系统（92.4 F1）。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "task": "SQuAD v2.0（F1分数）",
+        "result": "BERT在SQuAD v2.0测试集上达到83.1的F1分数，比之前的最佳系统高出5.1 F1。",
+        "anchors": [
+          "anc_00092",
+          "anc_00103"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "main_result",
+        "name": "SQuAD v2.0（F1分数）",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "BERT在SQuAD v2.0测试集上达到83.1的F1分数，比之前的最佳系统高出5.1 F1。",
+        "what_it_tries_to_prove": "BERT在SQuAD v2.0测试集上达到83.1的F1分数，比之前的最佳系统高出5.1 F1。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "task": "SWAG（准确率）",
+        "result": "BERTLARGE在SWAG测试集上达到86.3%的准确率，比OpenAI GPT高出8.3%。",
+        "anchors": [
+          "anc_00098",
+          "anc_00107"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "main_result",
+        "name": "SWAG（准确率）",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "BERTLARGE在SWAG测试集上达到86.3%的准确率，比OpenAI GPT高出8.3%。",
+        "what_it_tries_to_prove": "BERTLARGE在SWAG测试集上达到86.3%的准确率，比OpenAI GPT高出8.3%。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "study": "预训练任务消融",
+        "description": "比较了不同预训练任务组合的效果：完整的BERT（MLM+NSP）、没有NSP的BERT、以及从左到右（LTR）且没有NSP的模型。",
+        "finding": "移除NSP会损害QNLI、MNLI和SQuAD 1.1的性能。LTR模型在所有任务上都比MLM模型差，尤其是在MRPC和SQuAD上下降明显。在LTR模型上添加BiLSTM可以改善SQuAD，但仍然远不如预训练的双向模型，并且会损害GLUE任务。",
+        "anchors": [
+          "anc_00111",
+          "anc_00112",
+          "anc_00114",
+          "anc_00118",
+          "anc_00119",
+          "anc_00120"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "ablation",
+        "name": "ablation_5",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "比较了不同预训练任务组合的效果：完整的BERT（MLM+NSP）、没有NSP的BERT、以及从左到右（LTR）且没有NSP的模型。",
+        "what_it_tries_to_prove": "比较了不同预训练任务组合的效果：完整的BERT（MLM+NSP）、没有NSP的BERT、以及从左到右（LTR）且没有NSP的模型。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "study": "模型尺寸消融",
+        "description": "比较了不同层数、隐藏单元数和注意力头数的BERT模型在GLUE任务上的表现。",
+        "finding": "更大的模型在所有四个数据集上都带来了一致的准确率提升，即使对于只有3600个训练样本的MRPC任务也是如此。",
+        "anchors": [
+          "anc_00122",
+          "anc_00123",
+          "anc_00125",
+          "anc_00126"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "ablation",
+        "name": "ablation_6",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "比较了不同层数、隐藏单元数和注意力头数的BERT模型在GLUE任务上的表现。",
+        "what_it_tries_to_prove": "比较了不同层数、隐藏单元数和注意力头数的BERT模型在GLUE任务上的表现。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "study": "掩码策略消融",
+        "description": "比较了MLM预训练中不同的掩码策略：总是用[MASK]替换、总是保持原样、总是替换为随机词元，以及BERT使用的混合策略（80% [MASK], 10% 保持, 10% 随机）。",
+        "finding": "微调对不同的掩码策略相当鲁棒。然而，对于特征提取方法（如NER），仅使用[MASK]策略是有问题的，而仅使用随机词元策略表现更差。",
+        "anchors": [
+          "anc_00220",
+          "anc_00221",
+          "anc_00223",
+          "anc_00224",
+          "anc_00225",
+          "anc_00230"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "ablation",
+        "name": "ablation_7",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "比较了MLM预训练中不同的掩码策略：总是用[MASK]替换、总是保持原样、总是替换为随机词元，以及BERT使用的混合策略（80% [MASK], 10% 保持, 10% 随机）。",
+        "what_it_tries_to_prove": "比较了MLM预训练中不同的掩码策略：总是用[MASK]替换、总是保持原样、总是替换为随机词元，以及BERT使用的混合策略（80% [MASK], 10% 保持, 10% 随机）。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "aspect": "微调超参数敏感性",
+        "description": "论文提到，对于大型数据集（10万+训练样本），微调对超参数选择的敏感性远低于小型数据集。",
+        "anchors": [
+          "anc_00195"
+        ],
+        "experiment_id": "experiment_8",
+        "type": "robustness",
+        "name": "微调超参数敏感性",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "论文提到，对于大型数据集（10万+训练样本），微调对超参数选择的敏感性远低于小型数据集。",
+        "what_it_tries_to_prove": "论文提到，对于大型数据集（10万+训练样本），微调对超参数选择的敏感性远低于小型数据集。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "dimension": "模型尺寸",
+        "observation": "从BERTBASE（1.1亿参数）到BERTLARGE（3.4亿参数），在所有下游任务上都观察到了显著的性能提升，尤其是在训练数据很少的任务上。",
+        "anchors": [
+          "anc_00075",
+          "anc_00122",
+          "anc_00125",
+          "anc_00126"
+        ],
+        "experiment_id": "experiment_9",
+        "type": "scaling",
+        "name": "scaling_9",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "从BERTBASE（1.1亿参数）到BERTLARGE（3.4亿参数），在所有下游任务上都观察到了显著的性能提升，尤其是在训练数据很少的任务上。",
+        "what_it_tries_to_prove": "从BERTBASE（1.1亿参数）到BERTLARGE（3.4亿参数），在所有下游任务上都观察到了显著的性能提升，尤其是在训练数据很少的任务上。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "dimension": "预训练数据量",
+        "observation": "BERT使用了BooksCorpus（8亿词）和Wikipedia（25亿词）进行预训练，比GPT使用的BooksCorpus数据量更大。",
+        "anchors": [
+          "anc_00201"
+        ],
+        "experiment_id": "experiment_10",
+        "type": "scaling",
+        "name": "scaling_10",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "BERT使用了BooksCorpus（8亿词）和Wikipedia（25亿词）进行预训练，比GPT使用的BooksCorpus数据量更大。",
+        "what_it_tries_to_prove": "BERT使用了BooksCorpus（8亿词）和Wikipedia（25亿词）进行预训练，比GPT使用的BooksCorpus数据量更大。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "dimension": "预训练步数",
+        "observation": "实验表明，更多的预训练步数（例如100万步 vs 50万步）可以带来额外的准确率提升（约1%在MNLI上）。",
+        "anchors": [
+          "anc_00218",
+          "anc_00219"
+        ],
+        "experiment_id": "experiment_11",
+        "type": "scaling",
+        "name": "scaling_11",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "实验表明，更多的预训练步数（例如100万步 vs 50万步）可以带来额外的准确率提升（约1%在MNLI上）。",
+        "what_it_tries_to_prove": "实验表明，更多的预训练步数（例如100万步 vs 50万步）可以带来额外的准确率提升（约1%在MNLI上）。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "name": "GLUE",
+        "description": "通用语言理解评估基准，包含9个句子级和词元级任务。",
+        "anchors": [
+          "anc_00064",
+          "anc_00070"
+        ],
+        "experiment_id": "experiment_12",
+        "type": "benchmark",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "通用语言理解评估基准，包含9个句子级和词元级任务。",
+        "what_it_tries_to_prove": "通用语言理解评估基准，包含9个句子级和词元级任务。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "name": "SQuAD v1.1",
+        "description": "斯坦福问答数据集，一个阅读理解数据集。",
+        "anchors": [
+          "anc_00075",
+          "anc_00085"
+        ],
+        "experiment_id": "experiment_13",
+        "type": "benchmark",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "斯坦福问答数据集，一个阅读理解数据集。",
+        "what_it_tries_to_prove": "斯坦福问答数据集，一个阅读理解数据集。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "name": "SQuAD v2.0",
+        "description": "SQuAD的扩展版本，包含无法回答的问题。",
+        "anchors": [
+          "anc_00092"
+        ],
+        "experiment_id": "experiment_14",
+        "type": "benchmark",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "SQuAD的扩展版本，包含无法回答的问题。",
+        "what_it_tries_to_prove": "SQuAD的扩展版本，包含无法回答的问题。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "name": "SWAG",
+        "description": "情境与对抗生成数据集，评估基于常识的推理。",
+        "anchors": [
+          "anc_00098"
+        ],
+        "experiment_id": "experiment_15",
+        "type": "benchmark",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "情境与对抗生成数据集，评估基于常识的推理。",
+        "what_it_tries_to_prove": "情境与对抗生成数据集，评估基于常识的推理。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "name": "CoNLL-2003 NER",
+        "description": "命名实体识别数据集。",
+        "anchors": [
+          "anc_00148"
+        ],
+        "experiment_id": "experiment_16",
+        "type": "benchmark",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "命名实体识别数据集。",
+        "what_it_tries_to_prove": "命名实体识别数据集。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "metric": "预训练时间",
+        "value": "BERTBASE在4个Cloud TPU（16个TPU芯片）上训练4天；BERTLARGE在16个Cloud TPU（64个TPU芯片）上训练4天。",
+        "anchors": [
+          "anc_00190"
+        ],
+        "experiment_id": "experiment_17",
+        "type": "efficiency",
+        "name": "efficiency_17",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [
+          "预训练时间"
+        ],
+        "result_summary": "BERTBASE在4个Cloud TPU（16个TPU芯片）上训练4天；BERTLARGE在16个Cloud TPU（64个TPU芯片）上训练4天。",
+        "what_it_tries_to_prove": "BERTBASE在4个Cloud TPU（16个TPU芯片）上训练4天；BERTLARGE在16个Cloud TPU（64个TPU芯片）上训练4天。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "metric": "微调时间",
+        "value": "所有结果都可以在单个Cloud TPU上最多1小时内复现，或者在GPU上几小时内复现。",
+        "anchors": [
+          "anc_00060"
+        ],
+        "experiment_id": "experiment_18",
+        "type": "efficiency",
+        "name": "efficiency_18",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [
+          "微调时间"
+        ],
+        "result_summary": "所有结果都可以在单个Cloud TPU上最多1小时内复现，或者在GPU上几小时内复现。",
+        "what_it_tries_to_prove": "所有结果都可以在单个Cloud TPU上最多1小时内复现，或者在GPU上几小时内复现。",
+        "evidence_strength": "unknown"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "深度双向预训练对于语言表示至关重要。",
+        "evidence_source_type": "实验（消融研究）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00011",
+          "anc_00114",
+          "anc_00118",
+          "anc_00119"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_1",
+        "evidence": [
+          {
+            "evidence_id": "ev_1_1",
+            "description": "消融研究显示，从左到右（LTR）模型在所有任务上都比双向MLM模型差，尤其是在MRPC和SQuAD上下降明显。",
+            "anchors": [
+              "anc_00114",
+              "anc_00118",
+              "anc_00119"
+            ]
+          }
+        ]
+      },
+      {
+        "claim": "BERT通过MLM和NSP任务能够学习到有效的双向上下文表示。",
+        "evidence_source_type": "实验（主结果）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00004",
+          "anc_00011",
+          "anc_00070",
+          "anc_00075",
+          "anc_00085",
+          "anc_00087"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_2",
+        "evidence": [
+          {
+            "evidence_id": "ev_2_1",
+            "description": "BERT在GLUE、SQuAD、SWAG等多个基准上取得了当时的最优性能，证明了其表示的有效性。",
+            "anchors": [
+              "anc_00070",
+              "anc_00075",
+              "anc_00085",
+              "anc_00087",
+              "anc_00098"
+            ]
+          }
+        ]
+      },
+      {
+        "claim": "预训练的BERT模型可以通过微调一个额外的输出层，在广泛的任务上达到最优性能，而无需对架构进行大量任务特定的修改。",
+        "evidence_source_type": "实验（主结果）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00004",
+          "anc_00015",
+          "anc_00070",
+          "anc_00075",
+          "anc_00085",
+          "anc_00087",
+          "anc_00098"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_3",
+        "evidence": [
+          {
+            "evidence_id": "ev_3_1",
+            "description": "论文声称BERT在11项NLP任务上达到了当时的最优性能，并且代码和预训练模型已公开。",
+            "anchors": [
+              "anc_00015"
+            ]
+          },
+          {
+            "evidence_id": "ev_3_2",
+            "description": "在GLUE、SQuAD、SWAG等任务上的具体结果证明了微调方法的有效性。",
+            "anchors": [
+              "anc_00070",
+              "anc_00075",
+              "anc_00085",
+              "anc_00087",
+              "anc_00098"
+            ]
+          }
+        ]
+      },
+      {
+        "claim": "更大的模型尺寸在下游任务上带来了一致的准确率提升。",
+        "evidence_source_type": "实验（模型尺寸消融）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00122",
+          "anc_00125",
+          "anc_00126"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_4",
+        "evidence": [
+          {
+            "evidence_id": "ev_4_1",
+            "description": "模型尺寸消融研究显示，更大的模型在所有四个GLUE数据集上都带来了一致的准确率提升。",
+            "anchors": [
+              "anc_00122",
+              "anc_00125",
+              "anc_00126"
+            ]
+          }
+        ]
+      },
+      {
+        "claim": "微调方法通常优于特征提取方法。",
+        "evidence_source_type": "实验（特征提取 vs 微调比较）",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00142",
+          "anc_00149",
+          "anc_00150"
+        ],
+        "risk_flags": [
+          "在NER任务上，特征提取方法（使用BiLSTM）的表现与微调方法有差距，但论文未在所有任务上系统比较。"
+        ],
+        "claim_id": "claim_5",
+        "evidence": [
+          {
+            "evidence_id": "ev_5_1",
+            "description": "在CoNLL-2003 NER任务上，微调方法优于特征提取方法（使用BiLSTM）。",
+            "anchors": [
+              "anc_00149",
+              "anc_00150"
+            ]
+          }
+        ]
+      },
+      {
+        "claim": "NSP预训练任务对于学习句子间关系是有益的。",
+        "evidence_source_type": "实验（消融研究）",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00111",
+          "anc_00112",
+          "anc_00118"
+        ],
+        "risk_flags": [
+          "移除NSP主要损害了QNLI、MNLI和SQuAD 1.1，对其他任务的影响未详细说明。"
+        ],
+        "claim_id": "claim_6",
+        "evidence": [
+          {
+            "evidence_id": "ev_6_1",
+            "description": "消融研究显示，移除NSP会损害QNLI、MNLI和SQuAD 1.1的性能。",
+            "anchors": [
+              "anc_00111",
+              "anc_00112",
+              "anc_00118"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "BERT": "Bidirectional Encoder Representations from Transformers，本文提出的预训练语言表示模型。",
+    "MLM": "Masked Language Model，掩码语言模型，BERT的预训练任务之一，通过随机掩码输入词元并预测它们来学习双向上下文表示。",
+    "NSP": "Next Sentence Prediction，下一句预测，BERT的另一个预训练任务，用于预测两个句子在原始文档中是否连续。",
+    "Transformer": "一种基于自注意力机制的神经网络架构，BERT使用其编码器部分。",
+    "微调": "Fine-tuning，在预训练模型的基础上，使用任务特定的有标签数据对所有模型参数进行进一步训练，以适应下游任务。",
+    "特征提取": "Feature-based approach，将预训练模型作为固定的特征提取器，只训练新添加的任务特定层。",
+    "WordPiece": "一种子词分词方法，用于将文本分割成更小的单元（子词），BERT使用其词汇表。",
+    "[CLS]": "一个特殊的分类标记，在输入序列的开头，其最终的隐藏状态用作整个序列的聚合表示，用于分类任务。",
+    "[SEP]": "一个特殊的分隔标记，用于分隔输入中的两个句子（句子A和句子B）。",
+    "[MASK]": "一个特殊的掩码标记，在MLM预训练中用于替换被随机选中的词元。",
+    "GLUE": "General Language Understanding Evaluation，通用语言理解评估基准，包含多个NLP任务。",
+    "SQuAD": "Stanford Question Answering Dataset，斯坦福问答数据集，一个阅读理解数据集。",
+    "SWAG": "Situations With Adversarial Generations，一个评估基于常识推理的数据集。",
+    "Cloud TPU": "谷歌提供的张量处理单元，用于加速机器学习模型的训练和推理。",
+    "terms": []
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        "BooksCorpus（约8亿词）",
+        "英文Wikipedia（约25亿词，仅文本部分）",
+        "GLUE基准数据集（包括MNLI、QQP、QNLI、SST-2、CoLA、STS-B、MRPC、RTE、WNLI）",
+        "SQuAD v1.1和v2.0",
+        "SWAG数据集",
+        "CoNLL-2003 NER数据集",
+        "TriviaQA（用于SQuAD的数据增强）"
+      ],
+      "required_models": [
+        "双向Transformer编码器（BERTBASE: 12层, 768隐藏, 12注意力头; BERTLARGE: 24层, 1024隐藏, 16注意力头）",
+        "WordPiece分词器及其词汇表（约30,000个词元）"
+      ],
+      "required_compute": [
+        "预训练：BERTBASE需要4个Cloud TPU（16个芯片）训练4天；BERTLARGE需要16个Cloud TPU（64个芯片）训练4天。",
+        "微调：单个Cloud TPU或GPU，每个任务通常在1小时内完成。"
+      ],
+      "code_available": true,
+      "code_url": "https://github.com/google-research/bert",
+      "steps": [
+        {
+          "step_id": "step_1",
+          "description": "下载并预处理预训练数据：BooksCorpus和英文Wikipedia（仅文本部分）。",
+          "anchors": [
+            "anc_00201"
+          ],
+          "step": "step_1"
+        },
+        {
+          "step_id": "step_2",
+          "description": "实现WordPiece分词器，并构建词汇表（约30,000个词元）。",
+          "anchors": [
+            "anc_00034"
+          ],
+          "step": "step_2"
+        },
+        {
+          "step_id": "step_3",
+          "description": "实现双向Transformer编码器架构，包括BERTBASE和BERTLARGE两种配置。",
+          "anchors": [
+            "anc_00004",
+            "anc_00010",
+            "anc_00129"
+          ],
+          "step": "step_3"
+        },
+        {
+          "step_id": "step_4",
+          "description": "实现掩码语言模型（MLM）预训练任务：随机掩码15%的词元，其中80%替换为[MASK]，10%替换为随机词元，10%保持不变。",
+          "anchors": [
+            "anc_00011",
+            "anc_00051"
+          ],
+          "step": "step_4"
+        },
+        {
+          "step_id": "step_5",
+          "description": "实现下一句预测（NSP）预训练任务：50%正例（连续句子），50%负例（随机句子）。",
+          "anchors": [
+            "anc_00011",
+            "anc_00060"
+          ],
+          "step": "step_5"
+        },
+        {
+          "step_id": "step_6",
+          "description": "在预训练数据上联合训练MLM和NSP任务，使用Adam优化器，学习率预热和线性衰减。",
+          "anchors": [
+            "anc_00190"
+          ],
+          "step": "step_6"
+        },
+        {
+          "step_id": "step_7",
+          "description": "对于下游任务，在预训练模型上添加任务特定的输出层（如分类层、问答层）。",
+          "anchors": [
+            "anc_00034",
+            "anc_00060",
+            "anc_00064",
+            "anc_00065"
+          ],
+          "step": "step_7"
+        },
+        {
+          "step_id": "step_8",
+          "description": "使用任务特定的有标签数据对整个模型进行微调，调整学习率等超参数。",
+          "anchors": [
+            "anc_00060",
+            "anc_00195"
+          ],
+          "step": "step_8"
+        }
+      ],
+      "missing_details": [
+        {
+          "detail_id": "missing_1",
+          "description": "具体的预训练超参数（如批量大小、学习率、预热步数）未在提供的文档块中明确给出。",
+          "anchors": []
+        },
+        {
+          "detail_id": "missing_2",
+          "description": "微调时不同任务的具体超参数选择策略（如学习率范围、训练轮数）未详细说明。",
+          "anchors": []
+        }
+      ],
+      "risk_points": [
+        {
+          "risk_id": "risk_1",
+          "description": "预训练需要巨大的计算资源（16个Cloud TPU训练4天），可能难以复现。",
+          "anchors": [
+            "anc_00190"
+          ]
+        },
+        {
+          "risk_id": "risk_2",
+          "description": "预训练数据（BooksCorpus和Wikipedia）的获取和预处理可能需要大量工作。",
+          "anchors": [
+            "anc_00201"
+          ]
+        }
+      ]
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-01T13:44:51+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_bert_2018",
+    "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+    "authors": [
+      "Jacob Devlin et al."
+    ],
+    "venue": "NAACL",
+    "year": 2018,
+    "arxiv_id": "1810.04805",
+    "doi": null,
+    "language": "en",
+    "uploaded_at": "2026-05-01T13:42:57+00:00",
+    "paper_type": "Pre-training / Bidirectional Transformer / BERT"
+  },
+  "anchors": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding Jacob Devlin Ming-Wei Chang Kenton Lee Kristina Toutanova Google AI Language",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "{jacobdevlin,mingweichang,kentonl,kristout}@google.com",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Abstract",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "We introduce a new language representa- tion model called BERT, which stands for Bidirectional Encoder Representations from Transformers. Unlike recent language repre- sentation models (Peters et al., 2018a; Rad- ford et al., 2018), BERT is designed to pre- train deep bidirectional representations from unlabeled text by jointly conditioning on both left and right context in all layers. As a re- sult, the pre-trained BERT model can be ﬁne- tuned with just one additional output layer to create state-of-the-art models for a wide range of tasks, such as question answering and language inference, without substantial task- speciﬁc architecture modiﬁcations. BERT is conceptually simple and empirically powerful. It obtains new state-of-the-art re- sults on eleven natural language processing tasks, including pushing the GLUE score to 80.5% (7.7% point absolute improvement), MultiNLI accuracy to 86.7% (4.6% absolute improvement), SQuAD v1.1 question answer- ing Test F1 to 93.2 (1.5 point absolu...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "1 Introduction",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 1,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "Language model pre-training has been shown to be effective for improving many natural language processing tasks (Dai and Le, 2015; Peters et al., 2018a; Radford et al., 2018; Howard and Ruder, 2018). These include sentence-level tasks such as natural language inference (Bowman et al., 2015; Williams et al., 2018) and paraphrasing (Dolan and Brockett, 2005), which aim to predict the re- lationships between sentences by analyzing them holistically, as well as token-level tasks such as named entity recognition and question answering, where models are required to produce ﬁne-grained output at the token level (Tjong Kim Sang and De Meulder, 2003; Rajpurkar et al., 2016). There are two existing strategies for apply- ing pre-trained language representations to down- stream tasks: feature-based and ﬁne-tuning. The feature-based approach, such as ELMo (Peters et al., 2018a), uses task-speciﬁc architectures that include the pre-trained representations as addi- tional features. The ﬁne-tuning ap...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 1,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "GPT) (Radford et al., 2018), introduces minimal",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 1,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "task-speciﬁc parameters, and is trained on the downstream tasks by simply ﬁne-tuning all pre- trained parameters. The two approaches share the same objective function during pre-training, where they use unidirectional language models to learn general language representations.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 1,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "We argue that current techniques restrict the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 1,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "power of the pre-trained representations, espe- cially for the ﬁne-tuning approaches. The ma- jor limitation is that standard language models are unidirectional, and this limits the choice of archi- tectures that can be used during pre-training. For example, in OpenAI GPT, the authors use a left-to- right architecture, where every token can only at- tend to previous tokens in the self-attention layers of the Transformer (Vaswani et al., 2017). Such re- strictions are sub-optimal for sentence-level tasks, and could be very harmful when applying ﬁne- tuning based approaches to token-level tasks such as question answering, where it is crucial to incor- porate context from both directions. In this paper, we improve the ﬁne-tuning based approaches by proposing BERT: Bidirectional Encoder Representations from Transformers. BERT alleviates the previously mentioned unidi- rectionality constraint by using a “masked lan- guage model” (MLM) pre-training objective, in- spired by the Cloze task (T...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 2,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "word based only on its context. Unlike left-to- right language model pre-training, the MLM ob- jective enables the representation to fuse the left and the right context, which allows us to pre- train a deep bidirectional Transformer. In addi- tion to the masked language model, we also use a “next sentence prediction” task that jointly pre- trains text-pair representations. The contributions of our paper are as follows: • We demonstrate the importance of bidirectional pre-training for language representations. Un- like Radford et al. (2018), which uses unidirec- tional language models for pre-training, BERT uses masked language models to enable pre- trained deep bidirectional representations. This is also in contrast to Peters et al. (2018a), which uses a shallow concatenation of independently trained left-to-right and right-to-left LMs. • We show that pre-trained representations reduce the need for many heavily-engineered task- speciﬁc architectures. BERT is the ﬁrst ﬁne- tuning based...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 2,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "state-of-the-art performance on a large suite",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 2,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "of sentence-level and token-level tasks, outper-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 2,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "forming many task-speciﬁc architectures.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 2,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "• BERT advances the state of the art for eleven NLP tasks. The code and pre-trained mod- els are available at https://github.com/ google-research/bert.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "2 Related Work",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "There is a long history of pre-training general lan- guage representations, and we brieﬂy review the most widely-used approaches in this section.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "2.1 Unsupervised Feature-based Approaches",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Learning widely applicable representations of words has been an active area of research for decades, including non-neural (Brown et al., 1992; Ando and Zhang, 2005; Blitzer et al., 2006) and neural (Mikolov et al., 2013; Pennington et al., 2014) methods. Pre-trained word embeddings are an integral part of modern NLP systems, of- fering signiﬁcant improvements over embeddings learned from scratch (Turian et al., 2010). To pre- train word embedding vectors, left-to-right lan- guage modeling objectives have been used (Mnih and Hinton, 2009), as well as objectives to dis-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "criminate correct from incorrect words in left and",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "right context (Mikolov et al., 2013). These approaches have been generalized to coarser granularities, such as sentence embed- dings (Kiros et al., 2015; Logeswaran and Lee, 2018) or paragraph embeddings (Le and Mikolov, 2014). To train sentence representations, prior work has used objectives to rank candidate next sentences (Jernite et al., 2017; Logeswaran and Lee, 2018), left-to-right generation of next sen- tence words given a representation of the previous sentence (Kiros et al., 2015), or denoising auto- encoder derived objectives (Hill et al., 2016). ELMo and its predecessor (Peters et al., 2017, 2018a) generalize traditional word embedding re- search along a different dimension. They extract context-sensitive features from a left-to-right and a right-to-left language model. The contextual rep- resentation of each token is the concatenation of the left-to-right and right-to-left representations. When integrating contextual word embeddings with existing task-speciﬁc architecture...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00022",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "2.2 Unsupervised Fine-tuning Approaches",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "As with the feature-based approaches, the ﬁrst works in this direction only pre-trained word em- bedding parameters from unlabeled text (Col- lobert and Weston, 2008). More recently, sentence or document encoders which produce contextual token representations have been pre-trained from unlabeled text and ﬁne-tuned for a supervised downstream task (Dai and Le, 2015; Howard and Ruder, 2018; Radford et al., 2018). The advantage of these approaches is that few parameters need to be learned from scratch. At least partly due to this advantage, OpenAI GPT (Radford et al., 2018) achieved pre- viously state-of-the-art results on many sentence- level tasks from the GLUE benchmark (Wang et al., 2018a). Left-to-right language model-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00024",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "BERT BERT E[CLS] E1 E[SEP]... EN E1’ ... EM’ C T1 T[SEP]... TN T1’ ... TM’ [CLS] Tok 1 [SEP]... Tok N Tok 1 ... TokM Question Paragraph Start/End Span BERT E[CLS] E1 E[SEP]... EN E1’ ... EM’ C T1 T[SEP]... TN T1’ ... TM’ [CLS] Tok 1 [SEP]... Tok N Tok 1 ... TokM Masked Sentence A Masked Sentence B Pre-training Fine-Tuning NSP Mask LM Mask LM Unlabeled Sentence A and B Pair SQuAD Question Answer Pair NERMNLI",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Figure 1: Overall pre-training and ﬁne-tuning procedures for BERT. Apart from output layers, the same architec-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "tures are used in both pre-training and ﬁne-tuning. The same pre-trained model parameters are used to initialize models for different down-stream tasks. During ﬁne-tuning, all parameters are ﬁne-tuned. [CLS] is a special symbol added in front of every input example, and [SEP] is a special separator token (e.g. separating ques- tions/answers). ing and auto-encoder objectives have been used for pre-training such models (Howard and Ruder, 2018; Radford et al., 2018; Dai and Le, 2015).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00027",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "2.3 Transfer Learning from Supervised Data",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00028",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "There has also been work showing effective trans-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "fer from supervised tasks with large datasets, such",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "as natural language inference (Conneau et al., 2017) and machine translation (McCann et al., 2017). Computer vision research has also demon- strated the importance of transfer learning from",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00031",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "large pre-trained models, where an effective recipe",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "is to ﬁne-tune models pre-trained with Ima- geNet (Deng et al., 2009; Yosinski et al., 2014).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00033",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "3 BERT",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "We introduce BERT and its detailed implementa- tion in this section. There are two steps in our framework: pre-training and ﬁne-tuning. Dur- ing pre-training, the model is trained on unlabeled data over different pre-training tasks. For ﬁne- tuning, the BERT model is ﬁrst initialized with the pre-trained parameters, and all of the param- eters are ﬁne-tuned using labeled data from the downstream tasks. Each downstream task has sep- arate ﬁne-tuned models, even though they are ini- tialized with the same pre-trained parameters. The question-answering example in Figure 1 will serve as a running example for this section. A distinctive feature of BERT is its uniﬁed ar-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00035",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "chitecture across different tasks. There is mini-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "mal difference between the pre-trained architec- ture and the ﬁnal downstream architecture. Model Architecture BERT’s model architec- ture is a multi-layer bidirectional Transformer en- coder based on the original implementation de- scribed in Vaswani et al. (2017) and released in the tensor2tensor library.1 Because the use of Transformers has become common and our im- plementation is almost identical to the original, we will omit an exhaustive background descrip- tion of the model architecture and refer readers to Vaswani et al. (2017) as well as excellent guides such as “The Annotated Transformer.”2 In this work, we denote the number of layers (i.e., Transformer blocks) asL, the hidden size as H, and the number of self-attention heads as A.3 We primarily report results on two model sizes:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00037",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "BERTBASE (L=12, H=768, A=12, Total Param-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00038",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "eters=110M) and BERTLARGE (L=24, H=1024,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00039",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "A=16, Total Parameters=340M).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "BERTBASE was chosen to have the same model size as OpenAI GPT for comparison purposes. Critically, however, the BERT Transformer uses bidirectional self-attention, while the GPT Trans- former uses constrained self-attention where every token can only attend to context to its left.4 1https://github.com/tensorﬂow/tensor2tensor 2http://nlp.seas.harvard.edu/2018/04/03/attention.html 3In all cases we set the feed-forward/ﬁlter size to be 4H,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00041",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "i.e., 3072 for the H = 768 and 4096 for the H = 1024.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00042",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "4We note that in the literature the bidirectional Trans-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00043",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Input/Output Representations To make BERT handle a variety of down-stream tasks, our input representation is able to unambiguously represent both a single sentence and a pair of sentences (e.g.,⟨ Question, Answer⟩) in one token sequence. Throughout this work, a “sentence” can be an arbi- trary span of contiguous text, rather than an actual linguistic sentence. A “sequence” refers to the in- put token sequence to BERT, which may be a sin- gle sentence or two sentences packed together. We use WordPiece embeddings (Wu et al., 2016) with a 30,000 token vocabulary. The ﬁrst token of every sequence is always a special clas- siﬁcation token ( [CLS]). The ﬁnal hidden state corresponding to this token is used as the ag- gregate sequence representation for classiﬁcation tasks. Sentence pairs are packed together into a single sequence. We differentiate the sentences in two ways. First, we separate them with a special token ([SEP]). Second, we add a learned embed- ding to every token indicating w...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "constructed by summing the corresponding token,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00045",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "segment, and position embeddings. A visualiza- tion of this construction can be seen in Figure 2.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00046",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "3.1 Pre-training BERT",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00047",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Unlike Peters et al. (2018a) and Radford et al. (2018), we do not use traditional left-to-right or right-to-left language models to pre-train BERT. Instead, we pre-train BERT using two unsuper- vised tasks, described in this section. This step is presented in the left part of Figure 1. Task #1: Masked LM Intuitively, it is reason- able to believe that a deep bidirectional model is strictly more powerful than either a left-to-right model or the shallow concatenation of a left-to- right and a right-to-left model. Unfortunately, standard conditional language models can only be trained left-to-right or right-to-left, since bidirec- tional conditioning would allow each word to in- directly “see itself”, and the model could trivially",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00048",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "predict the target word in a multi-layered context.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "former is often referred to as a “Transformer encoder” while the left-context-only version is referred to as a “Transformer decoder” since it can be used for text generation. In order to train a deep bidirectional representa- tion, we simply mask some percentage of the input tokens at random, and then predict those masked tokens. We refer to this procedure as a “masked LM” (MLM), although it is often referred to as a Cloze task in the literature (Taylor, 1953). In this case, the ﬁnal hidden vectors corresponding to the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00050",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "mask tokens are fed into an output softmax over",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "the vocabulary, as in a standard LM. In all of our experiments, we mask 15% of all WordPiece to- kens in each sequence at random. In contrast to denoising auto-encoders (Vincent et al., 2008), we only predict the masked words rather than recon- structing the entire input. Although this allows us to obtain a bidirec- tional pre-trained model, a downside is that we are creating a mismatch between pre-training and ﬁne-tuning, since the [MASK] token does not ap- pear during ﬁne-tuning. To mitigate this, we do not always replace “masked” words with the ac- tual [MASK] token. The training data generator chooses 15% of the token positions at random for prediction. If the i-th token is chosen, we replace thei-th token with (1) the [MASK] token 80% of the time (2) a random token 10% of the time (3) the unchanged i-th token 10% of the time. Then, Ti will be used to predict the original token with cross entropy loss. We compare variations of this procedure in Appendix C.2. Task #2: Next Sentence...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00052",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "[CLS] he likes play ##ing [SEP]my dog is cute [SEP]Input E[CLS] Ehe Elikes Eplay E##ing E[SEP]Emy Edog Eis Ecute E[SEP] Token Embeddings EA EB EB EB EB EBEA EA EA EA EASegment Embeddings E0 E6 E7 E8 E9 E10E1 E2 E3 E4 E5Position Embeddings",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00053",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Figure 2: BERT input representation. The input embeddings are the sum of the token embeddings, the segmenta-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "tion embeddings and the position embeddings. The NSP task is closely related to representation- learning objectives used in Jernite et al. (2017) and Logeswaran and Lee (2018). However, in prior work, only sentence embeddings are transferred to down-stream tasks, where BERT transfers all pa- rameters to initialize end-task model parameters. Pre-training data The pre-training procedure",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "largely follows the existing literature on language",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "model pre-training. For the pre-training corpus we use the BooksCorpus (800M words) (Zhu et al., 2015) and English Wikipedia (2,500M words). For Wikipedia we extract only the text passages and ignore lists, tables, and headers. It is criti- cal to use a document-level corpus rather than a shufﬂed sentence-level corpus such as the Billion Word Benchmark (Chelba et al., 2013) in order to extract long contiguous sequences.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00057",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "3.2 Fine-tuning BERT",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00058",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Fine-tuning is straightforward since the self- attention mechanism in the Transformer al- lows BERT to model many downstream tasks— whether they involve single text or text pairs—by swapping out the appropriate inputs and outputs. For applications involving text pairs, a common pattern is to independently encode text pairs be- fore applying bidirectional cross attention, such as Parikh et al. (2016); Seo et al. (2017). BERT instead uses the self-attention mechanism to unify these two stages, as encoding a concatenated text pair with self-attention effectively includes bidi- rectional cross attention between two sentences. For each task, we simply plug in the task- speciﬁc inputs and outputs into BERT and ﬁne- tune all the parameters end-to-end. At the in- put, sentence A and sentence B from pre-training",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00059",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "are analogous to (1) sentence pairs in paraphras-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00060",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "ing, (2) hypothesis-premise pairs in entailment, (3) question-passage pairs in question answering, and (4) a degenerate text- ∅ pair in text classiﬁcation or sequence tagging. At the output, the token rep- resentations are fed into an output layer for token- level tasks, such as sequence tagging or question answering, and the [CLS] representation is fed into an output layer for classiﬁcation, such as en- tailment or sentiment analysis. Compared to pre-training, ﬁne-tuning is rela- tively inexpensive. All of the results in the pa- per can be replicated in at most 1 hour on a sin- gle Cloud TPU, or a few hours on a GPU, starting from the exact same pre-trained model. 7 We de- scribe the task-speciﬁc details in the correspond- ing subsections of Section 4. More details can be found in Appendix A.5.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00061",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "4 Experiments",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00062",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "In this section, we present BERT ﬁne-tuning re- sults on 11 NLP tasks.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "4.1 GLUE",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00064",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "The General Language Understanding Evaluation (GLUE) benchmark (Wang et al., 2018a) is a col- lection of diverse natural language understanding tasks. Detailed descriptions of GLUE datasets are included in Appendix B.1. To ﬁne-tune on GLUE, we represent the input sequence (for single sentence or sentence pairs) as described in Section 3, and use the ﬁnal hid- den vector C ∈ RH corresponding to the ﬁrst input token ([CLS]) as the aggregate representa- tion. The only new parameters introduced during ﬁne-tuning are classiﬁcation layer weights W ∈ RK×H, whereK is the number of labels. We com- pute a standard classiﬁcation loss with C andW ,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00065",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "i.e., log(softmax(CW T )).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00066",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "7For example, the BERT SQuAD model can be trained in",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "around 30 minutes on a single Cloud TPU to achieve a Dev",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00068",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "F1 score of 91.0%. 8See (10) in https://gluebenchmark.com/faq.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "System MNLI-(m/mm) QQP QNLI SST-2 CoLA STS-B MRPC RTE A verage 392k 363k 108k 67k 8.5k 5.7k 3.5k 2.5k - Pre-OpenAI SOTA 80.6/80.1 66.1 82.3 93.2 35.0 81.0 86.0 61.7 74.0 BiLSTM+ELMo+Attn 76.4/76.1 64.8 79.8 90.4 36.0 73.3 84.9 56.8 71.0 OpenAI GPT 82.1/81.4 70.3 87.4 91.3 45.4 80.0 82.3 56.0 75.1 BERTBASE 84.6/83.4 71.2 90.5 93.5 52.1 85.8 88.9 66.4 79.6 BERTLARGE 86.7/85.9 72.1 92.7 94.9 60.5 86.5 89.3 70.1 82.1",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00070",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Table 1: GLUE Test results, scored by the evaluation server ( https://gluebenchmark.com/leaderboard).",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00071",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "The number below each task denotes the number of training examples. The “Average” column is slightly different than the ofﬁcial GLUE score, since we exclude the problematic WNLI set. 8 BERT and OpenAI GPT are single- model, single task. F1 scores are reported for QQP and MRPC, Spearman correlations are reported for STS-B, and accuracy scores are reported for the other tasks. We exclude entries that use BERT as one of their components. We use a batch size of 32 and ﬁne-tune for 3 epochs over the data for all GLUE tasks. For each task, we selected the best ﬁne-tuning learning rate (among 5e-5, 4e-5, 3e-5, and 2e-5) on the Dev set. Additionally, for BERTLARGE we found that ﬁne- tuning was sometimes unstable on small datasets, so we ran several random restarts and selected the best model on the Dev set. With random restarts, we use the same pre-trained checkpoint but per- form different ﬁne-tuning data shufﬂing and clas- siﬁer layer initialization.9 Results are presented in Table 1. Both...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00072",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "tems on all tasks by a substantial margin, obtaining",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00073",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "4.5% and 7.0% respective average accuracy im- provement over the prior state of the art. Note that BERTBASE and OpenAI GPT are nearly identical in terms of model architecture apart from the at-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00074",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "tention masking. For the largest and most widely",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00075",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "reported GLUE task, MNLI, BERT obtains a 4.6% absolute accuracy improvement. On the ofﬁcial GLUE leaderboard10, BERTLARGE obtains a score of 80.5, compared to OpenAI GPT, which obtains 72.8 as of the date of writing. We ﬁnd that BERT LARGE signiﬁcantly outper- forms BERTBASE across all tasks, especially those with very little training data. The effect of model size is explored more thoroughly in Section 5.2. 4.2 SQuAD v1.1 The Stanford Question Answering Dataset (SQuAD v1.1) is a collection of 100k crowd- sourced question/answer pairs (Rajpurkar et al., 2016). Given a question and a passage from 9The GLUE data set distribution does not include the Test labels, and we only made a single GLUE evaluation server submission for each of BERTBASE and BERTLARGE . 10https://gluebenchmark.com/leaderboard Wikipedia containing the answer, the task is to predict the answer text span in the passage. As shown in Figure 1, in the question answer- ing task, we represent the input question and pas- sag...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00076",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "uct betweenTi andS followed by a softmax over",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00077",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "all of the words in the paragraph: Pi = eS·Ti",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00078",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "∑ j eS·Tj .",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00079",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "The analogous formula is used for the end of the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00080",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "answer span. The score of a candidate span from positioni to positionj is deﬁned asS·Ti +E·Tj,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00081",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "and the maximum scoring span where j ≥ i is",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00082",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "used as a prediction. The training objective is the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00083",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "sum of the log-likelihoods of the correct start and",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00084",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "end positions. We ﬁne-tune for 3 epochs with a learning rate of 5e-5 and a batch size of 32.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00085",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Table 2 shows top leaderboard entries as well",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00086",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "as results from top published systems (Seo et al., 2017; Clark and Gardner, 2018; Peters et al., 2018a; Hu et al., 2018). The top results from the SQuAD leaderboard do not have up-to-date public system descriptions available,11 and are allowed to use any public data when training their systems. We therefore use modest data augmentation in our system by ﬁrst ﬁne-tuning on TriviaQA (Joshi et al., 2017) befor ﬁne-tuning on SQuAD.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00087",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Our best performing system outperforms the top",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00088",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "leaderboard system by +1.5 F1 in ensembling and +1.3 F1 as a single system. In fact, our single BERT model outperforms the top ensemble sys- tem in terms of F1 score. Without TriviaQA ﬁne- 11QANet is described in Yu et al. (2018), but the system has improved substantially after publication.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00089",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "System Dev Test EM F1 EM F1 Top Leaderboard Systems (Dec 10th, 2018) Human - - 82.3 91.2 #1 Ensemble - nlnet - - 86.0 91.7 #2 Ensemble - QANet - - 84.5 90.5 Published BiDAF+ELMo (Single) - 85.6 - 85.8 R.M. Reader (Ensemble) 81.2 87.9 82.3 88.5 Ours BERTBASE (Single) 80.8 88.5 - - BERTLARGE (Single) 84.1 90.9 - - BERTLARGE (Ensemble) 85.8 91.8 - - BERTLARGE (Sgl.+TriviaQA) 84.2 91.1 85.1 91.8 BERTLARGE (Ens.+TriviaQA) 86.2 92.2 87.4 93.2",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00090",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Table 2: SQuAD 1.1 results. The BERT ensemble",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00091",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "is 7x systems which use different pre-training check- points and ﬁne-tuning seeds. System Dev Test EM F1 EM F1 Top Leaderboard Systems (Dec 10th, 2018) Human 86.3 89.0 86.9 89.5 #1 Single - MIR-MRC (F-Net) - - 74.8 78.0 #2 Single - nlnet - - 74.2 77.1 Published unet (Ensemble) - - 71.4 74.9 SLQA+ (Single) - 71.4 74.4 Ours BERTLARGE (Single) 78.7 81.9 80.0 83.1",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00092",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Table 3: SQuAD 2.0 results. We exclude entries that",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00093",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "use BERT as one of their components. tuning data, we only lose 0.1-0.4 F1, still outper-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00094",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "forming all existing systems by a wide margin.12",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00095",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "4.3 SQuAD v2.0 The SQuAD 2.0 task extends the SQuAD 1.1 problem deﬁnition by allowing for the possibility that no short answer exists in the provided para- graph, making the problem more realistic. We use a simple approach to extend the SQuAD v1.1 BERT model for this task. We treat ques- tions that do not have an answer as having an an- swer span with start and end at the [CLS] to- ken. The probability space for the start and end answer span positions is extended to include the position of the [CLS] token. For prediction, we",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00096",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "compare the score of the no-answer span:snull =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00097",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "S·C +E·C to the score of the best non-null span 12The TriviaQA data we used consists of paragraphs from TriviaQA-Wiki formed of the ﬁrst 400 tokens in documents, that contain at least one of the provided possible answers. System Dev Test ESIM+GloVe 51.9 52.7 ESIM+ELMo 59.1 59.2 OpenAI GPT - 78.0 BERTBASE 81.6 - BERTLARGE 86.6 86.3 Human (expert)† - 85.0 Human (5 annotations)† - 88.0",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00098",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Table 4: SW AG Dev and Test accuracies.†Human per-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00099",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "formance is measured with 100 samples, as reported in the SW AG paper.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00100",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "ˆsi,j = maxj≥iS·Ti +E·Tj. We predict a non-null",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00101",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "answer when ˆsi,j > snull +τ, where the thresh-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00102",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "old τ is selected on the dev set to maximize F1.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00103",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "We did not use TriviaQA data for this model. We ﬁne-tuned for 2 epochs with a learning rate of 5e-5 and a batch size of 48. The results compared to prior leaderboard en- tries and top published work (Sun et al., 2018; Wang et al., 2018b) are shown in Table 3, exclud- ing systems that use BERT as one of their com- ponents. We observe a +5.1 F1 improvement over the previous best system.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00104",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "4.4 SW AG",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00105",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "The Situations With Adversarial Generations (SW AG) dataset contains 113k sentence-pair com- pletion examples that evaluate grounded common- sense inference (Zellers et al., 2018). Given a sen- tence, the task is to choose the most plausible con- tinuation among four choices. When ﬁne-tuning on the SW AG dataset, we construct four input sequences, each containing the concatenation of the given sentence (sentence A) and a possible continuation (sentence B). The only task-speciﬁc parameters introduced is a vec- tor whose dot product with the [CLS] token rep- resentation C denotes a score for each choice",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00106",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "which is normalized with a softmax layer.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00107",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "We ﬁne-tune the model for 3 epochs with a learning rate of 2e-5 and a batch size of 16. Re- sults are presented in Table 4. BERT LARGE out- performs the authors’ baseline ESIM+ELMo sys- tem by +27.1% and OpenAI GPT by 8.3%.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00108",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "5 Ablation Studies",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00109",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "In this section, we perform ablation experiments over a number of facets of BERT in order to better understand their relative importance. Additional",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00110",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Dev Set Tasks MNLI-m QNLI MRPC SST-2 SQuAD (Acc) (Acc) (Acc) (Acc) (F1) BERTBASE 84.4 88.4 86.7 92.7 88.5 No NSP 83.9 84.9 86.5 92.6 87.9 LTR & No NSP 82.1 84.3 77.5 92.1 77.8 + BiLSTM 82.1 84.1 75.7 91.6 84.9",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00111",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Table 5: Ablation over the pre-training tasks using the",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00112",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "BERTBASE architecture. “No NSP” is trained without the next sentence prediction task. “LTR & No NSP” is trained as a left-to-right LM without the next sentence prediction, like OpenAI GPT. “+ BiLSTM” adds a ran- domly initialized BiLSTM on top of the “LTR + No NSP” model during ﬁne-tuning. ablation studies can be found in Appendix C.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00113",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "5.1 Effect of Pre-training Tasks",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00114",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "We demonstrate the importance of the deep bidi- rectionality of BERT by evaluating two pre- training objectives using exactly the same pre- training data, ﬁne-tuning scheme, and hyperpa- rameters as BERTBASE : No NSP : A bidirectional model which is trained using the “masked LM” (MLM) but without the “next sentence prediction” (NSP) task. LTR & No NSP: A left-context-only model which is trained using a standard Left-to-Right (LTR) LM, rather than an MLM. The left-only constraint was also applied at ﬁne-tuning, because removing it introduced a pre-train/ﬁne-tune mismatch that degraded downstream performance. Additionally, this model was pre-trained without the NSP task. This is directly comparable to OpenAI GPT, but",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00115",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "using our larger training dataset, our input repre-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00116",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "sentation, and our ﬁne-tuning scheme.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00117",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "We ﬁrst examine the impact brought by the NSP",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00118",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "task. In Table 5, we show that removing NSP hurts performance signiﬁcantly on QNLI, MNLI, and SQuAD 1.1. Next, we evaluate the impact of training bidirectional representations by com- paring “No NSP” to “LTR & No NSP”. The LTR model performs worse than the MLM model on all",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00119",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "tasks, with large drops on MRPC and SQuAD.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00120",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "For SQuAD it is intuitively clear that a LTR model will perform poorly at token predictions, since the token-level hidden states have no right- side context. In order to make a good faith at- tempt at strengthening the LTR system, we added a randomly initialized BiLSTM on top. This does signiﬁcantly improve results on SQuAD, but the results are still far worse than those of the pre- trained bidirectional models. The BiLSTM hurts performance on the GLUE tasks. We recognize that it would also be possible to train separate LTR and RTL models and represent each token as the concatenation of the two mod- els, as ELMo does. However: (a) this is twice as expensive as a single bidirectional model; (b) this is non-intuitive for tasks like QA, since the RTL model would not be able to condition the answer on the question; (c) this it is strictly less powerful than a deep bidirectional model, since it can use both left and right context at every layer.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00121",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "5.2 Effect of Model Size",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00122",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "In this section, we explore the effect of model size on ﬁne-tuning task accuracy. We trained a number of BERT models with a differing number of layers, hidden units, and attention heads, while otherwise using the same hyperparameters and training pro- cedure as described previously. Results on selected GLUE tasks are shown in",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00123",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Table 6. In this table, we report the average Dev",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00124",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Set accuracy from 5 random restarts of ﬁne-tuning.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00125",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "We can see that larger models lead to a strict ac-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00126",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "curacy improvement across all four datasets, even for MRPC which only has 3,600 labeled train- ing examples, and is substantially different from the pre-training tasks. It is also perhaps surpris- ing that we are able to achieve such signiﬁcant improvements on top of models which are al-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00127",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "ready quite large relative to the existing literature.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00128",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "For example, the largest Transformer explored in",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00129",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Vaswani et al. (2017) is (L=6, H=1024, A=16)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00130",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "with 100M parameters for the encoder, and the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00131",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "largest Transformer we have found in the literature",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00132",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "is (L=64, H=512, A=2) with 235M parameters",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00133",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "(Al-Rfou et al., 2018). By contrast, BERT BASE contains 110M parameters and BERT LARGE con- tains 340M parameters. It has long been known that increasing the model size will lead to continual improvements",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00134",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "on large-scale tasks such as machine translation",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00135",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "and language modeling, which is demonstrated by the LM perplexity of held-out training data shown in Table 6. However, we believe that this is the ﬁrst work to demonstrate convinc- ingly that scaling to extreme model sizes also",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00136",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "leads to large improvements on very small scale",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00137",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "tasks, provided that the model has been sufﬁ- ciently pre-trained. Peters et al. (2018b) presented",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00138",
+      "page": 9,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "mixed results on the downstream task impact of increasing the pre-trained bi-LM size from two to four layers and Melamud et al. (2016) men- tioned in passing that increasing hidden dimen- sion size from 200 to 600 helped, but increasing further to 1,000 did not bring further improve- ments. Both of these prior works used a feature- based approach — we hypothesize that when the model is ﬁne-tuned directly on the downstream tasks and uses only a very small number of ran- domly initialized additional parameters, the task-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00139",
+      "page": 9,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "speciﬁc models can beneﬁt from the larger, more",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00140",
+      "page": 9,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "expressive pre-trained representations even when downstream task data is very small.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00141",
+      "page": 9,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "5.3 Feature-based Approach with BERT",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00142",
+      "page": 9,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "All of the BERT results presented so far have used the ﬁne-tuning approach, where a simple classiﬁ- cation layer is added to the pre-trained model, and all parameters are jointly ﬁne-tuned on a down- stream task. However, the feature-based approach, where ﬁxed features are extracted from the pre- trained model, has certain advantages. First, not all tasks can be easily represented by a Trans- former encoder architecture, and therefore require a task-speciﬁc model architecture to be added. Second, there are major computational beneﬁts to pre-compute an expensive representation of the training data once and then run many experiments with cheaper models on top of this representation. In this section, we compare the two approaches by applying BERT to the CoNLL-2003 Named Entity Recognition (NER) task (Tjong Kim Sang and De Meulder, 2003). In the input to BERT, we use a case-preserving WordPiece model, and we",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00143",
+      "page": 9,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "include the maximal document context provided",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00144",
+      "page": 9,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "by the data. Following standard practice, we for- mulate this as a tagging task but do not use a CRF Hyperparams Dev Set Accuracy #L #H #A LM (ppl) MNLI-m MRPC SST-2 3 768 12 5.84 77.9 79.8 88.4 6 768 3 5.24 80.6 82.2 90.7 6 768 12 4.68 81.9 84.8 91.3 12 768 12 3.99 84.4 86.7 92.9 12 1024 16 3.54 85.7 86.9 93.3 24 1024 16 3.23 86.6 87.8 93.7",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00145",
+      "page": 9,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Table 6: Ablation over BERT model size. #L = the",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00146",
+      "page": 9,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "number of layers; #H = hidden size; #A = number of at-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00147",
+      "page": 9,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "tention heads. “LM (ppl)” is the masked LM perplexity of held-out training data. System Dev F1 Test F1 ELMo (Peters et al., 2018a) 95.7 92.2 CVT (Clark et al., 2018) - 92.6 CSE (Akbik et al., 2018) - 93.1 Fine-tuning approach BERTLARGE 96.6 92.8 BERTBASE 96.4 92.4 Feature-based approach (BERTBASE ) Embeddings 91.0 - Second-to-Last Hidden 95.6 - Last Hidden 94.9 - Weighted Sum Last Four Hidden 95.9 - Concat Last Four Hidden 96.1 - Weighted Sum All 12 Layers 95.5 -",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00148",
+      "page": 9,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Table 7: CoNLL-2003 Named Entity Recognition re-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00149",
+      "page": 9,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "sults. Hyperparameters were selected using the Dev set. The reported Dev and Test scores are averaged over 5 random restarts using those hyperparameters. layer in the output. We use the representation of the ﬁrst sub-token as the input to the token-level classiﬁer over the NER label set. To ablate the ﬁne-tuning approach, we apply the feature-based approach by extracting the activa- tions from one or more layers without ﬁne-tuning any parameters of BERT. These contextual em- beddings are used as input to a randomly initial- ized two-layer 768-dimensional BiLSTM before the classiﬁcation layer. Results are presented in Table 7. BERT LARGE performs competitively with state-of-the-art meth-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00150",
+      "page": 9,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "ods. The best performing method concatenates the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00151",
+      "page": 9,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "token representations from the top four hidden lay- ers of the pre-trained Transformer, which is only 0.3 F1 behind ﬁne-tuning the entire model. This demonstrates that BERT is effective for both ﬁne- tuning and feature-based approaches.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00152",
+      "page": 9,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "6 Conclusion",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00153",
+      "page": 9,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "Recent empirical improvements due to transfer learning with language models have demonstrated that rich, unsupervised pre-training is an integral part of many language understanding systems. In particular, these results enable even low-resource tasks to beneﬁt from deep unidirectional architec- tures. Our major contribution is further general- izing these ﬁndings to deep bidirectional architec- tures, allowing the same pre-trained model to suc- cessfully tackle a broad set of NLP tasks.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00154",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "References",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00155",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Alan Akbik, Duncan Blythe, and Roland V ollgraf. 2018. Contextual string embeddings for sequence labeling. In Proceedings of the 27th International Conference on Computational Linguistics , pages 1638–1649. Rami Al-Rfou, Dokook Choe, Noah Constant, Mandy Guo, and Llion Jones. 2018. Character-level lan- guage modeling with deeper self-attention. arXiv preprint arXiv:1808.04444. Rie Kubota Ando and Tong Zhang. 2005. A framework for learning predictive structures from multiple tasks and unlabeled data. Journal of Machine Learning Research, 6(Nov):1817–1853. Luisa Bentivogli, Bernardo Magnini, Ido Dagan, Hoa Trang Dang, and Danilo Giampiccolo. 2009. The ﬁfth PASCAL recognizing textual entailment challenge. In TAC. NIST. John Blitzer, Ryan McDonald, and Fernando Pereira. 2006. Domain adaptation with structural correspon- dence learning. In Proceedings of the 2006 confer- ence on empirical methods in natural language pro- cessing, pages 120–128. Association for Computa- tional Linguistics....",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00156",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "and Christopher D. Manning. 2015. A large anno-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00157",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "tated corpus for learning natural language inference. In EMNLP. Association for Computational Linguis- tics. Peter F Brown, Peter V Desouza, Robert L Mercer, Vincent J Della Pietra, and Jenifer C Lai. 1992. Class-based n-gram models of natural language. Computational linguistics, 18(4):467–479. Daniel Cer, Mona Diab, Eneko Agirre, Inigo Lopez- Gazpio, and Lucia Specia. 2017. Semeval-2017 task 1: Semantic textual similarity multilingual and crosslingual focused evaluation. In Proceedings of the 11th International Workshop on Semantic Evaluation (SemEval-2017) , pages 1–14, Vancou- ver, Canada. Association for Computational Lin- guistics. Ciprian Chelba, Tomas Mikolov, Mike Schuster, Qi Ge, Thorsten Brants, Phillipp Koehn, and Tony Robin- son. 2013. One billion word benchmark for measur- ing progress in statistical language modeling. arXiv preprint arXiv:1312.3005. Z. Chen, H. Zhang, X. Zhang, and L. Zhao. 2018. Quora question pairs. Christopher Clark and Matt Gardner. 2018. Simple and...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00158",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Fei. 2009. ImageNet: A Large-Scale Hierarchical",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00159",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Image Database. In CVPR09. William B Dolan and Chris Brockett. 2005. Automati- cally constructing a corpus of sentential paraphrases. In Proceedings of the Third International Workshop on Paraphrasing (IWP2005). William Fedus, Ian Goodfellow, and Andrew M Dai. 2018. Maskgan: Better text generation via ﬁlling in the . arXiv preprint arXiv:1801.07736. Dan Hendrycks and Kevin Gimpel. 2016. Bridging nonlinearities and stochastic regularizers with gaus- sian error linear units. CoRR, abs/1606.08415. Felix Hill, Kyunghyun Cho, and Anna Korhonen. 2016. Learning distributed representations of sentences from unlabelled data. In Proceedings of the 2016 Conference of the North American Chapter of the Association for Computational Linguistics: Human",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00160",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Language Technologies. Association for Computa-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00161",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "tional Linguistics. Jeremy Howard and Sebastian Ruder. 2018. Universal language model ﬁne-tuning for text classiﬁcation. In ACL. Association for Computational Linguistics. Minghao Hu, Yuxing Peng, Zhen Huang, Xipeng Qiu, Furu Wei, and Ming Zhou. 2018. Reinforced mnemonic reader for machine reading comprehen- sion. In IJCAI. Yacine Jernite, Samuel R. Bowman, and David Son- tag. 2017. Discourse-based objectives for fast un- supervised sentence representation learning. CoRR, abs/1705.00557.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00162",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Mandar Joshi, Eunsol Choi, Daniel S Weld, and Luke",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00163",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Zettlemoyer. 2017. Triviaqa: A large scale distantly",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00164",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "supervised challenge dataset for reading comprehen- sion. In ACL. Ryan Kiros, Yukun Zhu, Ruslan R Salakhutdinov, Richard Zemel, Raquel Urtasun, Antonio Torralba, and Sanja Fidler. 2015. Skip-thought vectors. In Advances in neural information processing systems, pages 3294–3302. Quoc Le and Tomas Mikolov. 2014. Distributed rep- resentations of sentences and documents. In Inter- national Conference on Machine Learning , pages 1188–1196. Hector J Levesque, Ernest Davis, and Leora Morgen- stern. 2011. The winograd schema challenge. In Aaai spring symposium: Logical formalizations of commonsense reasoning, volume 46, page 47. Lajanugen Logeswaran and Honglak Lee. 2018. An efﬁcient framework for learning sentence represen- tations. In International Conference on Learning Representations.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00165",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Bryan McCann, James Bradbury, Caiming Xiong, and",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00166",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Richard Socher. 2017. Learned in translation: Con- textualized word vectors. In NIPS. Oren Melamud, Jacob Goldberger, and Ido Dagan. 2016. context2vec: Learning generic context em- bedding with bidirectional LSTM. In CoNLL. Tomas Mikolov, Ilya Sutskever, Kai Chen, Greg S Cor- rado, and Jeff Dean. 2013. Distributed representa- tions of words and phrases and their compositional- ity. In Advances in Neural Information Processing Systems 26 , pages 3111–3119. Curran Associates, Inc. Andriy Mnih and Geoffrey E Hinton. 2009. A scal- able hierarchical distributed language model. In D. Koller, D. Schuurmans, Y . Bengio, and L. Bot- tou, editors, Advances in Neural Information Pro- cessing Systems 21 , pages 1081–1088. Curran As- sociates, Inc. Ankur P Parikh, Oscar T ¨ackstr¨om, Dipanjan Das, and Jakob Uszkoreit. 2016. A decomposable attention model for natural language inference. In EMNLP. Jeffrey Pennington, Richard Socher, and Christo- pher D. Manning. 2014. Glove: Global vectors for word...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00167",
+      "page": 12,
+      "section": "References",
+      "bbox": null,
+      "text_span": "for natural language understanding. In Proceedings of the 2018 EMNLP Workshop BlackboxNLP: An- alyzing and Interpreting Neural Networks for NLP , pages 353–355. Wei Wang, Ming Yan, and Chen Wu. 2018b. Multi- granularity hierarchical attention fusion networks for reading comprehension and question answering. In Proceedings of the 56th Annual Meeting of the As- sociation for Computational Linguistics (Volume 1: Long Papers). Association for Computational Lin- guistics. Alex Warstadt, Amanpreet Singh, and Samuel R Bow- man. 2018. Neural network acceptability judg- ments. arXiv preprint arXiv:1805.12471. Adina Williams, Nikita Nangia, and Samuel R Bow- man. 2018. A broad-coverage challenge corpus for sentence understanding through inference. In NAACL. Yonghui Wu, Mike Schuster, Zhifeng Chen, Quoc V Le, Mohammad Norouzi, Wolfgang Macherey, Maxim Krikun, Yuan Cao, Qin Gao, Klaus Macherey, et al. 2016. Google’s neural ma- chine translation system: Bridging the gap between human and machine t...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00168",
+      "page": 12,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Choi. 2018. Swag: A large-scale adversarial dataset",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00169",
+      "page": 12,
+      "section": "References",
+      "bbox": null,
+      "text_span": "for grounded commonsense inference. In Proceed- ings of the 2018 Conference on Empirical Methods in Natural Language Processing (EMNLP). Yukun Zhu, Ryan Kiros, Rich Zemel, Ruslan Salakhut- dinov, Raquel Urtasun, Antonio Torralba, and Sanja Fidler. 2015. Aligning books and movies: Towards story-like visual explanations by watching movies and reading books. In Proceedings of the IEEE international conference on computer vision , pages 19–27. Appendix for “BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding” We organize the appendix into three sections: • Additional implementation details for BERT are presented in Appendix A; • Additional details for our experiments are presented in Appendix B; and • Additional ablation studies are presented in Appendix C. We present additional ablation studies for BERT including: – Effect of Number of Training Steps; and – Ablation for Different Masking Proce- dures. A Additional Details for BERT A.1 Illustration of the Pre-...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00170",
+      "page": 12,
+      "section": "References",
+      "bbox": null,
+      "text_span": "suming the unlabeled sentence is my dog is",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00171",
+      "page": 12,
+      "section": "References",
+      "bbox": null,
+      "text_span": "hairy, and during the random masking procedure we chose the 4-th token (which corresponding to hairy), our masking procedure can be further il- lustrated by • 80% of the time: Replace the word with the [MASK] token, e.g., my dog is hairy → my dog is [MASK] • 10% of the time: Replace the word with a random word, e.g., my dog is hairy → my dog is apple • 10% of the time: Keep the word un- changed, e.g., my dog is hairy → my dog is hairy . The purpose of this is to bias the representation towards the actual observed word. The advantage of this procedure is that the Transformer encoder does not know which words it will be asked to predict or which have been re- placed by random words, so it is forced to keep a distributional contextual representation of ev- ery input token. Additionally, because random replacement only occurs for 1.5% of all tokens (i.e., 10% of 15%), this does not seem to harm the model’s language understanding capability. In Section C.2, we evaluate the impact this proc...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00172",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "BERT (Ours) Trm Trm Trm Trm Trm Trm ... ... Trm Trm Trm Trm Trm Trm ... ... OpenAI GPT Lstm ELMo Lstm Lstm Lstm Lstm Lstm Lstm Lstm Lstm Lstm Lstm Lstm T1 T2 TN... ... ... ... ... E1 E2 EN... T1 T2 TN... E1 E2 EN... T1 T2 TN... E1 E2 EN...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00173",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Figure 3: Differences in pre-training model architectures. BERT uses a bidirectional Transformer. OpenAI GPT",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00174",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "uses a left-to-right Transformer. ELMo uses the concatenation of independently trained left-to-right and right-to- left LSTMs to generate features for downstream tasks. Among the three, only BERT representations are jointly conditioned on both left and right context in all layers. In addition to the architecture differences, BERT and OpenAI GPT are ﬁne-tuning approaches, while ELMo is a feature-based approach. to converge. In Section C.1 we demonstrate that",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00175",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "MLM does converge marginally slower than a left-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00176",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "to-right model (which predicts every token), but the empirical improvements of the MLM model far outweigh the increased training cost. Next Sentence Prediction The next sentence prediction task can be illustrated in the following examples.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00177",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Input = [CLS] the man went to [MASK] store [SEP]",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00178",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "he bought a gallon [MASK] milk [SEP]",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00179",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Label = IsNext",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00180",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Input = [CLS] the man [MASK] to the store [SEP]",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00181",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "penguin [MASK] are flight ##less birds [SEP]",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00182",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Label = NotNext",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00183",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "A.2 Pre-training Procedure To generate each training input sequence, we sam- ple two spans of text from the corpus, which we refer to as “sentences” even though they are typ- ically much longer than single sentences (but can be shorter also). The ﬁrst sentence receives the A embedding and the second receives the B embed- ding. 50% of the time B is the actual next sentence that follows A and 50% of the time it is a random sentence, which is done for the “next sentence pre- diction” task. They are sampled such that the com-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00184",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "bined length is≤ 512 tokens. The LM masking is",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00185",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "applied after WordPiece tokenization with a uni- form masking rate of 15%, and no special consid- eration given to partial word pieces. We train with batch size of 256 sequences (256",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00186",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "sequences * 512 tokens = 128,000 tokens/batch)",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00187",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "for 1,000,000 steps, which is approximately 40 epochs over the 3.3 billion word corpus. We",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00188",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "use Adam with learning rate of 1e-4, β1 = 0.9,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00189",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "β2 = 0.999, L2 weight decay of 0.01, learning",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00190",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "rate warmup over the ﬁrst 10,000 steps, and linear decay of the learning rate. We use a dropout prob- ability of 0.1 on all layers. We use a gelu acti- vation (Hendrycks and Gimpel, 2016) rather than the standard relu, following OpenAI GPT. The training loss is the sum of the mean masked LM likelihood and the mean next sentence prediction likelihood. Training of BERT BASE was performed on 4 Cloud TPUs in Pod conﬁguration (16 TPU chips total).13 Training of BERTLARGE was performed on 16 Cloud TPUs (64 TPU chips total). Each pre- training took 4 days to complete. Longer sequences are disproportionately expen- sive because attention is quadratic to the sequence length. To speed up pretraing in our experiments, we pre-train the model with sequence length of 128 for 90% of the steps. Then, we train the rest 10% of the steps of sequence of 512 to learn the positional embeddings. A.3 Fine-tuning Procedure For ﬁne-tuning, most model hyperparameters are the same as in pre-training, with the ex...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00191",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "13https://cloudplatform.googleblog.com/2018/06/Cloud-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00192",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "TPU-now-offers-preemptible-pricing-and-global- availability.html",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00193",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "• Learning rate (Adam): 5e-5, 3e-5, 2e-5 • Number of epochs: 2, 3, 4",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00194",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "We also observed that large data sets (e.g.,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00195",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "100k+ labeled training examples) were far less sensitive to hyperparameter choice than small data sets. Fine-tuning is typically very fast, so it is rea- sonable to simply run an exhaustive search over the above parameters and choose the model that performs best on the development set. A.4 Comparison of BERT, ELMo ,and OpenAI GPT Here we studies the differences in recent popular representation learning models including ELMo, OpenAI GPT and BERT. The comparisons be- tween the model architectures are shown visually in Figure 3. Note that in addition to the architec- ture differences, BERT and OpenAI GPT are ﬁne- tuning approaches, while ELMo is a feature-based",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00196",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "approach.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00197",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "The most comparable existing pre-training method to BERT is OpenAI GPT, which trains a",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00198",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "left-to-right Transformer LM on a large text cor-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00199",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "pus. In fact, many of the design decisions in BERT were intentionally made to make it as close to GPT as possible so that the two methods could be",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00200",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "minimally compared. The core argument of this",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00201",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "work is that the bi-directionality and the two pre- training tasks presented in Section 3.1 account for the majority of the empirical improvements, but we do note that there are several other differences between how BERT and GPT were trained: • GPT is trained on the BooksCorpus (800M words); BERT is trained on the BooksCor- pus (800M words) and Wikipedia (2,500M words). • GPT uses a sentence separator ( [SEP]) and classiﬁer token ( [CLS]) which are only in- troduced at ﬁne-tuning time; BERT learns [SEP], [CLS] and sentence A/B embed- dings during pre-training. • GPT was trained for 1M steps with a batch size of 32,000 words; BERT was trained for 1M steps with a batch size of 128,000 words. • GPT used the same learning rate of 5e-5 for all ﬁne-tuning experiments; BERT chooses a task-speciﬁc ﬁne-tuning learning rate which performs the best on the development set. To isolate the effect of these differences, we per- form ablation experiments in Section 5.1 which demonstrate that the major...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00202",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "are in fact coming from the two pre-training tasks",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00203",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "and the bidirectionality they enable. A.5 Illustrations of Fine-tuning on Different Tasks The illustration of ﬁne-tuning BERT on different tasks can be seen in Figure 4. Our task-speciﬁc models are formed by incorporating BERT with",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00204",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "one additional output layer, so a minimal num-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00205",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "ber of parameters need to be learned from scratch. Among the tasks, (a) and (b) are sequence-level tasks while (c) and (d) are token-level tasks. In the ﬁgure, E represents the input embedding, Ti represents the contextual representation of tokeni, [CLS] is the special symbol for classiﬁcation out- put, and [SEP] is the special symbol to separate non-consecutive token sequences. B Detailed Experimental Setup B.1 Detailed Descriptions for the GLUE Benchmark Experiments. Our GLUE results in Table1 are obtained from https://gluebenchmark.com/",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00206",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "leaderboard and https://blog.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00207",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "openai.com/language-unsupervised. The GLUE benchmark includes the following datasets, the descriptions of which were originally summarized in Wang et al. (2018a): MNLI Multi-Genre Natural Language Inference",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00208",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "is a large-scale, crowdsourced entailment classiﬁ-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00209",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "cation task (Williams et al., 2018). Given a pair of sentences, the goal is to predict whether the sec- ond sentence is an entailment, contradiction, or neutral with respect to the ﬁrst one. QQP Quora Question Pairs is a binary classiﬁ-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00210",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "cation task where the goal is to determine if two",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00211",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "questions asked on Quora are semantically equiv- alent (Chen et al., 2018). QNLI Question Natural Language Inference is a version of the Stanford Question Answering Dataset (Rajpurkar et al., 2016) which has been converted to a binary classiﬁcation task (Wang et al., 2018a). The positive examples are (ques- tion, sentence) pairs which do contain the correct answer, and the negative examples are (question, sentence) from the same paragraph which do not contain the answer.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00212",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "BERT E[CLS] E1 E[SEP]... EN E1’ ... EM’ C T1 T[SEP]... TN T1’ ... TM’ [CLS] Tok 1 [SEP]... Tok N Tok 1 ... Tok M Question Paragraph BERT E[CLS] E1 E2 EN C T1 T2 TN Single Sentence ... ... BERT Tok 1 Tok 2 Tok N...[CLS] E[CLS] E1 E2 EN C T1 T2 TN Single Sentence B-PERO O ... ...E[CLS] E1 E[SEP] Class Label ... EN E1’ ... EM’ C T1 T[SEP]... TN T1’ ... TM’ Start/End Span Class Label BERT Tok 1 Tok 2 Tok N...[CLS] Tok 1[CLS][CLS] Tok 1 [SEP]... Tok N Tok 1 ... Tok M Sentence 1 ... Sentence 2",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00213",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Figure 4: Illustrations of Fine-tuning BERT on Different Tasks.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00214",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "SST-2 The Stanford Sentiment Treebank is a binary single-sentence classiﬁcation task consist- ing of sentences extracted from movie reviews with human annotations of their sentiment (Socher et al., 2013). CoLA The Corpus of Linguistic Acceptability is a binary single-sentence classiﬁcation task, where the goal is to predict whether an English sentence is linguistically “acceptable” or not (Warstadt et al., 2018). STS-B The Semantic Textual Similarity Bench- mark is a collection of sentence pairs drawn from news headlines and other sources (Cer et al., 2017). They were annotated with a score from 1 to 5 denoting how similar the two sentences are in terms of semantic meaning. MRPC Microsoft Research Paraphrase Corpus consists of sentence pairs automatically extracted from online news sources, with human annotations for whether the sentences in the pair are semanti- cally equivalent (Dolan and Brockett, 2005). RTE Recognizing Textual Entailment is a bi- nary entailment task similar to MN...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00215",
+      "page": 16,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "jority class. C Additional Ablation Studies C.1 Effect of Number of Training Steps",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00216",
+      "page": 16,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Figure 5 presents MNLI Dev accuracy after ﬁne-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00217",
+      "page": 16,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "tuning from a checkpoint that has been pre-trained fork steps. This allows us to answer the following questions: 1. Question: Does BERT really need such",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00218",
+      "page": 16,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "a large amount of pre-training (128,000",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00219",
+      "page": 16,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "words/batch * 1,000,000 steps) to achieve high ﬁne-tuning accuracy? Answer: Yes, BERT BASE achieves almost 1.0% additional accuracy on MNLI when trained on 1M steps compared to 500k steps. 2. Question: Does MLM pre-training converge slower than LTR pre-training, since only 15% of words are predicted in each batch rather than every word? Answer: The MLM model does converge slightly slower than the LTR model. How- ever, in terms of absolute accuracy the MLM model begins to outperform the LTR model almost immediately. C.2 Ablation for Different Masking Procedures In Section 3.1, we mention that BERT uses a",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00220",
+      "page": 16,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "mixed strategy for masking the target tokens when",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00221",
+      "page": 16,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "pre-training with the masked language model (MLM) objective. The following is an ablation study to evaluate the effect of different masking strategies. 200 400 600 800 1,000 76 78 80 82 84 Pre-training Steps (Thousands) MNLI Dev Accuracy BERTBASE (Masked LM) BERTBASE (Left-to-Right)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00222",
+      "page": 16,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Figure 5: Ablation over number of training steps. This",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00223",
+      "page": 16,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "shows the MNLI accuracy after ﬁne-tuning, starting from model parameters that have been pre-trained for k steps. The x-axis is the value ofk. Note that the purpose of the masking strategies is to reduce the mismatch between pre-training and ﬁne-tuning, as the [MASK] symbol never ap- pears during the ﬁne-tuning stage. We report the Dev results for both MNLI and NER. For NER, we report both ﬁne-tuning and feature-based ap- proaches, as we expect the mismatch will be am- pliﬁed for the feature-based approach as the model will not have the chance to adjust the representa- tions. Masking Rates Dev Set Results MASK SAME RND MNLI NER Fine-tune Fine-tune Feature-based 80% 10% 10% 84.2 95.4 94.9 100% 0% 0% 84.3 94.9 94.0 80% 0% 20% 84.1 95.2 94.6 80% 20% 0% 84.4 95.2 94.7 0% 20% 80% 83.7 94.8 94.6 0% 0% 100% 83.6 94.9 94.6",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00224",
+      "page": 16,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 8: Ablation over different masking strategies.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00225",
+      "page": 16,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "The results are presented in Table 8. In the table,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00226",
+      "page": 16,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "MASK means that we replace the target token with",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00227",
+      "page": 16,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "the [MASK] symbol for MLM; S AME means that",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00228",
+      "page": 16,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "we keep the target token as is; R ND means that",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00229",
+      "page": 16,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "we replace the target token with another random",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00230",
+      "page": 16,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "token. The numbers in the left part of the table repre- sent the probabilities of the speciﬁc strategies used during MLM pre-training (BERT uses 80%, 10%, 10%). The right part of the paper represents the Dev set results. For the feature-based approach, we concatenate the last 4 layers of BERT as the features, which was shown to be the best approach in Section 5.3. From the table it can be seen that ﬁne-tuning is surprisingly robust to different masking strategies. However, as expected, using only the MASK strat- egy was problematic when applying the feature- based approach to NER. Interestingly, using only the R ND strategy performs much worse than our strategy as well.",
+      "source_type": "paragraph"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "warnings": [
+      {
+        "code": "ok",
+        "message": "Grounding verification passed with current v1 checks.",
+        "target": null,
+        "severity": "info"
+      }
+    ],
+    "anchor_count": 230
+  }
+}
