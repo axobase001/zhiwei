@@ -1,3 +1,7 @@
+// ------------------------------
+// State and Copy
+// ------------------------------
+
 const moduleIds = ["structure", "formula", "evidence", "delta", "experiments", "reproduction"];
 
 const moduleText = {
@@ -114,7 +118,7 @@ const uiText = {
     "status.marked": "已标记"
   },
   en: {
-    "brand.name": "Zhiwei",
+    "brand.name": "知微",
     "brand.slogan": "See the structure. Understand the paper.",
     "header.currentPaper": "Current Paper",
     "actions.upload": "Upload PDF",
@@ -149,7 +153,7 @@ const uiText = {
     "library.defaultHint": "Showing the top {count} papers. Use regex to search the full library.",
     "detail.backOverview": "← Back to Overview",
     "detail.chooseNodeTitle": "Select a Structure Node",
-    "detail.chooseNodeText": "Zhiwei will show interpretation, evidence sources, and correction controls here.",
+    "detail.chooseNodeText": "This panel will show interpretation, evidence sources, and correction controls here.",
     "detail.interpretation": "Interpretation",
     "detail.role": "Role in the Paper",
     "detail.evidence": "Evidence and Sources",
@@ -234,6 +238,10 @@ document.addEventListener("DOMContentLoaded", () => {
   loadPapers();
 });
 
+// ------------------------------
+// I18N
+// ------------------------------
+
 function t(key, fallback = "") {
   return uiText[state.lang]?.[key] || uiText.zh[key] || fallback || key;
 }
@@ -250,7 +258,7 @@ function getModules() {
 function applyLanguage() {
   document.documentElement.lang = state.lang === "en" ? "en" : "zh-CN";
   document.documentElement.dataset.lang = state.lang;
-  document.title = state.lang === "en" ? "Zhiwei · Paper IR Infrastructure" : "知微 · 论文结构化理解基础设施";
+  document.title = state.lang === "en" ? "知微 · Paper IR Infrastructure" : "知微 · 论文结构化理解基础设施";
   document.querySelectorAll("[data-i18n]").forEach((el) => {
     el.textContent = t(el.dataset.i18n, el.textContent);
   });
@@ -331,6 +339,10 @@ async function api(path, options = {}) {
   }
   return response.json();
 }
+
+// ------------------------------
+// Data Loading
+// ------------------------------
 
 async function loadPapers() {
   const data = await api("/api/papers");
@@ -537,6 +549,10 @@ function renderTabs() {
   document.body.classList.toggle("overview-mode", state.view === "overview");
   document.body.classList.toggle("detail-mode", state.view === "detail");
 }
+
+// ------------------------------
+// Renderers
+// ------------------------------
 
 function renderWarnings() {
   const warnings = (state.ir?.verification?.warnings || []).filter((warning) => warning.severity !== "info");
@@ -1127,6 +1143,10 @@ function renderDetail() {
   bindAnchorButtons();
 }
 
+// ------------------------------
+// Detail Panel
+// ------------------------------
+
 function renderOverviewGuide() {
   const formulaCount = state.ir?.formula_ir?.formulas?.length || 0;
   const claimCount = state.ir?.claim_evidence_map?.claims?.length || 0;
@@ -1225,6 +1245,10 @@ function bindAnchorButtons() {
   });
 }
 
+// ------------------------------
+// Source Anchors
+// ------------------------------
+
 function goToAnchor(anchorId, focus = true) {
   const anchor = state.anchorMap.get(anchorId);
   if (!anchor) return;
@@ -1305,10 +1329,18 @@ async function reparseCurrent() {
   await selectPaper(state.paper.id);
 }
 
+// ------------------------------
+// Export
+// ------------------------------
+
 function exportFile(kind) {
   if (!state.paper) return;
   window.location.href = `/api/papers/${state.paper.id}/export/${kind}`;
 }
+
+// ------------------------------
+// Corrections
+// ------------------------------
 
 async function saveCorrection(event) {
   event.preventDefault();

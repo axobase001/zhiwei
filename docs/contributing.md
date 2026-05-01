@@ -1,13 +1,13 @@
 # Contributing
 
-知微 is organized as an open academic infrastructure project.
+知微是一个开源的学术基础设施项目。贡献应优先增强 Paper IR、source grounding、验证能力和可复用组件，而不是把论文内容写死在界面里。
 
 ## Project Principles
 
 - Paper IR first. UI must render structured data, not hardcoded paper content.
 - Source grounding first. Generated paper-specific claims must cite anchors.
 - Verification first. Missing anchors, unsupported claims, and low-confidence variables must remain visible.
-- Examples are data. Demo papers belong in `examples/*/paper_ir.json`, not in UI components.
+- Examples are data. Demo papers belong in `examples/*/paper-ir.json`, not in UI components.
 - Extensions should preserve the core schema and add fields instead of replacing the contract.
 
 ## Repository Layout
@@ -30,7 +30,7 @@ docs/           public specs and project docs
 
 ## Adding A Paper Example
 
-1. Put generated Paper IR at `examples/<paper-slug>/paper_ir.json`.
+1. Put generated Paper IR at `examples/<paper-slug>/paper-ir.json`.
 2. Ensure every module has anchors.
 3. Run grounding verification.
 4. Add a short README explaining source and generation mode.

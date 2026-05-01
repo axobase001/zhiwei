@@ -13,4 +13,8 @@ The web app does not own paper analysis content. It fetches Paper IR from the AP
 - reproduction roadmap,
 - source anchor panel.
 
-Current implementation is a static web app under `static/`.
+Current implementation is a static web app under `static/`, served locally by:
+
+```bash
+npm run dev
+```

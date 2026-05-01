@@ -1,6 +1,6 @@
 # @zhiwei/paper-ir
 
-Open Paper IR schemas for 知微.
+开放 Paper IR schemas for 知微.
 
 This package is the protocol boundary of the project. Parsers, extractors, renderers, benchmarks, and external tools should exchange paper understanding through these schemas rather than through UI-specific data.
 
