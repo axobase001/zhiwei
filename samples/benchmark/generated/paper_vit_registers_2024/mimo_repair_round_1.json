@@ -1,0 +1,1353 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "现代视觉Transformer（如DINOv2、OpenCLIP、DeiT-III）在特征图中存在高范数异常标记（artifacts），这些标记出现在低信息量的背景区域，被模型重新用于内部计算，导致局部特征信息丢失和注意力图不清晰，影响下游视觉处理任务。",
+      "anchors": [
+        "anc_00005",
+        "anc_00013",
+        "anc_00023",
+        "anc_00024",
+        "anc_00025"
+      ]
+    },
+    "motivation": {
+      "summary": "这些异常标记会损害模型在密集预测任务（如分割、深度估计）上的性能，并阻碍无监督物体发现方法（如LOST）在现代骨干网络上的应用。需要一种简单有效的方法来消除这些伪影，同时保持或提升模型性能。",
+      "anchors": [
+        "anc_00005",
+        "anc_00021",
+        "anc_00071"
+      ]
+    },
+    "core_idea": {
+      "summary": "通过向输入序列添加额外的可学习标记（称为“寄存器”），为模型提供专门的标记来执行全局信息聚合，从而避免模型将补丁标记重新用于此目的，消除特征图中的高范数异常标记。",
+      "anchors": [
+        "anc_00021",
+        "anc_00040",
+        "anc_00041",
+        "anc_00047"
+      ]
+    },
+    "method": {
+      "summary": "在补丁嵌入层之后，向输入序列添加N个可学习的寄存器标记（[REG]）。在模型输出时，仅使用补丁标记和[CLS]标记，寄存器标记在训练和推理过程中均不用于下游任务。这是一种简单的架构修改，可应用于任何训练流程。",
+      "anchors": [
+        "anc_00040",
+        "anc_00041",
+        "anc_00047"
+      ]
+    },
+    "experiments": {
+      "summary": "在三种不同的训练范式（监督学习DeiT-III、文本监督学习OpenCLIP、自监督学习DINOv2）上验证了方法的有效性。评估了线性探测（ImageNet分类、ADE20k分割、NYUd深度估计）、零样本分类、无监督物体发现（LOST）以及定性分析。",
+      "anchors": [
+        "anc_00050",
+        "anc_00051",
+        "anc_00055",
+        "anc_00056",
+        "anc_00058",
+        "anc_00060",
+        "anc_00061",
+        "anc_00062",
+        "anc_00063",
+        "anc_00064",
+        "anc_00067",
+        "anc_00069",
+        "anc_00071",
+        "anc_00072",
+        "anc_00073",
+        "anc_00074",
+        "anc_00076",
+        "anc_00077",
+        "anc_00078"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "视觉Transformer中的高范数异常标记是模型将低信息量补丁重新用于全局信息聚合的结果。",
+        "anchors": [
+          "anc_00025",
+          "anc_00027",
+          "anc_00028",
+          "anc_00029",
+          "anc_00037",
+          "anc_00038",
+          "anc_00044",
+          "anc_00046",
+          "anc_00047"
+        ]
+      },
+      {
+        "claim_id": "claim_2",
+        "claim": "添加寄存器标记可以完全消除这些异常标记，使特征图和注意力图更平滑。",
+        "anchors": [
+          "anc_00021",
+          "anc_00053",
+          "anc_00054",
+          "anc_00058",
+          "anc_00059",
+          "anc_00075",
+          "anc_00076",
+          "anc_00119",
+          "anc_00120",
+          "anc_00121",
+          "anc_00122",
+          "anc_00148"
+        ]
+      },
+      {
+        "claim_id": "claim_3",
+        "claim": "该方法不会导致下游任务性能下降，甚至在某些情况下能带来轻微提升。",
+        "anchors": [
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064"
+        ]
+      },
+      {
+        "claim_id": "claim_4",
+        "claim": "添加寄存器标记后，无监督物体发现方法（如LOST）在现代骨干网络上的性能显著提高。",
+        "anchors": [
+          "anc_00071",
+          "anc_00072",
+          "anc_00073",
+          "anc_00074"
+        ]
+      },
+      {
+        "claim_id": "claim_5",
+        "claim": "寄存器标记会自然地学习到多样化的注意力模式，有时会关注场景中的不同物体。",
+        "anchors": [
+          "anc_00075",
+          "anc_00076",
+          "anc_00077",
+          "anc_00078"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "论文未能完全确定导致不同模型出现伪影的具体训练因素。对于OpenCLIP模型，添加寄存器标记在物体发现任务上性能略有下降，原因有待进一步分析。寄存器标记范数量化现象的原因未得到解释。",
+        "anchors": [
+          "anc_00048",
+          "anc_00049",
+          "anc_00076",
+          "anc_00122"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "问题识别：特征图中的高范数异常标记",
+        "label": "问题分析",
+        "summary": "识别并量化视觉Transformer特征图中的高范数异常标记（artifacts），这些标记出现在低信息量背景区域，范数远高于正常补丁标记。",
+        "description": "通过观察DINOv2等模型的输出特征范数分布，发现存在双峰分布，少数标记具有异常高的范数（例如>150）。这些标记在训练后期（约1/3训练后）出现，且主要出现在大型模型（ViT-Large及以上）中。它们与邻居补丁的余弦相似度较低，但包含更多的全局图像信息（线性探测准确率高）。",
+        "type": "analysis",
+        "anchors": [
+          "anc_00025",
+          "anc_00027",
+          "anc_00028",
+          "anc_00029",
+          "anc_00037",
+          "anc_00038",
+          "anc_00044"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "假设：模型将低信息量标记重新用于全局聚合",
+        "label": "核心假设",
+        "summary": "提出假设：大型、充分训练的模型学会识别冗余标记，并将其用作存储、处理和检索全局信息的位置。",
+        "description": "基于观察到的异常标记特性（高范数、低局部信息、高全局信息），推断模型将低信息量背景区域的补丁标记重新用于内部计算，以聚合全局信息。这种行为本身并非有害，但发生在补丁标记内部会导致局部信息丢失，可能损害密集预测任务的性能。",
+        "type": "hypothesis",
+        "anchors": [
+          "anc_00046",
+          "anc_00047"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "解决方案：添加寄存器标记",
+        "label": "方法提出",
+        "summary": "提出简单修复方案：向输入序列显式添加新的可学习标记（寄存器），供模型用作寄存器，从而避免模型将补丁标记重新用于此目的。",
+        "description": "在补丁嵌入层之后，添加N个可学习的输入标记（[REG]），其值可学习，类似于[CLS]标记。在模型输出时，仅使用补丁标记和[CLS]标记，寄存器标记在训练和推理过程中均不用于下游任务。这是一种简单的架构修改。",
+        "type": "method",
+        "anchors": [
+          "anc_00040",
+          "anc_00041",
+          "anc_00047"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "实验验证：消除伪影并提升性能",
+        "label": "实验验证",
+        "summary": "在多种训练范式和下游任务上验证寄存器标记的有效性，包括消除伪影、保持或提升性能、改善物体发现。",
+        "description": "在DeiT-III（监督）、OpenCLIP（文本监督）、DINOv2（自监督）上训练带寄存器的模型。定量分析显示，添加寄存器后，输出特征中不再出现高范数异常标记。线性探测和零样本分类性能未下降，甚至略有提升。无监督物体发现（LOST）性能显著提高（例如DINOv2在VOC2012上corloc从40.2提升至60.0）。定性分析显示寄存器标记学习到多样化的注意力模式。",
+        "type": "experiment",
+        "anchors": [
+          "anc_00050",
+          "anc_00051",
+          "anc_00055",
+          "anc_00056",
+          "anc_00058",
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064",
+          "anc_00067",
+          "anc_00069",
+          "anc_00071",
+          "anc_00072",
+          "anc_00073",
+          "anc_00074",
+          "anc_00076",
+          "anc_00077",
+          "anc_00078"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "消融研究：寄存器数量的影响",
+        "label": "消融分析",
+        "summary": "研究寄存器标记数量对消除伪影和下游任务性能的影响。",
+        "description": "训练DINOv2 ViT-L/14模型，使用0、1、2、4、8、16个寄存器。发现一个寄存器足以消除伪影，但使用更多寄存器（如4个）在密集任务（分割、深度）上带来进一步性能提升。在ImageNet分类上，性能随寄存器数量增加而持续提升。最终实验中固定使用4个寄存器。",
+        "type": "ablation",
+        "anchors": [
+          "anc_00065",
+          "anc_00066",
+          "anc_00067",
+          "anc_00068",
+          "anc_00069"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "基于观察提出假设",
+        "description": "对异常标记特性的分析（高范数、低局部信息、高全局信息）为“模型重新用于全局聚合”的假设提供了证据。",
+        "anchors": [
+          "anc_00037",
+          "anc_00038",
+          "anc_00044",
+          "anc_00046"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "假设指导解决方案",
+        "description": "假设指出问题在于模型将补丁标记重新用于全局聚合，因此解决方案是提供专门的寄存器标记来承担此角色。",
+        "anchors": [
+          "anc_00046",
+          "anc_00047"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "方法实施与验证",
+        "description": "提出的寄存器标记方法在多种模型和任务上进行实验验证。",
+        "anchors": [
+          "anc_00050",
+          "anc_00051",
+          "anc_00055",
+          "anc_00056"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "label": "进一步分析",
+        "description": "在验证方法有效性的基础上，进行消融研究以确定最佳寄存器数量。",
+        "anchors": [
+          "anc_00065",
+          "anc_00066",
+          "anc_00067"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00014",
+        "anc_00023",
+        "anc_00024"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00040",
+        "anc_00041",
+        "anc_00047"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "模型可能将低信息量背景区域的补丁标记重新用于全局信息聚合，导致这些标记出现高范数异常，局部信息丢失，特征图和注意力图存在伪影。",
+        "after": "模型有了专门的寄存器标记可用于全局信息聚合，补丁标记不再被重新用于此目的，因此高范数异常标记消失，特征图和注意力图变得平滑。",
+        "why_it_matters": "消除了特征图中的伪影，保留了补丁标记的局部信息，从而提升了密集预测任务（如分割、深度估计）的性能，并使得无监督物体发现方法（如LOST）在现代骨干网络上能够有效工作。",
+        "anchors": [
+          "anc_00021",
+          "anc_00047",
+          "anc_00058",
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064",
+          "anc_00071",
+          "anc_00072",
+          "anc_00073",
+          "anc_00074"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "无监督物体发现方法（如LOST）在DINOv2等现代骨干网络上性能不佳，因为其依赖平滑的特征图，而这些模型存在伪影。",
+        "after": "添加寄存器标记后，特征图变得平滑，LOST等方法的性能显著提升（例如DINOv2在VOC2012上corloc从40.2提升至60.0）。",
+        "why_it_matters": "使得基于自监督或现代监督模型的无监督物体发现成为可能，扩展了这些强大骨干网络的应用范围。",
+        "anchors": [
+          "anc_00071",
+          "anc_00072",
+          "anc_00073",
+          "anc_00074"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "模型内部计算机制不透明，异常标记的出现原因和作用不明确。",
+        "after": "通过添加寄存器标记并观察其行为，为理解模型内部机制（如何聚合全局信息）提供了新的视角。寄存器标记会自然学习到多样化的注意力模式。",
+        "why_it_matters": "增进了对Vision Transformer内部工作机制的理解，为未来设计更好的架构或训练方法提供了启示。",
+        "anchors": [
+          "anc_00077",
+          "anc_00078"
+        ],
+        "delta_id": "delta_3"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\text{Outlier tokens: } \\|\\mathbf{z}_i\\|_2 > \\tau \\quad (\\text{e.g., } \\tau = 150)",
+        "variables": [
+          {
+            "name": "\\mathbf{z}_i",
+            "description": "模型输出的第i个补丁标记的嵌入向量。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00025"
+            ]
+          },
+          {
+            "name": "\\tau",
+            "description": "用于区分异常标记和正常标记的范数阈值（例如150）。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00025"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "通过设定一个范数阈值，可以定量地识别出特征图中的高范数异常标记。这些标记的范数远高于正常补丁标记，形成双峰分布。",
+        "anchors": [
+          "anc_00025"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "\\text{Input sequence: } [\\text{CLS}], [\\text{REG}_1], [\\text{REG}_2], \\dots, [\\text{REG}_N], \\mathbf{p}_1, \\mathbf{p}_2, \\dots, \\mathbf{p}_M",
+        "variables": [
+          {
+            "name": "[\\text{CLS}]",
+            "description": "用于全局表示的类标记。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00040"
+            ]
+          },
+          {
+            "name": "[\\text{REG}_k]",
+            "description": "第k个可学习的寄存器标记。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00040",
+              "anc_00041"
+            ]
+          },
+          {
+            "name": "\\mathbf{p}_j",
+            "description": "第j个图像补丁的嵌入向量。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00040"
+            ]
+          },
+          {
+            "name": "N",
+            "description": "添加的寄存器标记数量（实验中通常为4）。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00069"
+            ]
+          },
+          {
+            "name": "M",
+            "description": "图像补丁的数量。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00040"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "这是添加寄存器标记后的输入序列结构。寄存器标记被插入到[CLS]标记之后、补丁标记之前，为模型提供专门的标记用于内部计算。",
+        "anchors": [
+          "anc_00040",
+          "anc_00041"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "\\text{Output used: } [\\text{CLS}], \\mathbf{p}_1, \\mathbf{p}_2, \\dots, \\mathbf{p}_M \\quad (\\text{registers discarded})",
+        "variables": [
+          {
+            "name": "[\\text{CLS}]",
+            "description": "用于全局表示的类标记。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00041"
+            ]
+          },
+          {
+            "name": "\\mathbf{p}_j",
+            "description": "第j个图像补丁的嵌入向量。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00041"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "在训练和推理过程中，仅使用补丁标记和[CLS]标记作为输出特征，寄存器标记被丢弃。这确保了寄存器标记仅用于模型内部计算，不影响下游任务的输入。",
+        "anchors": [
+          "anc_00041"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "experiment": "线性探测（冻结特征）",
+        "description": "在ImageNet分类、ADE20k分割、NYUd深度估计上评估模型性能。",
+        "result_summary": "添加寄存器标记后，所有模型（DeiT-III, OpenCLIP, DINOv2）的性能未下降，甚至略有提升。例如，DINOv2在ADE20k上的mIoU从46.6提升至47.9。",
+        "anchors": [
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064"
+        ]
+      },
+      {
+        "experiment": "零样本分类（OpenCLIP）",
+        "description": "评估OpenCLIP模型在ImageNet上的零样本分类准确率。",
+        "result_summary": "添加寄存器标记后，零样本准确率从59.9%略微提升至60.1%。",
+        "anchors": [
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064"
+        ]
+      },
+      {
+        "experiment": "无监督物体发现（LOST）",
+        "description": "在VOC 2007、VOC 2012、COCO 20k上评估LOST算法的corloc指标。",
+        "result_summary": "对于DINOv2和DeiT-III，添加寄存器标记后性能显著提升。例如，DINOv2在VOC2012上的corloc从40.2提升至60.0。对于OpenCLIP，性能略有下降。",
+        "anchors": [
+          "anc_00071",
+          "anc_00072",
+          "anc_00073",
+          "anc_00074"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "experiment": "寄存器数量消融",
+        "description": "训练DINOv2 ViT-L/14模型，使用0、1、2、4、8、16个寄存器，评估在ImageNet、ADE20k、NYUd上的性能。",
+        "result_summary": "一个寄存器足以消除伪影。在密集任务（分割、深度）上，4个寄存器左右达到最优。在ImageNet分类上，性能随寄存器数量增加而持续提升。",
+        "anchors": [
+          "anc_00065",
+          "anc_00066",
+          "anc_00067",
+          "anc_00068",
+          "anc_00069"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "experiment": "跨训练范式验证",
+        "description": "在三种不同的训练范式（监督DeiT-III、文本监督OpenCLIP、自监督DINOv2）上验证方法。",
+        "result_summary": "方法在所有三种范式上均能有效消除伪影，并保持或提升下游任务性能，证明了其通用性。",
+        "anchors": [
+          "anc_00055",
+          "anc_00056",
+          "anc_00058",
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "experiment": "模型规模分析",
+        "description": "分析不同模型规模（Tiny, Small, Base, Large, Huge, Giant）下异常标记的出现情况。",
+        "result_summary": "异常标记主要出现在大型模型（ViT-Large及以上）中。寄存器标记方法在这些大型模型上进行了验证。",
+        "anchors": [
+          "anc_00029",
+          "anc_00034"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "experiment": "定性分析：注意力图可视化",
+        "description": "可视化比较有无寄存器标记的模型在最后一层的注意力图。",
+        "result_summary": "添加寄存器标记后，注意力图变得平滑、可解释，伪影消失。寄存器标记自身学习到多样化的注意力模式，有时关注场景中的不同物体。",
+        "anchors": [
+          "anc_00007",
+          "anc_00008",
+          "anc_00009",
+          "anc_00053",
+          "anc_00054",
+          "anc_00075",
+          "anc_00076",
+          "anc_00077",
+          "anc_00078",
+          "anc_00148"
+        ]
+      }
+    ],
+    "human_eval": null,
+    "benchmark": [
+      {
+        "name": "ImageNet-1k",
+        "task": "图像分类",
+        "anchors": [
+          "anc_00038",
+          "anc_00061"
+        ]
+      },
+      {
+        "name": "ADE20k",
+        "task": "语义分割",
+        "anchors": [
+          "anc_00061"
+        ]
+      },
+      {
+        "name": "NYUd",
+        "task": "单目深度估计",
+        "anchors": [
+          "anc_00061"
+        ]
+      },
+      {
+        "name": "VOC 2007/2012, COCO 20k",
+        "task": "无监督物体发现 (corloc)",
+        "anchors": [
+          "anc_00072",
+          "anc_00073"
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "metric": "计算开销（FLOPs）",
+        "result_summary": "添加4个寄存器标记，模型FLOPs增加低于2%。添加16个寄存器，FLOPs增加最多6%。参数量增加可忽略不计。",
+        "anchors": [
+          "anc_00110",
+          "anc_00111"
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "experiment": "线性探测（冻结特征）",
+        "description": "在ImageNet分类、ADE20k分割、NYUd深度估计上评估模型性能。",
+        "result_summary": "添加寄存器标记后，所有模型（DeiT-III, OpenCLIP, DINOv2）的性能未下降，甚至略有提升。例如，DINOv2在ADE20k上的mIoU从46.6提升至47.9。",
+        "anchors": [
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "线性探测（冻结特征）",
+        "dataset": [
+          "ImageNet-1k",
+          "ADE20k",
+          "NYUd"
+        ],
+        "baseline": [
+          "DeiT-III",
+          "OpenCLIP",
+          "DINOv2"
+        ],
+        "metrics": [
+          "Top-1 accuracy",
+          "mIoU",
+          "RMSE"
+        ],
+        "what_it_tries_to_prove": "验证添加寄存器标记不会损害模型在标准下游任务上的特征质量，甚至可能带来提升。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "零样本分类（OpenCLIP）",
+        "description": "评估OpenCLIP模型在ImageNet上的零样本分类准确率。",
+        "result_summary": "添加寄存器标记后，零样本准确率从59.9%略微提升至60.1%。",
+        "anchors": [
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "main_result",
+        "name": "零样本分类（OpenCLIP）",
+        "dataset": [
+          "ImageNet-1k"
+        ],
+        "baseline": [
+          "OpenCLIP"
+        ],
+        "metrics": [
+          "Top-1 accuracy"
+        ],
+        "what_it_tries_to_prove": "验证添加寄存器标记不会损害文本监督模型的零样本分类能力。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "无监督物体发现（LOST）",
+        "description": "在VOC 2007、VOC 2012、COCO 20k上评估LOST算法的corloc指标。",
+        "result_summary": "对于DINOv2和DeiT-III，添加寄存器标记后性能显著提升。例如，DINOv2在VOC2012上的corloc从40.2提升至60.0。对于OpenCLIP，性能略有下降。",
+        "anchors": [
+          "anc_00071",
+          "anc_00072",
+          "anc_00073",
+          "anc_00074"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "main_result",
+        "name": "无监督物体发现（LOST）",
+        "dataset": [
+          "VOC 2007",
+          "VOC 2012",
+          "COCO 20k"
+        ],
+        "baseline": [
+          "DeiT-III",
+          "OpenCLIP",
+          "DINOv2"
+        ],
+        "metrics": [
+          "corloc"
+        ],
+        "what_it_tries_to_prove": "验证添加寄存器标记能显著提升依赖平滑特征图的无监督物体发现方法的性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "寄存器数量消融",
+        "description": "训练DINOv2 ViT-L/14模型，使用0、1、2、4、8、16个寄存器，评估在ImageNet、ADE20k、NYUd上的性能。",
+        "result_summary": "一个寄存器足以消除伪影。在密集任务（分割、深度）上，4个寄存器左右达到最优。在ImageNet分类上，性能随寄存器数量增加而持续提升。",
+        "anchors": [
+          "anc_00065",
+          "anc_00066",
+          "anc_00067",
+          "anc_00068",
+          "anc_00069"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "ablation",
+        "name": "寄存器数量消融",
+        "dataset": [
+          "ImageNet-1k",
+          "ADE20k",
+          "NYUd"
+        ],
+        "baseline": [
+          "DINOv2 ViT-L/14"
+        ],
+        "metrics": [
+          "Top-1 accuracy",
+          "mIoU",
+          "RMSE"
+        ],
+        "what_it_tries_to_prove": "确定消除伪影和获得最佳下游性能所需的寄存器标记数量。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "跨训练范式验证",
+        "description": "在三种不同的训练范式（监督DeiT-III、文本监督OpenCLIP、自监督DINOv2）上验证方法。",
+        "result_summary": "方法在所有三种范式上均能有效消除伪影，并保持或提升下游任务性能，证明了其通用性。",
+        "anchors": [
+          "anc_00055",
+          "anc_00056",
+          "anc_00058",
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "robustness",
+        "name": "跨训练范式验证",
+        "dataset": [
+          "ImageNet-1k",
+          "ADE20k",
+          "NYUd"
+        ],
+        "baseline": [
+          "DeiT-III",
+          "OpenCLIP",
+          "DINOv2"
+        ],
+        "metrics": [
+          "Top-1 accuracy",
+          "mIoU",
+          "RMSE"
+        ],
+        "what_it_tries_to_prove": "证明寄存器标记方法在不同训练范式下均有效，具有通用性。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "模型规模分析",
+        "description": "分析不同模型规模（Tiny, Small, Base, Large, Huge, Giant）下异常标记的出现情况。",
+        "result_summary": "异常标记主要出现在大型模型（ViT-Large及以上）中。寄存器标记方法在这些大型模型上进行了验证。",
+        "anchors": [
+          "anc_00029",
+          "anc_00034"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "scaling",
+        "name": "模型规模分析",
+        "dataset": [
+          "DINOv2"
+        ],
+        "baseline": [
+          "DINOv2 ViT-Ti, S, B, L, H, g"
+        ],
+        "metrics": [
+          "特征范数分布"
+        ],
+        "what_it_tries_to_prove": "确定异常标记出现的模型规模条件，为方法应用范围提供依据。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "定性分析：注意力图可视化",
+        "description": "可视化比较有无寄存器标记的模型在最后一层的注意力图。",
+        "result_summary": "添加寄存器标记后，注意力图变得平滑、可解释，伪影消失。寄存器标记自身学习到多样化的注意力模式，有时关注场景中的不同物体。",
+        "anchors": [
+          "anc_00007",
+          "anc_00008",
+          "anc_00009",
+          "anc_00053",
+          "anc_00054",
+          "anc_00075",
+          "anc_00076",
+          "anc_00077",
+          "anc_00078",
+          "anc_00148"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "case_study",
+        "name": "定性分析：注意力图可视化",
+        "dataset": [
+          "示例图像"
+        ],
+        "baseline": [
+          "DeiT-III",
+          "OpenCLIP",
+          "DINOv2"
+        ],
+        "metrics": [
+          "视觉可解释性"
+        ],
+        "what_it_tries_to_prove": "直观展示寄存器标记对特征图和注意力图平滑度的改善效果，以及寄存器标记的涌现行为。",
+        "evidence_strength": "moderate"
+      },
+      {
+        "experiment": "计算开销分析",
+        "description": "分析添加不同数量寄存器标记对模型参数量和计算量（FLOPs）的影响。",
+        "result_summary": "添加4个寄存器标记，模型FLOPs增加低于2%。添加16个寄存器，FLOPs增加最多6%。参数量增加可忽略不计。",
+        "anchors": [
+          "anc_00110",
+          "anc_00111"
+        ],
+        "experiment_id": "experiment_8",
+        "type": "efficiency",
+        "name": "计算开销分析",
+        "dataset": [],
+        "baseline": [
+          "DeiT-III",
+          "OpenCLIP",
+          "DINOv2"
+        ],
+        "metrics": [
+          "FLOPs",
+          "参数量"
+        ],
+        "what_it_tries_to_prove": "评估添加寄存器标记带来的额外计算和存储成本。",
+        "evidence_strength": "strong"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim_id": "claim_001",
+        "claim_text": "视觉Transformer中的高范数异常标记是模型将低信息量补丁重新用于全局信息聚合的结果。",
+        "evidence_source_type": "实验观察与线性探测",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00025",
+          "anc_00027",
+          "anc_00028",
+          "anc_00029",
+          "anc_00037",
+          "anc_00038",
+          "anc_00044",
+          "anc_00046",
+          "anc_00047"
+        ],
+        "risk_flags": [
+          "假设基于相关性观察，因果关系有待进一步验证。"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evidence_001",
+            "description": "异常标记的范数远高于正常标记（>150），形成双峰分布。",
+            "anchors": [
+              "anc_00025"
+            ]
+          },
+          {
+            "evidence_id": "evidence_002",
+            "description": "异常标记出现在训练后期（约1/3训练后）和大型模型（ViT-Large及以上）中。",
+            "anchors": [
+              "anc_00027",
+              "anc_00028",
+              "anc_00029"
+            ]
+          },
+          {
+            "evidence_id": "evidence_003",
+            "description": "异常标记与邻居补丁的余弦相似度低，但线性探测分类准确率高，表明其存储全局信息而非局部信息。",
+            "anchors": [
+              "anc_00037",
+              "anc_00038",
+              "anc_00044"
+            ]
+          },
+          {
+            "evidence_id": "evidence_004",
+            "description": "基于上述观察，提出模型将低信息量标记重新用于全局聚合的假设。",
+            "anchors": [
+              "anc_00046",
+              "anc_00047"
+            ]
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_002",
+        "claim_text": "添加寄存器标记可以完全消除这些异常标记，使特征图和注意力图更平滑。",
+        "evidence_source_type": "定量分析（范数分布）与定性可视化",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00021",
+          "anc_00053",
+          "anc_00054",
+          "anc_00058",
+          "anc_00059",
+          "anc_00075",
+          "anc_00076",
+          "anc_00119",
+          "anc_00120",
+          "anc_00121",
+          "anc_00122",
+          "anc_00148"
+        ],
+        "risk_flags": [],
+        "evidence": [
+          {
+            "evidence_id": "evidence_005",
+            "description": "训练带寄存器的模型后，输出特征中不再出现高范数异常标记（范数分布图显示双峰消失）。",
+            "anchors": [
+              "anc_00053",
+              "anc_00054",
+              "anc_00058",
+              "anc_00059",
+              "anc_00119",
+              "anc_00120",
+              "anc_00121",
+              "anc_00122"
+            ]
+          },
+          {
+            "evidence_id": "evidence_006",
+            "description": "注意力图可视化显示，添加寄存器后，注意力图变得平滑、可解释，伪影消失。",
+            "anchors": [
+              "anc_00075",
+              "anc_00076",
+              "anc_00148"
+            ]
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_003",
+        "claim_text": "该方法不会导致下游任务性能下降，甚至在某些情况下能带来轻微提升。",
+        "evidence_source_type": "下游任务评估（线性探测、零样本分类）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064"
+        ],
+        "risk_flags": [
+          "性能提升幅度较小，可能在统计误差范围内。"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evidence_007",
+            "description": "线性探测结果显示，添加寄存器后，所有模型在ImageNet分类、ADE20k分割、NYUd深度估计上的性能未下降，甚至略有提升（如DINOv2在ADE20k上mIoU从46.6提升至47.9）。",
+            "anchors": [
+              "anc_00060",
+              "anc_00061",
+              "anc_00062",
+              "anc_00063",
+              "anc_00064"
+            ]
+          },
+          {
+            "evidence_id": "evidence_008",
+            "description": "零样本分类结果显示，OpenCLIP模型的准确率从59.9%略微提升至60.1%。",
+            "anchors": [
+              "anc_00061",
+              "anc_00062",
+              "anc_00063",
+              "anc_00064"
+            ]
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_004",
+        "claim_text": "添加寄存器标记后，无监督物体发现方法（如LOST）在现代骨干网络上的性能显著提高。",
+        "evidence_source_type": "LOST算法评估（corloc指标）",
+        "support_strength": "强（对于DINOv2和DeiT-III），中等（对于OpenCLIP）",
+        "anchors": [
+          "anc_00071",
+          "anc_00072",
+          "anc_00073",
+          "anc_00074"
+        ],
+        "risk_flags": [
+          "对于OpenCLIP模型，性能略有下降，原因有待分析。"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evidence_009",
+            "description": "LOST算法评估显示，对于DINOv2和DeiT-III，添加寄存器后corloc指标显著提升（如DINOv2在VOC2012上从40.2提升至60.0）。",
+            "anchors": [
+              "anc_00071",
+              "anc_00072",
+              "anc_00073",
+              "anc_00074"
+            ]
+          },
+          {
+            "evidence_id": "evidence_010",
+            "description": "对于OpenCLIP模型，添加寄存器后corloc指标略有下降。",
+            "anchors": [
+              "anc_00072",
+              "anc_00073",
+              "anc_00074"
+            ]
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_005",
+        "claim_text": "寄存器标记会自然地学习到多样化的注意力模式，有时会关注场景中的不同物体。",
+        "evidence_source_type": "定性可视化",
+        "support_strength": "中等",
+        "anchors": [
+          "anc_00075",
+          "anc_00076",
+          "anc_00077",
+          "anc_00078"
+        ],
+        "risk_flags": [
+          "观察到的现象是涌现的，并非训练目标直接导致，其稳定性和可解释性有待研究。"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evidence_011",
+            "description": "注意力图可视化显示，不同的寄存器标记会关注图像中的不同区域或物体，表现出多样化的注意力模式。",
+            "anchors": [
+              "anc_00075",
+              "anc_00076",
+              "anc_00077",
+              "anc_00078"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "Artifacts (伪影/异常标记)",
+        "definition": "在视觉Transformer的特征图或注意力图中出现的异常模式，具体表现为少数补丁标记具有异常高的L2范数，通常出现在低信息量的背景区域。",
+        "context": "本文特指Vision Transformer输出特征中的高范数离群值标记。",
+        "anchors": [
+          "anc_00005",
+          "anc_00013",
+          "anc_00023",
+          "anc_00024",
+          "anc_00025"
+        ],
+        "appears_in": [
+          "anc_00005",
+          "anc_00013",
+          "anc_00023",
+          "anc_00024",
+          "anc_00025"
+        ]
+      },
+      {
+        "term": "Register Tokens (寄存器标记)",
+        "definition": "本文提出的一种可学习的输入标记，添加到Vision Transformer的输入序列中，专门用于模型内部的全局信息聚合计算，以避免模型将补丁标记重新用于此目的。",
+        "context": "在补丁嵌入后添加，输出时被丢弃，仅用于模型内部计算。",
+        "anchors": [
+          "anc_00021",
+          "anc_00040",
+          "anc_00041",
+          "anc_00047"
+        ],
+        "appears_in": [
+          "anc_00021",
+          "anc_00040",
+          "anc_00041",
+          "anc_00047"
+        ]
+      },
+      {
+        "term": "DINOv2",
+        "definition": "一种强大的自监督视觉Transformer模型，由Meta提出，在多个下游任务上表现优异，但本文发现其特征图存在高范数异常标记。",
+        "context": "本文的主要分析对象之一。",
+        "anchors": [
+          "anc_00014",
+          "anc_00015",
+          "anc_00016",
+          "anc_00017",
+          "anc_00023",
+          "anc_00024"
+        ],
+        "appears_in": [
+          "anc_00014",
+          "anc_00015",
+          "anc_00016",
+          "anc_00017",
+          "anc_00023",
+          "anc_00024"
+        ]
+      },
+      {
+        "term": "LOST (Localizing Objects with Self-supervised Transformers)",
+        "definition": "一种无监督物体发现方法，依赖于自监督Transformer（如DINO）提取的平滑局部特征图来定位物体。",
+        "context": "本文用LOST来评估寄存器标记对特征图平滑度的改善效果。",
+        "anchors": [
+          "anc_00021",
+          "anc_00071",
+          "anc_00072",
+          "anc_00073",
+          "anc_00074"
+        ],
+        "appears_in": [
+          "anc_00021",
+          "anc_00071",
+          "anc_00072",
+          "anc_00073",
+          "anc_00074"
+        ]
+      },
+      {
+        "term": "Linear Probing (线性探测)",
+        "definition": "一种评估预训练模型特征质量的方法。冻结预训练模型的特征提取器，在其之上训练一个简单的线性分类器（如逻辑回归）来完成特定任务（如分类、分割、深度估计）。",
+        "context": "本文用于评估添加寄存器标记前后模型特征的质量。",
+        "anchors": [
+          "anc_00038",
+          "anc_00043",
+          "anc_00044",
+          "anc_00060",
+          "anc_00061"
+        ],
+        "appears_in": [
+          "anc_00038",
+          "anc_00043",
+          "anc_00044",
+          "anc_00060",
+          "anc_00061"
+        ]
+      },
+      {
+        "term": "Corloc (Correct Localization)",
+        "definition": "无监督物体发现中常用的评估指标，衡量预测的物体框与真实框的重叠度（通常IoU>0.5视为正确）。",
+        "context": "本文用于量化评估LOST算法的性能。",
+        "anchors": [
+          "anc_00072",
+          "anc_00073"
+        ],
+        "appears_in": [
+          "anc_00072",
+          "anc_00073"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        {
+          "name": "ImageNet-1k (IN1k)",
+          "description": "用于监督和自监督预训练，以及线性探测评估。",
+          "anchors": [
+            "anc_00038",
+            "anc_00056",
+            "anc_00061"
+          ]
+        },
+        {
+          "name": "ImageNet-22k",
+          "description": "用于DeiT-III的监督预训练。",
+          "anchors": [
+            "anc_00056"
+          ]
+        },
+        {
+          "name": "LAION-2B / 数据集",
+          "description": "用于OpenCLIP的文本监督预训练。具体数据集未在摘要中明确，需查阅OpenCLIP原论文。",
+          "anchors": [
+            "anc_00056"
+          ]
+        },
+        {
+          "name": "ADE20k",
+          "description": "用于语义分割线性探测评估。",
+          "anchors": [
+            "anc_00061"
+          ]
+        },
+        {
+          "name": "NYUd (NYU Depth V2)",
+          "description": "用于单目深度估计线性探测评估。",
+          "anchors": [
+            "anc_00061"
+          ]
+        },
+        {
+          "name": "VOC 2007, VOC 2012, COCO 20k",
+          "description": "用于无监督物体发现（LOST）评估。",
+          "anchors": [
+            "anc_00072",
+            "anc_00073"
+          ]
+        }
+      ],
+      "required_models": [
+        {
+          "name": "DeiT-III (ViT-B, ViT-L等)",
+          "description": "监督训练的Vision Transformer基线模型。",
+          "anchors": [
+            "anc_00014",
+            "anc_00056"
+          ]
+        },
+        {
+          "name": "OpenCLIP (ViT-B, ViT-L等)",
+          "description": "文本监督训练的Vision Transformer基线模型。",
+          "anchors": [
+            "anc_00014",
+            "anc_00056"
+          ]
+        },
+        {
+          "name": "DINOv2 (ViT-L/14, ViT-g/14等)",
+          "description": "自监督训练的Vision Transformer基线模型，是本文主要分析对象。",
+          "anchors": [
+            "anc_00014",
+            "anc_00015",
+            "anc_00016",
+            "anc_00023",
+            "anc_00024",
+            "anc_00056"
+          ]
+        }
+      ],
+      "compute_requirements": "未知。论文未明确说明训练所需的GPU数量、时间或硬件规格。但训练大型Vision Transformer（如ViT-g）通常需要大量计算资源。",
+      "code_available": "未知。论文未在提供的文本中提及代码发布链接。",
+      "reproduction_steps": [
+        "1. 准备数据集：下载ImageNet-1k/22k、ADE20k、NYUd、VOC、COCO等数据集。",
+        "2. 获取或训练基线模型：获取DeiT-III、OpenCLIP、DINOv2的预训练权重，或按照其原论文方法从头训练。",
+        "3. 修改模型架构：在Vision Transformer的输入序列中，在[CLS]标记之后、补丁标记之前，添加N个可学习的寄存器标记（[REG]）。在模型输出时，仅使用补丁标记和[CLS]标记。",
+        "4. 重新训练模型：使用与基线模型相同的训练流程和超参数，训练添加了寄存器标记的模型。论文中固定使用N=4。",
+        "5. 评估：进行线性探测（ImageNet分类、ADE20k分割、NYUd深度估计）、零样本分类（OpenCLIP）、无监督物体发现（LOST）以及定性可视化分析。",
+        "6. 消融实验：尝试不同的寄存器数量（如0,1,2,4,8,16），观察对伪影消除和下游性能的影响。"
+      ],
+      "missing_details": [
+        "训练大型模型（如ViT-g）的具体计算资源需求（GPU数量、训练时间）。",
+        "OpenCLIP预训练使用的具体数据集（LAION-2B或其他）。",
+        "代码实现细节或开源代码链接。",
+        "LOST算法中手动添加的gram矩阵偏置的具体值或确定方法。"
+      ],
+      "risk_points": [
+        "复现需要大量计算资源，尤其是训练DINOv2 ViT-g等大型模型。",
+        "对于OpenCLIP模型，添加寄存器后物体发现性能下降，原因未完全解释，可能影响复现效果。",
+        "寄存器标记范数量化现象的原因未解释，可能影响对方法行为的理解。"
+      ],
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 准备数据集：下载ImageNet-1k/22k、ADE20k、NYUd、VOC、COCO等数据集。",
+          "anchors": [
+            "anc_00038",
+            "anc_00056",
+            "anc_00061",
+            "anc_00072",
+            "anc_00073"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 获取或训练基线模型：获取DeiT-III、OpenCLIP、DINOv2的预训练权重，或按照其原论文方法从头训练。",
+          "anchors": [
+            "anc_00014",
+            "anc_00056"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 修改模型架构：在Vision Transformer的输入序列中，在[CLS]标记之后、补丁标记之前，添加N个可学习的寄存器标记（[REG]）。在模型输出时，仅使用补丁标记和[CLS]标记。",
+          "anchors": [
+            "anc_00040",
+            "anc_00041",
+            "anc_00047"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "4. 重新训练模型：使用与基线模型相同的训练流程和超参数，训练添加了寄存器标记的模型。论文中固定使用N=4。",
+          "anchors": [
+            "anc_00056",
+            "anc_00069"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "5. 评估：进行线性探测（ImageNet分类、ADE20k分割、NYUd深度估计）、零样本分类（OpenCLIP）、无监督物体发现（LOST）以及定性可视化分析。",
+          "anchors": [
+            "anc_00060",
+            "anc_00061",
+            "anc_00062",
+            "anc_00063",
+            "anc_00064",
+            "anc_00071",
+            "anc_00072",
+            "anc_00073",
+            "anc_00074",
+            "anc_00075",
+            "anc_00076",
+            "anc_00077",
+            "anc_00078"
+          ]
+        },
+        {
+          "step": "step_6",
+          "description": "6. 消融实验：尝试不同的寄存器数量（如0,1,2,4,8,16），观察对伪影消除和下游性能的影响。",
+          "anchors": [
+            "anc_00065",
+            "anc_00066",
+            "anc_00067",
+            "anc_00068",
+            "anc_00069"
+          ]
+        }
+      ]
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-02T09:02:20+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_vit_registers_2024",
+    "title": "Vision Transformers Need Registers",
+    "authors": [
+      "Timothée Darcet",
+      "Maxime Oquab",
+      "Julien Mairal",
+      "Piotr Bojanowski"
+    ],
+    "venue": "ICLR",
+    "year": 2024,
+    "arxiv_id": "2309.16588",
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-02T09:00:20+00:00",
+    "paper_type": "Vision Transformer / Registers / Computer Vision method paper",
+    "selection_source": "manual_from_zhiwei_ui_screenshot_2026_05_02",
+    "open_access_pdf_url": "https://arxiv.org/pdf/2309.16588",
+    "fields_of_study": [
+      "Computer Science",
+      "Computer Vision",
+      "Machine Learning"
+    ],
+    "publication_types": [
+      "Conference"
+    ],
+    "abstract": "Transformers have recently emerged as a powerful tool for learning visual representations. This paper identifies and characterizes artifacts in feature maps of supervised and self-supervised Vision Transformer networks, and proposes adding register tokens to mitigate the artifacts and improve downstream visual processing."
+  }
+}
