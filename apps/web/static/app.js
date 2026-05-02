@@ -8,8 +8,8 @@ const moduleText = {
   zh: {
     structure: ["知微·构", "结构解析", "从问题、方法、实验到结论，重建论文的结构骨架。"],
     formula: ["知微·析", "公式拆解", "把关键公式拆成变量、依赖关系和直觉解释。"],
-    evidence: ["知微·证", "证据链溯源", "查看核心 claim 如何被表格、实验、段落和图支撑。"],
-    delta: ["知微·辨", "方法差异对比", "解释本文相对 baseline 或既有范式改了哪里。"],
+    evidence: ["知微·证", "证据链溯源", "查看核心论点如何被表格、实验、段落和图支撑。"],
+    delta: ["知微·辨", "方法差异对比", "解释本文相对基线方法或既有范式改了哪里。"],
     experiments: ["知微·验", "实验逻辑重建", "把实验按证明目的重新组织，而不是只复述表格。"],
     reproduction: ["知微·径", "复现路线生成", "整理数据、模型、算力、步骤、缺失细节和风险点。"]
   },
@@ -84,7 +84,7 @@ const uiText = {
     "overview.pathFastTitle": "先看这篇论文想解决什么",
     "overview.pathFastDesc": "问题 → 核心思想 → 方法差异 → 结论",
     "overview.pathDeltaLabel": "方法读者",
-    "overview.pathDeltaTitle": "先看本文相对 baseline 改了哪里",
+    "overview.pathDeltaTitle": "先看本文相对基线方法改了哪里",
     "overview.pathDeltaDesc": "进入知微·辨，快速定位方法变化。",
     "overview.pathFormulaLabel": "公式读者",
     "overview.pathFormulaTitle": "先看关键公式和变量怎么工作",
@@ -103,7 +103,7 @@ const uiText = {
     "guide.difficulty": "阅读难度",
     "guide.type": "论文类型",
     "guide.formulas": "关键公式",
-    "guide.claims": "主要 claim",
+    "guide.claims": "主要论点",
     "guide.entries": "推荐入口",
     "guide.fromCore": "从核心思想开始",
     "guide.fromDelta": "从方法差异开始",
@@ -384,7 +384,7 @@ function updatePaperChrome() {
   const meta = state.ir?.metadata || state.paper || {};
   $("paper-title").textContent = meta.title || "未命名论文";
   $("status-pill").textContent = statusLabel(state.paper?.status || "ready");
-  $("paper-meta").textContent = [meta.year, meta.venue, meta.paper_type].filter(Boolean).join(" · ") || "AI / LLM 方法论文";
+  $("paper-meta").textContent = [meta.year, meta.venue, paperTypeLabel(meta.paper_type)].filter(Boolean).join(" · ") || paperTypeLabel("AI / LLM method paper");
   $("side-paper-title").textContent = meta.title || "未命名论文";
   $("side-paper-authors").textContent = compactAuthors(meta.authors || state.paper?.authors || []);
   $("side-paper-tags").innerHTML = paperTags(meta)
@@ -402,8 +402,9 @@ function statusLabel(status) {
   if (raw.includes("解析") || raw.includes("parsing")) return t("status.parsing");
   if (raw.includes("修正") || raw.includes("corrected")) return t("status.corrected");
   if (raw.includes("标记") || raw.includes("marked")) return t("status.marked");
+  if (raw.includes("mimo benchmark")) return state.lang === "en" ? "Mimo benchmark" : "Mimo 基准";
   if (raw.includes("示例") || raw.includes("demo") || raw === "ready") return t("status.ready");
-  return status || t("status.ready");
+  return systemLabel(status || t("status.ready"));
 }
 
 function paperTags(meta) {
@@ -412,7 +413,45 @@ function paperTags(meta) {
     .map((tag) => tag.trim())
     .filter(Boolean)
     .slice(0, 3);
-  return [meta.year, meta.venue, ...typeTags];
+  return [meta.year, meta.venue, ...typeTags.map((tag) => paperTypeLabel(tag))];
+}
+
+function systemLabel(value) {
+  const text = String(value || "");
+  if (state.lang === "en") return text;
+  const raw = text.toLowerCase();
+  if (raw === "medium") return "中等";
+  if (raw === "low") return "低";
+  if (raw === "high") return "高";
+  if (raw === "unknown") return "未知";
+  if (raw === "strong") return "强";
+  if (raw === "weak") return "弱";
+  if (raw === "claim") return "论点";
+  if (raw === "formula") return "公式";
+  if (raw.includes("mimo benchmark")) return "Mimo 基准";
+  return text;
+}
+
+function paperTypeLabel(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (state.lang === "en") return text;
+  const raw = text.toLowerCase();
+  if (raw.includes("top-cited") && raw.includes("method paper")) return "高引方法论文";
+  if (raw.includes("architecture paper")) return "架构论文";
+  if (raw.includes("method paper")) return "方法论文";
+  if (raw.includes("ai / llm")) return "AI / LLM 方法论文";
+  if (raw.includes("computer vision")) return "计算机视觉";
+  if (raw.includes("detection")) return "目标检测";
+  if (raw.includes("segmentation")) return "分割";
+  if (raw.includes("benchmark")) return "基准评测";
+  if (raw.includes("transformer")) return "Transformer";
+  if (raw.includes("attention")) return "Attention";
+  if (raw.includes("cnn")) return "CNN";
+  return text
+    .replace(/Top-cited ML method paper/gi, "高引方法论文")
+    .replace(/Architecture paper/gi, "架构论文")
+    .replace(/method paper/gi, "方法论文");
 }
 
 function compactAuthors(authors) {
@@ -524,7 +563,7 @@ function paperMetaLine(paper) {
   const bits = [];
   if (paper.importance_rank) bits.push(`#${paper.importance_rank}`);
   if (paper.citation_count) bits.push(`${paper.citation_count} citations`);
-  bits.push(...[paper.year, paper.venue, paper.status].filter(Boolean));
+  bits.push(...[paper.year, paper.venue, statusLabel(paper.status)].filter(Boolean));
   return bits.join(" · ");
 }
 
@@ -615,10 +654,11 @@ function renderOverview() {
   const cards = moduleCards();
   $("workspace").innerHTML = `<div class="overview-page">
     <section class="overview-hero">
-      <div class="hero-copy">
+      <div class="hero-copy hero-copy-full">
         <div class="context-eyebrow">${escapeHtml(t("overview.eyebrow"))}</div>
         <h2>${escapeHtml(summary.title)}</h2>
-        <p>${escapeHtml(summary.subtitle)}</p>
+        <p class="hero-lede">${escapeHtml(summary.subtitle)}</p>
+        <p class="hero-summary">${escapeHtml(summary.oneLiner)}</p>
       </div>
       <div class="summary-quads">
         ${summary.cards
@@ -1205,6 +1245,7 @@ function renderOverviewGuide() {
   const formulaCount = state.ir?.formula_ir?.formulas?.length || 0;
   const claimCount = state.ir?.claim_evidence_map?.claims?.length || 0;
   const repro = state.ir?.reproduction_roadmap?.reproduction || {};
+  const pathCards = overviewGuidePaths();
   $("detail-panel").innerHTML = `<div class="overview-guide">
     <div class="guide-card primary">
       <div class="context-eyebrow">${escapeHtml(t("guide.eyebrow"))}</div>
@@ -1212,17 +1253,22 @@ function renderOverviewGuide() {
       <p>${escapeHtml(t("guide.copy"))}</p>
     </div>
     <div class="guide-metrics">
-      <div><span>${escapeHtml(t("guide.difficulty"))}</span><b>${escapeHtml(repro.difficulty || "medium")}</b></div>
-      <div><span>${escapeHtml(t("guide.type"))}</span><b>${escapeHtml(state.ir?.metadata?.paper_type || (state.lang === "en" ? "Architecture paper" : "架构论文"))}</b></div>
+      <div><span>${escapeHtml(t("guide.difficulty"))}</span><b>${escapeHtml(systemLabel(repro.difficulty || "medium"))}</b></div>
+      <div><span>${escapeHtml(t("guide.type"))}</span><b>${escapeHtml(paperTypeLabel(state.ir?.metadata?.paper_type || "Architecture paper"))}</b></div>
       <div><span>${escapeHtml(t("guide.formulas"))}</span><b>${formulaCount}</b></div>
       <div><span>${escapeHtml(t("guide.claims"))}</span><b>${claimCount}</b></div>
     </div>
-    <section class="guide-section">
+    <section class="guide-section guide-path-section">
       <h3>${escapeHtml(t("guide.entries"))}</h3>
-      <button data-guide-module="structure" type="button">${escapeHtml(t("guide.fromCore"))}</button>
-      <button data-guide-module="delta" type="button">${escapeHtml(t("guide.fromDelta"))}</button>
-      <button data-guide-module="formula" type="button">${escapeHtml(t("guide.fromFormula"))}</button>
-      <button data-guide-module="experiments" type="button">${escapeHtml(t("guide.fromExperiments"))}</button>
+      <div class="guide-path-list">
+        ${pathCards
+          .map((item) => `<button class="guide-path-card" data-guide-module="${escapeHtml(item.module)}" type="button">
+            <span>${escapeHtml(item.index)}</span>
+            <strong>${escapeHtml(item.title)}</strong>
+            <p>${escapeHtml(item.desc)}</p>
+          </button>`)
+          .join("")}
+      </div>
     </section>
     <section class="guide-section muted">
       <h3>${escapeHtml(t("guide.tips"))}</h3>
@@ -1233,6 +1279,23 @@ function renderOverviewGuide() {
   document.querySelectorAll("[data-guide-module]").forEach((btn) => {
     btn.addEventListener("click", () => enterDetail(btn.dataset.guideModule));
   });
+}
+
+function overviewGuidePaths() {
+  if (state.lang === "en") {
+    return [
+      { index: "01", module: "structure", title: "Build the problem frame", desc: "Understand why the paper changes the previous approach." },
+      { index: "02", module: "delta", title: "Compare method deltas", desc: "See what changed against baselines and prior paradigms." },
+      { index: "03", module: "formula", title: "Inspect formulas and structure", desc: "Trace objectives, variables, and mechanism-level choices." },
+      { index: "04", module: "experiments", title: "Audit experimental claims", desc: "Check speed, quality, ablations, and baseline comparisons." }
+    ];
+  }
+  return [
+    { index: "01", module: "structure", title: "先建立问题意识", desc: "理解这篇论文为什么要替代或改造已有范式。" },
+    { index: "02", module: "delta", title: "看方法差异", desc: "它相对基线方法和已有方法到底改了哪里。" },
+    { index: "03", module: "formula", title: "拆公式与结构", desc: "理解关键公式、变量和结构组件如何工作。" },
+    { index: "04", module: "experiments", title: "看实验结论", desc: "查看速度、精度、消融和基线对比。" }
+  ];
 }
 
 function renderFormulaDetail(raw) {
