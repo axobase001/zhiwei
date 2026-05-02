@@ -933,6 +933,55 @@ function typeLabel(type) {
   return labels[type] || type;
 }
 
+function formulaLatex(formula) {
+  const raw = formula?.latex || formula?.formula || formula?.equation || formula?.expression || "";
+  return String(raw)
+    .trim()
+    .replace(/^```(?:latex|tex)?/i, "")
+    .replace(/```$/i, "")
+    .replace(/^\$\$/g, "")
+    .replace(/\$\$$/g, "")
+    .replace(/^\\\[/, "")
+    .replace(/\\\]$/, "")
+    .replace(/^\\\(/, "")
+    .replace(/\\\)$/, "")
+    .trim();
+}
+
+function variableSymbol(variable) {
+  return variable?.symbol || variable?.name || variable?.variable || "unknown";
+}
+
+function variableMeaning(variable) {
+  return variable?.meaning || variable?.description || variable?.name || "";
+}
+
+function renderMathBlock(formula, extraClass = "") {
+  const latex = formulaLatex(formula);
+  if (!latex) return `<div class="math-line empty-math">${state.lang === "en" ? "Formula unavailable" : "公式未提供"}</div>`;
+  return `<div class="math-shell ${extraClass}">
+    <div class="math-paper">
+      <span class="math-delimiter" aria-hidden="true">ƒ</span>
+      <div class="math-line">\\[${escapeHtml(latex)}\\]</div>
+    </div>
+  </div>`;
+}
+
+function typesetMath(root = document.body, attempt = 0) {
+  window.requestAnimationFrame(() => {
+    if (window.MathJax?.typesetPromise) {
+      try {
+        window.MathJax.typesetClear?.([root]);
+        window.MathJax.typesetPromise([root]).catch(() => {});
+      } catch {
+        // Formula rendering is progressive enhancement; escaped TeX remains readable if MathJax fails.
+      }
+      return;
+    }
+    if (attempt < 25) window.setTimeout(() => typesetMath(root, attempt + 1), 160);
+  });
+}
+
 function renderFormula() {
   const formulas = state.ir.formula_ir?.formulas || [];
   if (!formulas.length) {
@@ -942,21 +991,24 @@ function renderFormula() {
   $("workspace").innerHTML = `<div class="formula-board">${formulas
     .map((formula) => {
       const low = (formula.variables || []).filter((v) => v.confidence === "low").length;
+      const variables = (formula.variables || []).map((v) => ({ ...v, symbol: variableSymbol(v), confidence: v.confidence || "unknown" }));
+      const formulaTitle = formula.name || formula.title || formula.formula_id.replace("formula_", "");
       return `<article class="formula-card ${state.selected?.id === formula.formula_id ? "selected" : ""}" data-kind="formula" data-id="${escapeHtml(formula.formula_id)}">
         <div class="card-topline">
           <span>${escapeHtml(formula.role || "formula")}</span>
           ${low ? `<b>${state.lang === "en" ? `${low} low-confidence vars` : `${low} 个低置信变量`}</b>` : `<b>grounded</b>`}
         </div>
-        <h3>${escapeHtml(formula.formula_id.replace("formula_", ""))}</h3>
-        <div class="math-line">${escapeHtml(formula.latex || "")}</div>
+        <h3>${escapeHtml(formulaTitle)}</h3>
+        ${renderMathBlock(formula)}
         <p>${escapeHtml(formula.intuition || formula.plain_language_summary || "")}</p>
-        <div class="variable-row">${(formula.variables || [])
+        <div class="variable-row">${variables
           .map((v) => `<span class="var-pill ${v.confidence === "low" ? "warn" : ""}">${escapeHtml(v.symbol)} · ${escapeHtml(v.confidence)}</span>`)
           .join("")}</div>
       </article>`;
     })
     .join("")}</div>`;
   bindCards("formula", (id) => formulas.find((item) => item.formula_id === id));
+  typesetMath($("workspace"));
 }
 
 function renderEvidence() {
@@ -1127,6 +1179,7 @@ function renderDetail() {
   panel.innerHTML = `<div class="detail-content">
     <div class="detail-kicker">${escapeHtml(item.kind)} · ${escapeHtml(item.id)}</div>
     <h2>${escapeHtml(item.label || item.id)}</h2>
+    ${renderFormulaDetail(raw)}
     <section class="detail-section">
       <h3>${escapeHtml(t("detail.interpretation"))}</h3>
       <p>${escapeHtml(item.description || "unknown")}</p>
@@ -1141,6 +1194,7 @@ function renderDetail() {
     </section>
   </div>`;
   bindAnchorButtons();
+  typesetMath(panel);
 }
 
 // ------------------------------
@@ -1181,6 +1235,14 @@ function renderOverviewGuide() {
   });
 }
 
+function renderFormulaDetail(raw) {
+  if (!formulaLatex(raw)) return "";
+  return `<section class="detail-section formula-detail-section">
+    <h3>${state.lang === "en" ? "Rendered Formula" : "公式"}</h3>
+    ${renderMathBlock(raw, "detail-math")}
+  </section>`;
+}
+
 function renderRoleSection(raw) {
   const values = [];
   if (raw.type) values.push([state.lang === "en" ? "Type" : "类型", raw.type]);
@@ -1197,8 +1259,8 @@ function renderVariableSection(raw) {
   if (!raw.variables?.length) return "";
   return `<section class="detail-section"><h3>${escapeHtml(t("detail.variables"))}</h3><div class="variable-list">${raw.variables
     .map((v) => `<button class="variable-item" data-anchor="${escapeHtml((v.anchors || [])[0] || "")}" type="button">
-      <strong>${escapeHtml(v.symbol)}</strong>
-      <span>${escapeHtml(v.meaning || "")}</span>
+      <strong>${escapeHtml(variableSymbol(v))}</strong>
+      <span>${escapeHtml(variableMeaning(v))}</span>
       <em>${escapeHtml(v.confidence || "unknown")}</em>
     </button>`)
     .join("")}</div></section>`;
