@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -23,7 +24,8 @@ class OpenAICompatibleProvider:
 
     def complete_json(self, system: str, user: str, schema_hint: dict[str, Any]) -> dict[str, Any]:
         if not self.base_url or not self.api_key or not self.model:
-            raise RuntimeError("LLM provider 缺少 ZHIWEI_LLM_BASE_URL / API_KEY / MODEL")
+            raise RuntimeError("LLM provider is missing base URL, API key, or model.")
+
         url = self.base_url.rstrip("/") + "/chat/completions"
         payload = {
             "model": self.model,
@@ -43,15 +45,24 @@ class OpenAICompatibleProvider:
             },
             method="POST",
         )
-        try:
-            timeout = int(os.environ.get("ZHIWEI_LLM_TIMEOUT", "240"))
-            with urllib.request.urlopen(req, timeout=timeout) as response:
-                raw = response.read().decode("utf-8")
-        except urllib.error.URLError as exc:
-            raise RuntimeError(f"LLM 调用失败: {exc}") from exc
-        data = json.loads(raw)
-        content = data["choices"][0]["message"]["content"]
-        return json.loads(content)
+
+        timeout = int(os.environ.get("ZHIWEI_LLM_TIMEOUT", "600"))
+        retries = int(os.environ.get("ZHIWEI_LLM_RETRIES", "4"))
+        last_error: Exception | None = None
+        for attempt in range(1, retries + 1):
+            try:
+                with urllib.request.urlopen(req, timeout=timeout) as response:
+                    raw = response.read().decode("utf-8")
+                data = json.loads(raw)
+                content = data["choices"][0]["message"]["content"]
+                return json.loads(content)
+            except (TimeoutError, urllib.error.URLError, json.JSONDecodeError, KeyError) as exc:
+                last_error = exc
+                if attempt >= retries:
+                    raise RuntimeError(f"LLM JSON call failed after {retries} attempts: {exc}") from exc
+                time.sleep(min(2 * attempt, 8))
+
+        raise RuntimeError(f"LLM JSON call failed: {last_error}")
 
 
 def configured_provider() -> LLMProvider | None:

@@ -1,0 +1,3791 @@
+[
+  {
+    "block_id": "blk_00001",
+    "type": "title",
+    "content": "XGBoost: A Scalable Tree Boosting System Tianqi Chen University of Washington tqchen@cs.washington.edu Carlos Guestrin University of Washington guestrin@cs.washington.edu",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "anchor_id": "anc_00001"
+  },
+  {
+    "block_id": "blk_00002",
+    "type": "section_heading",
+    "content": "ABSTRACT",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00002"
+  },
+  {
+    "block_id": "blk_00003",
+    "type": "paragraph",
+    "content": "Tree boosting is a highly eﬀective and widely used machine learning method. In this paper, we describe a scalable end- to-end tree boosting system called XGBoost, which is used widely by data scientists to achieve state-of-the-art results on many machine learning challenges. We propose a novel sparsity-aware algorithm for sparse data and weighted quan- tile sketch for approximate tree learning. More importantly, we provide insights on cache access patterns, data compres- sion and sharding to build a scalable tree boosting system. By combining these insights, XGBoost scales beyond billions of examples using far fewer resources than existing systems. Keywords",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00003"
+  },
+  {
+    "block_id": "blk_00004",
+    "type": "formula",
+    "content": "Large-scale Machine Learning",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00004"
+  },
+  {
+    "block_id": "blk_00005",
+    "type": "paragraph",
+    "content": "1. INTRODUCTION Machine learning and data-driven approaches are becom- ing very important in many areas. Smart spam classiﬁers protect our email by learning from massive amounts of spam data and user feedback; advertising systems learn to match the right ads with the right context; fraud detection systems protect banks from malicious attackers; anomaly event de- tection systems help experimental physicists to ﬁnd events that lead to new physics. There are two important factors that drive these successful applications: usage of eﬀective (statistical) models that capture the complex data depen- dencies and scalable learning systems that learn the model",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00005"
+  },
+  {
+    "block_id": "blk_00006",
+    "type": "formula",
+    "content": "of interest from large datasets.",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00006"
+  },
+  {
+    "block_id": "blk_00007",
+    "type": "paragraph",
+    "content": "Among the machine learning methods used in practice, gradient tree boosting [10] 1 is one technique that shines in many applications. Tree boosting has been shown to give state-of-the-art results on many standard classiﬁcation benchmarks [16]. LambdaMART [5], a variant of tree boost- ing for ranking, achieves state-of-the-art result for ranking 1Gradient tree boosting is also known as gradient boosting machine (GBM) or gradient boosted regression tree (GBRT) Permission to make digital or hard copies of part or all of this work for personal or classroom use is granted without fee provided that copies are not made or distributed for proﬁt or commercial advantage and that copies bear this notice and the full citation on the ﬁrst page. Copyrights for third-party components of this work must be honored. For all other uses, contact the owner/author(s). KDD ’16, August 13-17, 2016, San Francisco, CA, USA c⃝ 2016 Copyright held by the owner/author(s). ACM ISBN . DOI: problems. Besides being used as a stand-alone predictor, it is also incorporated into real-world production pipelines for ad click through rate prediction [15]. Finally, it is the de- facto choice of ensemble method and is used in challenges such as the Netﬂix prize [3]. In this paper, we describe XGBoost, a scalable machine learning system for tree boosting. The system is available as an open source package2. The impact of the system has been widely recognized in a number of machine learning and data",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00007"
+  },
+  {
+    "block_id": "blk_00008",
+    "type": "formula",
+    "content": "mining challenges. Take the challenges hosted by the ma-",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00008"
+  },
+  {
+    "block_id": "blk_00009",
+    "type": "paragraph",
+    "content": "chine learning competition site Kaggle for example. Among the 29 challenge winning solutions 3 published at Kaggle’s",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00009"
+  },
+  {
+    "block_id": "blk_00010",
+    "type": "formula",
+    "content": "blog during 2015, 17 solutions used XGBoost. Among these",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00010"
+  },
+  {
+    "block_id": "blk_00011",
+    "type": "paragraph",
+    "content": "solutions, eight solely used XGBoost to train the model, while most others combined XGBoost with neural nets in en- sembles. For comparison, the second most popular method, deep neural nets, was used in 11 solutions. The success of the system was also witnessed in KDDCup 2015, where XGBoost was used by every winning team in the top-10. Moreover, the winning teams reported that ensemble meth- ods outperform a well-conﬁgured XGBoost by only a small amount [1]. These results demonstrate that our system gives state-of- the-art results on a wide range of problems. Examples of the problems in these winning solutions include: store sales prediction; high energy physics event classiﬁcation; web text classiﬁcation; customer behavior prediction; motion detec- tion; ad click through rate prediction; malware classiﬁcation; product categorization; hazard risk prediction; massive on- line course dropout rate prediction. While domain depen- dent data analysis and feature engineering play an important role in these solutions, the fact that XGBoost is the consen- sus choice of learner shows the impact and importance of our system and tree boosting. The most important factor behind the success of XGBoost is its scalability in all scenarios. The system runs more than ten times faster than existing popular solutions on a single machine and scales to billions of examples in distributed or memory-limited settings. The scalability of XGBoost is due to several important systems and algorithmic optimizations. These innovations include: a novel tree learning algorithm is for handling sparse data; a theoretically justiﬁed weighted quantile sketch procedure enables handling instance weights in approximate tree learning. Parallel and distributed com- puting makes learning faster which enables quicker model ex- ploration. More importantly, XGBoost exploits out-of-core 2https://github.com/dmlc/xgboost 3Solutions come from of top-3 teams of each competitions. arXiv:1603.02754v3 [cs.LG] 10 Jun 2016",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00011"
+  },
+  {
+    "block_id": "blk_00012",
+    "type": "paragraph",
+    "content": "computation and enables data scientists to process hundred millions of examples on a desktop. Finally, it is even more exciting to combine these techniques to make an end-to-end",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00012"
+  },
+  {
+    "block_id": "blk_00013",
+    "type": "formula",
+    "content": "system that scales to even larger data with the least amount",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00013"
+  },
+  {
+    "block_id": "blk_00014",
+    "type": "paragraph",
+    "content": "of cluster resources. The major contributions of this paper is listed as follows: • We design and build a highly scalable end-to-end tree boosting system. • We propose a theoretically justiﬁed weighted quantile sketch for eﬃcient proposal calculation. • We introduce a novel sparsity-aware algorithm for par- allel tree learning. • We propose an eﬀective cache-aware block structure for out-of-core tree learning. While there are some existing works on parallel tree boost- ing [22, 23, 19], the directions such as out-of-core compu- tation, cache-aware and sparsity-aware learning have not been explored. More importantly, an end-to-end system that combines all of these aspects gives a novel solution for real-world use-cases. This enables data scientists as well as researchers to build powerful variants of tree boosting al- gorithms [7, 8]. Besides these major contributions, we also make additional improvements in proposing a regularized learning objective, which we will include for completeness. The remainder of the paper is organized as follows. We will ﬁrst review tree boosting and introduce a regularized objective in Sec. 2. We then describe the split ﬁnding meth- ods in Sec. 3 as well as the system design in Sec. 4, including experimental results when relevant to provide quantitative support for each optimization we describe. Related work is discussed in Sec. 5. Detailed end-to-end evaluations are included in Sec. 6. Finally we conclude the paper in Sec. 7. 2. TREE BOOSTING IN A NUTSHELL We review gradient tree boosting algorithms in this sec- tion. The derivation follows from the same idea in existing literatures in gradient boosting. Specicially the second order method is originated from Friedman et al. [12]. We make mi- nor improvements in the reguralized objective, which were found helpful in practice.",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00014"
+  },
+  {
+    "block_id": "blk_00015",
+    "type": "paragraph",
+    "content": "2.1 Regularized Learning Objective",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00015"
+  },
+  {
+    "block_id": "blk_00016",
+    "type": "paragraph",
+    "content": "For a given data set with n examples and m features",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00016"
+  },
+  {
+    "block_id": "blk_00017",
+    "type": "formula",
+    "content": "D = {(xi,yi)} (|D| = n, xi ∈ Rm,yi ∈ R), a tree ensem-",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00017"
+  },
+  {
+    "block_id": "blk_00018",
+    "type": "paragraph",
+    "content": "ble model (shown in Fig. 1) uses K additive functions to predict the output.",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00018"
+  },
+  {
+    "block_id": "blk_00019",
+    "type": "formula",
+    "content": "ˆyi =φ(xi) =",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00019"
+  },
+  {
+    "block_id": "blk_00020",
+    "type": "formula",
+    "content": "K∑ k=1 fk(xi), fk ∈ F, (1)",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00020"
+  },
+  {
+    "block_id": "blk_00021",
+    "type": "formula",
+    "content": "where F = {f(x) = wq(x)}(q : Rm → T,w ∈ RT ) is the",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00021"
+  },
+  {
+    "block_id": "blk_00022",
+    "type": "paragraph",
+    "content": "space of regression trees (also known as CART). Hereq rep- resents the structure of each tree that maps an example to the corresponding leaf index.T is the number of leaves in the tree. Each fk corresponds to an independent tree structure q and leaf weights w. Unlike decision trees, each regression tree contains a continuous score on each of the leaf, we use wi to represent score on i-th leaf. For a given example, we will use the decision rules in the trees (given byq) to classify",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00022"
+  },
+  {
+    "block_id": "blk_00023",
+    "type": "caption",
+    "content": "Figure 1: Tree Ensemble Model. The ﬁnal predic-",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00023"
+  },
+  {
+    "block_id": "blk_00024",
+    "type": "paragraph",
+    "content": "tion for a given example is the sum of predictions from each tree. it into the leaves and calculate the ﬁnal prediction by sum-",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00024"
+  },
+  {
+    "block_id": "blk_00025",
+    "type": "formula",
+    "content": "ming up the score in the corresponding leaves (given by w).",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00025"
+  },
+  {
+    "block_id": "blk_00026",
+    "type": "formula",
+    "content": "To learn the set of functions used in the model, we minimize",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00026"
+  },
+  {
+    "block_id": "blk_00027",
+    "type": "paragraph",
+    "content": "the following regularized objective.",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00027"
+  },
+  {
+    "block_id": "blk_00028",
+    "type": "formula",
+    "content": "L(φ) =",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00028"
+  },
+  {
+    "block_id": "blk_00029",
+    "type": "formula",
+    "content": "∑ i l(ˆyi,yi) + ∑ k Ω(fk)",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00029"
+  },
+  {
+    "block_id": "blk_00030",
+    "type": "formula",
+    "content": "where Ω(f) =γT + 1",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00030"
+  },
+  {
+    "block_id": "blk_00031",
+    "type": "paragraph",
+    "content": "2λ∥w∥2 (2) Herel is a diﬀerentiable convex loss function that measures",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00031"
+  },
+  {
+    "block_id": "blk_00032",
+    "type": "formula",
+    "content": "the diﬀerence between the prediction ˆyi and the target yi.",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00032"
+  },
+  {
+    "block_id": "blk_00033",
+    "type": "paragraph",
+    "content": "The second term Ω penalizes the complexity of the model (i.e., the regression tree functions). The additional regular- ization term helps to smooth the ﬁnal learnt weights to avoid over-ﬁtting. Intuitively, the regularized objective will tend to select a model employing simple and predictive functions. A similar regularization technique has been used in Regu- larized greedy forest (RGF) [25] model. Our objective and the corresponding learning algorithm is simpler than RGF and easier to parallelize. When the regularization parame- ter is set to zero, the objective falls back to the traditional gradient tree boosting.",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00033"
+  },
+  {
+    "block_id": "blk_00034",
+    "type": "paragraph",
+    "content": "2.2 Gradient Tree Boosting",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00034"
+  },
+  {
+    "block_id": "blk_00035",
+    "type": "paragraph",
+    "content": "The tree ensemble model in Eq. (2) includes functions as parameters and cannot be optimized using traditional opti- mization methods in Euclidean space. Instead, the model is trained in an additive manner. Formally, let ˆ y(t) i be the prediction of the i-th instance at the t-th iteration, we will",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00035"
+  },
+  {
+    "block_id": "blk_00036",
+    "type": "formula",
+    "content": "need to add ft to minimize the following objective.",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00036"
+  },
+  {
+    "block_id": "blk_00037",
+    "type": "formula",
+    "content": "L(t) =",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00037"
+  },
+  {
+    "block_id": "blk_00038",
+    "type": "paragraph",
+    "content": "n∑ i=1 l(yi, ˆyi (t−1) +ft(xi)) + Ω(ft) This means we greedily add the ft that most improves our model according to Eq. (2). Second-order approximation can be used to quickly optimize the objective in the general setting [12]. L(t) ≃ n∑ i=1 [l(yi, ˆy(t−1)) +gift(xi) + 1 2hif 2 t (xi)] + Ω(ft)",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00038"
+  },
+  {
+    "block_id": "blk_00039",
+    "type": "formula",
+    "content": "where gi = ∂ˆy(t−1)l(yi, ˆy(t−1)) and hi = ∂2",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00039"
+  },
+  {
+    "block_id": "blk_00040",
+    "type": "paragraph",
+    "content": "ˆy(t−1)l(yi, ˆy(t−1)) are ﬁrst and second order gradient statistics on the loss func- tion. We can remove the constant terms to obtain the fol- lowing simpliﬁed objective at step t.",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00040"
+  },
+  {
+    "block_id": "blk_00041",
+    "type": "formula",
+    "content": "˜L(t) =",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00041"
+  },
+  {
+    "block_id": "blk_00042",
+    "type": "formula",
+    "content": "n∑ i=1 [gift(xi) + 1 2hif 2 t (xi)] + Ω(ft) (3)",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00042"
+  },
+  {
+    "block_id": "blk_00043",
+    "type": "caption",
+    "content": "Figure 2: Structure Score Calculation. We only",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00043"
+  },
+  {
+    "block_id": "blk_00044",
+    "type": "paragraph",
+    "content": "need to sum up the gradient and second order gra- dient statistics on each leaf, then apply the scoring formula to get the quality score.",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00044"
+  },
+  {
+    "block_id": "blk_00045",
+    "type": "formula",
+    "content": "DeﬁneIj = {i|q(xi) =j} as the instance set of leaf j. We",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00045"
+  },
+  {
+    "block_id": "blk_00046",
+    "type": "paragraph",
+    "content": "can rewrite Eq (3) by expanding Ω as follows",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00046"
+  },
+  {
+    "block_id": "blk_00047",
+    "type": "formula",
+    "content": "˜L(t) =",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00047"
+  },
+  {
+    "block_id": "blk_00048",
+    "type": "paragraph",
+    "content": "n∑ i=1 [gift(xi) + 1 2hif 2 t (xi)] +γT + 1 2λ T∑ j=1 w2 j = T∑ j=1 [( ∑ i∈Ij gi)wj + 1 2( ∑ i∈Ij hi +λ)w2 j ] +γT (4) For a ﬁxed structure q(x), we can compute the optimal weightw∗ j of leaf j by w∗ j = − ∑ i∈Ij gi ∑ i∈Ij hi +λ, (5) and calculate the corresponding optimal value by",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00048"
+  },
+  {
+    "block_id": "blk_00049",
+    "type": "formula",
+    "content": "˜L(t)(q) = −1",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00049"
+  },
+  {
+    "block_id": "blk_00050",
+    "type": "paragraph",
+    "content": "2 T∑ j=1 (∑ i∈Ij gi)2 ∑ i∈Ij hi +λ +γT. (6) Eq (6) can be used as a scoring function to measure the quality of a tree structure q. This score is like the impurity score for evaluating decision trees, except that it is derived for a wider range of objective functions. Fig. 2 illustrates how this score can be calculated. Normally it is impossible to enumerate all the possible tree structures q. A greedy algorithm that starts from a single leaf and iteratively adds branches to the tree is used instead. Assume that IL andIR are the instance sets of left",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00050"
+  },
+  {
+    "block_id": "blk_00051",
+    "type": "formula",
+    "content": "and right nodes after the split. Lettting I = IL ∪IR, then",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00051"
+  },
+  {
+    "block_id": "blk_00052",
+    "type": "formula",
+    "content": "the loss reduction after the split is given by Lsplit = 1 2 [ (∑ i∈IL gi)2 ∑ i∈IL hi +λ + (∑ i∈IR gi)2 ∑ i∈IR",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00052"
+  },
+  {
+    "block_id": "blk_00053",
+    "type": "formula",
+    "content": "hi +λ − (∑",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00053"
+  },
+  {
+    "block_id": "blk_00054",
+    "type": "formula",
+    "content": "i∈Igi)2 ∑ i∈Ihi +λ ] −γ (7) This formula is usually used in practice for evaluating the split candidates.",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00054"
+  },
+  {
+    "block_id": "blk_00055",
+    "type": "paragraph",
+    "content": "2.3 Shrinkage and Column Subsampling",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00055"
+  },
+  {
+    "block_id": "blk_00056",
+    "type": "paragraph",
+    "content": "Besides the regularized objective mentioned in Sec. 2.1, two additional techniques are used to further prevent over- ﬁtting. The ﬁrst technique is shrinkage introduced by Fried- man [11]. Shrinkage scales newly added weights by a factor η after each step of tree boosting. Similar to a learning rate in tochastic optimization, shrinkage reduces the inﬂuence of each individual tree and leaves space for future trees to im- prove the model. The second technique is column (feature) subsampling. This technique is used in RandomForest [4, Algorithm 1: Exact Greedy Algorithm for Split Finding Input: I, instance set of current node Input: d, feature dimension gain ← 0 G ← ∑",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00056"
+  },
+  {
+    "block_id": "blk_00057",
+    "type": "formula",
+    "content": "i∈Igi, H ← ∑",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00057"
+  },
+  {
+    "block_id": "blk_00058",
+    "type": "paragraph",
+    "content": "i∈Ihi",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00058"
+  },
+  {
+    "block_id": "blk_00059",
+    "type": "formula",
+    "content": "for k = 1 to m do",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00059"
+  },
+  {
+    "block_id": "blk_00060",
+    "type": "paragraph",
+    "content": "GL ← 0, HL ← 0 for j in sorted(I, by xjk ) do GL ←GL +gj, HL ←HL +hj GR ←G −GL, HR ←H −HL",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00060"
+  },
+  {
+    "block_id": "blk_00061",
+    "type": "formula",
+    "content": "score ← max(score,",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00061"
+  },
+  {
+    "block_id": "blk_00062",
+    "type": "paragraph",
+    "content": "G2 L HL+λ + G2 R HR+λ − G2 H+λ) end end",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00062"
+  },
+  {
+    "block_id": "blk_00063",
+    "type": "formula",
+    "content": "Output: Split with max score",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00063"
+  },
+  {
+    "block_id": "blk_00064",
+    "type": "paragraph",
+    "content": "Algorithm 2: Approximate Algorithm for Split Finding",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00064"
+  },
+  {
+    "block_id": "blk_00065",
+    "type": "formula",
+    "content": "for k = 1 to m do",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00065"
+  },
+  {
+    "block_id": "blk_00066",
+    "type": "formula",
+    "content": "Propose Sk = {sk1,sk2, · · ·skl} by percentiles on feature k.",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00066"
+  },
+  {
+    "block_id": "blk_00067",
+    "type": "paragraph",
+    "content": "Proposal can be done per tree (global), or per split(local). end",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00067"
+  },
+  {
+    "block_id": "blk_00068",
+    "type": "formula",
+    "content": "for k = 1 to m do",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00068"
+  },
+  {
+    "block_id": "blk_00069",
+    "type": "paragraph",
+    "content": "Gkv ←= ∑",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00069"
+  },
+  {
+    "block_id": "blk_00070",
+    "type": "formula",
+    "content": "j∈{j|sk,v≥xjk>sk,v−1}gj",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00070"
+  },
+  {
+    "block_id": "blk_00071",
+    "type": "paragraph",
+    "content": "Hkv ←= ∑",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00071"
+  },
+  {
+    "block_id": "blk_00072",
+    "type": "formula",
+    "content": "j∈{j|sk,v≥xjk>sk,v−1}hj",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00072"
+  },
+  {
+    "block_id": "blk_00073",
+    "type": "paragraph",
+    "content": "end",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00073"
+  },
+  {
+    "block_id": "blk_00074",
+    "type": "formula",
+    "content": "Follow same step as in previous section to ﬁnd max",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00074"
+  },
+  {
+    "block_id": "blk_00075",
+    "type": "paragraph",
+    "content": "score only among proposed splits. 13], It is implemented in a commercial software TreeNet 4 for gradient boosting, but is not implemented in existing opensource packages. According to user feedback, using col- umn sub-sampling prevents over-ﬁtting even more so than the traditional row sub-sampling (which is also supported). The usage of column sub-samples also speeds up computa- tions of the parallel algorithm described later. 3. SPLIT FINDING ALGORITHMS",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00075"
+  },
+  {
+    "block_id": "blk_00076",
+    "type": "paragraph",
+    "content": "3.1 Basic Exact Greedy Algorithm",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00076"
+  },
+  {
+    "block_id": "blk_00077",
+    "type": "paragraph",
+    "content": "One of the key problems in tree learning is to ﬁnd the best split as indicated by Eq (7). In order to do so, a split ﬁnding algorithm enumerates over all the possible splits on all the features. We call this the exact greedy algorithm . Most existing single machine tree boosting implementations, such as scikit-learn [20], R’s gbm [21] as well as the single machine version of XGBoost support the exact greedy algo- rithm. The exact greedy algorithm is shown in Alg. 1. It is computationally demanding to enumerate all the possible splits for continuous features. In order to do so eﬃciently, the algorithm must ﬁrst sort the data according to feature values and visit the data in sorted order to accumulate the gradient statistics for the structure score in Eq (7).",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00077"
+  },
+  {
+    "block_id": "blk_00078",
+    "type": "paragraph",
+    "content": "3.2 Approximate Algorithm",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00078"
+  },
+  {
+    "block_id": "blk_00079",
+    "type": "paragraph",
+    "content": "The exact greedy algorithm is very powerful since it enu- merates over all possible splitting points greedily. However, it is impossible to eﬃciently do so when the data does not ﬁt entirely into memory. Same problem also arises in the dis- 4https://www.salford-systems.com/products/treenet",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00079"
+  },
+  {
+    "block_id": "blk_00080",
+    "type": "paragraph",
+    "content": "0 10 20 30 40 50 60 70 80 90 Number of Iterations 0.75 0.76 0.77 0.78 0.79 0.80 0.81 0.82 0.83 Test AUC exact greedy",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00080"
+  },
+  {
+    "block_id": "blk_00081",
+    "type": "formula",
+    "content": "global eps=0.3",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00081"
+  },
+  {
+    "block_id": "blk_00082",
+    "type": "formula",
+    "content": "local eps=0.3",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00082"
+  },
+  {
+    "block_id": "blk_00083",
+    "type": "formula",
+    "content": "global eps=0.05",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00083"
+  },
+  {
+    "block_id": "blk_00084",
+    "type": "caption",
+    "content": "Figure 3: Comparison of test AUC convergence on",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00084"
+  },
+  {
+    "block_id": "blk_00085",
+    "type": "paragraph",
+    "content": "Higgs 10M dataset. The eps parameter corresponds to the accuracy of the approximate sketch. This roughly translates to 1 / eps buckets in the proposal. We ﬁnd that local proposals require fewer buckets, because it reﬁne split candidates. tributed setting. To support eﬀective gradient tree boosting in these two settings, an approximate algorithm is needed. We summarize an approximate framework, which resem- bles the ideas proposed in past literatures [17, 2, 22], in Alg. 2. To summarize, the algorithm ﬁrst proposes can- didate splitting points according to percentiles of feature distribution (a speciﬁc criteria will be given in Sec. 3.3). The algorithm then maps the continuous features into buck- ets split by these candidate points, aggregates the statistics and ﬁnds the best solution among proposals based on the aggregated statistics. There are two variants of the algorithm, depending on when the proposal is given. The global variant proposes all the candidate splits during the initial phase of tree construc- tion, and uses the same proposals for split ﬁnding at all lev- els. The local variant re-proposes after each split. The global method requires less proposal steps than the local method. However, usually more candidate points are needed for the global proposal because candidates are not reﬁned after each split. The local proposal reﬁnes the candidates after splits, and can potentially be more appropriate for deeper trees. A comparison of diﬀerent algorithms on a Higgs boson dataset is given by Fig. 3. We ﬁnd that the local proposal indeed requires fewer candidates. The global proposal can be as accurate as the local one given enough candidates. Most existing approximate algorithms for distributed tree learning also follow this framework. Notably, it is also possi- ble to directly construct approximate histograms of gradient statistics [22]. It is also possible to use other variants of bin- ning strategies instead of quantile [17]. Quantile strategy beneﬁt from being distributable and recomputable, which we will detail in next subsection. From Fig. 3, we also ﬁnd that the quantile strategy can get the same accuracy as exact greedy given reasonable approximation level. Our system eﬃciently supports exact greedy for the single machine setting, as well as approximate algorithm with both local and global proposal methods for all settings. Users can freely choose between the methods according to their needs.",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00085"
+  },
+  {
+    "block_id": "blk_00086",
+    "type": "paragraph",
+    "content": "3.3 Weighted Quantile Sketch",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00086"
+  },
+  {
+    "block_id": "blk_00087",
+    "type": "paragraph",
+    "content": "One important step in the approximate algorithm is to propose candidate split points. Usually percentiles of a fea-",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00087"
+  },
+  {
+    "block_id": "blk_00088",
+    "type": "caption",
+    "content": "Figure 4: Tree structure with default directions. An",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00088"
+  },
+  {
+    "block_id": "blk_00089",
+    "type": "paragraph",
+    "content": "example will be classiﬁed into the default direction when the feature needed for the split is missing. ture are used to make candidates distribute evenly on the",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00089"
+  },
+  {
+    "block_id": "blk_00090",
+    "type": "formula",
+    "content": "data. Formally, let multi-setDk = {(x1k,h 1), (x2k,h 2) · · ·(xnk,hn)}",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00090"
+  },
+  {
+    "block_id": "blk_00091",
+    "type": "paragraph",
+    "content": "represent the k-th feature values and second order gradient statistics of each training instances. We can deﬁne a rank functions rk : R → [0, +∞) as",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00091"
+  },
+  {
+    "block_id": "blk_00092",
+    "type": "formula",
+    "content": "rk(z) = 1∑",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00092"
+  },
+  {
+    "block_id": "blk_00093",
+    "type": "formula",
+    "content": "(x,h)∈Dk h ∑ (x,h)∈Dk,x<z h, (8) which represents the proportion of instances whose feature valuek is smaller than z. The goal is to ﬁnd candidate split points {sk1,sk2, · · ·skl}, such that",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00093"
+  },
+  {
+    "block_id": "blk_00094",
+    "type": "formula",
+    "content": "|rk(sk,j) −rk(sk,j+1)|<ϵ, s k1 = min",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00094"
+  },
+  {
+    "block_id": "blk_00095",
+    "type": "paragraph",
+    "content": "i",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00095"
+  },
+  {
+    "block_id": "blk_00096",
+    "type": "formula",
+    "content": "xik,skl = max",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00096"
+  },
+  {
+    "block_id": "blk_00097",
+    "type": "paragraph",
+    "content": "i xik. (9) Here ϵ is an approximation factor. Intuitively, this means that there is roughly 1 /ϵ candidate points. Here each data point is weighted byhi. To see whyhi represents the weight, we can rewrite Eq (3) as n∑ i=1 1 2hi(ft(xi) −gi/hi)2 + Ω(ft) +constant, which is exactly weighted squared loss with labels gi/hi",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00097"
+  },
+  {
+    "block_id": "blk_00098",
+    "type": "formula",
+    "content": "and weights hi. For large datasets, it is non-trivial to ﬁnd",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00098"
+  },
+  {
+    "block_id": "blk_00099",
+    "type": "paragraph",
+    "content": "candidate splits that satisfy the criteria. When every in- stance has equal weights, an existing algorithm called quan- tile sketch [14, 24] solves the problem. However, there is no existing quantile sketch for the weighted datasets. There- fore, most existing approximate algorithms either resorted to sorting on a random subset of data which have a chance of failure or heuristics that do not have theoretical guarantee. To solve this problem, we introduced a novel distributed weighted quantile sketch algorithm that can handle weighted data with a provable theoretical guarantee. The general idea is to propose a data structure that supportsmerge and prune operations, with each operation proven to maintain a certain accuracy level. A detailed description of the algorithm as well as proofs are given in the appendix.",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00099"
+  },
+  {
+    "block_id": "blk_00100",
+    "type": "paragraph",
+    "content": "3.4 Sparsity-aware Split Finding",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00100"
+  },
+  {
+    "block_id": "blk_00101",
+    "type": "paragraph",
+    "content": "In many real-world problems, it is quite common for the input x to be sparse. There are multiple possible causes for sparsity: 1) presence of missing values in the data; 2) frequent zero entries in the statistics; and, 3) artifacts of feature engineering such as one-hot encoding. It is impor- tant to make the algorithm aware of the sparsity pattern in the data. In order to do so, we propose to add a default direction in each tree node, which is shown in Fig. 4. When a value is missing in the sparse matrix x, the instance is classiﬁed into the default direction. There are two choices",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00101"
+  },
+  {
+    "block_id": "blk_00102",
+    "type": "caption",
+    "content": "Figure 6: Block structure for parallel learning. Each column in a block is sorted by the corresponding feature",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00102"
+  },
+  {
+    "block_id": "blk_00103",
+    "type": "paragraph",
+    "content": "value. A linear scan over one column in the block is suﬃcient to enumerate all the split points. Algorithm 3: Sparsity-aware Split Finding Input: I, instance set of current node",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00103"
+  },
+  {
+    "block_id": "blk_00104",
+    "type": "formula",
+    "content": "Input: Ik = {i ∈I|xik ̸= missing}",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00104"
+  },
+  {
+    "block_id": "blk_00105",
+    "type": "formula",
+    "content": "Input: d, feature dimension Also applies to the approximate setting, only collect statistics of non-missing entries into buckets gain ← 0 G ← ∑",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00105"
+  },
+  {
+    "block_id": "blk_00106",
+    "type": "formula",
+    "content": "i∈I,gi,H ← ∑",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00106"
+  },
+  {
+    "block_id": "blk_00107",
+    "type": "paragraph",
+    "content": "i∈Ihi",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00107"
+  },
+  {
+    "block_id": "blk_00108",
+    "type": "formula",
+    "content": "for k = 1 to m do",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00108"
+  },
+  {
+    "block_id": "blk_00109",
+    "type": "paragraph",
+    "content": "// enumerate missing value goto right GL ← 0, HL ← 0 for j in sorted(Ik, ascent order by xjk ) do GL ←GL +gj, HL ←HL +hj GR ←G −GL, HR ←H −HL",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00109"
+  },
+  {
+    "block_id": "blk_00110",
+    "type": "formula",
+    "content": "score ← max(score,",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00110"
+  },
+  {
+    "block_id": "blk_00111",
+    "type": "paragraph",
+    "content": "G2 L HL+λ + G2 R HR+λ − G2 H+λ) end // enumerate missing value goto left GR ← 0, HR ← 0 for j in sorted(Ik, descent order by xjk ) do GR ←GR +gj, HR ←HR +hj GL ←G −GR, HL ←H −HR",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00111"
+  },
+  {
+    "block_id": "blk_00112",
+    "type": "formula",
+    "content": "score ← max(score,",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00112"
+  },
+  {
+    "block_id": "blk_00113",
+    "type": "paragraph",
+    "content": "G2 L HL+λ + G2 R HR+λ − G2 H+λ) end end",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00113"
+  },
+  {
+    "block_id": "blk_00114",
+    "type": "formula",
+    "content": "Output: Split and default directions with max gain",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00114"
+  },
+  {
+    "block_id": "blk_00115",
+    "type": "paragraph",
+    "content": "of default direction in each branch. The optimal default di- rections are learnt from the data. The algorithm is shown in Alg. 3. The key improvement is to only visit the non-missing entriesIk. The presented algorithm treats the non-presence as a missing value and learns the best direction to handle missing values. The same algorithm can also be applied when the non-presence corresponds to a user speciﬁed value by limiting the enumeration only to consistent solutions. To the best of our knowledge, most existing tree learn- ing algorithms are either only optimized for dense data, or need speciﬁc procedures to handle limited cases such as cat- egorical encoding. XGBoost handles all sparsity patterns in a uniﬁed way. More importantly, our method exploits the sparsity to make computation complexity linear to number of non-missing entries in the input. Fig. 5 shows the com- parison of sparsity aware and a naive implementation on an Allstate-10K dataset (description of dataset given in Sec. 6). We ﬁnd that the sparsity aware algorithm runs 50 times faster than the naive version. This conﬁrms the importance of the sparsity aware algorithm. 1 2 4 8 16 Number of Threads 0.03125 0.0625 0.125 0.25 0.5 1 2 4 8 16 32 Time per Tree(sec) Sparsity aware algorithm Basic algorithm",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00115"
+  },
+  {
+    "block_id": "blk_00116",
+    "type": "caption",
+    "content": "Figure 5: Impact of the sparsity aware algorithm",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00116"
+  },
+  {
+    "block_id": "blk_00117",
+    "type": "paragraph",
+    "content": "on Allstate-10K. The dataset is sparse mainly due to one-hot encoding. The sparsity aware algorithm is more than 50 times faster than the naive version that does not take sparsity into consideration. 4. SYSTEM DESIGN",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00117"
+  },
+  {
+    "block_id": "blk_00118",
+    "type": "paragraph",
+    "content": "4.1 Column Block for Parallel Learning",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00118"
+  },
+  {
+    "block_id": "blk_00119",
+    "type": "formula",
+    "content": "The most time consuming part of tree learning is to get",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00119"
+  },
+  {
+    "block_id": "blk_00120",
+    "type": "paragraph",
+    "content": "the data into sorted order. In order to reduce the cost of sorting, we propose to store the data in in-memory units, which we called block. Data in each block is stored in the compressed column (CSC) format, with each column sorted by the corresponding feature value. This input data layout only needs to be computed once before training, and can be reused in later iterations. In the exact greedy algorithm, we store the entire dataset in a single block and run the split search algorithm by lin- early scanning over the pre-sorted entries. We do the split ﬁnding of all leaves collectively, so one scan over the block will collect the statistics of the split candidates in all leaf branches. Fig. 6 shows how we transform a dataset into the format and ﬁnd the optimal split using the block structure. The block structure also helps when using the approxi- mate algorithms. Multiple blocks can be used in this case, with each block corresponding to subset of rows in the dataset. Diﬀerent blocks can be distributed across machines, or stored on disk in the out-of-core setting. Using the sorted struc- ture, the quantile ﬁnding step becomes a linear scan over the sorted columns. This is especially valuable for local pro- posal algorithms, where candidates are generated frequently at each branch. The binary search in histogram aggregation also becomes a linear time merge style algorithm. Collecting statistics for each column can be parallelized, giving us a parallel algorithm for split ﬁnding. Importantly, the column block structure also supports column subsam- pling, as it is easy to select a subset of columns in a block.",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00120"
+  },
+  {
+    "block_id": "blk_00121",
+    "type": "paragraph",
+    "content": "1 2 4 8 16 Number of Threads 8 16 32 64 128Time per Tree(sec) Basic algorithm Cache-aware algorithm (a) Allstate 10M 1 2 4 8 16 Number of Threads 8 16 32 64 128 256Time per Tree(sec) Basic algorithm Cache-aware algorithm (b) Higgs 10M 1 2 4 8 16 Number of Threads 0.25 0.5 1 2 4 8 Time per Tree(sec) Basic algorithm Cache-aware algorithm (c) Allstate 1M 1 2 4 8 16 Number of Threads 0.25 0.5 1 2 4 8 Time per Tree(sec) Basic algorithm Cache-aware algorithm (d) Higgs 1M",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00121"
+  },
+  {
+    "block_id": "blk_00122",
+    "type": "caption",
+    "content": "Figure 7: Impact of cache-aware prefetching in exact greedy algorithm. We ﬁnd that the cache-miss eﬀect",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00122"
+  },
+  {
+    "block_id": "blk_00123",
+    "type": "formula",
+    "content": "impacts the performance on the large datasets (10 million instances). Using cache aware prefetching improves",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00123"
+  },
+  {
+    "block_id": "blk_00124",
+    "type": "formula",
+    "content": "the performance by factor of two when the dataset is large.",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00124"
+  },
+  {
+    "block_id": "blk_00125",
+    "type": "caption",
+    "content": "Figure 8: Short range data dependency pattern",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00125"
+  },
+  {
+    "block_id": "blk_00126",
+    "type": "paragraph",
+    "content": "that can cause stall due to cache miss.",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00126"
+  },
+  {
+    "block_id": "blk_00127",
+    "type": "formula",
+    "content": "Time Complexity Analysis Letd be the maximum depth",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00127"
+  },
+  {
+    "block_id": "blk_00128",
+    "type": "paragraph",
+    "content": "of the tree and K be total number of trees. For the ex- act greedy algorithm, the time complexity of original spase",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00128"
+  },
+  {
+    "block_id": "blk_00129",
+    "type": "formula",
+    "content": "aware algorithm is O(Kd∥x∥0 logn). Here we use ∥x∥0 to",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00129"
+  },
+  {
+    "block_id": "blk_00130",
+    "type": "paragraph",
+    "content": "denote number of non-missing entries in the training data. On the other hand, tree boosting on the block structure only",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00130"
+  },
+  {
+    "block_id": "blk_00131",
+    "type": "formula",
+    "content": "costO(Kd∥x∥0 + ∥x∥0 logn). Here O(∥x∥0 logn) is the one",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00131"
+  },
+  {
+    "block_id": "blk_00132",
+    "type": "paragraph",
+    "content": "time preprocessing cost that can be amortized. This analysis shows that the block structure helps to save an additional",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00132"
+  },
+  {
+    "block_id": "blk_00133",
+    "type": "formula",
+    "content": "logn factor, which is signiﬁcant when n is large. For the",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00133"
+  },
+  {
+    "block_id": "blk_00134",
+    "type": "paragraph",
+    "content": "approximate algorithm, the time complexity of original al-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00134"
+  },
+  {
+    "block_id": "blk_00135",
+    "type": "formula",
+    "content": "gorithm with binary search is O(Kd∥x∥0 logq). Here q is",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00135"
+  },
+  {
+    "block_id": "blk_00136",
+    "type": "paragraph",
+    "content": "the number of proposal candidates in the dataset. While q",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00136"
+  },
+  {
+    "block_id": "blk_00137",
+    "type": "formula",
+    "content": "is usually between 32 and 100, the log factor still introduces",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00137"
+  },
+  {
+    "block_id": "blk_00138",
+    "type": "paragraph",
+    "content": "overhead. Using the block structure, we can reduce the time",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00138"
+  },
+  {
+    "block_id": "blk_00139",
+    "type": "formula",
+    "content": "toO(Kd∥x∥0 + ∥x∥0 logB), where B is the maximum num-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00139"
+  },
+  {
+    "block_id": "blk_00140",
+    "type": "paragraph",
+    "content": "ber of rows in each block. Again we can save the additional",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00140"
+  },
+  {
+    "block_id": "blk_00141",
+    "type": "formula",
+    "content": "logq factor in computation.",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00141"
+  },
+  {
+    "block_id": "blk_00142",
+    "type": "paragraph",
+    "content": "4.2 Cache-aware Access",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00142"
+  },
+  {
+    "block_id": "blk_00143",
+    "type": "paragraph",
+    "content": "While the proposed block structure helps optimize the computation complexity of split ﬁnding, the new algorithm requires indirect fetches of gradient statistics by row index, since these values are accessed in order of feature. This is a non-continuous memory access. A naive implementation of split enumeration introduces immediate read/write de- pendency between the accumulation and the non-continuous memory fetch operation (see Fig. 8). This slows down split ﬁnding when the gradient statistics do not ﬁt into CPU cache and cache miss occur. For the exact greedy algorithm, we can alleviate the prob- lem by a cache-aware prefetching algorithm. Speciﬁcally, we allocate an internal buﬀer in each thread, fetch the gra- dient statistics into it, and then perform accumulation in",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00143"
+  },
+  {
+    "block_id": "blk_00144",
+    "type": "formula",
+    "content": "a mini-batch manner. This prefetching changes the direct",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00144"
+  },
+  {
+    "block_id": "blk_00145",
+    "type": "paragraph",
+    "content": "read/write dependency to a longer dependency and helps to reduce the runtime overhead when number of rows in the",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00145"
+  },
+  {
+    "block_id": "blk_00146",
+    "type": "formula",
+    "content": "is large. Figure 7 gives the comparison of cache-aware vs.",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00146"
+  },
+  {
+    "block_id": "blk_00147",
+    "type": "paragraph",
+    "content": "1 2 4 8 16 Number of Threads 4 8 16 32 64 128Time per Tree(sec)",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00147"
+  },
+  {
+    "block_id": "blk_00148",
+    "type": "formula",
+    "content": "block size=2^12",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00148"
+  },
+  {
+    "block_id": "blk_00149",
+    "type": "formula",
+    "content": "block size=2^16",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00149"
+  },
+  {
+    "block_id": "blk_00150",
+    "type": "formula",
+    "content": "block size=2^20",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00150"
+  },
+  {
+    "block_id": "blk_00151",
+    "type": "formula",
+    "content": "block size=2^24",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00151"
+  },
+  {
+    "block_id": "blk_00152",
+    "type": "paragraph",
+    "content": "(a) Allstate 10M 1 2 4 8 16 Number of Threads 4 8 16 32 64 128 256 512Time per Tree(sec)",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00152"
+  },
+  {
+    "block_id": "blk_00153",
+    "type": "formula",
+    "content": "block size=2^12",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00153"
+  },
+  {
+    "block_id": "blk_00154",
+    "type": "formula",
+    "content": "block size=2^16",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00154"
+  },
+  {
+    "block_id": "blk_00155",
+    "type": "formula",
+    "content": "block size=2^20",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00155"
+  },
+  {
+    "block_id": "blk_00156",
+    "type": "formula",
+    "content": "block size=2^24",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00156"
+  },
+  {
+    "block_id": "blk_00157",
+    "type": "paragraph",
+    "content": "(b) Higgs 10M",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00157"
+  },
+  {
+    "block_id": "blk_00158",
+    "type": "caption",
+    "content": "Figure 9: The impact of block size in the approxi-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00158"
+  },
+  {
+    "block_id": "blk_00159",
+    "type": "paragraph",
+    "content": "mate algorithm. We ﬁnd that overly small blocks re-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00159"
+  },
+  {
+    "block_id": "blk_00160",
+    "type": "formula",
+    "content": "sults in ineﬃcient parallelization, while overly large",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00160"
+  },
+  {
+    "block_id": "blk_00161",
+    "type": "paragraph",
+    "content": "blocks also slows down training due to cache misses. non cache-aware algorithm on the the Higgs and the All- state dataset. We ﬁnd that cache-aware implementation of the exact greedy algorithm runs twice as fast as the naive",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00161"
+  },
+  {
+    "block_id": "blk_00162",
+    "type": "formula",
+    "content": "version when the dataset is large.",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00162"
+  },
+  {
+    "block_id": "blk_00163",
+    "type": "paragraph",
+    "content": "For approximate algorithms, we solve the problem by choos-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00163"
+  },
+  {
+    "block_id": "blk_00164",
+    "type": "formula",
+    "content": "ing a correct block size. We deﬁne the block size to be max-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00164"
+  },
+  {
+    "block_id": "blk_00165",
+    "type": "paragraph",
+    "content": "imum number of examples in contained in a block, as this reﬂects the cache storage cost of gradient statistics. Choos- ing an overly small block size results in small workload for each thread and leads to ineﬃcient parallelization. On the",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00165"
+  },
+  {
+    "block_id": "blk_00166",
+    "type": "formula",
+    "content": "other hand, overly large blocks result in cache misses, as the",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00166"
+  },
+  {
+    "block_id": "blk_00167",
+    "type": "paragraph",
+    "content": "gradient statistics do not ﬁt into the CPU cache. A good choice of block size balances these two factors. We compared various choices of block size on two data sets. The results are given in Fig. 9. This result validates our discussion and",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00167"
+  },
+  {
+    "block_id": "blk_00168",
+    "type": "caption",
+    "content": "Table 1: Comparison of major tree boosting systems.",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00168"
+  },
+  {
+    "block_id": "blk_00169",
+    "type": "paragraph",
+    "content": "System exact greedy approximate global approximate local out-of-core sparsity aware parallel XGBoost yes yes yes yes yes yes pGBRT no no yes no no yes Spark MLLib no yes no no partially yes H2O no yes no no partially yes scikit-learn yes no no no no no R GBM yes no no no partially no shows that choosing 2 16 examples per block balances the cache property and parallelization.",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00169"
+  },
+  {
+    "block_id": "blk_00170",
+    "type": "paragraph",
+    "content": "4.3 Blocks for Out-of-core Computation",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00170"
+  },
+  {
+    "block_id": "blk_00171",
+    "type": "paragraph",
+    "content": "One goal of our system is to fully utilize a machine’s re- sources to achieve scalable learning. Besides processors and memory, it is important to utilize disk space to handle data that does not ﬁt into main memory. To enable out-of-core computation, we divide the data into multiple blocks and store each block on disk. During computation, it is impor- tant to use an independent thread to pre-fetch the block into a main memory buﬀer, so computation can happen in con- currence with disk reading. However, this does not entirely solve the problem since the disk reading takes most of the computation time. It is important to reduce the overhead and increase the throughput of disk IO. We mainly use two techniques to improve the out-of-core computation. Block Compression The ﬁrst technique we use is block compression. The block is compressed by columns, and de- compressed on the ﬂy by an independent thread when load- ing into main memory. This helps to trade some of the computation in decompression with the disk reading cost. We use a general purpose compression algorithm for com- pressing the features values. For the row index, we substract the row index by the begining index of the block and use a 16bit integer to store each oﬀset. This requires 216 examples per block, which is conﬁrmed to be a good setting. In most of the dataset we tested, we achieve roughly a 26% to 29% compression ratio. Block Sharding The second technique is to shard the data onto multiple disks in an alternative manner. A pre-fetcher thread is assigned to each disk and fetches the data into an in-memory buﬀer. The training thread then alternatively reads the data from each buﬀer. This helps to increase the throughput of disk reading when multiple disks are available. 5. RELATED WORKS Our system implements gradient boosting [10], which per- forms additive optimization in functional space. Gradient tree boosting has been successfully used in classiﬁcation [12], learning to rank [5], structured prediction [8] as well as other ﬁelds. XGBoost incorporates a regularized model to prevent overﬁtting. This this resembles previous work on regularized greedy forest [25], but simpliﬁes the objective and algorithm for parallelization. Column sampling is a simple but eﬀective technique borrowed from RandomForest [4]. While sparsity- aware learning is essential in other types of models such as linear models [9], few works on tree learning have considered this topic in a principled way. The algorithm proposed in this paper is the ﬁrst uniﬁed approach to handle all kinds of sparsity patterns. There are several existing works on parallelizing tree learn- ing [22, 19]. Most of these algorithms fall into the ap- proximate framework described in this paper. Notably, it is also possible to partition data by columns [23] and ap- ply the exact greedy algorithm. This is also supported in our framework, and the techniques such as cache-aware pre- fecthing can be used to beneﬁt this type of algorithm. While most existing works focus on the algorithmic aspect of par- allelization, our work improves in two unexplored system di- rections: out-of-core computation and cache-aware learning. This gives us insights on how the system and the algorithm can be jointly optimized and provides an end-to-end system",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00171"
+  },
+  {
+    "block_id": "blk_00172",
+    "type": "formula",
+    "content": "that can handle large scale problems with very limited com-",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00172"
+  },
+  {
+    "block_id": "blk_00173",
+    "type": "paragraph",
+    "content": "puting resources. We also summarize the comparison be- tween our system and existing opensource implementations in Table 1. Quantile summary (without weights) is a classical prob- lem in the database community [14, 24]. However, the ap- proximate tree boosting algorithm reveals a more general problem – ﬁnding quantiles on weighted data. To the best of our knowledge, the weighted quantile sketch proposed in this paper is the ﬁrst method to solve this problem. The weighted quantile summary is also not speciﬁc to the tree learning and can beneﬁt other applications in data science and machine learning in the future. 6. END TO END EV ALUATIONS",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00173"
+  },
+  {
+    "block_id": "blk_00174",
+    "type": "paragraph",
+    "content": "6.1 System Implementation",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00174"
+  },
+  {
+    "block_id": "blk_00175",
+    "type": "paragraph",
+    "content": "We implemented XGBoost as an open source package 5. The package is portable and reusable. It supports various weighted classiﬁcation and rank objective functions, as well as user deﬁned objective function. It is available in popular languages such as python, R, Julia and integrates naturally with language native data science pipelines such as scikit- learn. The distributed version is built on top of the rabit library6 for allreduce. The portability of XGBoost makes it available in many ecosystems, instead of only being tied to a speciﬁc platform. The distributed XGBoost runs natively on Hadoop, MPI Sun Grid engine. Recently, we also enable distributed XGBoost on jvm bigdata stacks such as Flink and Spark. The distributed version has also been integrated into cloud platform Tianchi 7 of Alibaba. We believe that there will be more integrations in the future.",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00175"
+  },
+  {
+    "block_id": "blk_00176",
+    "type": "paragraph",
+    "content": "6.2 Dataset and Setup",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00176"
+  },
+  {
+    "block_id": "blk_00177",
+    "type": "paragraph",
+    "content": "5https://github.com/dmlc/xgboost 6https://github.com/dmlc/rabit 7https://tianchi.aliyun.com",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00177"
+  },
+  {
+    "block_id": "blk_00178",
+    "type": "caption",
+    "content": "Table 2: Dataset used in the Experiments.",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00178"
+  },
+  {
+    "block_id": "blk_00179",
+    "type": "paragraph",
+    "content": "Dataset n m Task Allstate 10 M 4227 Insurance claim classiﬁcation Higgs Boson 10 M 28 Event classiﬁcation Yahoo LTRC 473K 700 Learning to Rank Criteo 1.7 B 67 Click through rate prediction We used four datasets in our experiments. A summary of these datasets is given in Table 2. In some of the experi- ments, we use a randomly selected subset of the data either due to slow baselines or to demonstrate the performance of the algorithm with varying dataset size. We use a suﬃx to denote the size in these cases. For example Allstate-10K means a subset of the Allstate dataset with 10K instances. The ﬁrst dataset we use is the Allstate insurance claim dataset8. The task is to predict the likelihood and cost of an insurance claim given diﬀerent risk factors. In the exper- iment, we simpliﬁed the task to only predict the likelihood of an insurance claim. This dataset is used to evaluate the impact of sparsity-aware algorithm in Sec. 3.4. Most of the sparse features in this data come from one-hot encoding. We randomly select 10M instances as training set and use the rest as evaluation set. The second dataset is the Higgs boson dataset 9 from high energy physics. The data was produced using Monte Carlo simulations of physics events. It contains 21 kinematic prop- erties measured by the particle detectors in the accelerator. It also contains seven additional derived physics quantities of the particles. The task is to classify whether an event corresponds to the Higgs boson. We randomly select 10M instances as training set and use the rest as evaluation set. The third dataset is the Yahoo! learning to rank challenge dataset [6], which is one of the most commonly used bench- marks in learning to rank algorithms. The dataset contains 20K web search queries, with each query corresponding to a list of around 22 documents. The task is to rank the docu- ments according to relevance of the query. We use the oﬃcial train test split in our experiment.",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00179"
+  },
+  {
+    "block_id": "blk_00180",
+    "type": "formula",
+    "content": "The last dataset is the criteo terabyte click log dataset 10.",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00180"
+  },
+  {
+    "block_id": "blk_00181",
+    "type": "paragraph",
+    "content": "We use this dataset to evaluate the scaling property of the system in the out-of-core and the distributed settings. The data contains 13 integer features and 26 ID features of user, item and advertiser information. Since a tree based model is better at handling continuous features, we preprocess the data by calculating the statistics of average CTR and count of ID features on the ﬁrst ten days, replacing the ID fea- tures by the corresponding count statistics during the next ten days for training. The training set after preprocessing contains 1.7 billion instances with 67 features (13 integer, 26 average CTR statistics and 26 counts). The entire dataset is more than one terabyte in LibSVM format. We use the ﬁrst three datasets for the single machine par- allel setting, and the last dataset for the distributed and out-of-core settings. All the single machine experiments are conducted on a Dell PowerEdge R420 with two eight-core Intel Xeon (E5-2470) (2.3GHz) and 64GB of memory. If not speciﬁed, all the experiments are run using all the avail- 8https://www.kaggle.com/c/ClaimPredictionChallenge 9https://archive.ics.uci.edu/ml/datasets/HIGGS 10http://labs.criteo.com/downloads/download-terabyte-",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00181"
+  },
+  {
+    "block_id": "blk_00182",
+    "type": "formula",
+    "content": "click-logs/",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00182"
+  },
+  {
+    "block_id": "blk_00183",
+    "type": "caption",
+    "content": "Table 3: Comparison of Exact Greedy Methods with",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00183"
+  },
+  {
+    "block_id": "blk_00184",
+    "type": "paragraph",
+    "content": "500 trees on Higgs-1M data. Method Time per Tree (sec) Test AUC XGBoost 0.6841 0.8304",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00184"
+  },
+  {
+    "block_id": "blk_00185",
+    "type": "formula",
+    "content": "XGBoost (colsample=0.5) 0.6401 0.8245",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00185"
+  },
+  {
+    "block_id": "blk_00186",
+    "type": "paragraph",
+    "content": "scikit-learn 28.51 0.8302 R.gbm 1.032 0.6224 1 2 4 8 16 Number of Threads 0.5 1 2 4 8 16 32Time per Tree(sec) XGBoost pGBRT",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00186"
+  },
+  {
+    "block_id": "blk_00187",
+    "type": "caption",
+    "content": "Figure 10: Comparison between XGBoost and pG-",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00187"
+  },
+  {
+    "block_id": "blk_00188",
+    "type": "paragraph",
+    "content": "BRT on Yahoo LTRC dataset.",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00188"
+  },
+  {
+    "block_id": "blk_00189",
+    "type": "caption",
+    "content": "Table 4: Comparison of Learning to Rank with 500",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00189"
+  },
+  {
+    "block_id": "blk_00190",
+    "type": "paragraph",
+    "content": "trees on Yahoo! LTRC Dataset Method Time per Tree (sec) NDCG@10 XGBoost 0.826 0.7892",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00190"
+  },
+  {
+    "block_id": "blk_00191",
+    "type": "formula",
+    "content": "XGBoost (colsample=0.5) 0.506 0.7913",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00191"
+  },
+  {
+    "block_id": "blk_00192",
+    "type": "paragraph",
+    "content": "pGBRT [22] 2.576 0.7915 able cores in the machine. The machine settings of the dis- tributed and the out-of-core experiments will be described in the corresponding section. In all the experiments, we boost",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00192"
+  },
+  {
+    "block_id": "blk_00193",
+    "type": "formula",
+    "content": "trees with a common setting of maximum depth equals 8,",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00193"
+  },
+  {
+    "block_id": "blk_00194",
+    "type": "paragraph",
+    "content": "shrinkage equals 0.1 and no column subsampling unless ex- plicitly speciﬁed. We can ﬁnd similar results when we use",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00194"
+  },
+  {
+    "block_id": "blk_00195",
+    "type": "formula",
+    "content": "other settings of maximum depth.",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00195"
+  },
+  {
+    "block_id": "blk_00196",
+    "type": "paragraph",
+    "content": "6.3 Classiﬁcation In this section, we evaluate the performance of XGBoost on a single machine using the exact greedy algorithm on Higgs-1M data, by comparing it against two other commonly used exact greedy tree boosting implementations. Since scikit-learn only handles non-sparse input, we choose the dense Higgs dataset for a fair comparison. We use the 1M subset to make scikit-learn ﬁnish running in reasonable time. Among the methods in comparison, R’s GBM uses a greedy approach that only expands one branch of a tree, which makes it faster but can result in lower accuracy, while both scikit-learn and XGBoost learn a full tree. The results are shown in Table 3. Both XGBoost and scikit-learn give better performance than R’s GBM, while XGBoost runs more than 10x faster than scikit-learn. In this experiment, we also ﬁnd column subsamples gives slightly worse performance than using all the features. This could due to the fact that there are few important features in this dataset and we can beneﬁt from greedily select from all the features.",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00196"
+  },
+  {
+    "block_id": "blk_00197",
+    "type": "paragraph",
+    "content": "6.4 Learning to Rank",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00197"
+  },
+  {
+    "block_id": "blk_00198",
+    "type": "paragraph",
+    "content": "We next evaluate the performance of XGBoost on the",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00198"
+  },
+  {
+    "block_id": "blk_00199",
+    "type": "paragraph",
+    "content": "128 256 512 1024 2048 Number of Training Examples (million) 128 256 512 1024 2048 4096Time per Tree(sec) Basic algorithm Block compression Compression+shard Out of system file cache start from this point",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00199"
+  },
+  {
+    "block_id": "blk_00200",
+    "type": "caption",
+    "content": "Figure 11: Comparison of out-of-core methods on",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00200"
+  },
+  {
+    "block_id": "blk_00201",
+    "type": "paragraph",
+    "content": "diﬀerent subsets of criteo data. The missing data points are due to out of disk space. We can ﬁnd that basic algorithm can only handle 200M exam- ples. Adding compression gives 3x speedup, and sharding into two disks gives another 2x speedup. The system runs out of ﬁle cache start from 400M examples. The algorithm really has to rely on disk after this point. The compression+shard method has a less dramatic slowdown when running out of ﬁle cache, and exhibits a linear trend afterwards. learning to rank problem. We compare against pGBRT [22], the best previously pubished system on this task. XGBoost runs exact greedy algorithm, while pGBRT only support an approximate algorithm. The results are shown in Table 4 and Fig. 10. We ﬁnd that XGBoost runs faster. Interest- ingly, subsampling columns not only reduces running time, and but also gives a bit higher performance for this prob- lem. This could due to the fact that the subsampling helps prevent overﬁtting, which is observed by many of the users.",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00201"
+  },
+  {
+    "block_id": "blk_00202",
+    "type": "paragraph",
+    "content": "6.5 Out-of-core Experiment",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00202"
+  },
+  {
+    "block_id": "blk_00203",
+    "type": "paragraph",
+    "content": "We also evaluate our system in the out-of-core setting on the criteo data. We conducted the experiment on one AWS",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00203"
+  },
+  {
+    "block_id": "blk_00204",
+    "type": "formula",
+    "content": "c3.8xlarge machine (32 vcores, two 320 GB SSD, 60 GB",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00204"
+  },
+  {
+    "block_id": "blk_00205",
+    "type": "paragraph",
+    "content": "RAM). The results are shown in Figure 11. We can ﬁnd that compression helps to speed up computation by factor of three, and sharding into two disks further gives 2x speedup. For this type of experiment, it is important to use a very",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00205"
+  },
+  {
+    "block_id": "blk_00206",
+    "type": "formula",
+    "content": "large dataset to drain the system ﬁle cache for a real out-",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00206"
+  },
+  {
+    "block_id": "blk_00207",
+    "type": "paragraph",
+    "content": "of-core setting. This is indeed our setup. We can observe a transition point when the system runs out of ﬁle cache. Note that the transition in the ﬁnal method is less dramatic. This",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00207"
+  },
+  {
+    "block_id": "blk_00208",
+    "type": "formula",
+    "content": "is due to larger disk throughput and better utilization of",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00208"
+  },
+  {
+    "block_id": "blk_00209",
+    "type": "paragraph",
+    "content": "computation resources. Our ﬁnal method is able to process 1.7 billion examples on a single machine.",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00209"
+  },
+  {
+    "block_id": "blk_00210",
+    "type": "paragraph",
+    "content": "6.6 Distributed Experiment",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00210"
+  },
+  {
+    "block_id": "blk_00211",
+    "type": "paragraph",
+    "content": "Finally, we evaluate the system in the distributed setting.",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00211"
+  },
+  {
+    "block_id": "blk_00212",
+    "type": "formula",
+    "content": "We set up a YARN cluster on EC2 with m3.2xlarge ma-",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00212"
+  },
+  {
+    "block_id": "blk_00213",
+    "type": "paragraph",
+    "content": "chines, which is a very common choice for clusters. Each machine contains 8 virtual cores, 30GB of RAM and two 80GB SSD local disks. The dataset is stored on AWS S3 instead of HDFS to avoid purchasing persistent storage. We ﬁrst compare our system against two production-level distributed systems: Spark MLLib [18] and H2O 11. We use 11www.h2o.ai 128 256 512 1024 2048 Number of Training Examples (million) 128 256 512 1024 2048 4096 8192 16384 32768Total Running Time (sec) Spark MLLib H2O XGBoost (a) End-to-end time cost include data loading 128 256 512 1024 2048 Number of Training Examples (million) 8 16 32 64 128 256 512 1024 2048 4096Time per Iteration (sec) Spark MLLib H2O XGBoost (b) Per iteration cost exclude data loading",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00213"
+  },
+  {
+    "block_id": "blk_00214",
+    "type": "caption",
+    "content": "Figure 12: Comparison of diﬀerent distributed sys-",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00214"
+  },
+  {
+    "block_id": "blk_00215",
+    "type": "paragraph",
+    "content": "tems on 32 EC2 nodes for 10 iterations on diﬀerent subset of criteo data. XGBoost runs more 10x than spark per iteration and 2.2x as H2O’s optimized ver- sion (However, H2O is slow in loading the data, get- ting worse end-to-end time). Note that spark suﬀers from drastic slow down when running out of mem- ory. XGBoost runs faster and scales smoothly to the full 1.7 billion examples with given resources by utilizing out-of-core computation.",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00215"
+  },
+  {
+    "block_id": "blk_00216",
+    "type": "formula",
+    "content": "32 m3.2xlarge machines and test the performance of the sys-",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00216"
+  },
+  {
+    "block_id": "blk_00217",
+    "type": "paragraph",
+    "content": "tems with various input size. Both of the baseline systems are in-memory analytics frameworks that need to store the data in RAM, while XGBoost can switch to out-of-core set- ting when it runs out of memory. The results are shown in Fig. 12. We can ﬁnd that XGBoost runs faster than the baseline systems. More importantly, it is able to take ad- vantage of out-of-core computing and smoothly scale to all 1.7 billion examples with the given limited computing re- sources. The baseline systems are only able to handle sub- set of the data with the given resources. This experiment shows the advantage to bring all the system improvement together and solve a real-world scale problem. We also eval- uate the scaling property of XGBoost by varying the number of machines. The results are shown in Fig. 13. We can ﬁnd XGBoost’s performance scales linearly as we add more ma- chines. Importantly, XGBoost is able to handle the entire 1.7 billion data with only four machines. This shows the",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00217"
+  },
+  {
+    "block_id": "blk_00218",
+    "type": "formula",
+    "content": "system’s potential to handle even larger data.",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00218"
+  },
+  {
+    "block_id": "blk_00219",
+    "type": "paragraph",
+    "content": "4 8 16 32 Number of Machines 128 256 512 1024 2048Time per Iteration (sec)",
+    "page": 10,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00219"
+  },
+  {
+    "block_id": "blk_00220",
+    "type": "caption",
+    "content": "Figure 13: Scaling of XGBoost with diﬀerent num-",
+    "page": 10,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00220"
+  },
+  {
+    "block_id": "blk_00221",
+    "type": "paragraph",
+    "content": "ber of machines on criteo full 1.7 billion dataset. Using more machines results in more ﬁle cache and makes the system run faster, causing the trend to be slightly super linear. XGBoost can process the entire dataset using as little as four machines, and scales smoothly by utilizing more available re- sources. 7. CONCLUSION In this paper, we described the lessons we learnt when building XGBoost, a scalable tree boosting system that is widely used by data scientists and provides state-of-the-art results on many problems. We proposed a novel sparsity aware algorithm for handling sparse data and a theoretically justiﬁed weighted quantile sketch for approximate learning. Our experience shows that cache access patterns, data com- pression and sharding are essential elements for building a scalable end-to-end system for tree boosting. These lessons can be applied to other machine learning systems as well. By combining these insights, XGBoost is able to solve real-",
+    "page": 10,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00221"
+  },
+  {
+    "block_id": "blk_00222",
+    "type": "formula",
+    "content": "world scale problems using a minimal amount of resources.",
+    "page": 10,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00222"
+  },
+  {
+    "block_id": "blk_00223",
+    "type": "paragraph",
+    "content": "Acknowledgments We would like to thank Tyler B. Johnson, Marco Tulio Ribeiro, Sameer Singh, Arvind Krishnamurthy for their valuable feedback. We also sincerely thank Tong He, Bing Xu, Michael Benesty, Yuan Tang, Hongliang Liu, Qiang Kou, Nan Zhu and all other con- tributors in the XGBoost community. This work was supported in part by ONR (PECASE) N000141010672, NSF IIS 1258741 and the TerraSwarm Research Center sponsored by MARCO and DARPA. 8. REFERENCES [1] R. Bekkerman. The present and the future of the kdd cup competition: an outsider’s perspective. [2] R. Bekkerman, M. Bilenko, and J. Langford. Scaling Up Machine Learning: Parallel and Distributed Approaches . Cambridge University Press, New York, NY, USA, 2011. [3] J. Bennett and S. Lanning. The netﬂix prize. In Proceedings of the KDD Cup Workshop 2007 , pages 3–6, New York, Aug. 2007. [4] L. Breiman. Random forests. Maching Learning, 45(1):5–32, Oct. 2001. [5] C. Burges. From ranknet to lambdarank to lambdamart: An overview. Learning, 11:23–581, 2010. [6] O. Chapelle and Y. Chang. Yahoo! Learning to Rank Challenge Overview. Journal of Machine Learning Research - W & CP , 14:1–24, 2011. [7] T. Chen, H. Li, Q. Yang, and Y. Yu. General functional matrix factorization using gradient boosting. In Proceeding of 30th International Conference on Machine Learning (ICML’13), volume 1, pages 436–444, 2013. [8] T. Chen, S. Singh, B. Taskar, and C. Guestrin. Eﬃcient second-order gradient boosting for conditional random ﬁelds. In Proceeding of 18th Artiﬁcial Intelligence and Statistics Conference (AISTATS’15), volume 1, 2015. [9] R.-E. Fan, K.-W. Chang, C.-J. Hsieh, X.-R. Wang, and",
+    "page": 10,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00223"
+  },
+  {
+    "block_id": "blk_00224",
+    "type": "formula",
+    "content": "C.-J. Lin. LIBLINEAR: A library for large linear",
+    "page": 10,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00224"
+  },
+  {
+    "block_id": "blk_00225",
+    "type": "paragraph",
+    "content": "classiﬁcation. Journal of Machine Learning Research , 9:1871–1874, 2008. [10] J. Friedman. Greedy function approximation: a gradient boosting machine. Annals of Statistics , 29(5):1189–1232, 2001. [11] J. Friedman. Stochastic gradient boosting. Computational Statistics & Data Analysis , 38(4):367–378, 2002.",
+    "page": 10,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00225"
+  },
+  {
+    "block_id": "blk_00226",
+    "type": "formula",
+    "content": "[12] J. Friedman, T. Hastie, and R. Tibshirani. Additive logistic",
+    "page": 10,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00226"
+  },
+  {
+    "block_id": "blk_00227",
+    "type": "paragraph",
+    "content": "regression: a statistical view of boosting. Annals of Statistics, 28(2):337–407, 2000. [13] J. H. Friedman and B. E. Popescu. Importance sampled learning ensembles, 2003. [14] M. Greenwald and S. Khanna. Space-eﬃcient online computation of quantile summaries. In Proceedings of the",
+    "page": 10,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00227"
+  },
+  {
+    "block_id": "blk_00228",
+    "type": "paragraph",
+    "content": "2001 ACM SIGMOD International Conference on",
+    "page": 10,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00228"
+  },
+  {
+    "block_id": "blk_00229",
+    "type": "paragraph",
+    "content": "Management of Data , pages 58–66, 2001. [15] X. He, J. Pan, O. Jin, T. Xu, B. Liu, T. Xu, Y. Shi, A. Atallah, R. Herbrich, S. Bowers, and J. Q. n. Candela. Practical lessons from predicting clicks on ads at facebook. In Proceedings of the Eighth International Workshop on Data Mining for Online Advertising , ADKDD’14, 2014. [16] P. Li. Robust Logitboost and adaptive base class (ABC) Logitboost. In Proceedings of the Twenty-Sixth Conference Annual Conference on Uncertainty in Artiﬁcial Intelligence (UAI’10), pages 302–311, 2010. [17] P. Li, Q. Wu, and C. J. Burges. Mcrank: Learning to rank using multiple classiﬁcation and gradient boosting. In Advances in Neural Information Processing Systems 20 , pages 897–904. 2008. [18] X. Meng, J. Bradley, B. Yavuz, E. Sparks, S. Venkataraman, D. Liu, J. Freeman, D. Tsai, M. Amde, S. Owen, D. Xin, R. Xin, M. J. Franklin, R. Zadeh, M. Zaharia, and A. Talwalkar. MLlib: Machine learning in apache spark. Journal of Machine Learning Research , 17(34):1–7, 2016. [19] B. Panda, J. S. Herbach, S. Basu, and R. J. Bayardo. Planet: Massively parallel learning of tree ensembles with mapreduce. Proceeding of VLDB Endowment, 2(2):1426–1437, Aug. 2009. [20] F. Pedregosa, G. Varoquaux, A. Gramfort, V. Michel, B. Thirion, O. Grisel, M. Blondel, P. Prettenhofer, R. Weiss, V. Dubourg, J. Vanderplas, A. Passos, D. Cournapeau, M. Brucher, M. Perrot, and E. Duchesnay. Scikit-learn: Machine learning in Python. Journal of Machine Learning Research, 12:2825–2830, 2011. [21] G. Ridgeway. Generalized Boosted Models: A guide to the gbm package. [22] S. Tyree, K. Weinberger, K. Agrawal, and J. Paykin. Parallel boosted regression trees for web search ranking. In Proceedings of the 20th international conference on World wide web, pages 387–396. ACM, 2011. [23] J. Ye, J.-H. Chow, J. Chen, and Z. Zheng. Stochastic gradient boosted distributed decision trees. In Proceedings of the 18th ACM Conference on Information and Knowledge Management, CIKM ’09. [24] Q. Zhang and W. Wang. A fast algorithm for approximate quantiles in high speed data streams. In Proceedings of the 19th International Conference on Scientiﬁc and Statistical Database Management, 2007. [25] T. Zhang and R. Johnson. Learning nonlinear functions using regularized greedy forest. IEEE Transactions on Pattern Analysis and Machine Intelligence , 36(5), 2014.",
+    "page": 10,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00229"
+  },
+  {
+    "block_id": "blk_00230",
+    "type": "paragraph",
+    "content": "APPENDIX A. WEIGHTED QUANTILE SKETCH In this section, we introduce the weighted quantile sketch algo- rithm. Approximate answer of quantile queries is for many real- world applications. One classical approach to this problem is GK algorithm [14] and extensions based on the GK framework [24]. The main component of these algorithms is a data structure called quantile summary, that is able to answer quantile queries with relative accuracy of ϵ. Two operations are deﬁned for a quantile summary: • A merge operation that combines two summaries with ap- proximation error ϵ1 and ϵ2 together and create a merged",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00230"
+  },
+  {
+    "block_id": "blk_00231",
+    "type": "formula",
+    "content": "summary with approximation error max(ϵ1,ϵ 2).",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00231"
+  },
+  {
+    "block_id": "blk_00232",
+    "type": "paragraph",
+    "content": "• A prune operation that reduces the number of elements in the summary tob+1 and changes approximation error from ϵ to ϵ + 1 b . A quantile summary with merge and prune operations forms basic",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00232"
+  },
+  {
+    "block_id": "blk_00233",
+    "type": "formula",
+    "content": "building blocks of the distributed and streaming quantile comput-",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00233"
+  },
+  {
+    "block_id": "blk_00234",
+    "type": "paragraph",
+    "content": "ing algorithms [24]. In order to use quantile computation for approximate tree boost- ing, we need to ﬁnd quantiles on weighted data. This more gen- eral problem is not supported by any of the existing algorithm. In this section, we describe a non-trivial weighted quantile summary structure to solve this problem. Importantly, the new algorithm contains merge and prune operations with the same guarantee as GK summary. This allows our summary to be plugged into all the frameworks used GK summary as building block and answer quantile queries over weighted data eﬃciently. A.1 Formalization and Deﬁnitions",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00234"
+  },
+  {
+    "block_id": "blk_00235",
+    "type": "formula",
+    "content": "Given an input multi-set D ={(x1,w 1), (x2,w 2)··· (xn,wn)}",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00235"
+  },
+  {
+    "block_id": "blk_00236",
+    "type": "paragraph",
+    "content": "such that wi∈ [0, +∞),xi∈X . Each xi corresponds to a po- sition of the point and wi is the weight of the point. Assume we have a total order < deﬁned on X. Let us deﬁne two rank functions r− D,r + D :X→ [0, +∞) r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00236"
+  },
+  {
+    "block_id": "blk_00237",
+    "type": "formula",
+    "content": "D(y) =",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00237"
+  },
+  {
+    "block_id": "blk_00238",
+    "type": "formula",
+    "content": "∑ (x,w)∈D,x<y w (10) r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00238"
+  },
+  {
+    "block_id": "blk_00239",
+    "type": "formula",
+    "content": "D(y) =",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00239"
+  },
+  {
+    "block_id": "blk_00240",
+    "type": "paragraph",
+    "content": "∑",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00240"
+  },
+  {
+    "block_id": "blk_00241",
+    "type": "formula",
+    "content": "(x,w)∈D,x≤y",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00241"
+  },
+  {
+    "block_id": "blk_00242",
+    "type": "paragraph",
+    "content": "w (11) We should note that since D is deﬁned to be a multiset of the points. It can contain multiple record with exactly same position x and weight w. We also deﬁne another weight function ωD : X→ [0, +∞) as",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00242"
+  },
+  {
+    "block_id": "blk_00243",
+    "type": "formula",
+    "content": "ωD(y) =r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00243"
+  },
+  {
+    "block_id": "blk_00244",
+    "type": "paragraph",
+    "content": "D(y)−r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00244"
+  },
+  {
+    "block_id": "blk_00245",
+    "type": "formula",
+    "content": "D(y) =",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00245"
+  },
+  {
+    "block_id": "blk_00246",
+    "type": "paragraph",
+    "content": "∑",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00246"
+  },
+  {
+    "block_id": "blk_00247",
+    "type": "formula",
+    "content": "(x,w)∈D,x=y",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00247"
+  },
+  {
+    "block_id": "blk_00248",
+    "type": "paragraph",
+    "content": "w. (12) Finally, we also deﬁne the weight of multi-setD to be the sum of weights of all the points in the set",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00248"
+  },
+  {
+    "block_id": "blk_00249",
+    "type": "formula",
+    "content": "ω(D) =",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00249"
+  },
+  {
+    "block_id": "blk_00250",
+    "type": "paragraph",
+    "content": "∑ (x,w)∈D w (13) Our task is given a series of inputD, to estimater+(y) andr−(y) fory∈X as well as ﬁnding points with speciﬁc rank. Given these notations, we deﬁne quantile summary of weighted examples as follows: Definition A.1. Quantile Summary of Weighted Data",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00250"
+  },
+  {
+    "block_id": "blk_00251",
+    "type": "formula",
+    "content": "A quantile summary forD is deﬁned to be tupleQ(D) = (S, ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00251"
+  },
+  {
+    "block_id": "blk_00252",
+    "type": "paragraph",
+    "content": "D, ˜r− D, ˜ωD),",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00252"
+  },
+  {
+    "block_id": "blk_00253",
+    "type": "formula",
+    "content": "whereS ={x1,x 2,··· ,xk} is selected from the points in D (i.e.",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00253"
+  },
+  {
+    "block_id": "blk_00254",
+    "type": "paragraph",
+    "content": "xi∈{x|(x,w )∈D} ) with the following properties:",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00254"
+  },
+  {
+    "block_id": "blk_00255",
+    "type": "formula",
+    "content": "1) xi <xi+1 for all i, and x1 and xk are minimum and max-",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00255"
+  },
+  {
+    "block_id": "blk_00256",
+    "type": "paragraph",
+    "content": "imum point in D:",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00256"
+  },
+  {
+    "block_id": "blk_00257",
+    "type": "formula",
+    "content": "x1 = min",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00257"
+  },
+  {
+    "block_id": "blk_00258",
+    "type": "paragraph",
+    "content": "(x,w)∈D",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00258"
+  },
+  {
+    "block_id": "blk_00259",
+    "type": "formula",
+    "content": "x, xk = max",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00259"
+  },
+  {
+    "block_id": "blk_00260",
+    "type": "paragraph",
+    "content": "(x,w)∈D x 2) ˜r+ D, ˜r− D and ˜ωD are functions in S→ [0, +∞), that satisﬁes ˜r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00260"
+  },
+  {
+    "block_id": "blk_00261",
+    "type": "formula",
+    "content": "D(xi)≤r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00261"
+  },
+  {
+    "block_id": "blk_00262",
+    "type": "paragraph",
+    "content": "D(xi), ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00262"
+  },
+  {
+    "block_id": "blk_00263",
+    "type": "formula",
+    "content": "D(xi)≥r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00263"
+  },
+  {
+    "block_id": "blk_00264",
+    "type": "formula",
+    "content": "D(xi), ˜ωD(xi)≤ωD(xi), (14)",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00264"
+  },
+  {
+    "block_id": "blk_00265",
+    "type": "formula",
+    "content": "the equality sign holds for maximum and minimum point ( ˜r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00265"
+  },
+  {
+    "block_id": "blk_00266",
+    "type": "formula",
+    "content": "D(xi) =",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00266"
+  },
+  {
+    "block_id": "blk_00267",
+    "type": "paragraph",
+    "content": "r− D(xi), ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00267"
+  },
+  {
+    "block_id": "blk_00268",
+    "type": "formula",
+    "content": "D(xi) =r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00268"
+  },
+  {
+    "block_id": "blk_00269",
+    "type": "formula",
+    "content": "D(xi) and ˜ωD(xi) =ωD(xi) for i∈{ 1,k}).",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00269"
+  },
+  {
+    "block_id": "blk_00270",
+    "type": "paragraph",
+    "content": "Finally, the function value must also satisfy the following con- straints ˜r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00270"
+  },
+  {
+    "block_id": "blk_00271",
+    "type": "formula",
+    "content": "D(xi) + ˜ωD(xi)≤ ˜r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00271"
+  },
+  {
+    "block_id": "blk_00272",
+    "type": "paragraph",
+    "content": "D(xi+1), ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00272"
+  },
+  {
+    "block_id": "blk_00273",
+    "type": "formula",
+    "content": "D(xi)≤ ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00273"
+  },
+  {
+    "block_id": "blk_00274",
+    "type": "paragraph",
+    "content": "D(xi+1)− ˜ωD(xi+1) (15) Since these functions are only deﬁned onS, it is suﬃce to use 4k record to store the summary. Speciﬁcally, we need to remember eachxi and the corresponding function values of each xi. Definition A.2. Extension of Function Domains",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00274"
+  },
+  {
+    "block_id": "blk_00275",
+    "type": "formula",
+    "content": "Given a quantile summary Q(D) = ( S, ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00275"
+  },
+  {
+    "block_id": "blk_00276",
+    "type": "paragraph",
+    "content": "D, ˜r− D, ˜ωD) deﬁned in Deﬁnition A.1, the domain of ˜r+ D, ˜r− D and ˜ωD were deﬁned only inS. We extend the deﬁnition of these functions to X→ [0, +∞) as follows When y <x1: ˜r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00276"
+  },
+  {
+    "block_id": "blk_00277",
+    "type": "formula",
+    "content": "D(y) = 0, ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00277"
+  },
+  {
+    "block_id": "blk_00278",
+    "type": "formula",
+    "content": "D(y) = 0, ˜ωD(y) = 0 (16)",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00278"
+  },
+  {
+    "block_id": "blk_00279",
+    "type": "paragraph",
+    "content": "When y >xk: ˜r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00279"
+  },
+  {
+    "block_id": "blk_00280",
+    "type": "formula",
+    "content": "D(y) = ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00280"
+  },
+  {
+    "block_id": "blk_00281",
+    "type": "paragraph",
+    "content": "D(xk), ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00281"
+  },
+  {
+    "block_id": "blk_00282",
+    "type": "formula",
+    "content": "D(y) = ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00282"
+  },
+  {
+    "block_id": "blk_00283",
+    "type": "formula",
+    "content": "D(xk), ˜ωD(y) = 0 (17)",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00283"
+  },
+  {
+    "block_id": "blk_00284",
+    "type": "paragraph",
+    "content": "When y∈ (xi,xi+1) for some i: ˜r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00284"
+  },
+  {
+    "block_id": "blk_00285",
+    "type": "formula",
+    "content": "D(y) = ˜r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00285"
+  },
+  {
+    "block_id": "blk_00286",
+    "type": "paragraph",
+    "content": "D(xi) + ˜ωD(xi), ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00286"
+  },
+  {
+    "block_id": "blk_00287",
+    "type": "formula",
+    "content": "D(y) = ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00287"
+  },
+  {
+    "block_id": "blk_00288",
+    "type": "paragraph",
+    "content": "D(xi+1)− ˜ωD(xi+1),",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00288"
+  },
+  {
+    "block_id": "blk_00289",
+    "type": "formula",
+    "content": "˜ωD(y) = 0",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00289"
+  },
+  {
+    "block_id": "blk_00290",
+    "type": "paragraph",
+    "content": "(18) Lemma A.1. Extended Constraint The extended deﬁnition of ˜r− D, ˜r+ D, ˜ωD satisﬁes the following constraints ˜r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00290"
+  },
+  {
+    "block_id": "blk_00291",
+    "type": "formula",
+    "content": "D(y)≤r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00291"
+  },
+  {
+    "block_id": "blk_00292",
+    "type": "paragraph",
+    "content": "D(y), ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00292"
+  },
+  {
+    "block_id": "blk_00293",
+    "type": "formula",
+    "content": "D(y)≥r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00293"
+  },
+  {
+    "block_id": "blk_00294",
+    "type": "formula",
+    "content": "D(y), ˜ωD(y)≤ωD(y) (19)",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00294"
+  },
+  {
+    "block_id": "blk_00295",
+    "type": "paragraph",
+    "content": "˜r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00295"
+  },
+  {
+    "block_id": "blk_00296",
+    "type": "formula",
+    "content": "D(y) + ˜ωD(y)≤ ˜r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00296"
+  },
+  {
+    "block_id": "blk_00297",
+    "type": "paragraph",
+    "content": "D(x), ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00297"
+  },
+  {
+    "block_id": "blk_00298",
+    "type": "formula",
+    "content": "D(y)≤ ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00298"
+  },
+  {
+    "block_id": "blk_00299",
+    "type": "paragraph",
+    "content": "D(x)− ˜ωD(x), for all y <x (20) Proof. The only non-trivial part is to prove the case when y∈ (xi,xi+1): ˜r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00299"
+  },
+  {
+    "block_id": "blk_00300",
+    "type": "formula",
+    "content": "D(y) = ˜r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00300"
+  },
+  {
+    "block_id": "blk_00301",
+    "type": "formula",
+    "content": "D(xi) + ˜ωD(xi)≤r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00301"
+  },
+  {
+    "block_id": "blk_00302",
+    "type": "formula",
+    "content": "D(xi) +ωD(xi)≤r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00302"
+  },
+  {
+    "block_id": "blk_00303",
+    "type": "paragraph",
+    "content": "D(y) ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00303"
+  },
+  {
+    "block_id": "blk_00304",
+    "type": "formula",
+    "content": "D(y) = ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00304"
+  },
+  {
+    "block_id": "blk_00305",
+    "type": "formula",
+    "content": "D(xi+1)− ˜ωD(xi+1)≥r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00305"
+  },
+  {
+    "block_id": "blk_00306",
+    "type": "formula",
+    "content": "D(xi+1)−ωD(xi+1)≥r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00306"
+  },
+  {
+    "block_id": "blk_00307",
+    "type": "paragraph",
+    "content": "D(y) This proves Eq. (19). Furthermore, we can verify that ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00307"
+  },
+  {
+    "block_id": "blk_00308",
+    "type": "formula",
+    "content": "D(xi)≤ ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00308"
+  },
+  {
+    "block_id": "blk_00309",
+    "type": "formula",
+    "content": "D(xi+1)− ˜ωD(xi+1) = ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00309"
+  },
+  {
+    "block_id": "blk_00310",
+    "type": "paragraph",
+    "content": "D(y)− ˜ωD(y) ˜r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00310"
+  },
+  {
+    "block_id": "blk_00311",
+    "type": "formula",
+    "content": "D(y) + ˜ωD(y) = ˜r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00311"
+  },
+  {
+    "block_id": "blk_00312",
+    "type": "formula",
+    "content": "D(xi) + ˜ωD(xi) + 0≤ ˜r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00312"
+  },
+  {
+    "block_id": "blk_00313",
+    "type": "paragraph",
+    "content": "D(xi+1) ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00313"
+  },
+  {
+    "block_id": "blk_00314",
+    "type": "formula",
+    "content": "D(y) = ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00314"
+  },
+  {
+    "block_id": "blk_00315",
+    "type": "paragraph",
+    "content": "D(xi+1)− ˜ωD(xi+1) Using these facts and transitivity of < relation, we can prove Eq. (20) We should note that the extension is based on the ground case deﬁned in S, and we do not require extra space to store the sum- mary in order to use the extended deﬁnition. We are now ready to introduce the deﬁnition of ϵ-approximate quantile summary. Definition A.3. ϵ-Approximate Quantile Summary",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00315"
+  },
+  {
+    "block_id": "blk_00316",
+    "type": "formula",
+    "content": "Given a quantile summary Q(D) = (S, ˜r+",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00316"
+  },
+  {
+    "block_id": "blk_00317",
+    "type": "paragraph",
+    "content": "D, ˜r− D, ˜ωD), we call it is ϵ-approximate summary if for any y∈X ˜r+ D(y)− ˜r−",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00317"
+  },
+  {
+    "block_id": "blk_00318",
+    "type": "formula",
+    "content": "D(y)− ˜ωD(y)≤ϵω(D) (21)",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00318"
+  },
+  {
+    "block_id": "blk_00319",
+    "type": "paragraph",
+    "content": "We use this deﬁnition since we know thatr−(y)∈ [˜r− D(y), ˜r+ D(y)− ˜ωD(y)] and r+(y)∈ [˜r− D(y) + ˜ωD(y), ˜r+ D(y)]. Eq. (21) means the we can get estimation of r+(y) and r−(y) by error of at most ϵω(D).",
+    "page": 11,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00319"
+  },
+  {
+    "block_id": "blk_00320",
+    "type": "formula",
+    "content": "Lemma A.2. Quantile summaryQ(D) = (S, ˜r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00320"
+  },
+  {
+    "block_id": "blk_00321",
+    "type": "paragraph",
+    "content": "D, ˜r− D, ˜ωD) is an ϵ-approximate summary if and only if the following two condition holds ˜r+ D(xi)− ˜r−",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00321"
+  },
+  {
+    "block_id": "blk_00322",
+    "type": "formula",
+    "content": "D(xi)− ˜ωD(xi)≤ϵω(D) (22)",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00322"
+  },
+  {
+    "block_id": "blk_00323",
+    "type": "paragraph",
+    "content": "˜r+ D(xi+1)− ˜r−",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00323"
+  },
+  {
+    "block_id": "blk_00324",
+    "type": "formula",
+    "content": "D(xi)− ˜ωD(xi+1)− ˜ωD(xi)≤ϵω(D) (23)",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00324"
+  },
+  {
+    "block_id": "blk_00325",
+    "type": "paragraph",
+    "content": "Proof. The key is again consider y∈ (xi,xi+1) ˜r+ D(y)−˜r−",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00325"
+  },
+  {
+    "block_id": "blk_00326",
+    "type": "formula",
+    "content": "D(y)−˜ωD(y) = [˜r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00326"
+  },
+  {
+    "block_id": "blk_00327",
+    "type": "paragraph",
+    "content": "D(xi+1)−˜ωD(xi+1)]−[˜r+ D(xi)+˜ωD(xi)]−0 This means the condition in Eq. (23) plus Eq. (22) can give us Eq. (21) Property of Extended F unction In this section, we have in- troduced the extension of function ˜r+ D, ˜r− D, ˜ωD toX →[0, +∞). The key theme discussed in this section is the relation of con- straints on the original function and constraints on the extended function. Lemma A.1 and A.2 show that the constraints on the original function can lead to in more general constraints on the extended function. This is a very useful property which will be used in the proofs in later sections. A.2 Construction of Initial Summary",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00327"
+  },
+  {
+    "block_id": "blk_00328",
+    "type": "formula",
+    "content": "Given a small multi-setD ={(x1,w 1), (x2,w 2),··· , (xn,wn)},",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00328"
+  },
+  {
+    "block_id": "blk_00329",
+    "type": "formula",
+    "content": "we can construct initial summaryQ(D) ={S, ˜r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00329"
+  },
+  {
+    "block_id": "blk_00330",
+    "type": "paragraph",
+    "content": "D, ˜r− D, ˜ωD}, withS",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00330"
+  },
+  {
+    "block_id": "blk_00331",
+    "type": "formula",
+    "content": "to the set of all values inD (S ={x|(x,w )∈D} ), and ˜r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00331"
+  },
+  {
+    "block_id": "blk_00332",
+    "type": "paragraph",
+    "content": "D, ˜r− D, ˜ωD deﬁned to be ˜r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00332"
+  },
+  {
+    "block_id": "blk_00333",
+    "type": "formula",
+    "content": "D(x) =r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00333"
+  },
+  {
+    "block_id": "blk_00334",
+    "type": "paragraph",
+    "content": "D(x), ˜r−",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00334"
+  },
+  {
+    "block_id": "blk_00335",
+    "type": "formula",
+    "content": "D(x) =r−",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00335"
+  },
+  {
+    "block_id": "blk_00336",
+    "type": "formula",
+    "content": "D(x), ˜ωD(x) =ωD(x) for x∈S",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00336"
+  },
+  {
+    "block_id": "blk_00337",
+    "type": "paragraph",
+    "content": "(24) The constructed summary is 0-approximate summary, since it can answer all the queries accurately. The constructed summary can be feed into future operations described in the latter sections. A.3 Merge Operation In this section, we deﬁne how we can merge the two summaries",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00337"
+  },
+  {
+    "block_id": "blk_00338",
+    "type": "formula",
+    "content": "together. Assume we have Q(D1) = ( S1, ˜r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00338"
+  },
+  {
+    "block_id": "blk_00339",
+    "type": "paragraph",
+    "content": "D1, ˜r− D1, ˜ωD1) and",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00339"
+  },
+  {
+    "block_id": "blk_00340",
+    "type": "formula",
+    "content": "Q(D2) = ( S2, ˜r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00340"
+  },
+  {
+    "block_id": "blk_00341",
+    "type": "paragraph",
+    "content": "D1, ˜r− D2, ˜ωD2) quantile summary of two dataset",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00341"
+  },
+  {
+    "block_id": "blk_00342",
+    "type": "formula",
+    "content": "D1 andD2. Let D =D1∪D 2, and deﬁne the merged summary",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00342"
+  },
+  {
+    "block_id": "blk_00343",
+    "type": "formula",
+    "content": "Q(D) = (S, ˜r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00343"
+  },
+  {
+    "block_id": "blk_00344",
+    "type": "paragraph",
+    "content": "D, ˜r− D, ˜ωD) as follows.",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00344"
+  },
+  {
+    "block_id": "blk_00345",
+    "type": "formula",
+    "content": "S ={x1,x 2··· ,xk},xi∈S1 or xi∈S2 (25)",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00345"
+  },
+  {
+    "block_id": "blk_00346",
+    "type": "paragraph",
+    "content": "The points in S are combination of points in S1 andS2. And the function ˜r+ D, ˜r− D, ˜ωD are deﬁned to be ˜r−",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00346"
+  },
+  {
+    "block_id": "blk_00347",
+    "type": "formula",
+    "content": "D(xi) = ˜r−",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00347"
+  },
+  {
+    "block_id": "blk_00348",
+    "type": "paragraph",
+    "content": "D1(xi) + ˜r− D2(xi) (26) ˜r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00348"
+  },
+  {
+    "block_id": "blk_00349",
+    "type": "formula",
+    "content": "D(xi) = ˜r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00349"
+  },
+  {
+    "block_id": "blk_00350",
+    "type": "paragraph",
+    "content": "D1(xi) + ˜r+ D2(xi) (27)",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00350"
+  },
+  {
+    "block_id": "blk_00351",
+    "type": "formula",
+    "content": "˜ωD(xi) = ˜ωD1(xi) + ˜ωD2(xi) (28)",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00351"
+  },
+  {
+    "block_id": "blk_00352",
+    "type": "paragraph",
+    "content": "Here we use functions deﬁned on S→ [0, +∞) on the left sides of equalities and use the extended function deﬁnitions on the right sides. Due to additive nature ofr+,r− andω, which can be formally written as r−",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00352"
+  },
+  {
+    "block_id": "blk_00353",
+    "type": "formula",
+    "content": "D(y) =r−",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00353"
+  },
+  {
+    "block_id": "blk_00354",
+    "type": "paragraph",
+    "content": "D1(y) +r− D2(y), r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00354"
+  },
+  {
+    "block_id": "blk_00355",
+    "type": "formula",
+    "content": "D(y) =r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00355"
+  },
+  {
+    "block_id": "blk_00356",
+    "type": "paragraph",
+    "content": "D1(y) +r+ D2(y),",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00356"
+  },
+  {
+    "block_id": "blk_00357",
+    "type": "formula",
+    "content": "ωD(y) =ωD1(y) +ωD2(y),",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00357"
+  },
+  {
+    "block_id": "blk_00358",
+    "type": "paragraph",
+    "content": "(29) and the extended constraint property in Lemma A.1, we can verify thatQ(D) satisﬁes all the constraints in Deﬁnition A.1. Therefore it is a valid quantile summary. Lemma A.3. The combined quantile summary satisﬁes ˜r−",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00358"
+  },
+  {
+    "block_id": "blk_00359",
+    "type": "formula",
+    "content": "D(y) = ˜r−",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00359"
+  },
+  {
+    "block_id": "blk_00360",
+    "type": "paragraph",
+    "content": "D1(y) + ˜r− D2(y) (30) ˜r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00360"
+  },
+  {
+    "block_id": "blk_00361",
+    "type": "formula",
+    "content": "D(y) = ˜r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00361"
+  },
+  {
+    "block_id": "blk_00362",
+    "type": "paragraph",
+    "content": "D1(y) + ˜r+ D2(y) (31)",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00362"
+  },
+  {
+    "block_id": "blk_00363",
+    "type": "formula",
+    "content": "˜ωD(y) = ˜ωD1(y) + ˜ωD2(y) (32)",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00363"
+  },
+  {
+    "block_id": "blk_00364",
+    "type": "paragraph",
+    "content": "for all y∈X Algorithm 4: Query Functiong(Q,d )",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00364"
+  },
+  {
+    "block_id": "blk_00365",
+    "type": "formula",
+    "content": "Input: d: 0 ≤d ≤ω(D)",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00365"
+  },
+  {
+    "block_id": "blk_00366",
+    "type": "formula",
+    "content": "Input: Q(D) = (S, ˜r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00366"
+  },
+  {
+    "block_id": "blk_00367",
+    "type": "paragraph",
+    "content": "D, ˜r− D, ˜ωD) where",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00367"
+  },
+  {
+    "block_id": "blk_00368",
+    "type": "formula",
+    "content": "S =x1,x 2, · · ·,xk",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00368"
+  },
+  {
+    "block_id": "blk_00369",
+    "type": "paragraph",
+    "content": "if d< 1 2[˜r− D(x1) + ˜r+ D(x1)] then return x1 ;",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00369"
+  },
+  {
+    "block_id": "blk_00370",
+    "type": "formula",
+    "content": "if d ≥ 1",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00370"
+  },
+  {
+    "block_id": "blk_00371",
+    "type": "paragraph",
+    "content": "2[˜r− D(xk) + ˜r+ D(xk)] then return xk ; Find i such that 1 2[˜r− D(xi) + ˜r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00371"
+  },
+  {
+    "block_id": "blk_00372",
+    "type": "formula",
+    "content": "D(xi)] ≤d< 1",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00372"
+  },
+  {
+    "block_id": "blk_00373",
+    "type": "paragraph",
+    "content": "2[˜r− D(xi+1) + ˜r+ D(xi+1)] if 2d< ˜r− D(xi) + ˜ωD(xi) + ˜r+ D(xi+1) − ˜ωD(xi+1) then return xi else return xi+1 end This can be obtained by straight-forward application of Deﬁni- tion A.2. Theorem A.1. IfQ(D1) isϵ1-approximate summary, andQ(D2) is ϵ2-approximate summary. Then the merged summary Q(D) is",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00373"
+  },
+  {
+    "block_id": "blk_00374",
+    "type": "formula",
+    "content": "max(ϵ1,ϵ 2)-approximate summary.",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00374"
+  },
+  {
+    "block_id": "blk_00375",
+    "type": "formula",
+    "content": "Proof. For anyy∈X , we have ˜r+ D(y)− ˜r− D(y)− ˜ωD(y) =[˜r+ D1(y) + ˜r+ D2(y)]− [˜r− D1(y) + ˜r− D2(y)]− [˜ωD1(y) + ˜ωD2(y)]",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00375"
+  },
+  {
+    "block_id": "blk_00376",
+    "type": "formula",
+    "content": "≤ϵ1ω(D1) +ϵ2ω(D2)≤ max(ϵ1,ϵ 2)ω(D1∪D 2)",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00376"
+  },
+  {
+    "block_id": "blk_00377",
+    "type": "paragraph",
+    "content": "Here the ﬁrst inequality is due to Lemma A.3. A.4 Prune Operation Before we start discussing the prune operation, we ﬁrst in- troduce a query function g(Q,d ). The deﬁnition of function is shown in Algorithm 4. For a given rank d, the function returns a x whose rank is close to d. This property is formally described in the following Lemma.",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00377"
+  },
+  {
+    "block_id": "blk_00378",
+    "type": "formula",
+    "content": "Lemma A.4. For a given ϵ-approximate summary Q(D) =",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00378"
+  },
+  {
+    "block_id": "blk_00379",
+    "type": "paragraph",
+    "content": "(S, ˜r+ D, ˜r−",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00379"
+  },
+  {
+    "block_id": "blk_00380",
+    "type": "formula",
+    "content": "D, ˜ωD), x∗ =g(Q,d ) satisﬁes the following property",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00380"
+  },
+  {
+    "block_id": "blk_00381",
+    "type": "formula",
+    "content": "d≥ ˜r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00381"
+  },
+  {
+    "block_id": "blk_00382",
+    "type": "paragraph",
+    "content": "D(x∗)− ˜ωD(x∗)− ϵ 2ω(D)",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00382"
+  },
+  {
+    "block_id": "blk_00383",
+    "type": "formula",
+    "content": "d≤ ˜r−",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00383"
+  },
+  {
+    "block_id": "blk_00384",
+    "type": "paragraph",
+    "content": "D(x∗) + ˜ωD(x∗) + ϵ 2ω(D) (33) Proof. We need to discuss four possible cases • d < 1 2 [˜r− D(x1) + ˜r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00384"
+  },
+  {
+    "block_id": "blk_00385",
+    "type": "formula",
+    "content": "D(x1)] and x∗ = x1. Note that the rank",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00385"
+  },
+  {
+    "block_id": "blk_00386",
+    "type": "formula",
+    "content": "information for x1 is accurate (˜ωD(x1) = ˜r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00386"
+  },
+  {
+    "block_id": "blk_00387",
+    "type": "formula",
+    "content": "D(x1) = ω(x1),",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00387"
+  },
+  {
+    "block_id": "blk_00388",
+    "type": "paragraph",
+    "content": "˜r−",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00388"
+  },
+  {
+    "block_id": "blk_00389",
+    "type": "formula",
+    "content": "D(x1) = 0), we have",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00389"
+  },
+  {
+    "block_id": "blk_00390",
+    "type": "paragraph",
+    "content": "d≥ 0− ϵ",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00390"
+  },
+  {
+    "block_id": "blk_00391",
+    "type": "formula",
+    "content": "2ω(D) = ˜r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00391"
+  },
+  {
+    "block_id": "blk_00392",
+    "type": "formula",
+    "content": "D(x1)− ˜ωD(x1)− ϵ 2ω(D) d< 1 2 [˜r− D(x1) + ˜r+ D(x1)] ≤ ˜r− D(x1) + ˜r+ D(x1) = ˜r− D(x1) + ˜ω+ D(x1) • d≥ 1 2 [˜r− D(xk) + ˜r+",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00392"
+  },
+  {
+    "block_id": "blk_00393",
+    "type": "formula",
+    "content": "D(xk)] and x∗ =xk, then",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00393"
+  },
+  {
+    "block_id": "blk_00394",
+    "type": "formula",
+    "content": "d≥ 1 2 [˜r− D(xk) + ˜r+ D(xk)] = ˜r+ D(xk)− 1 2 [˜r+ D(xk)− ˜r− D(xk)] = ˜r+ D(xk)− 1 2 ˜ωD(xk) d<ω (D) + ϵ",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00394"
+  },
+  {
+    "block_id": "blk_00395",
+    "type": "formula",
+    "content": "2ω(D) = ˜r−",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00395"
+  },
+  {
+    "block_id": "blk_00396",
+    "type": "paragraph",
+    "content": "D(xk) + ˜ωD(xk) + ϵ 2ω(D)",
+    "page": 12,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00396"
+  },
+  {
+    "block_id": "blk_00397",
+    "type": "formula",
+    "content": "• x∗ =xi in the general case, then",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00397"
+  },
+  {
+    "block_id": "blk_00398",
+    "type": "formula",
+    "content": "2d< ˜r− D(xi) + ˜ωD(xi) + ˜r+ D(xi+1)− ˜ωD(xi+1) = 2[˜r− D(xi) + ˜ωD(xi)] + [˜r+ D(xi+1)− ˜ωD(xi+1)− ˜r− D(xi)− ˜ωD(xi)] ≤ 2[˜r− D(xi) + ˜ωD(xi)] +ϵω(D)",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00398"
+  },
+  {
+    "block_id": "blk_00399",
+    "type": "formula",
+    "content": "2d≥ ˜r−",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00399"
+  },
+  {
+    "block_id": "blk_00400",
+    "type": "formula",
+    "content": "D(xi) + ˜r+ D(xi) = 2[˜r+ D(xi)− ˜ωD(xi)]− [˜r+ D(xi)− ˜ωD(xi)− ˜r− D(xi)] + ˜ωD(xi) ≥ 2[˜r+ D(xi)− ˜ωD(xi)]−ϵω(D) + 0",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00400"
+  },
+  {
+    "block_id": "blk_00401",
+    "type": "formula",
+    "content": "• x∗ =xi+1 in the general case",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00401"
+  },
+  {
+    "block_id": "blk_00402",
+    "type": "formula",
+    "content": "2d≥ ˜r−",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00402"
+  },
+  {
+    "block_id": "blk_00403",
+    "type": "formula",
+    "content": "D(xi) + ˜ωD(xi) + ˜r+ D(xi+1)− ˜ωD(xi+1) = 2[˜r+ D(xi+1)− ˜ωD(xi+1)] − [˜r+ D(xi+1)− ˜ωD(xi+1)− ˜r− D(xi)− ˜ωD(xi)] ≥ 2[˜r+ D(xi+1) + ˜ωD(xi+1)]−ϵω(D)",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00403"
+  },
+  {
+    "block_id": "blk_00404",
+    "type": "formula",
+    "content": "2d≤ ˜r−",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00404"
+  },
+  {
+    "block_id": "blk_00405",
+    "type": "formula",
+    "content": "D(xi+1) + ˜r+ D(xi+1) = 2[˜r− D(xi+1) + ˜ωD(xi+1)] + [˜r+ D(xi+1)− ˜ωD(xi+1)− ˜r− D(xi+1)]− ˜ωD(xi+1) ≤ 2[˜r− D(xi+1) + ˜ωD(xi+1)] +ϵω(D)− 0 Now we are ready to introduce the prune operation. Given a",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00405"
+  },
+  {
+    "block_id": "blk_00406",
+    "type": "formula",
+    "content": "quantile summaryQ(D) = (S, ˜r+",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00406"
+  },
+  {
+    "block_id": "blk_00407",
+    "type": "paragraph",
+    "content": "D, ˜r−",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00407"
+  },
+  {
+    "block_id": "blk_00408",
+    "type": "formula",
+    "content": "D, ˜ωD) withS ={x1,x 2,··· ,xk}",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00408"
+  },
+  {
+    "block_id": "blk_00409",
+    "type": "paragraph",
+    "content": "elements, and a memory budget b. The prune operation creates",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00409"
+  },
+  {
+    "block_id": "blk_00410",
+    "type": "formula",
+    "content": "another summaryQ′(D) = (S′, ˜r+",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00410"
+  },
+  {
+    "block_id": "blk_00411",
+    "type": "paragraph",
+    "content": "D, ˜r−",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00411"
+  },
+  {
+    "block_id": "blk_00412",
+    "type": "formula",
+    "content": "D, ˜ωD) withS′ ={x′",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00412"
+  },
+  {
+    "block_id": "blk_00413",
+    "type": "paragraph",
+    "content": "1,x′ 2,··· ,x′ b+1}, where x′ i are selected by query the original summary such that x′",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00413"
+  },
+  {
+    "block_id": "blk_00414",
+    "type": "formula",
+    "content": "i =g",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00414"
+  },
+  {
+    "block_id": "blk_00415",
+    "type": "paragraph",
+    "content": "( Q,i− 1 b ω(D) ) . The deﬁnition of ˜r+ D, ˜r− D, ˜ωD in Q′ is copied from original sum- mary Q, by restricting input domain from S to S′. There could be duplicated entries in the S′. These duplicated entries can be safely removed to further reduce the memory cost. Since all the elements in Q′ comes from Q, we can verify that Q′ satisﬁes all the constraints in Deﬁnition A.1 and is a valid quantile summary. Theorem A.2. Let Q′(D) be the summary pruned from an ϵ-approximate quantile summary Q(D) with b memory budget. Then Q′(D) is a (ϵ + 1 b )-approximate summary. Proof. We only need to prove the property in Eq. (23) forQ′. Using Lemma A.4, we have i− 1 b ω(D) + ϵ",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00415"
+  },
+  {
+    "block_id": "blk_00416",
+    "type": "formula",
+    "content": "2ω(D)≥ ˜r+",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00416"
+  },
+  {
+    "block_id": "blk_00417",
+    "type": "paragraph",
+    "content": "D(x′ i)− ˜ωD(x′ i) i− 1 b ω(D)− ϵ",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00417"
+  },
+  {
+    "block_id": "blk_00418",
+    "type": "formula",
+    "content": "2ω(D)≤ ˜r−",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00418"
+  },
+  {
+    "block_id": "blk_00419",
+    "type": "formula",
+    "content": "D(x′ i) + ˜ωD(x′ i) Combining these inequalities gives ˜r+ D(x′ i+1)− ˜ωD(x′ i+1)− ˜r− D(x′ i)− ˜ωD(x′ i) ≤[i bω(D) + ϵ 2ω(D)]− [i− 1 b ω(D)− ϵ",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00419"
+  },
+  {
+    "block_id": "blk_00420",
+    "type": "formula",
+    "content": "2ω(D)] = ( 1",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00420"
+  },
+  {
+    "block_id": "blk_00421",
+    "type": "paragraph",
+    "content": "b +ϵ)ω(D)",
+    "page": 13,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00421"
+  }
+]

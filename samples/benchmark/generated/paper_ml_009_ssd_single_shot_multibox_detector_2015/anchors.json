@@ -1,0 +1,1594 @@
+[
+  {
+    "anchor_id": "anc_00001",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "text_span": "SSD: Single Shot MultiBox Detector Wei Liu1, Dragomir Anguelov2, Dumitru Erhan3, Christian Szegedy3, Scott Reed4, Cheng-Yang Fu1, Alexander C. Berg1 1UNC Chapel Hill 2Zoox Inc. 3Google Inc. 4University of Michigan, Ann-Arbor 1wliu@cs.unc.edu, 2drago@zoox.com, 3{dumitru,szegedy}@google.com, 4reedscot@umich.edu, 1{cyfu,aberg}@cs.unc.edu Abstract. We present a method for detecting objects in images using a single deep neural network. Our approach, named SSD, discretizes the output space of bounding boxes into a set of default boxes over different aspect ratios and scales per feature map location. At prediction time, the network generates scores for the presence of each object category in each default box and produces adjustments to the box to better match the object shape. Additionally, the network combines pre- dictions from multiple feature maps with different resolutions to naturally handle objects of various sizes. SSD is simple relative to methods that require object",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00002",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "text_span": "proposals because it completely eliminates proposal generation and subsequent",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00003",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "text_span": "pixel or feature resampling stages and encapsulates all computation in a single network. This makes SSD easy to train and straightforward to integrate into sys- tems that require a detection component. Experimental results on the PASCAL VOC, COCO, and ILSVRC datasets conﬁrm that SSD has competitive accuracy to methods that utilize an additional object proposal step and is much faster, while providing a uniﬁed framework for both training and inference. For300× 300 in- put, SSD achieves 74.3% mAP1 on VOC2007 test at 59 FPS on a Nvidia Titan",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00004",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "text_span": "X and for 512× 512 input, SSD achieves 76.9% mAP, outperforming a compa-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00005",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "text_span": "rable state-of-the-art Faster R-CNN model. Compared to other single stage meth- ods, SSD has much better accuracy even with a smaller input image size. Code is available at: https://github.com/weiliu89/caffe/tree/ssd . Keywords: Real-time Object Detection; Convolutional Neural Network",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00006",
+    "page": 1,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "1 Introduction",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00007",
+    "page": 1,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "Current state-of-the-art object detection systems are variants of the following approach: hypothesize bounding boxes, resample pixels or features for each box, and apply a high- quality classiﬁer. This pipeline has prevailed on detection benchmarks since the Selec- tive Search work [1] through the current leading results on PASCAL VOC, COCO, and ILSVRC detection all based on Faster R-CNN[2] albeit with deeper features such as [3]. While accurate, these approaches have been too computationally intensive for em- bedded systems and, even with high-end hardware, too slow for real-time applications.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00008",
+    "page": 1,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "1 We achieved even better results using an improved data augmentation scheme in follow-on",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00009",
+    "page": 1,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "experiments: 77.2% mAP for300×300 input and 79.8% mAP for512×512 input on VOC2007. Please see Sec. 3.6 for details. arXiv:1512.02325v5 [cs.CV] 29 Dec 2016",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00010",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "2 Liu et al. Often detection speed for these approaches is measured in seconds per frame (SPF), and even the fastest high-accuracy detector, Faster R-CNN, operates at only 7 frames per second (FPS). There have been many attempts to build faster detectors by attacking each stage of the detection pipeline (see related work in Sec. 4), but so far, signiﬁcantly increased speed comes only at the cost of signiﬁcantly decreased detection accuracy. This paper presents the ﬁrst deep network based object detector that does not re- sample pixels or features for bounding box hypotheses and and is as accurate as ap- proaches that do. This results in a signiﬁcant improvement in speed for high-accuracy detection (59 FPS with mAP 74.3% on VOC2007test, vs. Faster R-CNN 7 FPS with mAP 73.2% or YOLO 45 FPS with mAP 63.4%). The fundamental improvement in",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00011",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "speed comes from eliminating bounding box proposals and the subsequent pixel or fea-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00012",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "ture resampling stage. We are not the ﬁrst to do this (cf [4,5]), but by adding a series of improvements, we manage to increase the accuracy signiﬁcantly over previous at- tempts. Our improvements include using a small convolutional ﬁlter to predict object categories and offsets in bounding box locations, using separate predictors (ﬁlters) for different aspect ratio detections, and applying these ﬁlters to multiple feature maps from the later stages of a network in order to perform detection at multiple scales. With these modiﬁcations—especially using multiple layers for prediction at different scales—we can achieve high-accuracy using relatively low resolution input, further increasing de- tection speed. While these contributions may seem small independently, we note that the resulting system improves accuracy on real-time detection for PASCAL VOC from",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00013",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "63.4% mAP for YOLO to 74.3% mAP for our SSD. This is a larger relative improve-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00014",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "ment in detection accuracy than that from the recent, very high-proﬁle work on residual networks [3]. Furthermore, signiﬁcantly improving the speed of high-quality detection can broaden the range of settings where computer vision is useful. We summarize our contributions as follows: – We introduce SSD, a single-shot detector for multiple categories that is faster than the previous state-of-the-art for single shot detectors (YOLO), and signiﬁcantly more accurate, in fact as accurate as slower techniques that perform explicit region proposals and pooling (including Faster R-CNN). – The core of SSD is predicting category scores and box offsets for a ﬁxed set of default bounding boxes using small convolutional ﬁlters applied to feature maps. – To achieve high detection accuracy we produce predictions of different scales from feature maps of different scales, and explicitly separate predictions by aspect ratio. – These design features lead to simple end-to-end training and high accuracy, e...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00015",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "– Experiments include timing and accuracy analysis on models with varying input",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00016",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "size evaluated on PASCAL VOC, COCO, and ILSVRC and are compared to a range of recent state-of-the-art approaches.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00017",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "2 The Single Shot Detector (SSD)",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00018",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "This section describes our proposed SSD framework for detection (Sec. 2.1) and the",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00019",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "associated training methodology (Sec. 2.2). Afterwards, Sec. 3 presents dataset-speciﬁc",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00020",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "model details and experimental results.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00021",
+    "page": 3,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "SSD: Single Shot MultiBox Detector 3 (a) Image with GT boxes (b) 8 × 8 feature map (c) 4 × 4 feature map loc : ∆( cx, cy, w, h) conf : (c1, c2,· · ·, cp)",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00022",
+    "page": 3,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "Fig. 1: SSD framework. (a) SSD only needs an input image and ground truth boxes for",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00023",
+    "page": 3,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "each object during training. In a convolutional fashion, we evaluate a small set (e.g. 4) of default boxes of different aspect ratios at each location in several feature maps with different scales (e.g. 8× 8 and 4× 4 in (b) and (c)). For each default box, we predict both the shape offsets and the conﬁdences for all object categories ( (c1,c 2,··· ,c p)). At training time, we ﬁrst match these default boxes to the ground truth boxes. For example, we have matched two default boxes with the cat and one with the dog, which are treated as positives and the rest as negatives. The model loss is a weighted sum",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00024",
+    "page": 3,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "between localization loss (e.g. Smooth L1 [6]) and conﬁdence loss (e.g. Softmax).",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00025",
+    "page": 3,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "2.1 Model",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00026",
+    "page": 3,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "The SSD approach is based on a feed-forward convolutional network that produces a ﬁxed-size collection of bounding boxes and scores for the presence of object class",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00027",
+    "page": 3,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "instances in those boxes, followed by a non-maximum suppression step to produce the",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00028",
+    "page": 3,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "ﬁnal detections. The early network layers are based on a standard architecture used for high quality image classiﬁcation (truncated before any classiﬁcation layers), which we will call the base network 2. We then add auxiliary structure to the network to produce detections with the following key features: Multi-scale feature maps for detection We add convolutional feature layers to the end of the truncated base network. These layers decrease in size progressively and allow predictions of detections at multiple scales. The convolutional model for predicting detections is different for each feature layer ( cf Overfeat[4] and YOLO[5] that operate on a single scale feature map). Convolutional predictors for detection Each added feature layer (or optionally an ex- isting feature layer from the base network) can produce a ﬁxed set of detection predic- tions using a set of convolutional ﬁlters. These are indicated on top of the SSD network architecture in Fig. 2. For a feature layer of size...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00029",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "4 Liu et al. 300 300 3 VGG-16 through Conv5_3 layer 19 19 Conv7 (FC7) 1024 10 10 Conv8_2 512 5 5 Conv9_2 256 3 Conv10_2 256 256 38 38 Conv4_3 3 1 Image Conv: 1x1x1024 Conv: 1x1x256 Conv: 3x3x512-s2 Conv: 1x1x128 Conv: 3x3x256-s2 Conv: 1x1x128 Conv: 3x3x256-s1 Detections:8732 per ClassClassifier : Conv: 3x3x(4x(Classes+4)) 512 448 448 3 Image 7 7 1024 7 7 30 Fully Connected YOLO Customized Architecture Non-Maximum Suppression Fully Connected Non-Maximum Suppression Detections: 98 per class Conv11_2 74.3mAP 59FPS 63.4mAP 45FPS Classifier : Conv: 3x3x(6x(Classes+4)) 19 19 Conv6 (FC6) 1024 Conv: 3x3x1024 SSDYOLO Extra Feature Layers Conv: 1x1x128 Conv: 3x3x256-s1 Conv: 3x3x(4x(Classes+4))",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00030",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Fig. 2: A comparison between two single shot detection models: SSD and YOLO [5].",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00031",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Our SSD model adds several feature layers to the end of a base network, which predict the offsets to default boxes of different scales and aspect ratios and their associated conﬁdences. SSD with a 300× 300 input size signiﬁcantly outperforms its 448× 448 YOLO counterpart in accuracy on VOC2007 test while also improving the speed. box position relative to each feature map location (cf the architecture of YOLO[5] that uses an intermediate fully connected layer instead of a convolutional ﬁlter for this step). Default boxes and aspect ratios We associate a set of default bounding boxes with each feature map cell, for multiple feature maps at the top of the network. The default boxes tile the feature map in a convolutional manner, so that the position of each box relative to its corresponding cell is ﬁxed. At each feature map cell, we predict the offsets relative to the default box shapes in the cell, as well as the per-class scores that indicate the presence of a class instance in each of...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00032",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "2.2 Training",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00033",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "The key difference between training SSD and training a typical detector that uses region proposals, is that ground truth information needs to be assigned to speciﬁc outputs in the ﬁxed set of detector outputs. Some version of this is also required for training in YOLO[5] and for the region proposal stage of Faster R-CNN[2] and MultiBox[7]. Once",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00034",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "this assignment is determined, the loss function and back propagation are applied end-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00035",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "to-end. Training also involves choosing the set of default boxes and scales for detection",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00036",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "as well as the hard negative mining and data augmentation strategies.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00037",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "SSD: Single Shot MultiBox Detector 5",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00038",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Matching strategy During training we need to determine which default boxes corre-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00039",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "spond to a ground truth detection and train the network accordingly. For each ground truth box we are selecting from default boxes that vary over location, aspect ratio, and scale. We begin by matching each ground truth box to the default box with the best jaccard overlap (as in MultiBox [7]). Unlike MultiBox, we then match default boxes to any ground truth with jaccard overlap higher than a threshold (0.5). This simpliﬁes the learning problem, allowing the network to predict high scores for multiple overlapping",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00040",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "default boxes rather than requiring it to pick only the one with maximum overlap.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00041",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Training objective The SSD training objective is derived from the MultiBox objec- tive [7,8] but is extended to handle multiple object categories. Let xp",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00042",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "ij ={1, 0} be an",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00043",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "indicator for matching the i-th default box to the j-th ground truth box of category p.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00044",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "In the matching strategy above, we can have ∑",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00045",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "ixp",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00046",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "ij ≥ 1. The overall objective loss",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00047",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "function is a weighted sum of the localization loss (loc) and the conﬁdence loss (conf):",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00048",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "L(x,c,l,g ) = 1",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00049",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "N (Lconf (x,c ) +αLloc(x,l,g )) (1)",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00050",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "where N is the number of matched default boxes. If N = 0 , wet set the loss to 0. The",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00051",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "localization loss is a Smooth L1 loss [6] between the predicted box ( l) and the ground truth box (g) parameters. Similar to Faster R-CNN [2], we regress to offsets for the center (cx,cy ) of the default bounding box (d) and for its width (w) and height (h).",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00052",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Lloc(x,l,g ) =",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00053",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "N∑ i∈P os ∑ m∈{cx,cy,w,h} xk ijsmoothL1(lm i − ˆgm j ) ˆgcx",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00054",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "j = (gcx",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00055",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "j −dcx i )/dw i ˆgcy",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00056",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "j = (gcy",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00057",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "j −dcy i )/dh i ˆgw",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00058",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "j = log",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00059",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "(gw j dw i ) ˆgh",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00060",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "j = log",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00061",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "(gh j dh i ) (2)",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00062",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "The conﬁdence loss is the softmax loss over multiple classes conﬁdences (c).",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00063",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Lconf (x,c ) =−",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00064",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "N∑ i∈P os xp",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00065",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "ijlog(ˆcp",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00066",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "i )− ∑ i∈N eg",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00067",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "log(ˆc0",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00068",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "i ) where ˆcp",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00069",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "i = exp(cp",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00070",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "i )∑ p exp(cp i ) (3) and the weight termα is set to 1 by cross validation. Choosing scales and aspect ratios for default boxes To handle different object scales, some methods [4,9] suggest processing the image at different sizes and combining the results afterwards. However, by utilizing feature maps from several different layers in a single network for prediction we can mimic the same effect, while also sharing parame- ters across all object scales. Previous works [10,11] have shown that using feature maps from the lower layers can improve semantic segmentation quality because the lower layers capture more ﬁne details of the input objects. Similarly, [12] showed that adding global context pooled from a feature map can help smooth the segmentation results.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00071",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "6 Liu et al. Motivated by these methods, we use both the lower and upper feature maps for detec- tion. Figure 1 shows two exemplar feature maps (8× 8 and 4× 4) which are used in the framework. In practice, we can use many more with small computational overhead. Feature maps from different levels within a network are known to have different (empirical) receptive ﬁeld sizes [13]. Fortunately, within the SSD framework, the de- fault boxes do not necessary need to correspond to the actual receptive ﬁelds of each layer. We design the tiling of default boxes so that speciﬁc feature maps learn to be responsive to particular scales of the objects. Suppose we want to use m feature maps for prediction. The scale of the default boxes for each feature map is computed as:",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00072",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "sk =smin + smax−smin",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00073",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "m− 1 (k− 1), k ∈ [1,m ] (4)",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00074",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "where smin is 0.2 and smax is 0.9, meaning the lowest layer has a scale of 0.2 and",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00075",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "the highest layer has a scale of 0.9, and all layers in between are regularly spaced. We impose different aspect ratios for the default boxes, and denote them as ar ∈ {1, 2, 3, 1 2, 1 3}. We can compute the width (wa",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00076",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "k = sk",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00077",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "√ar) and height (ha",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00078",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "k = sk/√ar)",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00079",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "for each default box. For the aspect ratio of 1, we also add a default box whose scale is s′",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00080",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "k =√sksk+1, resulting in 6 default boxes per feature map location. We set the center",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00081",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "of each default box to ( i+0.5 |fk| , j+0.5 |fk| ), where|fk| is the size of the k-th square feature map,i,j ∈ [0,|fk|). In practice, one can also design a distribution of default boxes to best ﬁt a speciﬁc dataset. How to design the optimal tiling is an open question as well. By combining predictions for all default boxes with different scales and aspect ratios from all locations of many feature maps, we have a diverse set of predictions, covering various input object sizes and shapes. For example, in Fig. 1, the dog is matched to a default box in the 4× 4 feature map, but not to any default boxes in the 8× 8 feature map. This is because those boxes have different scales and do not match the dog box, and therefore are considered as negatives during training.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00082",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Hard negative mining After the matching step, most of the default boxes are nega-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00083",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "tives, especially when the number of possible default boxes is large. This introduces a",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00084",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "signiﬁcant imbalance between the positive and negative training examples. Instead of using all the negative examples, we sort them using the highest conﬁdence loss for each default box and pick the top ones so that the ratio between the negatives and positives is at most 3:1. We found that this leads to faster optimization and a more stable training. Data augmentation To make the model more robust to various input object sizes and shapes, each training image is randomly sampled by one of the following options: – Use the entire original input image.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00085",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "– Sample a patch so that the minimum jaccard overlap with the objects is 0.1, 0.3,",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00086",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "0.5, 0.7, or 0.9. – Randomly sample a patch. The size of each sampled patch is [0.1, 1] of the original image size, and the aspect ratio is between 1 2 and 2. We keep the overlapped part of the ground truth box if the center of it is in the sampled patch. After the aforementioned sampling step, each sampled patch is resized to ﬁxed size and is horizontally ﬂipped with probability of 0.5, in addition to applying some photo-metric distortions similar to those described in [14].",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00087",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "SSD: Single Shot MultiBox Detector 7",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00088",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "3 Experimental Results",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00089",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "Base network Our experiments are all based on VGG16 [15], which is pre-trained on",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00090",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "the ILSVRC CLS-LOC dataset [16]. Similar to DeepLab-LargeFOV [17], we convert",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00091",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "fc6 and fc7 to convolutional layers, subsample parameters from fc6 and fc7, change pool5 from 2× 2−s2 to 3× 3−s1, and use the `a trous algorithm [18] to ﬁll the ”holes”. We remove all the dropout layers and the fc8 layer. We ﬁne-tune the resulting model using SGD with initial learning rate 10−3, 0.9 momentum, 0.0005 weight decay, and batch size 32. The learning rate decay policy is slightly different for each dataset, and we will describe details later. The full training and testing code is built on Caffe [19] and is open source at: https://github.com/weiliu89/caffe/tree/ssd .",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00092",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "3.1 PASCAL VOC2007",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00093",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "On this dataset, we compare against Fast R-CNN [6] and Faster R-CNN [2] on VOC2007 test (4952 images). All methods ﬁne-tune on the same pre-trained VGG16 network.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00094",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "Figure 2 shows the architecture details of the SSD300 model. We use conv4 3,",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00095",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "conv7 (fc7), conv8 2, conv9 2, conv10 2, and conv11 2 to predict both location and conﬁdences. We set default box with scale 0.1 on conv433. We initialize the parameters for all the newly added convolutional layers with the ”xavier” method [20]. For conv43, conv10 2 and conv11 2, we only associate 4 default boxes at each feature map location – omitting aspect ratios of 1 3 and 3. For all other layers, we put 6 default boxes as described in Sec. 2.2. Since, as pointed out in [12], conv4 3 has a different feature scale compared to the other layers, we use the L2 normalization technique introduced in [12] to scale the feature norm at each location in the feature map to 20 and learn the scale during back propagation. We use the 10−3 learning rate for 40k iterations, then continue training for 10k iterations with 10−4 and 10−5. When training on VOC2007 trainval, Table 1 shows that our low resolution SSD300 model is already more",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00096",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "accurate than Fast R-CNN. When we train SSD on a larger512× 512 input image, it is",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00097",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "even more accurate, surpassing Faster R-CNN by 1.7% mAP. If we train SSD with more (i.e. 07+12) data, we see that SSD300 is already better than Faster R-CNN by 1.1% and that SSD512 is 3.6% better. If we take models trained on COCO trainval35k as described in Sec. 3.4 and ﬁne-tuning them on the 07+12 dataset with SSD512, we achieve the best results: 81.6% mAP. To understand the performance of our two SSD models in more details, we used the detection analysis tool from [21]. Figure 3 shows that SSD can detect various object",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00098",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "categories with high quality (large white area). The majority of its conﬁdent detections",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00099",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "are correct. The recall is around 85-90%, and is much higher with “weak” (0.1 jaccard overlap) criteria. Compared to R-CNN [22], SSD has less localization error, indicating that SSD can localize objects better because it directly learns to regress the object shape and classify object categories instead of using two decoupled steps. However, SSD has more confusions with similar object categories (especially for animals), partly because we share locations for multiple categories. Figure 4 shows that SSD is very sensitive to the bounding box size. In other words, it has much worse performance on smaller",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00100",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "3 For SSD512 model, we add extra conv122 for prediction, set smin to 0.15, and 0.07 on conv4 3.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00101",
+    "page": 8,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "8 Liu et al. Method data mAP aero bike bird boat bottle bus car cat chair cow table dog horse mbike person plant sheep sofa train tv Fast [6] 07 66.9 74.5 78.3 69.2 53.2 36.6 77.3 78.2 82.0 40.7 72.7 67.9 79.6 79.2 73.0 69.0 30.1 65.4 70.2 75.8 65.8 Fast [6] 07+12 70.0 77.0 78.1 69.3 59.4 38.3 81.6 78.6 86.7 42.8 78.8 68.9 84.7 82.0 76.6 69.9 31.8 70.1 74.8 80.4 70.4 Faster [2] 07 69.9 70.0 80.6 70.1 57.3 49.9 78.2 80.4 82.0 52.2 75.3 67.2 80.3 79.8 75.0 76.3 39.1 68.3 67.3 81.1 67.6 Faster [2] 07+12 73.2 76.5 79.0 70.9 65.5 52.1 83.1 84.7 86.4 52.0 81.9 65.7 84.8 84.6 77.5 76.7 38.8 73.6 73.9 83.0 72.6 Faster [2] 07+12+COCO 78.8 84.3 82.0 77.7 68.9 65.7 88.1 88.4 88.9 63.6 86.3 70.8 85.9 87.6 80.1 82.3 53.6 80.4 75.8 86.6 78.9 SSD300 07 68.0 73.4 77.5 64.1 59.0 38.9 75.2 80.8 78.5 46.0 67.8 69.2 76.6 82.1 77.0 72.5 41.2 64.2 69.1 78.0 68.5 SSD300 07+12 74.3 75.5 80.2 72.3 66.3 47.6 83.0 84.2 86.1 54.7 78.3 73.9 84.5 85.3 82.6 76.2 48.6 73.9 76.0 83.4 74.0 SSD300 07+12+COCO 79.6 80.9...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00102",
+    "page": 8,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "Table 1: PASCAL VOC2007 test detection results. Both Fast and Faster R-CNN",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00103",
+    "page": 8,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "use input images whose minimum dimension is 600. The two SSD models have exactly",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00104",
+    "page": 8,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "the same settings except that they have different input sizes (300×300 vs. 512×512). It",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00105",
+    "page": 8,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "is obvious that larger input size leads to better results, and more data always helps. Data:",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00106",
+    "page": 8,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "”07”: VOC2007 trainval, ”07+12”: union of VOC2007 and VOC2012trainval. ”07+12+COCO”: ﬁrst train on COCOtrainval35k then ﬁne-tune on 07+12. objects than bigger objects. This is not surprising because those small objects may not even have any information at the very top layers. Increasing the input size (e.g. from 300× 300 to 512× 512) can help improve detecting small objects, but there is still a lot of room to improve. On the positive side, we can clearly see that SSD performs really",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00107",
+    "page": 8,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "well on large objects. And it is very robust to different object aspect ratios because we",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00108",
+    "page": 8,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "use default boxes of various aspect ratios per feature map location.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00109",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "3.2 Model analysis",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00110",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "To understand SSD better, we carried out controlled experiments to examine how each",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00111",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "component affects performance. For all the experiments, we use the same settings and input size (300× 300), except for speciﬁed changes to the settings or component(s). SSD300 more data augmentation? \u0014 \u0014 \u0014 \u0014 include{ 1 2 , 2} box? \u0014 \u0014 \u0014 \u0014 include{ 1 3 , 3} box? \u0014 \u0014 \u0014 use atrous? \u0014 \u0014 \u0014 \u0014 VOC2007 test mAP 65.5 71.6 73.7 74.2 74.3",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00112",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Table 2: Effects of various design choices and components on SSD performance.",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00113",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Data augmentation is crucial. Fast and Faster R-CNN use the original image and the horizontal ﬂip to train. We use a more extensive sampling strategy, similar to YOLO [5].",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00114",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Table 2 shows that we can improve 8.8% mAP with this sampling strategy. We do not",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00115",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "know how much our sampling strategy will beneﬁt Fast and Faster R-CNN, but they are likely to beneﬁt less because they use a feature pooling step during classiﬁcation that is relatively robust to object translation by design.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00116",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "SSD: Single Shot MultiBox Detector 9 animals total detections (x 357) 0.125 0.25 0.5 1 2 4 8 percentage of each type 0 20 40 60 80 100 Cor Loc Sim Oth BG vehicles total detections (x 415) 0.125 0.25 0.5 1 2 4 8 percentage of each type 0 20 40 60 80 100 Cor Loc Sim Oth BG furniture total detections (x 400) 0.125 0.25 0.5 1 2 4 8 percentage of each type 0 20 40 60 80 100 Cor Loc Sim Oth BG animals total false positives 25 50 100 200 400 800 16003200 percentage of each type 0 20 40 60 80 100 Loc Sim Oth BG vehicles total false positives 25 50 100 200 400 800 16003200 percentage of each type 0 20 40 60 80 100 Loc Sim Oth BG furniture total false positives 25 50 100 200 400 800 16003200 percentage of each type 0 20 40 60 80 100 Loc Sim Oth BG",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00117",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Fig. 3: Visualization of performance for SSD512 on animals, vehicles, and furni-",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00118",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "ture from VOC2007 test. The top row shows the cumulative fraction of detections that are correct (Cor) or false positive due to poor localization (Loc), confusion with similar categories (Sim), with others (Oth), or with background (BG). The solid red line reﬂects the change of recall with strong criteria (0.5 jaccard overlap) as the num- ber of detections increases. The dashed red line is using the weak criteria (0.1 jaccard overlap). The bottom row shows the distribution of top-ranked false positive types. XSS M L XL XSS M L XL XSS M L XL XSS M L XL XSS M L XL XSS M L XL XSS M L XL 0 0.2 0.4 0.6 0.8 1 0.28 0.78 0.84 0.98 0.93 0.49 0.880.880.91 0.98 0.17 0.67 0.82 0.920.96 0.37 0.64 0.77 0.910.94 0.47 0.88 0.950.990.99 0.09 0.36 0.670.70 0.54 0.22 0.70 0.940.990.99 airplane bicycle bird boat cat chair table SSD300: BBox Area XTT M WXW XTT M WXW XTT M WXW XTT M WXW XTT M WXW XTT M WXW XTT M WXW 0 0.2 0.4 0.6 0.8 1 0.77 0.73 0.86 0.81 0.90 0.68 0.870.920.89 0.76 0.65 0.790.78 0.84 0.72...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00119",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Fig. 4: Sensitivity and impact of different object characteristics on VOC2007 test",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00120",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "set using [21]. The plot on the left shows the effects of BBox Area per category, and",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00121",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "the right plot shows the effect of Aspect Ratio. Key: BBox Area: XS=extra-small;",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00122",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "S=small; M=medium; L=large; XL =extra-large. Aspect Ratio: XT=extra-tall/narrow;",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00123",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "T=tall; M=medium; W=wide; XW =extra-wide.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00124",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "10 Liu et al. More default box shapes is better . As described in Sec. 2.2, by default we use 6 default boxes per location. If we remove the boxes with 1 3 and 3 aspect ratios, the performance drops by 0.6%. By further removing the boxes with 1 2 and 2 aspect ratios, the performance drops another 2.1%. Using a variety of default box shapes seems to make the task of predicting boxes easier for the network. Atrous is faster . As described in Sec. 3, we used the atrous version of a subsampled",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00125",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "VGG16, following DeepLab-LargeFOV [17]. If we use the full VGG16, keeping pool5",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00126",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "with 2× 2−s2 and not subsampling parameters from fc6 and fc7, and add conv5 3 for prediction, the result is about the same while the speed is about 20% slower. Prediction source layers from: mAP use boundary boxes? # Boxes conv4 3 conv7 conv8 2 conv9 2 conv10 2 conv11 2 Yes No \u0014 \u0014 \u0014 \u0014 \u0014 \u0014 74.3 63.4 8732 \u0014 \u0014 \u0014 \u0014 \u0014 74.6 63.1 8764 \u0014 \u0014 \u0014 \u0014 73.8 68.4 8942 \u0014 \u0014 \u0014 70.7 69.2 9864 \u0014 \u0014 64.2 64.4 9025 \u0014 62.4 64.0 8664",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00127",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Table 3: Effects of using multiple output layers.",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00128",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Multiple output layers at different resolutions is better . A major contribution of SSD is using default boxes of different scales on different output layers. To measure the advantage gained, we progressively remove layers and compare results. For a fair comparison, every time we remove a layer, we adjust the default box tiling to keep the total number of boxes similar to the original (8732). This is done by stacking more scales of boxes on remaining layers and adjusting scales of boxes if needed. We do not exhaustively optimize the tiling for each setting. Table 3 shows a decrease in accuracy with fewer layers, dropping monotonically from 74.3 to 62.4. When we stack boxes of multiple scales on a layer, many are on the image boundary and need to be handled carefully. We tried the strategy used in Faster R-CNN [2], ignoring boxes which are on the boundary. We observe some interesting trends. For example, it hurts the perfor-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00129",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "mance by a large margin if we use very coarse feature maps (e.g. conv11 2 ( 1× 1)",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00130",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "or conv10 2 (3× 3)). The reason might be that we do not have enough large boxes to",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00131",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "cover large objects after the pruning. When we use primarily ﬁner resolution maps, the",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00132",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "performance starts increasing again because even after pruning a sufﬁcient number of",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00133",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "large boxes remains. If we only use conv7 for prediction, the performance is the worst,",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00134",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "reinforcing the message that it is critical to spread boxes of different scales over dif- ferent layers. Besides, since our predictions do not rely on ROI pooling as in [6], we do not have the collapsing bins problem in low-resolution feature maps [23]. The SSD architecture combines predictions from feature maps of various resolutions to achieve comparable accuracy to Faster R-CNN, while using lower resolution input images.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00135",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "SSD: Single Shot MultiBox Detector 11",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00136",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "3.3 PASCAL VOC2012",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00137",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "We use the same settings as those used for our basic VOC2007 experiments above, except that we use VOC2012trainval and VOC2007 trainval and test (21503 images) for training, and test on VOC2012 test (10991 images). We train the models with 10−3 learning rate for 60k iterations, then 10−4 for 20k iterations. Table 4 shows the results of our SSD300 and SSD512 4 model. We see the same performance trend as we observed on VOC2007 test. Our SSD300 improves accuracy over Fast/Faster R- CNN. By increasing the training and testing image size to512× 512, we are 4.5% more accurate than Faster R-CNN. Compared to YOLO, SSD is signiﬁcantly more accurate, likely due to the use of convolutional default boxes from multiple feature maps and our matching strategy during training. When ﬁne-tuned from models trained on COCO, our SSD512 achieves 80.0% mAP, which is 4.1% higher than Faster R-CNN. Method data mAP aero bike bird boat bottle bus car cat chair cow table dog horse mbike person plant sheep sofa t...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00138",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Table 4: PASCAL VOC2012 test detection results. Fast and Faster R-CNN use",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00139",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "images with minimum dimension 600, while the image size for YOLO is 448× 448.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00140",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "data: ”07++12”: union of VOC2007trainval and test and VOC2012 trainval. ”07++12+COCO”: ﬁrst train on COCOtrainval35k then ﬁne-tune on 07++12.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00141",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "3.4 COCO",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00142",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "To further validate the SSD framework, we trained our SSD300 and SSD512 architec- tures on the COCO dataset. Since objects in COCO tend to be smaller than PASCAL VOC, we use smaller default boxes for all layers. We follow the strategy mentioned in Sec. 2.2, but now our smallest default box has a scale of 0.15 instead of 0.2, and the scale of the default box on conv4 3 is 0.07 (e.g. 21 pixels for a 300× 300 image)5. We use the trainval35k [24] for training. We ﬁrst train the model with 10−3 learning rate for 160k iterations, and then continue training for 40k iterations with 10−4 and 40k iterations with 10−5. Table 5 shows the results on test-dev2015. Similar to what we observed on the PASCAL VOC dataset, SSD300 is better than Fast R-CNN in both mAP@0.5 and mAP@[0.5:0.95]. SSD300 has a similar mAP@0.75 as ION [24] and Faster R-CNN [25], but is worse in mAP@0.5. By increasing the im- age size to 512× 512, our SSD512 is better than Faster R-CNN [25] in both criteria. Interestingly, we ob...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00143",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "for large objects, but has relatively less improvement in AP (1.3%) and AR (2.0%) for",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00144",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "4 http://host.robots.ox.ac.uk:8080/leaderboard/displaylb.php?cls=mean&challengeid=11&compid=4",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00145",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "5 For SSD512 model, we add extra conv12 2 for prediction, set smin to 0.1, and 0.04 on conv4 3.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00146",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "12 Liu et al. Method data Avg. Precision, IoU: Avg. Precision, Area: Avg. Recall, #Dets: Avg. Recall, Area: 0.5:0.95 0.5 0.75 S M L 1 10 100 S M L Fast [6] train 19.7 35.9 - - - - - - - - - - Fast [24] train 20.5 39.9 19.4 4.1 20.0 35.8 21.3 29.5 30.1 7.3 32.1 52.0 Faster [2] trainval 21.9 42.7 - - - - - - - - - - ION [24] train 23.6 43.2 23.6 6.4 24.1 38.3 23.2 32.7 33.5 10.1 37.7 53.6 Faster [25] trainval 24.2 45.3 23.5 7.7 26.4 37.1 23.8 34.0 34.6 12.0 38.5 54.4 SSD300 trainval35k 23.2 41.2 23.4 5.3 23.2 39.6 22.5 33.2 35.3 9.6 37.6 56.5 SSD512 trainval35k 26.8 46.5 27.8 9.0 28.9 41.9 24.8 37.5 39.8 14.0 43.5 59.0",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00147",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Table 5: COCO test-dev2015 detection results.",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00148",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "small objects. Compared to ION, the improvement in AR for large and small objects is",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00149",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "more similar (5.4% vs. 3.9%). We conjecture that Faster R-CNN is more competitive on smaller objects with SSD because it performs two box reﬁnement steps, in both the RPN part and in the Fast R-CNN part. In Fig. 5, we show some detection examples on COCO test-dev with the SSD512 model.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00150",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "3.5 Preliminary ILSVRC results",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00151",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "We applied the same network architecture we used for COCO to the ILSVRC DET dataset [16]. We train a SSD300 model using the ILSVRC2014 DETtrain and val1 as used in [22]. We ﬁrst train the model with10−3 learning rate for 320k iterations, and then continue training for 80k iterations with 10−4 and 40k iterations with 10−5. We can achieve 43.4 mAP on the val2 set [22]. Again, it validates that SSD is a general framework for high quality real-time detection.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00152",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "3.6 Data Augmentation for Small Object Accuracy",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00153",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Without a follow-up feature resampling step as in Faster R-CNN, the classiﬁcation task for small objects is relatively hard for SSD, as demonstrated in our analysis (see Fig. 4). The data augmentation strategy described in Sec. 2.2 helps to improve the performance dramatically, especially on small datasets such as PASCAL VOC. The random crops generated by the strategy can be thought of as a ”zoom in” operation and can generate",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00154",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "many larger training examples. To implement a ”zoom out” operation that creates more",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00155",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "small training examples, we ﬁrst randomly place an image on a canvas of 16× of the original image size ﬁlled with mean values before we do any random crop operation. Because we have more training images by introducing this new ”expansion” data aug- mentation trick, we have to double the training iterations. We have seen a consistent increase of 2%-3% mAP across multiple datasets, as shown in Table 6. In speciﬁc, Fig- ure 6 shows that the new augmentation trick signiﬁcantly improves the performance on small objects. This result underscores the importance of the data augmentation strategy for the ﬁnal model accuracy. An alternative way of improving SSD is to design a better tiling of default boxes so that its position and scale are better aligned with the receptive ﬁeld of each position on a feature map. We leave this for future work.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00156",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "SSD: Single Shot MultiBox Detector 13 cup: 0.91 bowl: 0.87 pizza: 0.96 person: 0.98 cow: 1.00 cow: 0.94 cow: 0.90 cup: 0.70 chair: 0.92 chair: 0.87 chair: 0.80 chair: 0.75 couch: 0.87 dining table: 0.85 tv: 0.94 tv: 0.77 person: 1.00 person: 0.99 person: 0.87 person: 0.82 frisbee: 0.90 person: 1.00 bicycle: 0.94 traffic light: 0.71 person: 0.92 chair: 0.74 mouse: 0.63 keyboard: 0.82 cup: 0.98 bowl: 0.98 bowl: 0.97 bowl: 0.81 sandwich: 0.99 dining table: 0.86 person: 1.00 motorcycle: 0.99 backpack: 0.82 person: 1.00 person: 0.90 baseball glove: 0.62 person: 0.93 person: 0.88 car: 0.99 car: 0.96 car: 0.83 umbrella: 0.86 cat: 0.99 cup: 0.92 tv: 0.89 laptop: 0.99 keyboard: 0.99 book: 0.90 bicycle: 0.84 bus: 0.98 bus: 0.94 bus: 0.74 person: 1.00 person: 0.98 person: 0.98 skateboard: 0.97 cup: 0.99 cup: 0.81 cake: 0.86 cake: 0.83 dining table: 0.95 person: 0.86 person: 0.82 person: 0.81 boat: 0.97 person: 1.00 person: 0.98 sports ball: 0.67 baseball bat: 0.99 baseball glove: 0.92 person: 0....",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00157",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Fig. 5: Detection examples on COCO test-dev with SSD512 model. We show",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00158",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "detections with scores higher than 0.6. Each color corresponds to an object category.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00159",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Method",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00160",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "VOC2007 test VOC2012 test COCO test-dev2015 07+12 07+12+COCO 07++12 07++12+COCO trainval35k 0.5 0.5 0.5 0.5 0.5:0.95 0.5 0.75 SSD300 74.3 79.6 72.4 77.5 23.2 41.2 23.4 SSD512 76.8 81.6 74.9 80.0 26.8 46.5 27.8 SSD300* 77.2 81.2 75.8 79.3 25.1 43.1 25.8 SSD512* 79.8 83.2 78.5 82.2 28.8 48.5 30.3",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00161",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Table 6: Results on multiple datasets when we add the image expansion data aug-",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00162",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "mentation trick. SSD300* and SSD512* are the models that are trained with the new data augmentation.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00163",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "14 Liu et al. XSS M L XL XSS M L XL XSS M L XL XSS M L XL XSS M L XL XSS M L XL XSS M L XL 0 0.2 0.4 0.6 0.8 1 0.28 0.78 0.84 0.98 0.93 0.49 0.880.880.91 0.98 0.17 0.67 0.82 0.920.96 0.37 0.64 0.77 0.910.94 0.47 0.88 0.950.990.99 0.09 0.36 0.670.70 0.54 0.22 0.70 0.940.990.99 airplane bicycle bird boat cat chair table SSD300: BBox Area XSS M L XL XSS M L XL XSS M L XL XSS M L XL XSS M L XL XSS M L XL XSS M L XL 0 0.2 0.4 0.6 0.8 1 0.69 0.870.87 0.980.96 0.68 0.96 0.910.91 0.97 0.47 0.830.82 0.92 0.99 0.60 0.790.81 0.92 0.97 0.53 0.930.950.990.98 0.29 0.47 0.690.70 0.38 0.23 0.68 0.91 0.970.93airplane bicycle bird boat cat chair table SSD512: BBox Area XSS M L XL XSS M L XL XSS M L XL XSS M L XL XSS M L XL XSS M L XL XSS M L XL 0 0.2 0.4 0.6 0.8 1 0.40 0.860.87 0.980.94 0.67 0.94 0.890.930.97 0.38 0.75 0.860.90 0.96 0.59 0.71 0.79 0.88 0.99 0.69 0.90 0.961.000.97 0.25 0.46 0.720.73 0.51 0.43 0.75 0.92 0.990.99airplane bicycle bird boat cat chair table SSD300*: BBox Area XSS M L XL XSS...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00164",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Fig. 6: Sensitivity and impact of object size with new data augmentation on",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00165",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "VOC2007 test set using [21]. The top row shows the effects of BBox Area per cat- egory for the original SSD300 and SSD512 model, and the bottom row corresponds to the SSD300* and SSD512* model trained with the new data augmentation trick. It is obvious that the new data augmentation trick helps detecting small objects signiﬁcantly.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00166",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "3.7 Inference time",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00167",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Considering the large number of boxes generated from our method, it is essential to",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00168",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "perform non-maximum suppression (nms) efﬁciently during inference. By using a con-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00169",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "ﬁdence threshold of 0.01, we can ﬁlter out most boxes. We then apply nms with jaccard overlap of 0.45 per class and keep the top 200 detections per image. This step costs about 1.7 msec per image for SSD300 and 20 VOC classes, which is close to the total time (2.4 msec) spent on all newly added layers. We measure the speed with batch size 8 using Titan X and cuDNN v4 with Intel Xeon E5-2667v3@3.20GHz.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00170",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Table 7 shows the comparison between SSD, Faster R-CNN[2], and YOLO[5]. Both",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00171",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "our SSD300 and SSD512 method outperforms Faster R-CNN in both speed and accu- racy. Although Fast YOLO[5] can run at 155 FPS, it has lower accuracy by almost 22% mAP. To the best of our knowledge, SSD300 is the ﬁrst real-time method to achieve above 70% mAP. Note that about 80% of the forward time is spent on the base network (VGG16 in our case). Therefore, using a faster base network could even further improve the speed, which can possibly make the SSD512 model real-time as well.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00172",
+    "page": 14,
+    "section": "Related Work",
+    "bbox": null,
+    "text_span": "4 Related Work",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00173",
+    "page": 14,
+    "section": "Related Work",
+    "bbox": null,
+    "text_span": "There are two established classes of methods for object detection in images, one based on sliding windows and the other based on region proposal classiﬁcation. Before the advent of convolutional neural networks, the state of the art for those two approaches – Deformable Part Model (DPM) [26] and Selective Search [1] – had comparable performance. However, after the dramatic improvement brought on by R-CNN [22], which combines selective search region proposals and convolutional network based post-classiﬁcation, region proposal object detection methods became prevalent. The original R-CNN approach has been improved in a variety of ways. The ﬁrst set of approaches improve the quality and speed of post-classiﬁcation, since it requires",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00174",
+    "page": 15,
+    "section": "Related Work",
+    "bbox": null,
+    "text_span": "SSD: Single Shot MultiBox Detector 15 Method mAP FPS batch size # Boxes Input resolution Faster R-CNN (VGG16) 73.2 7 1 ∼ 6000 ∼ 1000× 600 Fast YOLO 52.7 155 1 98 448× 448 YOLO (VGG16) 66.4 21 1 98 448× 448 SSD300 74.3 46 1 8732 300× 300 SSD512 76.8 19 1 24564 512× 512 SSD300 74.3 59 8 8732 300× 300 SSD512 76.8 22 8 24564 512× 512",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00175",
+    "page": 15,
+    "section": "Related Work",
+    "bbox": null,
+    "text_span": "Table 7: Results on Pascal VOC2007 test. SSD300 is the only real-time detection",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00176",
+    "page": 15,
+    "section": "Related Work",
+    "bbox": null,
+    "text_span": "method that can achieve above 70% mAP. By using a larger input image, SSD512 out-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00177",
+    "page": 15,
+    "section": "Related Work",
+    "bbox": null,
+    "text_span": "performs all methods on accuracy while maintaining a close to real-time speed.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00178",
+    "page": 15,
+    "section": "Related Work",
+    "bbox": null,
+    "text_span": "the classiﬁcation of thousands of image crops, which is expensive and time-consuming.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00179",
+    "page": 15,
+    "section": "Related Work",
+    "bbox": null,
+    "text_span": "SPPnet [9] speeds up the original R-CNN approach signiﬁcantly. It introduces a spatial pyramid pooling layer that is more robust to region size and scale and allows the classi- ﬁcation layers to reuse features computed over feature maps generated at several image resolutions. Fast R-CNN [6] extends SPPnet so that it can ﬁne-tune all layers end-to-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00180",
+    "page": 15,
+    "section": "Related Work",
+    "bbox": null,
+    "text_span": "end by minimizing a loss for both conﬁdences and bounding box regression, which was",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00181",
+    "page": 15,
+    "section": "Related Work",
+    "bbox": null,
+    "text_span": "ﬁrst introduced in MultiBox [7] for learning objectness. The second set of approaches improve the quality of proposal generation using deep neural networks. In the most recent works like MultiBox [7,8], the Selective Search region proposals, which are based on low-level image features, are replaced by pro- posals generated directly from a separate deep neural network. This further improves the detection accuracy but results in a somewhat complex setup, requiring the training of two neural networks with a dependency between them. Faster R-CNN [2] replaces selective search proposals by ones learned from a region proposal network (RPN), and introduces a method to integrate the RPN with Fast R-CNN by alternating between ﬁne- tuning shared convolutional layers and prediction layers for these two networks. This way region proposals are used to pool mid-level features and the ﬁnal classiﬁcation step is less expensive. Our SSD is very similar to the region proposal network (RPN) in Faster R-C...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00182",
+    "page": 16,
+    "section": "Related Work",
+    "bbox": null,
+    "text_span": "16 Liu et al. ratios on each feature location from multiple feature maps at different scales. If we only use one default box per location from the topmost feature map, our SSD would have similar architecture to OverFeat [4]; if we use the whole topmost feature map and add a fully connected layer for predictions instead of our convolutional predictors, and do not explicitly consider multiple aspect ratios, we can approximately reproduce YOLO [5].",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00183",
+    "page": 16,
+    "section": "Conclusion",
+    "bbox": null,
+    "text_span": "5 Conclusions",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00184",
+    "page": 16,
+    "section": "Conclusion",
+    "bbox": null,
+    "text_span": "This paper introduces SSD, a fast single-shot object detector for multiple categories. A key feature of our model is the use of multi-scale convolutional bounding box outputs attached to multiple feature maps at the top of the network. This representation allows us to efﬁciently model the space of possible box shapes. We experimentally validate",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00185",
+    "page": 16,
+    "section": "Conclusion",
+    "bbox": null,
+    "text_span": "that given appropriate training strategies, a larger number of carefully chosen default",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00186",
+    "page": 16,
+    "section": "Conclusion",
+    "bbox": null,
+    "text_span": "bounding boxes results in improved performance. We build SSD models with at least an order of magnitude more box predictions sampling location, scale, and aspect ratio, than existing methods [5,7]. We demonstrate that given the same VGG-16 base architecture, SSD compares favorably to its state-of-the-art object detector counterparts in terms of both accuracy and speed. Our SSD512 model signiﬁcantly outperforms the state-of-the- art Faster R-CNN [2] in terms of accuracy on PASCAL VOC and COCO, while being 3× faster. Our real time SSD300 model runs at 59 FPS, which is faster than the current real time YOLO [5] alternative, while producing markedly superior detection accuracy. Apart from its standalone utility, we believe that our monolithic and relatively sim-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00187",
+    "page": 16,
+    "section": "Conclusion",
+    "bbox": null,
+    "text_span": "ple SSD model provides a useful building block for larger systems that employ an object",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00188",
+    "page": 16,
+    "section": "Conclusion",
+    "bbox": null,
+    "text_span": "detection component. A promising future direction is to explore its use as part of a sys- tem using recurrent neural networks to detect and track objects in video simultaneously.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00189",
+    "page": 16,
+    "section": "Conclusion",
+    "bbox": null,
+    "text_span": "6 Acknowledgment",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00190",
+    "page": 16,
+    "section": "Conclusion",
+    "bbox": null,
+    "text_span": "This work was started as an internship project at Google and continued at UNC. We would like to thank Alex Toshev for helpful discussions and are indebted to the Im- age Understanding and DistBelief teams at Google. We also thank Philip Ammirato and Patrick Poirson for helpful comments. We thank NVIDIA for providing GPUs and acknowledge support from NSF 1452851, 1446631, 1526367, 1533771.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00191",
+    "page": 16,
+    "section": "References",
+    "bbox": null,
+    "text_span": "References",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00192",
+    "page": 16,
+    "section": "References",
+    "bbox": null,
+    "text_span": "1. Uijlings, J.R., van de Sande, K.E., Gevers, T., Smeulders, A.W.: Selective search for object recognition. IJCV (2013) 2. Ren, S., He, K., Girshick, R., Sun, J.: Faster R-CNN: Towards real-time object detection with region proposal networks. In: NIPS. (2015) 3. He, K., Zhang, X., Ren, S., Sun, J.: Deep residual learning for image recognition. In: CVPR. (2016) 4. Sermanet, P., Eigen, D., Zhang, X., Mathieu, M., Fergus, R., LeCun, Y .: Overfeat: Integrated recognition, localization and detection using convolutional networks. In: ICLR. (2014)",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00193",
+    "page": 17,
+    "section": "References",
+    "bbox": null,
+    "text_span": "SSD: Single Shot MultiBox Detector 17 5. Redmon, J., Divvala, S., Girshick, R., Farhadi, A.: You only look once: Uniﬁed, real-time object detection. In: CVPR. (2016) 6. Girshick, R.: Fast R-CNN. In: ICCV . (2015) 7. Erhan, D., Szegedy, C., Toshev, A., Anguelov, D.: Scalable object detection using deep neural networks. In: CVPR. (2014) 8. Szegedy, C., Reed, S., Erhan, D., Anguelov, D.: Scalable, high-quality object detection. arXiv preprint arXiv:1412.1441 v3 (2015) 9. He, K., Zhang, X., Ren, S., Sun, J.: Spatial pyramid pooling in deep convolutional networks for visual recognition. In: ECCV . (2014) 10. Long, J., Shelhamer, E., Darrell, T.: Fully convolutional networks for semantic segmentation. In: CVPR. (2015) 11. Hariharan, B., Arbel ´aez, P., Girshick, R., Malik, J.: Hypercolumns for object segmentation and ﬁne-grained localization. In: CVPR. (2015) 12. Liu, W., Rabinovich, A., Berg, A.C.: ParseNet: Looking wider to see better. In: ILCR. (2016) 13. Zhou, B., Khosla, A., Lapedriza,...",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00194",
+    "page": 17,
+    "section": "References",
+    "bbox": null,
+    "text_span": "15. Simonyan, K., Zisserman, A.: Very deep convolutional networks for large-scale image recog-",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00195",
+    "page": 17,
+    "section": "References",
+    "bbox": null,
+    "text_span": "nition. In: NIPS. (2015) 16. Russakovsky, O., Deng, J., Su, H., Krause, J., Satheesh, S., Ma, S., Huang, Z., Karpathy, A.,",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00196",
+    "page": 17,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Khosla, A., Bernstein, M., Berg, A.C., Fei-Fei, L.: Imagenet large scale visual recognition",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00197",
+    "page": 17,
+    "section": "References",
+    "bbox": null,
+    "text_span": "challenge. IJCV (2015) 17. Chen, L.C., Papandreou, G., Kokkinos, I., Murphy, K., Yuille, A.L.: Semantic image seg- mentation with deep convolutional nets and fully connected crfs. In: ICLR. (2015) 18. Holschneider, M., Kronland-Martinet, R., Morlet, J., Tchamitchian, P.: A real-time algorithm for signal analysis with the help of the wavelet transform. In: Wavelets. Springer (1990) 286–297 19. Jia, Y ., Shelhamer, E., Donahue, J., Karayev, S., Long, J., Girshick, R., Guadarrama, S., Darrell, T.: Caffe: Convolutional architecture for fast feature embedding. In: MM. (2014) 20. Glorot, X., Bengio, Y .: Understanding the difﬁculty of training deep feedforward neural networks. In: AISTATS. (2010) 21. Hoiem, D., Chodpathumwan, Y ., Dai, Q.: Diagnosing error in object detectors. In: ECCV 2012. (2012) 22. Girshick, R., Donahue, J., Darrell, T., Malik, J.: Rich feature hierarchies for accurate object detection and semantic segmentation. In: CVPR. (2014) 23. Zhang, L., Lin, L., Liang, X., He, K....",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00198",
+    "page": 17,
+    "section": "References",
+    "bbox": null,
+    "text_span": "26. Felzenszwalb, P., McAllester, D., Ramanan, D.: A discriminatively trained, multiscale, de-",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00199",
+    "page": 17,
+    "section": "References",
+    "bbox": null,
+    "text_span": "formable part model. In: CVPR. (2008)",
+    "source_type": "reference"
+  }
+]

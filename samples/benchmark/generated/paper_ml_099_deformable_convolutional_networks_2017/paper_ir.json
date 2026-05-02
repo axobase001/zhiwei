@@ -1,0 +1,2690 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "卷积神经网络（CNN）因其构建模块的固定几何结构，在建模几何变换方面存在固有局限性。",
+      "anchors": [
+        "anc_00003",
+        "anc_00010"
+      ]
+    },
+    "motivation": {
+      "summary": "现有CNN模块（如卷积、池化）的采样位置固定，无法自适应地处理物体的尺度、长宽比、旋转等几何变化，这限制了其在目标检测和语义分割等任务中的性能。",
+      "anchors": [
+        "anc_00010",
+        "anc_00012"
+      ]
+    },
+    "core_idea": {
+      "summary": "引入可变形卷积和可变形RoI池化两个新模块，通过为标准模块的采样位置添加可学习的偏移量，使CNN能够自适应地学习空间变换，从而增强其几何变换建模能力。",
+      "anchors": [
+        "anc_00003",
+        "anc_00005",
+        "anc_00019"
+      ]
+    },
+    "method": {
+      "summary": "提出可变形卷积网络（Deformable ConvNets），包含两个核心模块：1) 可变形卷积：在标准卷积的规则网格采样位置上增加2D偏移量，偏移量通过额外的卷积层从输入特征图学习得到；2) 可变形RoI池化：在标准RoI池化的固定空间分箱上增加偏移量，偏移量通过全连接层从RoI特征学习得到。两个模块均可通过反向传播端到端训练。",
+      "anchors": [
+        "anc_00024",
+        "anc_00025",
+        "anc_00026",
+        "anc_00027",
+        "anc_00039",
+        "anc_00048",
+        "anc_00050",
+        "anc_00051",
+        "anc_00054",
+        "anc_00056",
+        "anc_00058",
+        "anc_00061"
+      ]
+    },
+    "experiments": {
+      "summary": "在PASCAL VOC和MS COCO数据集上，针对语义分割（DeepLab）和目标检测（Faster R-CNN, R-FCN）任务进行了广泛实验。实验包括消融研究（可变形卷积层数、与空洞卷积对比）、模型复杂度与运行时分析、以及在COCO test-dev上的全面性能对比。",
+      "anchors": [
+        "anc_00091",
+        "anc_00092",
+        "anc_00093",
+        "anc_00103",
+        "anc_00107",
+        "anc_00108",
+        "anc_00109",
+        "anc_00110",
+        "anc_00117",
+        "anc_00118",
+        "anc_00119",
+        "anc_00121",
+        "anc_00122",
+        "anc_00123",
+        "anc_00125"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "可变形卷积和RoI池化能有效增强CNN的几何变换建模能力。",
+        "anchors": [
+          "anc_00003",
+          "anc_00005",
+          "anc_00091",
+          "anc_00107",
+          "anc_00119"
+        ]
+      },
+      {
+        "claim_id": "claim_2",
+        "claim": "学习密集的空间变换对于目标检测和语义分割等复杂视觉任务是有效的。",
+        "anchors": [
+          "anc_00005",
+          "anc_00091",
+          "anc_00121",
+          "anc_00123"
+        ]
+      },
+      {
+        "claim_id": "claim_3",
+        "claim": "可变形模块可以即插即用，替换现有CNN中的标准模块，并能通过标准反向传播进行端到端训练。",
+        "anchors": [
+          "anc_00005",
+          "anc_00058",
+          "anc_00061"
+        ]
+      },
+      {
+        "claim_id": "claim_4",
+        "claim": "可变形卷积是空洞卷积的泛化形式。",
+        "anchors": [
+          "anc_00080",
+          "anc_00019"
+        ]
+      },
+      {
+        "claim_id": "claim_5",
+        "claim": "可变形卷积能够自适应地学习感受野大小。",
+        "anchors": [
+          "anc_00065",
+          "anc_00073",
+          "anc_00096",
+          "anc_00113"
+        ]
+      },
+      {
+        "claim_id": "claim_6",
+        "claim": "可变形模块带来的性能提升主要源于几何变换建模能力的增强，而非模型参数的增加。",
+        "anchors": [
+          "anc_00108",
+          "anc_00109",
+          "anc_00123"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "论文未明确讨论局限性。潜在局限可能包括：偏移量学习增加了少量计算开销；对于某些简单任务，性能提升可能不显著；偏移量的可解释性有待研究。",
+        "anchors": []
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "标准卷积",
+        "label": "Baseline Convolution",
+        "summary": "标准卷积操作，使用固定的规则网格R对输入特征图进行采样，然后加权求和。",
+        "description": "对于输出特征图上的每个位置p0，标准卷积的计算公式为 y(p0) = Σ_{p_n∈R} w(p_n)·x(p0 + p_n)，其中R定义了感受野大小和膨胀率。",
+        "type": "基础模块",
+        "anchors": [
+          "anc_00021",
+          "anc_00022",
+          "anc_00023"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "可变形卷积",
+        "label": "Deformable Convolution",
+        "summary": "在标准卷积的采样网格上增加可学习的2D偏移量，使采样位置能够自由变形。",
+        "description": "公式变为 y(p0) = Σ_{p_n∈R} w(p_n)·x(p0 + p_n + Δp_n)。偏移量Δp_n通过一个与当前卷积层具有相同空间分辨率和膨胀率的额外卷积层从输入特征图学习得到。由于偏移量通常是分数，通过双线性插值实现。",
+        "type": "核心创新模块",
+        "anchors": [
+          "anc_00024",
+          "anc_00025",
+          "anc_00026",
+          "anc_00027",
+          "anc_00039"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "双线性插值",
+        "label": "Bilinear Interpolation",
+        "summary": "用于实现分数位置采样的操作，是可变形卷积和RoI池化的关键计算步骤。",
+        "description": "对于任意分数位置p，其特征值x(p)通过双线性插值计算：x(p) = Σ_q G(q, p)·x(q)，其中G(q, p) = g(q_x, p_x)·g(q_y, p_y)，g(a, b) = max(0, 1 - |a - b|)。梯度可以通过此操作反向传播。",
+        "type": "计算操作",
+        "anchors": [
+          "anc_00028",
+          "anc_00029",
+          "anc_00030",
+          "anc_00031",
+          "anc_00032",
+          "anc_00033"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "标准RoI池化",
+        "label": "Standard RoI Pooling",
+        "summary": "将感兴趣区域（RoI）划分为固定的空间分箱，并对每个分箱内的特征进行池化。",
+        "description": "对于k×k的特征图，第(i,j)个分箱的输出为 y(i,j) = Σ_{p∈bin(i,j)} x(p0 + p) / n_ij，其中n_ij是分箱内的像素数。",
+        "type": "基础模块",
+        "anchors": [
+          "anc_00040",
+          "anc_00042",
+          "anc_00043"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "可变形RoI池化",
+        "label": "Deformable RoI Pooling",
+        "summary": "在标准RoI池化的每个空间分箱上增加可学习的偏移量，使分箱区域能够自适应变形。",
+        "description": "公式变为 y(i,j) = Σ_{p∈bin(i,j)} x(p0 + p + Δp_ij) / n_ij。偏移量Δp_ij通过一个全连接层从RoI特征学习得到，并经过归一化（Δp_ij = γ·Δp̂_ij ∘ (w, h)，γ=0.1）以保持对RoI大小的不变性。",
+        "type": "核心创新模块",
+        "anchors": [
+          "anc_00048",
+          "anc_00050",
+          "anc_00051",
+          "anc_00054",
+          "anc_00056"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "可变形位置敏感RoI池化",
+        "label": "Deformable PS RoI Pooling",
+        "summary": "对位置敏感（PS）RoI池化进行可变形扩展，为每个分箱学习偏移量。",
+        "description": "在R-FCN框架中，输入特征图首先被转换为k²个分数图。可变形PS RoI池化在这些分数图的每个分箱上增加偏移量，偏移量通过卷积层学习。",
+        "type": "核心创新模块",
+        "anchors": [
+          "anc_00057",
+          "anc_00037",
+          "anc_00038"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "偏移量学习",
+        "label": "Offset Learning",
+        "summary": "可变形模块中偏移量的学习机制，通过额外的卷积层或全连接层实现，并与主网络联合训练。",
+        "description": "对于可变形卷积，偏移量通过一个卷积层生成；对于可变形RoI池化，偏移量通过一个全连接层生成。这些额外层的权重初始化为零，学习率设置为现有层的β倍（默认β=1，对于Faster R-CNN中的fc层β=0.01）。梯度通过双线性插值操作反向传播。",
+        "type": "学习机制",
+        "anchors": [
+          "anc_00039",
+          "anc_00058",
+          "anc_00059",
+          "anc_00060",
+          "anc_00061"
+        ]
+      },
+      {
+        "node_id": "node_008",
+        "title": "可变形卷积网络",
+        "label": "Deformable ConvNets",
+        "summary": "将可变形卷积和可变形RoI池化模块集成到现有CNN架构中形成的网络。",
+        "description": "可变形模块可以即插即用地替换其标准对应模块。论文将其集成到ResNet-101和Aligned-Inception-ResNet等主干网络中，用于语义分割（DeepLab）和目标检测（Faster R-CNN, R-FCN）任务。",
+        "type": "完整网络",
+        "anchors": [
+          "anc_00061",
+          "anc_00065",
+          "anc_00120",
+          "anc_00121"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "扩展为",
+        "description": "可变形卷积是在标准卷积的基础上，为采样网格增加了可学习的偏移量。",
+        "anchors": [
+          "anc_00024",
+          "anc_00025",
+          "anc_00026"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "label": "扩展为",
+        "description": "可变形RoI池化是在标准RoI池化的基础上，为每个空间分箱增加了可学习的偏移量。",
+        "anchors": [
+          "anc_00048",
+          "anc_00050",
+          "anc_00051"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "依赖于",
+        "description": "可变形卷积中分数位置的采样通过双线性插值实现。",
+        "anchors": [
+          "anc_00028",
+          "anc_00029",
+          "anc_00030"
+        ]
+      },
+      {
+        "source": "node_005",
+        "target": "node_003",
+        "label": "依赖于",
+        "description": "可变形RoI池化中分数位置的采样通过双线性插值实现。",
+        "anchors": [
+          "anc_00028",
+          "anc_00029",
+          "anc_00030"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_007",
+        "label": "偏移量由...生成",
+        "description": "可变形卷积的偏移量通过一个额外的卷积层学习生成。",
+        "anchors": [
+          "anc_00039"
+        ]
+      },
+      {
+        "source": "node_005",
+        "target": "node_007",
+        "label": "偏移量由...生成",
+        "description": "可变形RoI池化的偏移量通过一个全连接层学习生成。",
+        "anchors": [
+          "anc_00052",
+          "anc_00054"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_008",
+        "label": "集成到",
+        "description": "可变形卷积模块被集成到可变形卷积网络中，用于特征提取。",
+        "anchors": [
+          "anc_00061",
+          "anc_00065"
+        ]
+      },
+      {
+        "source": "node_005",
+        "target": "node_008",
+        "label": "集成到",
+        "description": "可变形RoI池化模块被集成到可变形卷积网络中，用于目标检测任务。",
+        "anchors": [
+          "anc_00061",
+          "anc_00121"
+        ]
+      },
+      {
+        "source": "node_006",
+        "target": "node_008",
+        "label": "集成到",
+        "description": "可变形PS RoI池化模块被集成到可变形卷积网络中，用于R-FCN目标检测框架。",
+        "anchors": [
+          "anc_00057",
+          "anc_00121"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00021",
+        "anc_00040"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00024",
+        "anc_00048"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "卷积层使用固定的规则网格R进行采样。",
+        "after": "卷积层使用规则网格R加上可学习的偏移量Δp_n进行采样。",
+        "why_it_matters": "使卷积核能够自适应物体的形状、尺度和姿态，从而更有效地提取特征，尤其对于非刚性物体和复杂几何变换。",
+        "anchors": [
+          "anc_00021",
+          "anc_00024",
+          "anc_00025",
+          "anc_00026"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "RoI池化将RoI划分为固定的空间分箱。",
+        "after": "RoI池化在每个固定分箱上增加可学习的偏移量Δp_ij。",
+        "why_it_matters": "使池化区域能够自适应地聚焦于物体最具判别性的部分，提升对物体部件变形和姿态变化的建模能力。",
+        "anchors": [
+          "anc_00040",
+          "anc_00048",
+          "anc_00050",
+          "anc_00051"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "CNN模块的几何结构固定，缺乏内部机制处理几何变换。",
+        "after": "通过可学习的偏移量，CNN模块的几何结构变得动态和可变形。",
+        "why_it_matters": "首次在深度CNN中证明学习密集空间变换对于复杂视觉任务（如目标检测和语义分割）是有效且可行的。",
+        "anchors": [
+          "anc_00003",
+          "anc_00005",
+          "anc_00010",
+          "anc_00012"
+        ],
+        "delta_id": "delta_3"
+      },
+      {
+        "before": "标准CNN的感受野大小在所有激活单元中是相同的。",
+        "after": "可变形卷积使感受野大小能够根据物体的尺度和形状自适应调整。",
+        "why_it_matters": "解决了高层CNN语义编码中，不同位置需要不同大小感受野的问题，提升了细粒度定位任务（如语义分割）的性能。",
+        "anchors": [
+          "anc_00010",
+          "anc_00065",
+          "anc_00073"
+        ],
+        "delta_id": "delta_4"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "y(\\mathbf{p}_0) = \\sum_{\\mathbf{p}_n \\in \\mathcal{R}} w(\\mathbf{p}_n) \\cdot x(\\mathbf{p}_0 + \\mathbf{p}_n)",
+        "variables": [
+          {
+            "name": "y(p0)",
+            "description": "输出特征图在位置p0的值",
+            "confidence": "high",
+            "anchors": [
+              "anc_00022",
+              "anc_00023"
+            ]
+          },
+          {
+            "name": "R",
+            "description": "定义感受野大小和膨胀率的规则网格",
+            "confidence": "high",
+            "anchors": [
+              "anc_00021"
+            ]
+          },
+          {
+            "name": "w(p_n)",
+            "description": "卷积核权重",
+            "confidence": "high",
+            "anchors": [
+              "anc_00023"
+            ]
+          },
+          {
+            "name": "x(p0 + p_n)",
+            "description": "输入特征图在采样位置的值",
+            "confidence": "high",
+            "anchors": [
+              "anc_00023"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "标准卷积的计算公式，使用固定的规则网格R对输入进行采样并加权求和。",
+        "anchors": [
+          "anc_00021",
+          "anc_00022",
+          "anc_00023"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "y(\\mathbf{p}_0) = \\sum_{\\mathbf{p}_n \\in \\mathcal{R}} w(\\mathbf{p}_n) \\cdot x(\\mathbf{p}_0 + \\mathbf{p}_n + \\Delta \\mathbf{p}_n)",
+        "variables": [
+          {
+            "name": "Δp_n",
+            "description": "为第n个采样位置学习的2D偏移量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00024",
+              "anc_00025"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "可变形卷积的核心公式。在标准卷积的采样位置上增加了可学习的偏移量Δp_n，使采样网格能够自由变形。",
+        "anchors": [
+          "anc_00024",
+          "anc_00025",
+          "anc_00026",
+          "anc_00027"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "x(\\mathbf{p}) = \\sum_{\\mathbf{q}} G(\\mathbf{q}, \\mathbf{p}) \\cdot x(\\mathbf{q})",
+        "variables": [
+          {
+            "name": "p",
+            "description": "任意（通常是分数）位置",
+            "confidence": "high",
+            "anchors": [
+              "anc_00030"
+            ]
+          },
+          {
+            "name": "q",
+            "description": "特征图x中所有整数空间位置",
+            "confidence": "high",
+            "anchors": [
+              "anc_00031"
+            ]
+          },
+          {
+            "name": "G(q, p)",
+            "description": "双线性插值核",
+            "confidence": "high",
+            "anchors": [
+              "anc_00031",
+              "anc_00032"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "用于计算分数位置p处特征值的双线性插值公式。这是实现可变形采样的关键计算步骤。",
+        "anchors": [
+          "anc_00028",
+          "anc_00029",
+          "anc_00030"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "latex": "G(\\mathbf{q}, \\mathbf{p}) = g(q_x, p_x) \\cdot g(q_y, p_y), \\quad g(a, b) = \\max(0, 1 - |a - b|)",
+        "variables": [
+          {
+            "name": "g(a, b)",
+            "description": "一维线性插值核",
+            "confidence": "high",
+            "anchors": [
+              "anc_00033"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "双线性插值核G的具体形式，它是两个一维核的乘积。该核仅在少数q值上非零，计算高效。",
+        "anchors": [
+          "anc_00031",
+          "anc_00032",
+          "anc_00033"
+        ]
+      },
+      {
+        "formula_id": "formula_005",
+        "latex": "y(i, j) = \\sum_{\\mathbf{p} \\in \\text{bin}(i, j)} x(\\mathbf{p}_0 + \\mathbf{p} + \\Delta \\mathbf{p}_{ij}) / n_{ij}",
+        "variables": [
+          {
+            "name": "Δp_ij",
+            "description": "为第(i,j)个分箱学习的偏移量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00048",
+              "anc_00050"
+            ]
+          },
+          {
+            "name": "n_ij",
+            "description": "分箱(i,j)内的像素数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00043"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "可变形RoI池化的核心公式。在标准RoI池化的每个固定分箱上增加了可学习的偏移量Δp_ij。",
+        "anchors": [
+          "anc_00048",
+          "anc_00050",
+          "anc_00051"
+        ]
+      },
+      {
+        "formula_id": "formula_006",
+        "latex": "\\Delta \\mathbf{p}_{ij} = \\gamma \\cdot \\Delta \\hat{\\mathbf{p}}_{ij} \\circ (w, h)",
+        "variables": [
+          {
+            "name": "γ",
+            "description": "预定义的标量，设置为0.1",
+            "confidence": "high",
+            "anchors": [
+              "anc_00056"
+            ]
+          },
+          {
+            "name": "Δp̂_ij",
+            "description": "全连接层预测的归一化偏移量",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00054"
+            ]
+          },
+          {
+            "name": "w, h",
+            "description": "RoI的宽度和高度",
+            "confidence": "high",
+            "anchors": [
+              "anc_00054"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "对可变形RoI池化中学习到的偏移量进行归一化，使其对RoI大小保持不变性。",
+        "anchors": [
+          "anc_00054",
+          "anc_00056"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "task": "目标检测 (COCO test-dev)",
+        "method": "可变形R-FCN (Aligned-Inception-ResNet, 多尺度测试, 边界框平均)",
+        "metric": "mAP@[0.5:0.95]",
+        "value": "37.5%",
+        "improvement": "相比普通R-FCN (32.9%) 提升约14%相对增益",
+        "anchors": [
+          "anc_00121",
+          "anc_00123",
+          "anc_00125"
+        ]
+      },
+      {
+        "task": "语义分割 (PASCAL VOC)",
+        "method": "可变形DeepLab (ResNet-101, 使用3层可变形卷积)",
+        "metric": "mIoU@V",
+        "value": "75.2%",
+        "improvement": "相比基线 (69.7%) 提升5.5个百分点",
+        "anchors": [
+          "anc_00091",
+          "anc_00092"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "study": "可变形卷积层数的影响",
+        "finding": "在ResNet-101的最后1、2、3、6层使用可变形卷积，性能随层数增加而稳步提升，尤其在DeepLab和类感知RPN任务上。",
+        "anchors": [
+          "anc_00091",
+          "anc_00092",
+          "anc_00110"
+        ]
+      },
+      {
+        "study": "与空洞卷积的对比",
+        "finding": "可变形卷积在所有任务上均优于不同膨胀率（4,6,8）的空洞卷积，且最优膨胀率因任务而异，证明了自适应学习滤波器变形的有效性和必要性。",
+        "anchors": [
+          "anc_00107",
+          "anc_00117",
+          "anc_00118",
+          "anc_00119"
+        ]
+      },
+      {
+        "study": "可变形RoI池化的效果",
+        "finding": "单独使用可变形RoI池化已能带来显著的性能提升，尤其是在严格的mAP@0.7指标上。与可变形卷积结合使用时，提升更为显著。",
+        "anchors": [
+          "anc_00107",
+          "anc_00119"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "aspect": "对物体尺度的适应性",
+        "evidence": "可变形卷积能自适应调整感受野大小以适应不同尺度的物体（小、中、大）。",
+        "anchors": [
+          "anc_00096",
+          "anc_00098",
+          "anc_00111",
+          "anc_00113",
+          "anc_00115"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "aspect": "模型复杂度与运行时",
+        "finding": "可变形模块仅引入少量额外参数（例如，R-FCN从47.1M增加到49.5M）和轻微的运行时开销（例如，R-FCN从0.170秒增加到0.193秒）。",
+        "anchors": [
+          "anc_00108",
+          "anc_00109"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "description": "图6展示了对于背景、小物体和大物体上的激活单元，其三层可变形滤波器的采样位置自适应地聚集在物体周围。",
+        "anchors": [
+          "anc_00066",
+          "anc_00067",
+          "anc_00068"
+        ]
+      }
+    ],
+    "human_eval": "未提及",
+    "benchmark": [
+      {
+        "name": "PASCAL VOC 2007",
+        "tasks": [
+          "目标检测"
+        ],
+        "anchors": [
+          "anc_00093",
+          "anc_00103"
+        ]
+      },
+      {
+        "name": "MS COCO",
+        "tasks": [
+          "目标检测"
+        ],
+        "anchors": [
+          "anc_00103",
+          "anc_00121"
+        ]
+      },
+      {
+        "name": "PASCAL VOC (用于语义分割)",
+        "tasks": [
+          "语义分割"
+        ],
+        "anchors": [
+          "anc_00091",
+          "anc_00099"
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "metric": "参数量增加",
+        "value": "约2-5%",
+        "anchors": [
+          "anc_00108"
+        ]
+      },
+      {
+        "metric": "推理时间增加",
+        "value": "约5-15%",
+        "anchors": [
+          "anc_00108",
+          "anc_00109"
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "task": "目标检测 (COCO test-dev)",
+        "method": "可变形R-FCN (Aligned-Inception-ResNet, 多尺度测试, 边界框平均)",
+        "metric": "mAP@[0.5:0.95]",
+        "value": "37.5%",
+        "improvement": "相比普通R-FCN (32.9%) 提升约14%相对增益",
+        "anchors": [
+          "anc_00121",
+          "anc_00123",
+          "anc_00125"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "目标检测 (COCO test-dev)",
+        "dataset": [
+          "MS COCO"
+        ],
+        "baseline": [
+          "普通R-FCN"
+        ],
+        "metrics": [
+          "mAP@[0.5:0.95]"
+        ],
+        "result_summary": "37.5%",
+        "what_it_tries_to_prove": "可变形卷积网络在目标检测任务上显著优于基线方法。",
+        "evidence_strength": "strong"
+      },
+      {
+        "task": "语义分割 (PASCAL VOC)",
+        "method": "可变形DeepLab (ResNet-101, 使用3层可变形卷积)",
+        "metric": "mIoU@V",
+        "value": "75.2%",
+        "improvement": "相比基线 (69.7%) 提升5.5个百分点",
+        "anchors": [
+          "anc_00091",
+          "anc_00092"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "main_result",
+        "name": "语义分割 (PASCAL VOC)",
+        "dataset": [
+          "PASCAL VOC"
+        ],
+        "baseline": [
+          "基线DeepLab"
+        ],
+        "metrics": [
+          "mIoU@V"
+        ],
+        "result_summary": "75.2%",
+        "what_it_tries_to_prove": "可变形卷积网络在语义分割任务上显著优于基线方法。",
+        "evidence_strength": "strong"
+      },
+      {
+        "study": "可变形卷积层数的影响",
+        "finding": "在ResNet-101的最后1、2、3、6层使用可变形卷积，性能随层数增加而稳步提升，尤其在DeepLab和类感知RPN任务上。",
+        "anchors": [
+          "anc_00091",
+          "anc_00092",
+          "anc_00110"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "ablation",
+        "name": "可变形卷积层数的影响",
+        "dataset": [
+          "PASCAL VOC"
+        ],
+        "baseline": [
+          "无可变形卷积的基线"
+        ],
+        "metrics": [
+          "mIoU@V",
+          "mAP@0.5",
+          "mAP@0.7"
+        ],
+        "result_summary": "性能随可变形卷积层数增加而稳步提升。",
+        "what_it_tries_to_prove": "增加可变形卷积层数能持续提升性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "study": "与空洞卷积的对比",
+        "finding": "可变形卷积在所有任务上均优于不同膨胀率（4,6,8）的空洞卷积，且最优膨胀率因任务而异，证明了自适应学习滤波器变形的有效性和必要性。",
+        "anchors": [
+          "anc_00107",
+          "anc_00117",
+          "anc_00118",
+          "anc_00119"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "ablation",
+        "name": "与空洞卷积的对比",
+        "dataset": [
+          "PASCAL VOC"
+        ],
+        "baseline": [
+          "不同膨胀率的空洞卷积"
+        ],
+        "metrics": [
+          "mIoU@V",
+          "mAP@0.5",
+          "mAP@0.7"
+        ],
+        "result_summary": "可变形卷积优于所有空洞卷积变体。",
+        "what_it_tries_to_prove": "自适应学习滤波器变形比固定膨胀率更有效。",
+        "evidence_strength": "strong"
+      },
+      {
+        "study": "可变形RoI池化的效果",
+        "finding": "单独使用可变形RoI池化已能带来显著的性能提升，尤其是在严格的mAP@0.7指标上。与可变形卷积结合使用时，提升更为显著。",
+        "anchors": [
+          "anc_00107",
+          "anc_00119"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "ablation",
+        "name": "可变形RoI池化的效果",
+        "dataset": [
+          "PASCAL VOC"
+        ],
+        "baseline": [
+          "标准RoI池化"
+        ],
+        "metrics": [
+          "mAP@0.5",
+          "mAP@0.7"
+        ],
+        "result_summary": "可变形RoI池化单独使用即能带来显著提升。",
+        "what_it_tries_to_prove": "可变形RoI池化对目标检测有效。",
+        "evidence_strength": "strong"
+      },
+      {
+        "aspect": "模型复杂度与运行时",
+        "finding": "可变形模块仅引入少量额外参数（例如，R-FCN从47.1M增加到49.5M）和轻微的运行时开销（例如，R-FCN从0.170秒增加到0.193秒）。",
+        "anchors": [
+          "anc_00108",
+          "anc_00109"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "scaling",
+        "name": "模型复杂度与运行时",
+        "dataset": [],
+        "baseline": [
+          "标准CNN"
+        ],
+        "metrics": [
+          "参数量",
+          "推理时间"
+        ],
+        "result_summary": "可变形模块引入少量额外参数和运行时开销。",
+        "what_it_tries_to_prove": "可变形模块的计算开销是可接受的。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "图6展示了对于背景、小物体和大物体上的激活单元，其三层可变形滤波器的采样位置自适应地聚集在物体周围。",
+        "anchors": [
+          "anc_00066",
+          "anc_00067",
+          "anc_00068"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "case_study",
+        "name": "可视化案例研究",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "可变形滤波器的采样位置自适应地聚集在物体周围。",
+        "what_it_tries_to_prove": "可变形卷积能自适应地聚焦于物体。",
+        "evidence_strength": "moderate"
+      },
+      {
+        "metric": "参数量增加",
+        "value": "约2-5%",
+        "anchors": [
+          "anc_00108"
+        ],
+        "experiment_id": "experiment_8",
+        "type": "efficiency",
+        "name": "参数量增加",
+        "dataset": [],
+        "baseline": [
+          "标准CNN"
+        ],
+        "metrics": [
+          "参数量增加百分比"
+        ],
+        "result_summary": "约2-5%",
+        "what_it_tries_to_prove": "可变形模块引入的额外参数很少。",
+        "evidence_strength": "strong"
+      },
+      {
+        "metric": "推理时间增加",
+        "value": "约5-15%",
+        "anchors": [
+          "anc_00108",
+          "anc_00109"
+        ],
+        "experiment_id": "experiment_9",
+        "type": "efficiency",
+        "name": "推理时间增加",
+        "dataset": [],
+        "baseline": [
+          "标准CNN"
+        ],
+        "metrics": [
+          "推理时间增加百分比"
+        ],
+        "result_summary": "约5-15%",
+        "what_it_tries_to_prove": "可变形模块引入的额外计算开销是可接受的。",
+        "evidence_strength": "strong"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim_id": "claim_001",
+        "claim_text": "可变形卷积和RoI池化能有效增强CNN的几何变换建模能力。",
+        "evidence_source_type": "实验结果（消融研究、性能对比）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00003",
+          "anc_00005",
+          "anc_00091",
+          "anc_00107",
+          "anc_00119"
+        ],
+        "risk_flags": [],
+        "evidence": [
+          {
+            "evidence_id": "evidence_001",
+            "description": "Table 1显示，使用可变形卷积后，DeepLab的mIoU@V从69.7%提升至75.2%。",
+            "anchors": [
+              "anc_00091",
+              "anc_00092"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_002",
+            "description": "Table 3显示，可变形卷积在所有任务上均优于不同膨胀率的空洞卷积。",
+            "anchors": [
+              "anc_00107",
+              "anc_00117",
+              "anc_00118",
+              "anc_00119"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_003",
+            "description": "Table 3显示，单独使用可变形RoI池化已能带来显著的性能提升，尤其是在严格的mAP@0.7指标上。",
+            "anchors": [
+              "anc_00107",
+              "anc_00119"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_002",
+        "claim_text": "学习密集的空间变换对于目标检测和语义分割等复杂视觉任务是有效的。",
+        "evidence_source_type": "实验结果（在多个数据集和任务上的性能提升）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00005",
+          "anc_00091",
+          "anc_00121",
+          "anc_00123"
+        ],
+        "risk_flags": [],
+        "evidence": [
+          {
+            "evidence_id": "evidence_004",
+            "description": "Table 5显示，可变形R-FCN在COCO test-dev上达到37.5% mAP@[0.5:0.95]，相比普通R-FCN (32.9%) 提升约14%相对增益。",
+            "anchors": [
+              "anc_00121",
+              "anc_00123",
+              "anc_00125"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_005",
+            "description": "Table 1显示，可变形DeepLab在PASCAL VOC上达到75.2% mIoU@V，相比基线 (69.7%) 提升5.5个百分点。",
+            "anchors": [
+              "anc_00091",
+              "anc_00092"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_003",
+        "claim_text": "可变形模块可以即插即用，替换现有CNN中的标准模块，并能通过标准反向传播进行端到端训练。",
+        "evidence_source_type": "方法描述、实验设置",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00005",
+          "anc_00058",
+          "anc_00061"
+        ],
+        "risk_flags": [],
+        "evidence": [
+          {
+            "evidence_id": "evidence_006",
+            "description": "论文描述可变形模块可以即插即用地替换其标准对应模块，并通过标准反向传播进行端到端训练。",
+            "anchors": [
+              "anc_00005",
+              "anc_00058",
+              "anc_00061"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_004",
+        "claim_text": "可变形卷积是空洞卷积的泛化形式。",
+        "evidence_source_type": "方法分析、图示",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00080",
+          "anc_00019"
+        ],
+        "risk_flags": [
+          "此结论基于图示和定性分析，缺乏严格的数学证明。"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evidence_007",
+            "description": "Figure 1 (c) 显示可变形卷积可以泛化空洞卷积。",
+            "anchors": [
+              "anc_00019"
+            ],
+            "strength": "moderate"
+          },
+          {
+            "evidence_id": "evidence_008",
+            "description": "论文指出可变形卷积是空洞卷积的泛化形式。",
+            "anchors": [
+              "anc_00080"
+            ],
+            "strength": "moderate"
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_005",
+        "claim_text": "可变形卷积能够自适应地学习感受野大小。",
+        "evidence_source_type": "实验结果（有效膨胀值统计）、可视化",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00065",
+          "anc_00073",
+          "anc_00096",
+          "anc_00113"
+        ],
+        "risk_flags": [],
+        "evidence": [
+          {
+            "evidence_id": "evidence_009",
+            "description": "Table 2提供了可变形卷积有效膨胀值的统计，显示其能自适应调整感受野大小。",
+            "anchors": [
+              "anc_00096",
+              "anc_00113"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_010",
+            "description": "Figure 5 和 Figure 6 可视化显示可变形卷积的采样位置能自适应地聚集在物体周围。",
+            "anchors": [
+              "anc_00065",
+              "anc_00066",
+              "anc_00067",
+              "anc_00068"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_006",
+        "claim_text": "可变形模块带来的性能提升主要源于几何变换建模能力的增强，而非模型参数的增加。",
+        "evidence_source_type": "模型复杂度分析、消融研究",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00108",
+          "anc_00109",
+          "anc_00123"
+        ],
+        "risk_flags": [
+          "参数增加量较小，但无法完全排除其贡献。"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evidence_011",
+            "description": "Table 4显示可变形模块仅引入少量额外参数（例如，R-FCN从47.1M增加到49.5M）和轻微的运行时开销。",
+            "anchors": [
+              "anc_00108",
+              "anc_00109"
+            ],
+            "strength": "moderate"
+          },
+          {
+            "evidence_id": "evidence_012",
+            "description": "论文指出性能提升主要源于几何变换建模能力的增强。",
+            "anchors": [
+              "anc_00123"
+            ],
+            "strength": "moderate"
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "可变形卷积",
+        "definition": "一种卷积操作，其采样网格的位置通过额外学习的2D偏移量进行动态调整，从而能够适应输入特征的几何变换。",
+        "anchors": [
+          "anc_00003",
+          "anc_00019",
+          "anc_00024"
+        ],
+        "appears_in": [
+          "anc_00003",
+          "anc_00019",
+          "anc_00024"
+        ]
+      },
+      {
+        "term": "可变形RoI池化",
+        "definition": "一种RoI池化操作，其固定的空间分箱通过额外学习的偏移量进行动态调整，使池化区域能够自适应地聚焦于物体的关键部分。",
+        "anchors": [
+          "anc_00003",
+          "anc_00048",
+          "anc_00051"
+        ],
+        "appears_in": [
+          "anc_00003",
+          "anc_00048",
+          "anc_00051"
+        ]
+      },
+      {
+        "term": "偏移量",
+        "definition": "在可变形模块中，为每个采样位置或分箱学习的2D向量，用于调整其相对于标准网格或固定分箱的位置。",
+        "anchors": [
+          "anc_00024",
+          "anc_00048"
+        ],
+        "appears_in": [
+          "anc_00024",
+          "anc_00048"
+        ]
+      },
+      {
+        "term": "双线性插值",
+        "definition": "一种插值方法，用于计算分数坐标位置处的特征值。在可变形卷积和RoI池化中，用于实现分数偏移量的采样。",
+        "anchors": [
+          "anc_00028",
+          "anc_00029",
+          "anc_00031"
+        ],
+        "appears_in": [
+          "anc_00028",
+          "anc_00029",
+          "anc_00031"
+        ]
+      },
+      {
+        "term": "感受野",
+        "definition": "输出特征图上一个单元在输入图像上所能影响的区域大小。可变形卷积能够使感受野自适应物体的尺度和形状。",
+        "anchors": [
+          "anc_00010",
+          "anc_00065",
+          "anc_00073"
+        ],
+        "appears_in": [
+          "anc_00010",
+          "anc_00065",
+          "anc_00073"
+        ]
+      },
+      {
+        "term": "空洞卷积",
+        "definition": "一种卷积变体，通过增大卷积核的采样步长（膨胀率）来扩大感受野，同时保持参数和计算量不变。可变形卷积是其泛化形式。",
+        "anchors": [
+          "anc_00078",
+          "anc_00079",
+          "anc_00080"
+        ],
+        "appears_in": [
+          "anc_00078",
+          "anc_00079",
+          "anc_00080"
+        ]
+      },
+      {
+        "term": "位置敏感RoI池化",
+        "definition": "R-FCN框架中使用的池化方法，首先将输入特征图转换为k²个位置敏感的分数图，然后在这些分数图上进行池化。",
+        "anchors": [
+          "anc_00057"
+        ],
+        "appears_in": [
+          "anc_00057"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        {
+          "name": "PASCAL VOC 2007/2012",
+          "purpose": "目标检测和语义分割任务的训练与评估。",
+          "anchors": [
+            "anc_00093",
+            "anc_00103"
+          ]
+        },
+        {
+          "name": "MS COCO",
+          "purpose": "目标检测任务的训练与评估。",
+          "anchors": [
+            "anc_00103",
+            "anc_00121"
+          ]
+        }
+      ],
+      "required_models": [
+        {
+          "name": "ResNet-101",
+          "purpose": "作为特征提取的主干网络。",
+          "anchors": [
+            "anc_00091",
+            "anc_00092",
+            "anc_00107"
+          ]
+        },
+        {
+          "name": "Aligned-Inception-ResNet",
+          "purpose": "作为更强的特征提取主干网络。",
+          "anchors": [
+            "anc_00121",
+            "anc_00132",
+            "anc_00136"
+          ]
+        },
+        {
+          "name": "DeepLab",
+          "purpose": "语义分割任务特定网络。",
+          "anchors": [
+            "anc_00091",
+            "anc_00099"
+          ]
+        },
+        {
+          "name": "Faster R-CNN",
+          "purpose": "目标检测任务特定网络。",
+          "anchors": [
+            "anc_00091",
+            "anc_00103",
+            "anc_00105"
+          ]
+        },
+        {
+          "name": "R-FCN",
+          "purpose": "目标检测任务特定网络。",
+          "anchors": [
+            "anc_00091",
+            "anc_00103",
+            "anc_00105"
+          ]
+        }
+      ],
+      "compute_requirements": "论文提到使用8个GPU进行训练，每个GPU一个mini-batch。具体GPU型号和训练总时长未明确说明，但推理时间在Nvidia K40 GPU上进行了测量。",
+      "code_available": true,
+      "code_url": "https://github.com/msracver/Deformable-ConvNets",
+      "reproduction_steps": [
+        "1. 准备PASCAL VOC和MS COCO数据集。",
+        "2. 下载或实现ResNet-101和Aligned-Inception-ResNet主干网络。",
+        "3. 实现可变形卷积和可变形RoI池化层，包括双线性插值及其梯度计算。",
+        "4. 将可变形模块集成到DeepLab、Faster R-CNN和R-FCN等任务网络中。",
+        "5. 按照论文描述的训练策略（学习率、迭代次数、mini-batch大小）在相应数据集上训练模型。",
+        "6. 在测试集上评估模型性能（mIoU, mAP）。"
+      ],
+      "missing_details": [],
+      "risk_points": [],
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 准备PASCAL VOC和MS COCO数据集。",
+          "anchors": [
+            "anc_00093",
+            "anc_00103"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 下载或实现ResNet-101和Aligned-Inception-ResNet主干网络。",
+          "anchors": [
+            "anc_00091",
+            "anc_00121",
+            "anc_00132"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 实现可变形卷积和可变形RoI池化层，包括双线性插值及其梯度计算。",
+          "anchors": [
+            "anc_00024",
+            "anc_00028",
+            "anc_00029",
+            "anc_00030",
+            "anc_00031",
+            "anc_00032",
+            "anc_00033",
+            "anc_00048",
+            "anc_00050",
+            "anc_00051",
+            "anc_00054",
+            "anc_00056"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "4. 将可变形模块集成到DeepLab、Faster R-CNN和R-FCN等任务网络中。",
+          "anchors": [
+            "anc_00061",
+            "anc_00065",
+            "anc_00121"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "5. 按照论文描述的训练策略（学习率、迭代次数、mini-batch大小）在相应数据集上训练模型。",
+          "anchors": [
+            "anc_00100",
+            "anc_00102",
+            "anc_00104",
+            "anc_00105"
+          ]
+        },
+        {
+          "step": "step_6",
+          "description": "6. 在测试集上评估模型性能（mIoU, mAP）。",
+          "anchors": [
+            "anc_00091",
+            "anc_00092",
+            "anc_00121",
+            "anc_00122",
+            "anc_00123",
+            "anc_00125"
+          ]
+        }
+      ]
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-01T23:54:58+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_ml_099_deformable_convolutional_networks_2017",
+    "title": "Deformable Convolutional Networks",
+    "authors": [
+      "Jifeng Dai",
+      "Haozhi Qi",
+      "Yuwen Xiong",
+      "Yi Li",
+      "Guodong Zhang",
+      "Han Hu",
+      "Yichen Wei"
+    ],
+    "venue": "IEEE International Conference on Computer Vision",
+    "year": 2017,
+    "arxiv_id": "1703.06211",
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-01T23:52:57+00:00",
+    "paper_type": "Computer Vision / CNN / Computer Vision / Detection / Computer Vision / Segmentation / Top-cited ML method paper",
+    "citation_count": 6433,
+    "influential_citation_count": 616,
+    "semantic_scholar_id": "4a73a1840945e87583d89ca0216a2c449d50a4a3",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/4a73a1840945e87583d89ca0216a2c449d50a4a3",
+    "importance_rank": 99,
+    "selection_source": "semantic_scholar_top_cited_ml_open_pdf_2026_05_01",
+    "open_access_pdf_url": "https://arxiv.org/pdf/1703.06211",
+    "fields_of_study": [
+      "Computer Science"
+    ],
+    "publication_types": [
+      "JournalArticle",
+      "Conference"
+    ],
+    "abstract": "Convolutional neural networks (CNNs) are inherently limited to model geometric transformations due to the fixed geometric structures in their building modules. In this work, we introduce two new modules to enhance the transformation modeling capability of CNNs, namely, deformable convolution and deformable RoI pooling. Both are based on the idea of augmenting the spatial sampling locations in the modules with additional offsets and learning the offsets from the target tasks, without additional supervision. The new modules can readily replace their plain counterparts in existing CNNs and can be easily trained end-to-end by standard back-propagation, giving rise to deformable convolutional networks. Extensive experiments validate the performance of our approach. For the first time, we show that learning dense spatial transformation in deep CNNs is effective for sophisticated vision tasks such as object detection and semantic segmentation. The code is released at https://github.com/msracver/Deformable-ConvNets."
+  },
+  "anchors": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Deformable Convolutional Networks Jifeng Dai∗ Haozhi Qi∗,† Yuwen Xiong∗,† Yi Li∗,† Guodong Zhang∗,† Han Hu Yichen Wei Microsoft Research Asia {jifdai,v-haoq,v-yuxio,v-yii,v-guodzh,hanhu,yichenw}@microsoft.com",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Abstract",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Convolutional neural networks (CNNs) are inherently limited to model geometric transformations due to the ﬁxed geometric structures in their building modules. In this work, we introduce two new modules to enhance the transformation modeling capability of CNNs, namely, de- formable convolution and deformable RoI pooling. Both are based on the idea of augmenting the spatial sampling locations in the modules with additional offsets and learn-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ing the offsets from the target tasks, without additional",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "supervision. The new modules can readily replace their plain counterparts in existing CNNs and can be easily trained end-to-end by standard back-propagation, giving rise to deformable convolutional networks . Extensive ex- periments validate the performance of our approach. For the ﬁrst time, we show that learning dense spatial trans- formation in deep CNNs is effective for sophisticated vi- sion tasks such as object detection and semantic segmen- tation. The code is released at https://github.com/ msracver/Deformable-ConvNets. 1. Introduction A key challenge in visual recognition is how to accom- modate geometric variations or model geometric transfor- mations in object scale, pose, viewpoint, and part deforma- tion. In general, there are two ways. The ﬁrst is to build the training datasets with sufﬁcient desired variations. This is usually realized by augmenting the existing data samples, e.g., by afﬁne transformation. Robust representations can be learned from the data, but usually...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tensive data augmentation, the large model capacity, and",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "some simple hand-crafted modules ( e.g., max-pooling [1]",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "for small translation-invariance).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "In short, CNNs are inherently limited to model large,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "unknown transformations. The limitation originates from the ﬁxed geometric structures of CNN modules: a con- volution unit samples the input feature map at ﬁxed loca- tions; a pooling layer reduces the spatial resolution at a ﬁxed ratio; a RoI (region-of-interest) pooling layer sepa- rates a RoI into ﬁxed spatial bins, etc. There lacks internal mechanisms to handle the geometric transformations. This causes noticeable problems. For one example, the recep- tive ﬁeld sizes of all activation units in the same CNN layer are the same. This is undesirable for high level CNN lay- ers that encode the semantics over spatial locations. Be- cause different locations may correspond to objects with",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "different scales or deformation, adaptive determination of",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "scales or receptive ﬁeld sizes is desirable for visual recogni- tion with ﬁne localization, e.g., semantic segmentation us- ing fully convolutional networks [41]. For another exam- ple, while object detection has seen signiﬁcant and rapid progress [16, 52, 15, 47, 46, 40, 7] recently, all approaches still rely on the primitive bounding box based feature extrac- tion. This is clearly sub-optimal, especially for non-rigid objects. In this work, we introduce two new modules that greatly enhance CNNs’ capability of modeling geometric transfor- 1 arXiv:1703.06211v3 [cs.CV] 5 Jun 2017",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 1 By han hu",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(a)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 1 By han hu (b)",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 1 By han hu (c)",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 1 By han hu (d)",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 1: Illustration of the sampling locations in 3× 3",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "standard and deformable convolutions. (a) regular sam- pling grid (green points) of standard convolution. (b) de- formed sampling locations (dark blue points) with aug- mented offsets (light blue arrows) in deformable convolu- tion. (c)(d) are special cases of (b), showing that the de- formable convolution generalizes various transformations for scale, (anisotropic) aspect ratio and rotation. mations. The ﬁrst is deformable convolution. It adds 2D offsets to the regular grid sampling locations in the stan- dard convolution. It enables free form deformation of the sampling grid. It is illustrated in Figure 1. The offsets are learned from the preceding feature maps, via additional convolutional layers. Thus, the deformation is conditioned on the input features in a local, dense, and adaptive manner. The second is deformable RoI pooling. It adds an offset to each bin position in the regular bin partition of the previ- ous RoI pooling [15, 7]. Similarly, the offsets are learned from the p...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 2: Illustration of 3× 3 deformable convolution.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2.1. Deformable Convolution The 2D convolution consists of two steps: 1) sampling using a regular grid R over the input feature map x; 2) summation of sampled values weighted by w. The grid R deﬁnes the receptive ﬁeld size and dilation. For example, R ={(−1,−1), (−1, 0),..., (0, 1), (1, 1)} deﬁnes a3× 3 kernel with dilation 1. For each location p0 on the output feature map y, we have",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00022",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "y(p0) =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "∑ pn∈R w(pn)· x(p0 + pn), (1) where pn enumerates the locations inR. In deformable convolution, the regular grid R is aug-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00024",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "mented with offsets{∆pn|n = 1,...,N}, whereN =|R|.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Eq. (1) becomes",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "y(p0) =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00027",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "∑ pn∈R w(pn)· x(p0 + pn + ∆pn). (2) Now, the sampling is on the irregular and offset locations pn+∆pn. As the offset ∆pn is typically fractional, Eq. (2) is implemented via bilinear interpolation as",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00028",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "x(p) =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "∑ q G(q, p)· x(q), (3)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "where p denotes an arbitrary (fractional) location ( p =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00031",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "p0 + pn + ∆pn for Eq. (2)), q enumerates all integral spa- tial locations in the feature map x, andG(·,·) is the bilinear interpolation kernel. Note that G is two dimensional. It is separated into two one dimensional kernels as",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "G(q, p) =g(qx,p x)·g(qy,p y), (4)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00033",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "where g(a,b ) = max(0, 1−|a−b|). Eq. (3) is fast to",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "compute asG(q, p) is non-zero only for a few qs.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00035",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "fc oﬀsets input feature map output roi feature map deformable RoI pooling",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 3: Illustration of 3× 3 deformable RoI pooling.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00037",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "PS RoI Pooling deformable C+1 conv conv oﬀset ﬁelds score mapsinput feature map per-RoI per-class PS RoI Pooling 2k2(C+1) 2(C+1) k2(C+1) output roi score map oﬀsets",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00038",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 4: Illustration of 3× 3 deformable PS RoI pooling.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00039",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "As illustrated in Figure 2, the offsets are obtained by applying a convolutional layer over the same input feature map. The convolution kernel is of the same spatial resolu- tion and dilation as those of the current convolutional layer (e.g., also 3× 3 with dilation 1 in Figure 2). The output offset ﬁelds have the same spatial resolution with the input feature map. The channel dimension 2N corresponds toN 2D offsets. During training, both the convolutional kernels for generating the output features and the offsets are learned simultaneously. To learn the offsets, the gradients are back- propagated through the bilinear operations in Eq. (3) and Eq. (4). It is detailed in appendix A. 2.2. Deformable RoI Pooling RoI pooling is used in all region proposal based object detection methods [16, 15, 47, 7]. It converts an input rect- angular region of arbitrary size into ﬁxed size features. RoI Pooling [15] Given the input feature map x and a RoI of sizew×h and top-left cornerp0, RoI pooling d...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ak×k feature map y. For (i,j )-th bin (0≤i,j < k), we",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00041",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "have",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00042",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "y(i,j ) =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00043",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "∑ p∈bin(i,j) x(p0 + p)/nij, (5) wherenij is the number of pixels in the bin. The (i,j )-th bin spans⌊i w",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "k⌋ ≤px <⌈(i + 1) w",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00045",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "k⌉ and⌊j h",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00046",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "k⌋ ≤py <",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00047",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "⌈(j + 1)h k⌉. Similarly as in Eq. (2), in deformable RoI pooling, off-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00048",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "sets{∆pij|0≤ i,j < k} are added to the spatial binning",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "positions. Eq.(5) becomes",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00050",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "y(i,j ) =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "∑ p∈bin(i,j) x(p0 + p + ∆pij)/nij. (6) Typically, ∆pij is fractional. Eq. (6) is implemented by bilinear interpolation via Eq. (3) and (4).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00052",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 3 illustrates how to obtain the offsets. Firstly, RoI",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00053",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "pooling (Eq. (5)) generates the pooled feature maps. From the maps, a fc layer generates the normalized offsets ∆ˆpij, which are then transformed to the offsets ∆pij in Eq. (6) by element-wise product with the RoI’s width and height,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "as ∆pij =γ· ∆ˆpij◦ (w,h ). Hereγ is a pre-deﬁned scalar",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "to modulate the magnitude of the offsets. It is empirically",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "set to γ = 0.1. The offset normalization is necessary to",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00057",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "make the offset learning invariant to RoI size. The fc layer is learned by back-propagation, as detailed in appendix A. Position-Sensitive (PS) RoI Pooling [7] It is fully con- volutional and different from RoI pooling. Through a conv layer, all the input feature maps are ﬁrstly converted to k2 score maps for each object class (totally C + 1 for C ob- ject classes), as illustrated in the bottom branch in Figure 4. Without need to distinguish between classes, such score maps are denoted as{xi,j} where (i,j ) enumerates all bins. Pooling is performed on these score maps. The output value for (i,j )-th bin is obtained by summation from one score map xi,j corresponding to that bin. In short, the difference from RoI pooling in Eq.(5) is that a general feature map x is replaced by a speciﬁc positive-sensitive score mapxi,j. In deformable PS RoI pooling, the only change in Eq. (6) is that x is also modiﬁed toxi,j. However, the offset learn- ing is different. It follows the “fully convolution...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00058",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Hence, they can readily replace their plain counterparts in existing CNNs. In the training, these added conv and fc layers for offset learning are initialized with zero weights.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00059",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Their learning rates are set to β times (β = 1 by default,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00060",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "and β = 0.01 for the fc layer in Faster R-CNN) of the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00061",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "learning rate for the existing layers. They are trained via back propagation through the bilinear interpolation opera- tions in Eq. (3) and Eq. (4). The resulting CNNs are called deformable ConvNets. To integrate deformable ConvNets with the state-of-the- art CNN architectures, we note that these architectures con- sist of two stages. First, a deep fully convolutional network generates feature maps over the whole input image. Sec- ond, a shallow task speciﬁc network generates results from the feature maps. We elaborate the two steps below. Deformable Convolution for Feature Extraction We adopt two state-of-the-art architectures for feature extrac- tion: ResNet-101 [22] and a modifed version of Inception- ResNet [51]. Both are pre-trained on ImageNet [8] classiﬁ- cation dataset. The original Inception-ResNet is designed for image recognition. It has a feature misalignment issue and prob- lematic for dense prediction tasks. It is modiﬁed to ﬁx the alignment problem [20]. The modiﬁed ver...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00062",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "per-pixel classiﬁcation scores. A following softmax layer",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "then outputs the per-pixel probabilities. Category-Aware RPN is almost the same as the region proposal network in [47], except that the 2-class (object or not) convolutional classiﬁer is replaced by a (C + 1)-class (a) standard convolution (b) deformable convolution",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00064",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 5: Illustration of the ﬁxed receptive ﬁeld in stan-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00065",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "dard convolution (a) and the adaptive receptive ﬁeld in de- formable convolution (b), using two layers. Top: two acti- vation units on the top feature map, on two objects of dif- ferent scales and shapes. The activation is from a 3× 3 ﬁlter. Middle: the sampling locations of the 3× 3 ﬁlter on the preceding feature map. Another two activation units are highlighted. Bottom: the sampling locations of two levels of 3× 3 ﬁlters on the preceding feature map. Two sets of locations are highlighted, corresponding to the highlighted units above. convolutional classiﬁer. It can be considered as a simpliﬁed version of SSD [40]. Faster R-CNN [47] is the state-of-the-art detector. In our implementation, the RPN branch is added on the top of the conv4 block, following [47]. In the previous practice [22, 24], the RoI pooling layer is inserted between the conv4 and the conv5 blocks in ResNet-101, leaving 10 layers for each RoI. This design achieves good accuracy but has high per-RoI computation. Inste...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00066",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 6: Each image triplet shows the sampling locations ( 93 = 729 red points in each image) in three levels of 3× 3",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "deformable ﬁlters (see Figure 5 as a reference) for three activation units (green points) on the background (left), a small",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00068",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "object (middle), and a large object (right), respectively.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "cat chair car pottedplant person motorbike person bicycle horse dog dog bird",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00070",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 7: Illustration of offset parts in deformable (positive sensitive) RoI pooling in R-FCN [7] and 3× 3 bins (red) for an",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00071",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "input RoI (yellow). Note how the parts are offset to cover the non-rigid objects.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00072",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ditional offsets and learning the offsets from target tasks.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00073",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "When the deformable convolution are stacked, the effect of composited deformation is profound. This is exempliﬁed in Figure 5. The receptive ﬁeld and the sampling locations in the standard convolution are ﬁxed all over the top feature map (left). They are adaptively adjusted according to the objects’ scale and shape in deformable convolution (right). More examples are shown in Figure 6. Table 2 provides quantitative evidence of such adaptive deformation. The effect of deformable RoI pooling is similar, as illus- trated in Figure 7. The regularity of the grid structure in standard RoI pooling no longer holds. Instead, parts deviate from the RoI bins and move onto the nearby object fore- ground regions. The localization capability is enhanced, es- pecially for non-rigid objects. 3.1. In Context of Related Works Our work is related to previous works in different as- pects. We discuss the relations and differences in details. Spatial Transform Networks (STN) [26] It is the ﬁrst work to le...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00074",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "make this work less general and adaptive. First, it shares the offsets all over the different spatial locations. Second, the offsets are static model parameters that are learnt per task or per training. In contrast, the offsets in deformable convolution are dynamic model outputs that vary per im- age location. They model the dense spatial transformations in the images and are effective for (semi-)dense prediction tasks such as object detection and semantic segmentation. Effective Receptive Field [43] It ﬁnds that not all pixels in a receptive ﬁeld contribute equally to an output response.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00075",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "The pixels near the center have much larger impact. The",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00076",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "effective receptive ﬁeld only occupies a small fraction of the theoretical receptive ﬁeld and has a Gaussian distribu- tion. Although the theoretical receptive ﬁeld size increases linearly with the number of convolutional layers, a surpris- ing result is that, the effective receptive ﬁeld size increases linearly with the square root of the number, therefore, at a much slower rate than what we would expect. This ﬁnding indicates that even the top layer’s unit in",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00077",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "deep CNNs may not have large enough receptive ﬁeld. This",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00078",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "partially explains why atrous convolution [23] is widely used in vision tasks (see below). It indicates the needs of adaptive receptive ﬁeld learning. Deformable convolution is capable of learning receptive ﬁelds adaptively, as shown in Figure 5, 6 and Table 2. Atrous convolution [23] It increases a normal ﬁlter’s",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00079",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "stride to be larger than 1 and keeps the original weights at",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00080",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "sparsiﬁed sampling locations. This increases the receptive ﬁeld size and retains the same complexity in parameters and computation. It has been widely used for semantic segmen- tation [41, 5, 54] (also called dilated convolution in [54]), object detection [7], and image classiﬁcation [55]. Deformable convolution is a generalization of atrous convolution, as easily seen in Figure 1 (c). Extensive com- parison to atrous convolution is presented in Table 3. Deformable Part Models (DPM) [11] Deformable RoI pooling is similar to DPM because both methods learn the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00081",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "spatial deformation of object parts to maximize the classi-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00082",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ﬁcation score. Deformable RoI pooling is simpler since no spatial relations between the parts are considered. DPM is a shallow model and has limited capability of modeling deformation. While its inference algorithm can be converted to CNNs [17] by treating the distance transform as a special pooling operation, its training is not end-to-end and involves heuristic choices such as selection of compo- nents and part sizes. In contrast, deformable ConvNets are deep and perform end-to-end training. When multiple de- formable modules are stacked, the capability of modeling deformation becomes stronger. DeepID-Net [44] It introduces a deformation con- strained pooling layer which also considers part deforma- tion for object detection. It therefore shares a similar spirit with deformable RoI pooling, but is much more complex. This work is highly engineered and based on RCNN [16]. It is unclear how to adapt it to the recent state-of-the-art ob- ject detection methods [47, 7] in an end-to-end m...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00083",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "It is the predominant approach in computer vision and also",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00084",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "used in deep learning based object detection [21, 15]. Learning the spatial layout of pooling regions has re- ceived little study. The work in [28] learns a sparse subset",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00085",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "of pooling regions from a large over-complete set. The large",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00086",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "set is hand engineered and the learning is not end-to-end. Deformable RoI pooling is the ﬁrst to learn pooling re- gions end-to-end in CNNs. While the regions are of the same size currently, extension to multiple sizes as in spatial pyramid pooling [34] is straightforward. Transformation invariant features and their learning There have been tremendous efforts on designing transfor- mation invariant features. Notable examples include scale invariant feature transform (SIFT) [42] and ORB [49] (O",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00087",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "for orientation). There is a large body of such works in the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00088",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "context of CNNs. The invariance and equivalence of CNN representations to image transformations are studied in [36]. Some works learn invariant CNN representations with re- spect to different types of transformations such as [50], scattering networks [3], convolutional jungles [32], and TI- pooling [33]. Some works are devoted for speciﬁc trans- formations such as symmetry [13, 9], scale [29], and rota- tion [53]. As analyzed in Section 1, in these works the transfor- mations are known a priori. The knowledge (such as pa- rameterization) is used to hand craft the structure of feature extraction algorithm, either ﬁxed in such as SIFT, or with learnable parameters such as those based on CNNs. They cannot handle unknown transformations in the new tasks. In contrast, our deformable modules generalize various transformations (see Figure 1). The transformation invari-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00089",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ance is learned from the target task.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00090",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Dynamic Filter [2] Similar to deformable convolution, the dynamic ﬁlters are also conditioned on the input fea- tures and change over samples. Differently, only the ﬁlter weights are learned, not the sampling locations like ours. This work is applied for video and stereo prediction. Combination of low level ﬁlters Gaussian ﬁlters and its smooth derivatives [30] are widely used to extract low level image structures such as corners, edges, T-junctions, etc. Under certain conditions, such ﬁlters form a set of basis and their linear combination forms new ﬁlters within the same group of geometric transformations, such as multiple orien- tations in Steerable Filters [12] and multiple scales in [45]. We note that although the term deformable kernels is used in [45], its meaning is different from ours in this work. Most CNNs learn all their convolution ﬁlters from scratch. The recent work [25] shows that it could be unnec-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00091",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "usage of deformable convolution (# layers) DeepLab class-aware RPN Faster R-CNN R-FCN mIoU@V (%) mIoU@C (%) mAP@0.5 (%) mAP@0.7 (%) mAP@0.5 (%) mAP@0.7 (%) mAP@0.5 (%) mAP@0.7 (%) none (0, baseline) 69.7 70.4 68.0 44.9 78.1 62.1 80.0 61.8 res5c (1) 73.9 73.5 73.5 54.4 78.6 63.8 80.6 63.0 res5b,c (2) 74.8 74.4 74.3 56.3 78.5 63.3 81.0 63.8 res5a,b,c (3, default) 75.2 75.2 74.5 57.2 78.6 63.3 81.4 64.7 res5 & res4b22,b21,b20 (6) 74.8 75.1 74.6 57.7 78.7 64.0 81.5 65.4",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00092",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 1: Results of using deformable convolution in the last1, 2, 3, and 6 convolutional layers (of 3× 3 ﬁlter) in ResNet-101",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00093",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "feature extraction network. For class-aware RPN, Faster R-CNN, and R-FCN, we report result on VOC 2007 test.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00094",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "layer small medium large background",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00095",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "mean± std res5c 5.3± 3.3 5.8± 3.5 8.4± 4.5 6.2± 3.0 res5b 2.5± 1.3 3.1± 1.5 5.1± 2.5 3.2± 1.2 res5a 2.2± 1.2 2.9± 1.3 4.2± 1.6 3.1± 1.1",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00096",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 2: Statistics of effective dilation values of deformable",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00097",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "convolutional ﬁlters on three layers and four categories. Similar as in COCO [39], we divide the objects into three categories equally according to the bounding box area. Small: area < 962 pixels; medium: 962 < area < 2242;",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00098",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "large: area> 2242 pixels.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00099",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "essary. It replaces the free form ﬁlters by weighted combi- nation of low level ﬁlters (Gaussian derivatives up to 4-th order) and learns the weight coefﬁcients. The regulariza- tion over the ﬁlter function space is shown to improve the generalization ability when training data are small. Above works are related to ours in that, when multiple ﬁlters, especially with different scales, are combined, the re- sulting ﬁlter could have complex weights and resemble our deformable convolution ﬁlter. However, deformable convo- lution learns sampling locations instead of ﬁlter weights. 4. Experiments 4.1. Experiment Setup and Implementation Semantic Segmentation We usePASCAL VOC[10] and CityScapes [6]. For PASCAL VOC, there are 20 seman- tic categories. Following the protocols in [19, 41, 4], we use VOC 2012 dataset and the additional mask annotations in [18]. The training set includes 10, 582 images. Evalu- ation is performed on 1, 449 images in the validation set. For CityScapes, following th...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00100",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "domly sampled in each mini-batch. A total of 30k and 45k",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00101",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "iterations are performed for PASCAL VOC and Cityscapes,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00102",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "respectively, with 8 GPUs and one mini-batch on each. The",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00103",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "learning rates are 10−3 and 10−4 in the ﬁrst 2 3 and the last 1 3 iterations, respectively. Object Detection We usePASCAL VOCand COCO [39] datasets. For PASCAL VOC, following the protocol in [15], training is performed on the union of VOC 2007 trainval and VOC 2012 trainval. Evaluation is on VOC 2007 test. For COCO, following the standard protocol [39], training and evaluation are performed on the 120k images in the trainval and the 20k images in the test-dev, respectively. For evaluation, we use the standard mean average preci- sion (mAP) scores [10, 39]. For PASCAL VOC, we report mAP scores using IoU thresholds at 0.5 and 0.7. For COCO, we use the standard COCO metric of mAP@[0.5:0.95], as well as mAP@0.5. In training and inference, the images are resized to have a shorter side of 600 pixels. In SGD training, one image",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00104",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "is randomly sampled in each mini-batch. For class-aware",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00105",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "RPN, 256 RoIs are sampled from the image. For Faster R- CNN and R-FCN, 256 and 128 RoIs are sampled for the region proposal and the object detection networks, respec- tively. 7× 7 bins are adopted in RoI pooling. To facilitate the ablation experiments on VOC, we follow [38] and uti- lize pre-trained and ﬁxed RPN proposals for the training of Faster R-CNN and R-FCN, without feature sharing between the region proposal and the object detection networks. The RPN network is trained separately as in the ﬁrst stage of the procedure in [47]. For COCO, joint training as in [48] is performed and feature sharing is enabled for training. A total of 30k and 240k iterations are performed for PASCAL VOC and COCO, respectively, on 8 GPUs. The learning rates are set as 10−3 and 10−4 in the ﬁrst 2 3 and the last 1 3 iterations, respectively.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00106",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "deformation modules DeepLab mIoU@V / @C class-aware RPN mAP@0.5 / @0.7 Faster R-CNN mAP@0.5 / @0.7 R-FCN mAP@0.5 / @0.7 atrous convolution (2,2,2) (default) 69.7 / 70.4 68.0 / 44.9 78.1 / 62.1 80.0 / 61.8 atrous convolution (4,4,4) 73.1 / 71.9 72.8 / 53.1 78.6 / 63.1 80.5 / 63.0 atrous convolution (6,6,6) 73.6 / 72.7 73.6 / 55.2 78.5 / 62.3 80.2 / 63.5 atrous convolution (8,8,8) 73.2 / 72.4 73.2 / 55.1 77.8 / 61.8 80.3 / 63.2 deformable convolution 75.3 / 75.2 74.5 / 57.2 78.6 / 63.3 81.4 / 64.7 deformable RoI pooling N.A N.A 78.3 / 66.6 81.2 / 65.0 deformable convolution & RoI pooling N.A N.A 79.3 / 66.9 82.6 / 68.5",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00107",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 3: Evaluation of our deformable modules and atrous convolution, using ResNet-101.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00108",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "method # params net. forward (sec) runtime (sec) DeepLab@C 46.0 M 0.610 0.650 Ours 46.1 M 0.656 0.696 DeepLab@V 46.0 M 0.084 0.094 Ours 46.1 M 0.088 0.098 class-aware RPN 46.0 M 0.142 0.323 Ours 46.1 M 0.152 0.334 Faster R-CNN 58.3 M 0.147 0.190 Ours 59.9 M 0.192 0.234 R-FCN 47.1 M 0.143 0.170 Ours 49.5 M 0.169 0.193",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00109",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 4: Model complexity and runtime comparison",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00110",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "of deformable ConvNets and the plain counterparts, us- ing ResNet-101. The overall runtime in the last col- umn includes image resizing, network forward, and post- processing ( e.g., NMS for object detection). Runtime is counted on a workstation with Intel E5-2650 v2 CPU and Nvidia K40 GPU. 4.2. Ablation Study Extensive ablation studies are performed to validate the efﬁcacy and efﬁciency of our approach. Deformable Convolution Table 1 evaluates the effect of deformable convolution using ResNet-101 feature ex- traction network. Accuracy steadily improves when more deformable convolution layers are used, especially for DeepLab and class-aware RPN. The improvement saturates when using 3 deformable layers for DeepLab, and 6 for oth- ers. In the remaining experiments, we use 3 in the feature extraction networks. We empirically observed that the learned offsets in the deformable convolution layers are highly adaptive to the im- age content, as illustrated in Figure 5 and Figure 6. To bet- t...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00111",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "medium, large, and background, according to the ground",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00112",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "truth bounding box annotation and where the ﬁlter center is.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00113",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 2 reports the statistics (mean and std) of the effective",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00114",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "dilation values. It clearly shows that: 1) the receptive ﬁeld sizes of deformable ﬁlters are correlated with object sizes, indicating that the deformation is effectively learned from image content; 2) the ﬁlter sizes on the background region",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00115",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "are between those on medium and large objects, indicating",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00116",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "that a relatively large receptive ﬁeld is necessary for rec-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00117",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ognizing the background regions . These observations are consistent in different layers. The default ResNet-101 model uses atrous convolution with dilation 2 for the last three 3× 3 convolutional lay- ers (see Section 2.3). We further tried dilation values 4, 6, and 8 and reported the results in Table 3. It shows that: 1)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00118",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "accuracy increases for all tasks when using larger dilation",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00119",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "values, indicating that the default networks have too small receptive ﬁelds; 2) the optimal dilation values vary for dif- ferent tasks, e.g., 6 for DeepLab but 4 for Faster R-CNN;3) deformable convolution has the best accuracy . These ob- servations verify that adaptive learning of ﬁlter deformation is effective and necessary. Deformable RoI Pooling It is applicable to Faster R- CNN and R-FCN. As shown in Table 3, using it alone al- ready produces noticeable performance gains, especially at the strict mAP@0.7 metric. When both deformable convo- lution and RoI Pooling are used, signiﬁcant accuracy im- provements are obtained. Model Complexity and Runtime Table 4 reports the model complexity and runtime of the proposed deformable ConvNets and their plain versions. Deformable ConvNets only add small overhead over model parameters and com- putation. This indicates that the signiﬁcant performance",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00120",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "method backbone",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00121",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "architecture M B mAP@[0.5:0.95] mAPr@0.5 mAP@[0.5:0.95] (small) mAP@[0.5:0.95] (mid) mAP@[0.5:0.95] (large) class-aware RPN ResNet-101 23.2 42.6 6.9 27.1 35.1 Ours 25.8 45.9 7.2 28.3 40.7 Faster RCNN ResNet-101 29.4 48.0 9.0 30.5 47.1 Ours 33.1 50.3 11.6 34.9 51.2 R-FCN ResNet-101 30.8 52.6 11.8 33.9 44.8 Ours 34.5 55.0 14.0 37.7 50.3 Faster RCNN Aligned-Inception-ResNet 30.8 49.6 9.6 32.5 49.0 Ours 34.1 51.1 12.2 36.5 52.4 R-FCN Aligned-Inception-ResNet 32.9 54.5 12.5 36.3 48.3 Ours 36.1 56.7 14.8 39.8 52.2 R-FCN ✓ 34.5 55.0 16.8 37.3 48.3 Ours Aligned-Inception-ResNet ✓ 37.1 57.3 18.8 39.7 52.3 R-FCN ✓ ✓ 35.5 55.6 17.8 38.4 49.3 Ours ✓ ✓ 37.5 58.0 19.4 40.1 52.5",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00122",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 5: Object detection results of deformable ConvNets v.s. plain ConvNets on COCO test-dev set. M denotes multi-scale",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00123",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "testing, and B denotes iterative bounding box average in the table. improvement is from the capability of modeling geometric transformations, other than increasing model parameters. 4.3. Object Detection on COCO In Table 5, we perform extensive comparison between the deformable ConvNets and the plain ConvNets for object detection on COCO test-dev set. We ﬁrst experiment using ResNet-101 model. The deformable versions of class-aware RPN, Faster R-CNN and R-FCN achieve mAP@[0.5:0.95] scores of 25.8%, 33.1%, and 34.5% respectively, which are 11%, 13%, and 12% relatively higher than their plain- ConvNets counterparts respectively. By replacing ResNet- 101 by Aligned-Inception-ResNet in Faster R-CNN and R- FCN, their plain-ConvNet baselines both improve thanks to the more powerful feature representations. And the effec- tive performance gains brought by deformable ConvNets also hold. By further testing on multiple image scales (the image shorter side is in [480, 576, 688, 864, 1200, 1400])",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00124",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "and performing iterative bounding box average [14], the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00125",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "mAP@[0.5:0.95] scores are increased to 37.5% for the de- formable version of R-FCN. Note that the performance gain of deformable ConvNets is complementary to these bells and whistles. 5. Conclusion This paper presents deformable ConvNets, which is a simple, efﬁcient, deep, and end-to-end solution to model dense spatial transformations. For the ﬁrst time, we show that it is feasible and effective to learn dense spatial trans- formation in CNNs for sophisticated vision tasks, such as object detection and semantic segmentation. Acknowledgements The Aligned-Inception-ResNet model was trained and in-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00126",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "vestigated by Kaiming He, Xiangyu Zhang, Shaoqing Ren,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00127",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "and Jian Sun in unpublished work. A. Deformable Convolution/RoI Pooling Back- propagation In the deformable convolution Eq. (2), the gradient w.r.t. the offset ∆pn is computed as ∂y(p0) ∂∆pn = ∑ pn∈R w(pn)· ∂x(p0 + pn + ∆pn) ∂∆pn = ∑ pn∈R [ w(pn)· ∑ q ∂G(q, p0 + pn + ∆pn) ∂∆pn x(q) ] , (7) where the term ∂G(q,p0+pn+∆pn) ∂∆pn can be derived from Eq. (4). Note that the offset ∆pn is 2D and we use ∂∆pn to denote∂∆px n and∂∆py n for simplicity. Similarly, in the deformable RoI Pooling module, the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00128",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "stage spatial dim. Aligned-Inception-ResNet conv1 112×112 7×7, 64, stride 2 conv2 56×56",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00129",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "3×3 max pool, stride 2",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00130",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "[ 256-d IRB ] ×3 conv3 28×28 [ 512-d IRB ] ×4 conv4 14×14 [ 1024-d IRB ] ×23 conv5 7×7 [ 2048-d IRB ] ×3 classiﬁer 1×1 global average pool,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00131",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "1000-d fc, softmax",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00132",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 6: Network architecture of Aligned-Inception-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00133",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "ResNet. The Inception Residual Block (IRB) is detailed in",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00134",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Figure 8.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00135",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Network # params top-1 err (%) top-5 err (%) ResNet-101 46.0M 23.6 7.1 Inception-ResNet-v2 54.3M 19.6 4.7 Aligned-Inception-ResNet 64.3M 22.1 6.0",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00136",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 7: Comparison of Aligned-Inception-ResNet with",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00137",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "ResNet-101 and Inception-ResNet-v2 on ImageNet-1K val- idation. gradient w.r.t. the offset ∆pij can be computed by ∂y(i,j ) ∂∆pij = 1 nij ∑ p∈bin(i,j) ∂x(p0 + p + ∆pij) ∂∆pij = 1 nij ∑ p∈bin(i,j) [∑ q ∂G(q, p0 + p + ∆pij) ∂∆pij x(q) ] . (8) And the gradient w.r.t. the normalized offsets ∆ˆpij can be",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00138",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "easily obtained via computing derivatives in ∆pij = γ·",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00139",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "∆ˆpij◦ (w,h ). B. Details of Aligned-Inception-ResNet In the original Inception-ResNet [51] architecture, mul- tiple layers of valid convolution/pooling are utilized, which (BN, ReLU) 1x1, 64/128/256/512 (BN, ReLU) 1x1, 32/64/128/256 3x3, 64/128/256/512 (BN, ReLU) 3x3, 32/64/128/256 (BN, ReLU) concat 3x3, 32/64/128/256 + 256/512/1024/2048-d out (BN, ReLU) 1x1, 256/512/1024/2048 256/512/1024/2048-d in ReLU",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00140",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Figure 8: The Inception Residual Block (IRB) for dif-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00141",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "ferent stages of Aligned-Inception-ResNet, where the dimensions of different stages are separated by slash (conv2/conv3/conv4/conv5). brings feature alignment issues for dense prediction tasks. For a cell on the feature maps close to the output, its pro- jected spatial location on the image is not aligned with the location of its receptive ﬁeld center. Meanwhile, the task speciﬁc networks are usually designed under the alignment assumption. For example, in the prevalent FCNs for seman- tic segmentation, the features from a cell are leveraged to predict the pixels label at the corresponding projected im- age location. To remedy this issue, the network architecture is mod- iﬁed [20], called “Aligned-Inception-ResNet” and shown in Table 6. When the feature dimension changes, a 1× 1 convolution layer with stride 2 is utilized. There are two main differences between Aligned-Inception-ResNet and the original Inception-ResNet [51]. Firstly, Aligned- Inception-ResNet does not have the feature...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00142",
+      "page": 11,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "top-5 classiﬁcation errors.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00143",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "References",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00144",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[1] Y .-L. Boureau, J. Ponce, and Y . LeCun. A theoretical analy- sis of feature pooling in visual recognition. In ICML, 2010. 1 [2] B. D. Brabandere, X. Jia, T. Tuytelaars, and L. V . Gool. Dy- namic ﬁlter networks. In NIPS, 2016. 6 [3] J. Bruna and S. Mallat. Invariant scattering convolution net- works. TPAMI, 2013. 6 [4] L.-C. Chen, G. Papandreou, I. Kokkinos, K. Murphy, and A. L. Yuille. Semantic image segmentation with deep con- volutional nets and fully connected crfs. In ICLR, 2015. 4, 7 [5] L.-C. Chen, G. Papandreou, I. Kokkinos, K. Murphy, and A. L. Yuille. Deeplab: Semantic image segmentation with deep convolutional nets, atrous convolution, and fully con- nected crfs. arXiv preprint arXiv:1606.00915 , 2016. 4, 6, 7 [6] M. Cordts, M. Omran, S. Ramos, T. Rehfeld, M. Enzweiler, R. Benenson, U. Franke, S. Roth, and B. Schiele. The cityscapes dataset for semantic urban scene understanding. In CVPR, 2016. 7 [7] J. Dai, Y . Li, K. He, and J. Sun. R-fcn: Object detection via region...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00145",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Fei. Imagenet: A large-scale hierarchical image database. In",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00146",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "CVPR, 2009. 4, 10 [9] S. Dieleman, J. D. Fauw, and K. Kavukcuoglu. Exploiting cyclic symmetry in convolutional neural networks. arXiv preprint arXiv:1602.02660, 2016. 6 [10] M. Everingham, L. Van Gool, C. K. Williams, J. Winn, and A. Zisserman. The PASCAL Visual Object Classes (VOC) Challenge. IJCV, 2010. 7 [11] P. F. Felzenszwalb, R. B. Girshick, D. McAllester, and D. Ra-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00147",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "manan. Object detection with discriminatively trained part-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00148",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "based models. TPAMI, 2010. 2, 6 [12] W. T. Freeman and E. H. Adelson. The design and use of steerable ﬁlters. TPAMI, 1991. 6",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00149",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[13] R. Gens and P. M. Domingos. Deep symmetry networks. In",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00150",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "NIPS, 2014. 6 [14] S. Gidaris and N. Komodakis. Object detection via a multi- region & semantic segmentation-aware cnn model. In ICCV, 2015. 9 [15] R. Girshick. Fast R-CNN. In ICCV, 2015. 1, 2, 3, 6, 7 [16] R. Girshick, J. Donahue, T. Darrell, and J. Malik. Rich fea- ture hierarchies for accurate object detection and semantic segmentation. In CVPR, 2014. 1, 3, 6 [17] R. Girshick, F. Iandola, T. Darrell, and J. Malik. De- formable part models are convolutional neural networks. arXiv preprint arXiv:1409.5403, 2014. 6 [18] B. Hariharan, P. Arbel ´aez, L. Bourdev, S. Maji, and J. Malik. Semantic contours from inverse detectors. In ICCV, 2011. 7 [19] B. Hariharan, P. Arbel ´aez, R. Girshick, and J. Malik. Simul- taneous detection and segmentation. In ECCV. 2014. 7 [20] K. He, X. Zhang, S. Ren, and J. Sun. Aligned-inception- resnet model, unpublished work. 4, 10 [21] K. He, X. Zhang, S. Ren, and J. Sun. Spatial pyramid pooling in deep convolutional networks for visual recognition. In ECCV,...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00151",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "cal geometry in the visual system. Biological Cybernetics,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00152",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "55(6):367–375, Mar. 1987. 6 [31] A. Krizhevsky, I. Sutskever, and G. E. Hinton. Imagenet classiﬁcation with deep convolutional neural networks. In NIPS, 2012. 1 [32] D. Laptev and J. M.Buhmann. Transformation-invariant con- volutional jungles. In CVPR, 2015. 6 [33] D. Laptev, N. Savinov, J. M. Buhmann, and M. Polle- feys. Ti-pooling: transformation-invariant pooling for fea- ture learning in convolutional neural networks. arXiv preprint arXiv:1604.06318, 2016. 6 [34] S. Lazebnik, C. Schmid, and J. Ponce. Beyond bags of features: Spatial pyramid matching for recognizing natural scene categories. In CVPR, 2006. 6 [35] Y . LeCun and Y . Bengio. Convolutional networks for images, speech, and time series. The handbook of brain theory and neural networks, 1995. 1 [36] K. Lenc and A. Vedaldi. Understanding image representa- tions by measuring their equivariance and equivalence. In CVPR, 2015. 6 [37] C.-H. Lin and S. Lucey. Inverse compositional spatial trans- former networks. arXiv preprint...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00153",
+      "page": 12,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[39] T.-Y . Lin, M. Maire, S. Belongie, J. Hays, P. Perona, D. Ra- manan, P. Doll´ar, and C. L. Zitnick. Microsoft COCO: Com- mon objects in context. In ECCV. 2014. 7 [40] W. Liu, D. Anguelov, D. Erhan, C. Szegedy, and S. Reed. Ssd: Single shot multibox detector. In ECCV, 2016. 1, 4 [41] J. Long, E. Shelhamer, and T. Darrell. Fully convolutional networks for semantic segmentation. In CVPR, 2015. 1, 6, 7 [42] D. G. Lowe. Object recognition from local scale-invariant features. In ICCV, 1999. 1, 6 [43] W. Luo, Y . Li, R. Urtasun, and R. Zemel. Understanding the effective receptive ﬁeld in deep convolutional neural net- works. arXiv preprint arXiv:1701.04128, 2017. 6 [44] W. Ouyang, X. Wang, X. Zeng, S. Qiu, P. Luo, Y . Tian, H. Li, S. Yang, Z. Wang, C.-C. Loy, and X. Tang. Deepid-net: De- formable deep convolutional neural networks for object de- tection. In CVPR, 2015. 6 [45] P. Perona. Deformable kernels for early vision. TPAMI, 1995. 6 [46] J. Redmon, S. Divvala, R. Girshick, and A. F...",
+      "source_type": "reference"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "warnings": [
+      {
+        "code": "ok",
+        "message": "Grounding verification passed with current v1 checks.",
+        "target": null,
+        "severity": "info"
+      }
+    ],
+    "anchor_count": 153
+  }
+}

@@ -1,0 +1,538 @@
+{
+  "paper_skeleton": {
+    "problem": "传统词向量模型（如skipgram）为词汇表中的每个词分配独立的向量，忽略了词的内部形态结构。这在形态丰富的语言（如德语、芬兰语）中是一个主要限制，因为这些语言包含大量词形变化和罕见词，导致模型难以学习到良好的词向量表示。",
+    "motivation": "形态丰富的语言中，许多词形遵循规则，利用字符级信息可以改善词向量表示。现有方法要么忽略形态信息，要么需要复杂的形态学分析或监督数据。本文旨在提出一种简单、快速、无需预处理的方法，通过字符n-gram来丰富词向量，从而更好地处理罕见词和未登录词。",
+    "core_idea": "扩展skipgram模型，将每个词表示为其字符n-gram向量的和。为每个字符n-gram学习一个向量表示，词向量则通过对其包含的所有n-gram向量求和得到。这种方法能够捕捉词的内部结构，并为未登录词生成有意义的向量。",
+    "method": "基于skipgram框架，将词表示为字符n-gram的集合（bag of character n-grams）。使用哈希函数将n-gram映射到固定大小的向量表中。训练目标与skipgram相同，即最大化给定中心词预测上下文词的对数似然。通过负采样进行优化。",
+    "experiments": "在九种语言上评估了词相似度和词类比任务。与基线模型（skipgram, cbow）和现有形态学词向量方法进行了比较。进行了消融实验，研究了训练数据规模和n-gram长度范围的影响。还在语言建模任务上评估了预训练词向量的效果。",
+    "claims": "1. 该方法能有效利用子词信息，提升词向量质量，尤其在形态丰富的语言上。2. 该方法能为未登录词生成有意义的向量表示。3. 该方法训练速度快，适用于大规模语料。4. 该方法在小规模训练数据上也能表现良好。",
+    "limitations": "1. 对于形态简单的语言（如英语），提升可能有限。2. n-gram长度范围的选择是任意的，可能需要针对不同语言调整。3. 未探索与其他子词信息（如音素）的结合。4. 未在下游任务（如机器翻译、文本分类）中进行广泛评估。"
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "输入词表示",
+        "label": "Input Representation",
+        "summary": "将输入词表示为其字符n-gram的集合。",
+        "description": "对于词汇表中的每个词，提取其所有长度在3到6之间的字符n-gram。例如，对于词'where'和n=3，其n-gram集合包括'<wh', 'whe', 'her', 'ere', 're>'等。使用哈希函数将这些n-gram映射到固定大小的向量表中。",
+        "type": "data_processing",
+        "anchors": [
+          "anc_00076",
+          "anc_00080"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "词向量计算",
+        "label": "Word Vector Computation",
+        "summary": "词向量通过对其所有字符n-gram向量求和得到。",
+        "description": "给定一个词w，其向量表示v_w是其所有n-gram向量z_g的和：v_w = Σ_{g∈G(w)} z_g，其中G(w)是词w的n-gram集合。这使得模型能够共享形态相似的词之间的参数。",
+        "type": "computation",
+        "anchors": [
+          "anc_00009",
+          "anc_00027"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "Skipgram训练目标",
+        "label": "Skipgram Objective",
+        "summary": "使用skipgram的负采样目标函数进行训练。",
+        "description": "训练目标是最大化给定中心词w_t预测其上下文词w_c的对数似然。使用负采样近似，损失函数为：L = -log σ(s(w_t, w_c)) - Σ_{n∈N} log σ(-s(w_t, n))，其中s(w, c)是词w和c的点积相似度，N是负样本集合。",
+        "type": "objective",
+        "anchors": [
+          "anc_00056",
+          "anc_00057",
+          "anc_00058",
+          "anc_00066",
+          "anc_00067",
+          "anc_00068"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "优化与训练",
+        "label": "Optimization and Training",
+        "summary": "使用随机梯度下降和异步并行更新进行训练。",
+        "description": "使用随机梯度下降（SGD）优化负对数似然。学习率线性衰减。采用Hogwild!算法进行异步并行训练，所有线程共享参数并异步更新向量。",
+        "type": "optimization",
+        "anchors": [
+          "anc_00088",
+          "anc_00089"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "未登录词处理",
+        "label": "OOV Handling",
+        "summary": "为未登录词生成向量表示。",
+        "description": "对于训练集中未出现的词（OOV），通过对其字符n-gram向量求和来生成其向量表示。这使得模型能够处理新词，无需重新训练。",
+        "type": "inference",
+        "anchors": [
+          "anc_00011",
+          "anc_00105",
+          "anc_00191"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "n-gram向量求和",
+        "anchors": [
+          "anc_00009",
+          "anc_00027"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "词向量用于计算相似度",
+        "anchors": [
+          "anc_00056",
+          "anc_00057",
+          "anc_00058"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "损失函数优化",
+        "anchors": [
+          "anc_00088",
+          "anc_00089"
+        ]
+      },
+      {
+        "source": "node_001",
+        "target": "node_005",
+        "label": "OOV词n-gram提取",
+        "anchors": [
+          "anc_00191"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "标准skipgram模型（word2vec），为词汇表中的每个词分配一个独立的向量，不考虑词的内部结构。",
+    "new_method": "Subword Information Skip-Gram (sisg)，将词表示为其字符n-gram向量的和。",
+    "deltas": [
+      {
+        "before": "每个词有一个独立的向量，参数不共享。",
+        "after": "词向量由其字符n-gram向量求和得到，形态相似的词共享n-gram向量。",
+        "why_it_matters": "这使得模型能够利用词的内部形态结构，改善罕见词和形态丰富语言的词向量质量，并能为未登录词生成向量。",
+        "anchors": [
+          "anc_00023",
+          "anc_00027",
+          "anc_00009"
+        ]
+      },
+      {
+        "before": "无法处理训练集中未出现的词（OOV）。",
+        "after": "通过OOV词的字符n-gram向量求和，可以为其生成有意义的向量表示。",
+        "why_it_matters": "大大增强了模型的泛化能力，使其能够处理新词和罕见词，这在实际应用中非常重要。",
+        "anchors": [
+          "anc_00011",
+          "anc_00105",
+          "anc_00191"
+        ]
+      },
+      {
+        "before": "模型忽略了词的形态学信息。",
+        "after": "模型通过字符n-gram显式地捕捉了词的形态学信息。",
+        "why_it_matters": "对于形态丰富的语言（如德语、俄语），这能显著提升词向量在相似度和类比任务上的性能。",
+        "anchors": [
+          "anc_00025",
+          "anc_00026",
+          "anc_00106"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\max \\sum_{t=1}^{T} \\sum_{c \\in C_t} \\log p(w_c | w_t)",
+        "variables": [
+          {
+            "name": "T",
+            "description": "训练语料中的总词数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00055"
+            ]
+          },
+          {
+            "name": "C_t",
+            "description": "词w_t的上下文窗口内的词索引集合",
+            "confidence": "high",
+            "anchors": [
+              "anc_00057"
+            ]
+          },
+          {
+            "name": "p(w_c | w_t)",
+            "description": "给定中心词w_t，预测上下文词w_c的条件概率",
+            "confidence": "high",
+            "anchors": [
+              "anc_00058"
+            ]
+          }
+        ],
+        "dependencies": [
+          "skipgram模型基础"
+        ],
+        "intuition": "skipgram模型的核心目标：最大化在给定中心词的条件下，预测其上下文词的对数概率之和。这体现了分布假设，即出现在相似上下文中的词具有相似的含义。",
+        "anchors": [
+          "anc_00056",
+          "anc_00057",
+          "anc_00058"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "L = -\\log \\sigma(s(w_t, w_c)) - \\sum_{n \\in N_{t,c}} \\log \\sigma(-s(w_t, n))",
+        "variables": [
+          {
+            "name": "s(w, c)",
+            "description": "词w和c的相似度得分，通常为点积",
+            "confidence": "high",
+            "anchors": [
+              "anc_00068"
+            ]
+          },
+          {
+            "name": "\\sigma",
+            "description": "sigmoid函数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00068"
+            ]
+          },
+          {
+            "name": "N_{t,c}",
+            "description": "为正样本对(w_t, w_c)采样的负样本集合",
+            "confidence": "high",
+            "anchors": [
+              "anc_00068"
+            ]
+          }
+        ],
+        "dependencies": [
+          "负采样近似"
+        ],
+        "intuition": "使用负采样近似计算的skipgram损失函数。它包含两部分：一部分鼓励正样本对的相似度高，另一部分鼓励负样本对的相似度低。这是训练过程中的实际优化目标。",
+        "anchors": [
+          "anc_00066",
+          "anc_00067",
+          "anc_00068"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "v_w = \\sum_{g \\in G(w)} z_g",
+        "variables": [
+          {
+            "name": "v_w",
+            "description": "词w的最终向量表示",
+            "confidence": "high",
+            "anchors": [
+              "anc_00009",
+              "anc_00027"
+            ]
+          },
+          {
+            "name": "G(w)",
+            "description": "词w的字符n-gram集合",
+            "confidence": "high",
+            "anchors": [
+              "anc_00076"
+            ]
+          },
+          {
+            "name": "z_g",
+            "description": "字符n-gram g的向量表示",
+            "confidence": "high",
+            "anchors": [
+              "anc_00009",
+              "anc_00027"
+            ]
+          }
+        ],
+        "dependencies": [
+          "字符n-gram提取"
+        ],
+        "intuition": "本文的核心创新：词向量是其所有字符n-gram向量的简单求和。这实现了参数共享，使得形态相似的词具有相似的向量，并能为未登录词生成向量。",
+        "anchors": [
+          "anc_00009",
+          "anc_00027"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "在九种语言的词相似度和词类比任务上，sisg模型（使用子词信息）在大多数数据集上优于不使用子词信息的基线（skipgram, cbow），尤其是在形态丰富的语言（如德语、俄语）和罕见词数据集上。",
+      "anchors": [
+        "anc_00101",
+        "anc_00103",
+        "anc_00104",
+        "anc_00106",
+        "anc_00108",
+        "anc_00109",
+        "anc_00110"
+      ]
+    },
+    "ablation": {
+      "description": "研究了字符n-gram长度范围的影响。发现使用3到6字符的n-gram（n≥3）通常能取得最佳性能。更长的n-gram有助于语义类比任务。",
+      "anchors": [
+        "anc_00149",
+        "anc_00150",
+        "anc_00152",
+        "anc_00154",
+        "anc_00156",
+        "anc_00157",
+        "anc_00158",
+        "anc_00159",
+        "anc_00162"
+      ]
+    },
+    "robustness": {
+      "description": "评估了模型对训练数据规模的鲁棒性。sisg模型在小规模训练数据（如5%的Wikipedia）上也能取得良好性能，甚至优于在完整数据上训练的cbow基线。这表明该方法在数据稀缺场景下具有优势。",
+      "anchors": [
+        "anc_00140",
+        "anc_00141",
+        "anc_00142",
+        "anc_00144",
+        "anc_00145",
+        "anc_00146",
+        "anc_00147"
+      ]
+    },
+    "scaling": {
+      "description": "未明确报告模型随参数规模或计算量的扩展性实验。但论文提到该方法训练速度快，适用于大规模语料。",
+      "anchors": [
+        "anc_00010",
+        "anc_00089"
+      ]
+    },
+    "case_study": {
+      "description": "提供了定性分析，展示了sisg模型在罕见词最近邻和OOV词n-gram相似度方面的优势。例如，对于复合词'Tischtennis'，sisg能利用与'Tennis'的字符相似性。",
+      "anchors": [
+        "anc_00107",
+        "anc_00178",
+        "anc_00183",
+        "anc_00185",
+        "anc_00186",
+        "anc_00188",
+        "anc_00191",
+        "anc_00193",
+        "anc_00209",
+        "anc_00211",
+        "anc_00213",
+        "anc_00215"
+      ]
+    },
+    "human_eval": {
+      "description": "未进行人工评估。评估基于自动化的词相似度（与人类判断的相关性）和词类比任务。",
+      "anchors": [
+        "anc_00101",
+        "anc_00103"
+      ]
+    },
+    "benchmark": {
+      "description": "在多个标准词相似度（如WS353, RW, GUR65等）和词类比数据集上进行了评估。还在语言建模任务上评估了预训练词向量的效果。",
+      "anchors": [
+        "anc_00101",
+        "anc_00103",
+        "anc_00108",
+        "anc_00109",
+        "anc_00110",
+        "anc_00116",
+        "anc_00165",
+        "anc_00168",
+        "anc_00169",
+        "anc_00170",
+        "anc_00173",
+        "anc_00175"
+      ]
+    },
+    "efficiency": {
+      "description": "论文声称该方法训练速度快，允许在大型语料上快速训练模型。使用了异步并行（Hogwild!）进行优化。",
+      "anchors": [
+        "anc_00010",
+        "anc_00089"
+      ]
+    }
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "该方法能有效利用子词信息，提升词向量质量，尤其在形态丰富的语言上。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00106",
+          "anc_00108",
+          "anc_00117",
+          "anc_00124",
+          "anc_00125"
+        ],
+        "risk_flags": [
+          "提升幅度因语言和任务而异；在英语WS353数据集上未观察到提升。"
+        ]
+      },
+      {
+        "claim": "该方法能为未登录词生成有意义的向量表示。",
+        "evidence_source_type": "实验结果与定性分析",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00105",
+          "anc_00106",
+          "anc_00142",
+          "anc_00191",
+          "anc_00193",
+          "anc_00215"
+        ],
+        "risk_flags": [
+          "OOV词向量的质量依赖于其n-gram在训练数据中的覆盖情况。"
+        ]
+      },
+      {
+        "claim": "该方法训练速度快，适用于大规模语料。",
+        "evidence_source_type": "方法描述",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00010",
+          "anc_00089"
+        ],
+        "risk_flags": [
+          "未提供具体的训练时间对比数据。"
+        ]
+      },
+      {
+        "claim": "该方法在小规模训练数据上也能表现良好。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00140",
+          "anc_00142",
+          "anc_00145",
+          "anc_00146",
+          "anc_00147"
+        ],
+        "risk_flags": [
+          "在极小数据集上的性能可能仍会下降。"
+        ]
+      },
+      {
+        "claim": "使用字符n-gram（n≥3）是有效的。",
+        "evidence_source_type": "消融实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00149",
+          "anc_00150",
+          "anc_00152",
+          "anc_00154",
+          "anc_00156",
+          "anc_00157",
+          "anc_00158",
+          "anc_00159"
+        ],
+        "risk_flags": [
+          "最优n-gram范围可能因语言而异。"
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "Skipgram",
+        "definition": "一种词向量学习模型，目标是给定一个中心词，预测其上下文窗口内的词。",
+        "anchors": [
+          "anc_00053",
+          "anc_00056"
+        ]
+      },
+      {
+        "term": "字符n-gram",
+        "definition": "一个词中连续的n个字符组成的子串。例如，'where'的3-gram包括'whe', 'her', 'ere'等。",
+        "anchors": [
+          "anc_00076"
+        ]
+      },
+      {
+        "term": "子词信息",
+        "definition": "词内部的结构信息，如字符、音素、形态素等。本文特指字符n-gram。",
+        "anchors": [
+          "anc_00027",
+          "anc_00050"
+        ]
+      },
+      {
+        "term": "未登录词 (OOV)",
+        "definition": "在训练词汇表中未出现的词。",
+        "anchors": [
+          "anc_00011",
+          "anc_00105"
+        ]
+      },
+      {
+        "term": "负采样",
+        "definition": "一种近似计算softmax归一化项的技术，通过采样少量负样本来近似完整的梯度。",
+        "anchors": [
+          "anc_00068"
+        ]
+      },
+      {
+        "term": "形态丰富的语言",
+        "definition": "具有复杂词形变化系统的语言，如德语、芬兰语、俄语等，一个词根可以派生出大量不同的词形。",
+        "anchors": [
+          "anc_00024",
+          "anc_00025"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "required_datasets": [
+      "Wikipedia语料库（多种语言）",
+      "词相似度评估数据集（如WS353, RW, GUR65等）",
+      "词类比评估数据集（如Mikolov等人的英语类比数据集）",
+      "语言建模数据集（如Botha和Blunsom 2014年的数据集）"
+    ],
+    "required_models": [
+      "Skipgram基线模型（word2vec）",
+      "CBOW基线模型",
+      "本文提出的sisg模型",
+      "用于语言建模评估的LSTM模型"
+    ],
+    "compute": "需要足够的计算资源来在大型Wikipedia语料库上训练词向量模型。论文使用了异步并行训练。",
+    "code_available": "论文未明确提及代码是否公开。但word2vec有广泛使用的开源实现，sisg模型的核心修改（n-gram表示）相对直接。",
+    "steps": [
+      "1. 数据准备：下载并预处理多语言Wikipedia语料库。",
+      "2. 实现基线：实现或使用现有的skipgram/cbow模型。",
+      "3. 实现sisg模型：修改skipgram模型，将词表示为其字符n-gram向量的和。需要实现n-gram提取和哈希映射。",
+      "4. 训练：在Wikipedia语料上训练sisg和基线模型，使用论文中描述的超参数（如向量维度300，负样本数5，上下文窗口大小1-5等）。",
+      "5. 评估：在词相似度和词类比任务上评估模型。对于OOV词，使用n-gram向量求和生成其表示。",
+      "6. 消融实验：研究n-gram长度范围和训练数据规模的影响。",
+      "7. 下游任务评估：在语言建模等任务上评估预训练词向量的效果。"
+    ],
+    "missing_details": [
+      "具体的哈希函数实现细节（论文提到使用FNV-1a变体，但未给出完整代码）。",
+      "训练时n-gram向量的初始化方法。",
+      "处理大小写和特殊字符的具体策略。",
+      "并行训练的具体线程数和硬件配置。"
+    ],
+    "risk_points": [
+      "n-gram哈希冲突可能影响性能，但论文通过设置较大的哈希空间（K=2e6）来缓解。",
+      "对于形态简单的语言，提升可能有限，需要调整n-gram范围。",
+      "在小数据集上训练时，n-gram向量可能无法得到充分训练。",
+      "复现结果可能因随机种子、数据预处理细节等略有差异。"
+    ]
+  }
+}

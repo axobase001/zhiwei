@@ -1,0 +1,772 @@
+{
+  "paper_skeleton": {
+    "problem": "卷积神经网络（CNN）因其构建模块的固定几何结构，在建模几何变换方面存在固有局限性。",
+    "motivation": "现有CNN模块（如卷积、池化）的采样位置固定，无法自适应地处理物体的尺度、长宽比、旋转等几何变化，这限制了其在目标检测和语义分割等任务中的性能。",
+    "core_idea": "引入可变形卷积和可变形RoI池化两个新模块，通过为标准模块的采样位置添加可学习的偏移量，使CNN能够自适应地学习空间变换，从而增强其几何变换建模能力。",
+    "method": "提出可变形卷积网络（Deformable ConvNets），包含两个核心模块：1) 可变形卷积：在标准卷积的规则网格采样位置上增加2D偏移量，偏移量通过额外的卷积层从输入特征图学习得到；2) 可变形RoI池化：在标准RoI池化的固定空间分箱上增加偏移量，偏移量通过全连接层从RoI特征学习得到。两个模块均可通过反向传播端到端训练。",
+    "experiments": "在PASCAL VOC和MS COCO数据集上，针对语义分割（DeepLab）和目标检测（Faster R-CNN, R-FCN）任务进行了广泛实验。实验包括消融研究（可变形卷积层数、与空洞卷积对比）、模型复杂度与运行时分析、以及在COCO test-dev上的全面性能对比。",
+    "claims": "1) 可变形卷积和RoI池化能有效增强CNN的几何变换建模能力。2) 学习密集的空间变换对于目标检测和语义分割等复杂视觉任务是有效的。3) 可变形模块可以即插即用，替换现有CNN中的标准模块，并能通过标准反向传播进行端到端训练。",
+    "limitations": "论文未明确讨论局限性。潜在局限可能包括：偏移量学习增加了少量计算开销；对于某些简单任务，性能提升可能不显著；偏移量的可解释性有待研究。"
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "标准卷积",
+        "label": "Baseline Convolution",
+        "summary": "标准卷积操作，使用固定的规则网格R对输入特征图进行采样，然后加权求和。",
+        "description": "对于输出特征图上的每个位置p0，标准卷积的计算公式为 y(p0) = Σ_{p_n∈R} w(p_n)·x(p0 + p_n)，其中R定义了感受野大小和膨胀率。",
+        "type": "基础模块",
+        "anchors": [
+          "anc_00021",
+          "anc_00022",
+          "anc_00023"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "可变形卷积",
+        "label": "Deformable Convolution",
+        "summary": "在标准卷积的采样网格上增加可学习的2D偏移量，使采样位置能够自由变形。",
+        "description": "公式变为 y(p0) = Σ_{p_n∈R} w(p_n)·x(p0 + p_n + Δp_n)。偏移量Δp_n通过一个与当前卷积层具有相同空间分辨率和膨胀率的额外卷积层从输入特征图学习得到。由于偏移量通常是分数，通过双线性插值实现。",
+        "type": "核心创新模块",
+        "anchors": [
+          "anc_00024",
+          "anc_00025",
+          "anc_00026",
+          "anc_00027",
+          "anc_00039"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "双线性插值",
+        "label": "Bilinear Interpolation",
+        "summary": "用于实现分数位置采样的操作，是可变形卷积和RoI池化的关键计算步骤。",
+        "description": "对于任意分数位置p，其特征值x(p)通过双线性插值计算：x(p) = Σ_q G(q, p)·x(q)，其中G(q, p) = g(q_x, p_x)·g(q_y, p_y)，g(a, b) = max(0, 1 - |a - b|)。梯度可以通过此操作反向传播。",
+        "type": "计算操作",
+        "anchors": [
+          "anc_00028",
+          "anc_00029",
+          "anc_00030",
+          "anc_00031",
+          "anc_00032",
+          "anc_00033"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "标准RoI池化",
+        "label": "Standard RoI Pooling",
+        "summary": "将感兴趣区域（RoI）划分为固定的空间分箱，并对每个分箱内的特征进行池化。",
+        "description": "对于k×k的特征图，第(i,j)个分箱的输出为 y(i,j) = Σ_{p∈bin(i,j)} x(p0 + p) / n_ij，其中n_ij是分箱内的像素数。",
+        "type": "基础模块",
+        "anchors": [
+          "anc_00040",
+          "anc_00042",
+          "anc_00043"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "可变形RoI池化",
+        "label": "Deformable RoI Pooling",
+        "summary": "在标准RoI池化的每个空间分箱上增加可学习的偏移量，使分箱区域能够自适应变形。",
+        "description": "公式变为 y(i,j) = Σ_{p∈bin(i,j)} x(p0 + p + Δp_ij) / n_ij。偏移量Δp_ij通过一个全连接层从RoI特征学习得到，并经过归一化（Δp_ij = γ·Δp̂_ij ∘ (w, h)，γ=0.1）以保持对RoI大小的不变性。",
+        "type": "核心创新模块",
+        "anchors": [
+          "anc_00048",
+          "anc_00050",
+          "anc_00051",
+          "anc_00054",
+          "anc_00056"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "可变形位置敏感RoI池化",
+        "label": "Deformable PS RoI Pooling",
+        "summary": "对位置敏感（PS）RoI池化进行可变形扩展，为每个分箱学习偏移量。",
+        "description": "在R-FCN框架中，输入特征图首先被转换为k²个分数图。可变形PS RoI池化在这些分数图的每个分箱上增加偏移量，偏移量通过卷积层学习。",
+        "type": "核心创新模块",
+        "anchors": [
+          "anc_00057",
+          "anc_00037",
+          "anc_00038"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "偏移量学习",
+        "label": "Offset Learning",
+        "summary": "可变形模块中偏移量的学习机制，通过额外的卷积层或全连接层实现，并与主网络联合训练。",
+        "description": "对于可变形卷积，偏移量通过一个卷积层生成；对于可变形RoI池化，偏移量通过一个全连接层生成。这些额外层的权重初始化为零，学习率设置为现有层的β倍（默认β=1，对于Faster R-CNN中的fc层β=0.01）。梯度通过双线性插值操作反向传播。",
+        "type": "学习机制",
+        "anchors": [
+          "anc_00039",
+          "anc_00058",
+          "anc_00059",
+          "anc_00060",
+          "anc_00061"
+        ]
+      },
+      {
+        "node_id": "node_008",
+        "title": "可变形卷积网络",
+        "label": "Deformable ConvNets",
+        "summary": "将可变形卷积和可变形RoI池化模块集成到现有CNN架构中形成的网络。",
+        "description": "可变形模块可以即插即用地替换其标准对应模块。论文将其集成到ResNet-101和Aligned-Inception-ResNet等主干网络中，用于语义分割（DeepLab）和目标检测（Faster R-CNN, R-FCN）任务。",
+        "type": "完整网络",
+        "anchors": [
+          "anc_00061",
+          "anc_00065",
+          "anc_00120",
+          "anc_00121"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "扩展为",
+        "description": "可变形卷积是在标准卷积的基础上，为采样网格增加了可学习的偏移量。"
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "label": "扩展为",
+        "description": "可变形RoI池化是在标准RoI池化的基础上，为每个空间分箱增加了可学习的偏移量。"
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "依赖于",
+        "description": "可变形卷积中分数位置的采样通过双线性插值实现。"
+      },
+      {
+        "source": "node_005",
+        "target": "node_003",
+        "label": "依赖于",
+        "description": "可变形RoI池化中分数位置的采样通过双线性插值实现。"
+      },
+      {
+        "source": "node_002",
+        "target": "node_007",
+        "label": "偏移量由...生成",
+        "description": "可变形卷积的偏移量通过一个额外的卷积层学习生成。"
+      },
+      {
+        "source": "node_005",
+        "target": "node_007",
+        "label": "偏移量由...生成",
+        "description": "可变形RoI池化的偏移量通过一个全连接层学习生成。"
+      },
+      {
+        "source": "node_002",
+        "target": "node_008",
+        "label": "集成到",
+        "description": "可变形卷积模块被集成到可变形卷积网络中，用于特征提取。"
+      },
+      {
+        "source": "node_005",
+        "target": "node_008",
+        "label": "集成到",
+        "description": "可变形RoI池化模块被集成到可变形卷积网络中，用于目标检测任务。"
+      },
+      {
+        "source": "node_006",
+        "target": "node_008",
+        "label": "集成到",
+        "description": "可变形PS RoI池化模块被集成到可变形卷积网络中，用于R-FCN目标检测框架。"
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "标准卷积神经网络（CNN），使用固定几何结构的卷积层和RoI池化层。",
+    "new_method": "可变形卷积网络（Deformable ConvNets），使用可变形卷积和可变形RoI池化模块，通过学习偏移量来自适应采样位置。",
+    "deltas": [
+      {
+        "before": "卷积层使用固定的规则网格R进行采样。",
+        "after": "卷积层使用规则网格R加上可学习的偏移量Δp_n进行采样。",
+        "why_it_matters": "使卷积核能够自适应物体的形状、尺度和姿态，从而更有效地提取特征，尤其对于非刚性物体和复杂几何变换。",
+        "anchors": [
+          "anc_00021",
+          "anc_00024",
+          "anc_00025",
+          "anc_00026"
+        ]
+      },
+      {
+        "before": "RoI池化将RoI划分为固定的空间分箱。",
+        "after": "RoI池化在每个固定分箱上增加可学习的偏移量Δp_ij。",
+        "why_it_matters": "使池化区域能够自适应地聚焦于物体最具判别性的部分，提升对物体部件变形和姿态变化的建模能力。",
+        "anchors": [
+          "anc_00040",
+          "anc_00048",
+          "anc_00050",
+          "anc_00051"
+        ]
+      },
+      {
+        "before": "CNN模块的几何结构固定，缺乏内部机制处理几何变换。",
+        "after": "通过可学习的偏移量，CNN模块的几何结构变得动态和可变形。",
+        "why_it_matters": "首次在深度CNN中证明学习密集空间变换对于复杂视觉任务（如目标检测和语义分割）是有效且可行的。",
+        "anchors": [
+          "anc_00003",
+          "anc_00005",
+          "anc_00010",
+          "anc_00012"
+        ]
+      },
+      {
+        "before": "标准CNN的感受野大小在所有激活单元中是相同的。",
+        "after": "可变形卷积使感受野大小能够根据物体的尺度和形状自适应调整。",
+        "why_it_matters": "解决了高层CNN语义编码中，不同位置需要不同大小感受野的问题，提升了细粒度定位任务（如语义分割）的性能。",
+        "anchors": [
+          "anc_00010",
+          "anc_00065",
+          "anc_00073"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "y(\\mathbf{p}_0) = \\sum_{\\mathbf{p}_n \\in \\mathcal{R}} w(\\mathbf{p}_n) \\cdot x(\\mathbf{p}_0 + \\mathbf{p}_n)",
+        "variables": [
+          {
+            "name": "y(p0)",
+            "description": "输出特征图在位置p0的值",
+            "confidence": "high"
+          },
+          {
+            "name": "R",
+            "description": "定义感受野大小和膨胀率的规则网格",
+            "confidence": "high"
+          },
+          {
+            "name": "w(p_n)",
+            "description": "卷积核权重",
+            "confidence": "high"
+          },
+          {
+            "name": "x(p0 + p_n)",
+            "description": "输入特征图在采样位置的值",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "标准卷积操作"
+        ],
+        "intuition": "标准卷积的计算公式，使用固定的规则网格R对输入进行采样并加权求和。",
+        "anchors": [
+          "anc_00021",
+          "anc_00022",
+          "anc_00023"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "y(\\mathbf{p}_0) = \\sum_{\\mathbf{p}_n \\in \\mathcal{R}} w(\\mathbf{p}_n) \\cdot x(\\mathbf{p}_0 + \\mathbf{p}_n + \\Delta \\mathbf{p}_n)",
+        "variables": [
+          {
+            "name": "Δp_n",
+            "description": "为第n个采样位置学习的2D偏移量",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "标准卷积",
+          "双线性插值"
+        ],
+        "intuition": "可变形卷积的核心公式。在标准卷积的采样位置上增加了可学习的偏移量Δp_n，使采样网格能够自由变形。",
+        "anchors": [
+          "anc_00024",
+          "anc_00025",
+          "anc_00026",
+          "anc_00027"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "x(\\mathbf{p}) = \\sum_{\\mathbf{q}} G(\\mathbf{q}, \\mathbf{p}) \\cdot x(\\mathbf{q})",
+        "variables": [
+          {
+            "name": "p",
+            "description": "任意（通常是分数）位置",
+            "confidence": "high"
+          },
+          {
+            "name": "q",
+            "description": "特征图x中所有整数空间位置",
+            "confidence": "high"
+          },
+          {
+            "name": "G(q, p)",
+            "description": "双线性插值核",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "双线性插值核G"
+        ],
+        "intuition": "用于计算分数位置p处特征值的双线性插值公式。这是实现可变形采样的关键计算步骤。",
+        "anchors": [
+          "anc_00028",
+          "anc_00029",
+          "anc_00030"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "latex": "G(\\mathbf{q}, \\mathbf{p}) = g(q_x, p_x) \\cdot g(q_y, p_y), \\quad g(a, b) = \\max(0, 1 - |a - b|)",
+        "variables": [
+          {
+            "name": "g(a, b)",
+            "description": "一维线性插值核",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [],
+        "intuition": "双线性插值核G的具体形式，它是两个一维核的乘积。该核仅在少数q值上非零，计算高效。",
+        "anchors": [
+          "anc_00031",
+          "anc_00032",
+          "anc_00033"
+        ]
+      },
+      {
+        "formula_id": "formula_005",
+        "latex": "y(i, j) = \\sum_{\\mathbf{p} \\in \\text{bin}(i, j)} x(\\mathbf{p}_0 + \\mathbf{p} + \\Delta \\mathbf{p}_{ij}) / n_{ij}",
+        "variables": [
+          {
+            "name": "Δp_ij",
+            "description": "为第(i,j)个分箱学习的偏移量",
+            "confidence": "high"
+          },
+          {
+            "name": "n_ij",
+            "description": "分箱(i,j)内的像素数",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "标准RoI池化",
+          "双线性插值"
+        ],
+        "intuition": "可变形RoI池化的核心公式。在标准RoI池化的每个固定分箱上增加了可学习的偏移量Δp_ij。",
+        "anchors": [
+          "anc_00048",
+          "anc_00050",
+          "anc_00051"
+        ]
+      },
+      {
+        "formula_id": "formula_006",
+        "latex": "\\Delta \\mathbf{p}_{ij} = \\gamma \\cdot \\Delta \\hat{\\mathbf{p}}_{ij} \\circ (w, h)",
+        "variables": [
+          {
+            "name": "γ",
+            "description": "预定义的标量，设置为0.1",
+            "confidence": "high"
+          },
+          {
+            "name": "Δp̂_ij",
+            "description": "全连接层预测的归一化偏移量",
+            "confidence": "medium"
+          },
+          {
+            "name": "w, h",
+            "description": "RoI的宽度和高度",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "可变形RoI池化"
+        ],
+        "intuition": "对可变形RoI池化中学习到的偏移量进行归一化，使其对RoI大小保持不变性。",
+        "anchors": [
+          "anc_00054",
+          "anc_00056"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "task": "目标检测 (COCO test-dev)",
+        "method": "可变形R-FCN (Aligned-Inception-ResNet, 多尺度测试, 边界框平均)",
+        "metric": "mAP@[0.5:0.95]",
+        "value": "37.5%",
+        "improvement": "相比普通R-FCN (32.9%) 提升约14%相对增益",
+        "anchors": [
+          "anc_00121",
+          "anc_00123",
+          "anc_00125"
+        ]
+      },
+      {
+        "task": "语义分割 (PASCAL VOC)",
+        "method": "可变形DeepLab (ResNet-101, 使用3层可变形卷积)",
+        "metric": "mIoU@V",
+        "value": "75.2%",
+        "improvement": "相比基线 (69.7%) 提升5.5个百分点",
+        "anchors": [
+          "anc_00091",
+          "anc_00092"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "study": "可变形卷积层数的影响",
+        "finding": "在ResNet-101的最后1、2、3、6层使用可变形卷积，性能随层数增加而稳步提升，尤其在DeepLab和类感知RPN任务上。",
+        "anchors": [
+          "anc_00091",
+          "anc_00092",
+          "anc_00110"
+        ]
+      },
+      {
+        "study": "与空洞卷积的对比",
+        "finding": "可变形卷积在所有任务上均优于不同膨胀率（4,6,8）的空洞卷积，且最优膨胀率因任务而异，证明了自适应学习滤波器变形的有效性和必要性。",
+        "anchors": [
+          "anc_00107",
+          "anc_00117",
+          "anc_00118",
+          "anc_00119"
+        ]
+      },
+      {
+        "study": "可变形RoI池化的效果",
+        "finding": "单独使用可变形RoI池化已能带来显著的性能提升，尤其是在严格的mAP@0.7指标上。与可变形卷积结合使用时，提升更为显著。",
+        "anchors": [
+          "anc_00107",
+          "anc_00119"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "aspect": "对物体尺度的适应性",
+        "evidence": "可变形卷积能自适应调整感受野大小以适应不同尺度的物体（小、中、大）。",
+        "anchors": [
+          "anc_00096",
+          "anc_00098",
+          "anc_00111",
+          "anc_00113",
+          "anc_00115"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "aspect": "模型复杂度与运行时",
+        "finding": "可变形模块仅引入少量额外参数（例如，R-FCN从47.1M增加到49.5M）和轻微的运行时开销（例如，R-FCN从0.170秒增加到0.193秒）。",
+        "anchors": [
+          "anc_00108",
+          "anc_00109"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "description": "图6展示了对于背景、小物体和大物体上的激活单元，其三层可变形滤波器的采样位置自适应地聚集在物体周围。",
+        "anchors": [
+          "anc_00066",
+          "anc_00067",
+          "anc_00068"
+        ]
+      }
+    ],
+    "human_eval": "未提及",
+    "benchmark": [
+      {
+        "name": "PASCAL VOC 2007",
+        "tasks": [
+          "目标检测"
+        ],
+        "anchors": [
+          "anc_00093",
+          "anc_00103"
+        ]
+      },
+      {
+        "name": "MS COCO",
+        "tasks": [
+          "目标检测"
+        ],
+        "anchors": [
+          "anc_00103",
+          "anc_00121"
+        ]
+      },
+      {
+        "name": "PASCAL VOC (用于语义分割)",
+        "tasks": [
+          "语义分割"
+        ],
+        "anchors": [
+          "anc_00091",
+          "anc_00099"
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "metric": "参数量增加",
+        "value": "约2-5%",
+        "anchors": [
+          "anc_00108"
+        ]
+      },
+      {
+        "metric": "推理时间增加",
+        "value": "约5-15%",
+        "anchors": [
+          "anc_00108",
+          "anc_00109"
+        ]
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim_id": "claim_001",
+        "claim_text": "可变形卷积和RoI池化能有效增强CNN的几何变换建模能力。",
+        "evidence_source_type": "实验结果（消融研究、性能对比）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00003",
+          "anc_00005",
+          "anc_00091",
+          "anc_00107",
+          "anc_00119"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_002",
+        "claim_text": "学习密集的空间变换对于目标检测和语义分割等复杂视觉任务是有效的。",
+        "evidence_source_type": "实验结果（在多个数据集和任务上的性能提升）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00005",
+          "anc_00091",
+          "anc_00121",
+          "anc_00123"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_003",
+        "claim_text": "可变形模块可以即插即用，替换现有CNN中的标准模块，并能通过标准反向传播进行端到端训练。",
+        "evidence_source_type": "方法描述、实验设置",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00005",
+          "anc_00058",
+          "anc_00061"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_004",
+        "claim_text": "可变形卷积是空洞卷积的泛化形式。",
+        "evidence_source_type": "方法分析、图示",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00080",
+          "anc_00019"
+        ],
+        "risk_flags": [
+          "此结论基于图示和定性分析，缺乏严格的数学证明。"
+        ]
+      },
+      {
+        "claim_id": "claim_005",
+        "claim_text": "可变形卷积能够自适应地学习感受野大小。",
+        "evidence_source_type": "实验结果（有效膨胀值统计）、可视化",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00065",
+          "anc_00073",
+          "anc_00096",
+          "anc_00113"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_006",
+        "claim_text": "可变形模块带来的性能提升主要源于几何变换建模能力的增强，而非模型参数的增加。",
+        "evidence_source_type": "模型复杂度分析、消融研究",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00108",
+          "anc_00109",
+          "anc_00123"
+        ],
+        "risk_flags": [
+          "参数增加量较小，但无法完全排除其贡献。"
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "可变形卷积",
+        "definition": "一种卷积操作，其采样网格的位置通过额外学习的2D偏移量进行动态调整，从而能够适应输入特征的几何变换。",
+        "anchors": [
+          "anc_00003",
+          "anc_00019",
+          "anc_00024"
+        ]
+      },
+      {
+        "term": "可变形RoI池化",
+        "definition": "一种RoI池化操作，其固定的空间分箱通过额外学习的偏移量进行动态调整，使池化区域能够自适应地聚焦于物体的关键部分。",
+        "anchors": [
+          "anc_00003",
+          "anc_00048",
+          "anc_00051"
+        ]
+      },
+      {
+        "term": "偏移量",
+        "definition": "在可变形模块中，为每个采样位置或分箱学习的2D向量，用于调整其相对于标准网格或固定分箱的位置。",
+        "anchors": [
+          "anc_00024",
+          "anc_00048"
+        ]
+      },
+      {
+        "term": "双线性插值",
+        "definition": "一种插值方法，用于计算分数坐标位置处的特征值。在可变形卷积和RoI池化中，用于实现分数偏移量的采样。",
+        "anchors": [
+          "anc_00028",
+          "anc_00029",
+          "anc_00031"
+        ]
+      },
+      {
+        "term": "感受野",
+        "definition": "输出特征图上一个单元在输入图像上所能影响的区域大小。可变形卷积能够使感受野自适应物体的尺度和形状。",
+        "anchors": [
+          "anc_00010",
+          "anc_00065",
+          "anc_00073"
+        ]
+      },
+      {
+        "term": "空洞卷积",
+        "definition": "一种卷积变体，通过增大卷积核的采样步长（膨胀率）来扩大感受野，同时保持参数和计算量不变。可变形卷积是其泛化形式。",
+        "anchors": [
+          "anc_00078",
+          "anc_00079",
+          "anc_00080"
+        ]
+      },
+      {
+        "term": "位置敏感RoI池化",
+        "definition": "R-FCN框架中使用的池化方法，首先将输入特征图转换为k²个位置敏感的分数图，然后在这些分数图上进行池化。",
+        "anchors": [
+          "anc_00057"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "required_datasets": [
+      {
+        "name": "PASCAL VOC 2007/2012",
+        "purpose": "目标检测和语义分割任务的训练与评估。",
+        "anchors": [
+          "anc_00093",
+          "anc_00103"
+        ]
+      },
+      {
+        "name": "MS COCO",
+        "purpose": "目标检测任务的训练与评估。",
+        "anchors": [
+          "anc_00103",
+          "anc_00121"
+        ]
+      }
+    ],
+    "required_models": [
+      {
+        "name": "ResNet-101",
+        "purpose": "作为特征提取的主干网络。",
+        "anchors": [
+          "anc_00091",
+          "anc_00092",
+          "anc_00107"
+        ]
+      },
+      {
+        "name": "Aligned-Inception-ResNet",
+        "purpose": "作为更强的特征提取主干网络。",
+        "anchors": [
+          "anc_00121",
+          "anc_00132",
+          "anc_00136"
+        ]
+      },
+      {
+        "name": "DeepLab",
+        "purpose": "语义分割任务特定网络。",
+        "anchors": [
+          "anc_00091",
+          "anc_00099"
+        ]
+      },
+      {
+        "name": "Faster R-CNN",
+        "purpose": "目标检测任务特定网络。",
+        "anchors": [
+          "anc_00091",
+          "anc_00103",
+          "anc_00105"
+        ]
+      },
+      {
+        "name": "R-FCN",
+        "purpose": "目标检测任务特定网络。",
+        "anchors": [
+          "anc_00091",
+          "anc_00103",
+          "anc_00105"
+        ]
+      }
+    ],
+    "compute_requirements": "论文提到使用8个GPU进行训练，每个GPU一个mini-batch。具体GPU型号和训练总时长未明确说明，但推理时间在Nvidia K40 GPU上进行了测量。",
+    "code_available": true,
+    "code_url": "https://github.com/msracver/Deformable-ConvNets",
+    "reproduction_steps": [
+      "1. 准备PASCAL VOC和MS COCO数据集。",
+      "2. 下载或实现ResNet-101和Aligned-Inception-ResNet主干网络。",
+      "3. 实现可变形卷积和可变形RoI池化层，包括双线性插值及其梯度计算。",
+      "4. 将可变形模块集成到DeepLab、Faster R-CNN和R-FCN等任务网络中。",
+      "5. 按照论文描述的训练策略（学习率、迭代次数、mini-batch大小）在相应数据集上训练模型。",
+      "6. 在测试集上评估模型性能（mIoU, mAP）。"
+    ],
+    "missing_details": [
+      "Aligned-Inception-ResNet的完整训练细节（如学习率调度、数据增强策略）。",
+      "可变形模块初始化为零权重的具体实现细节。",
+      "多尺度测试和边界框平均的具体实现参数。",
+      "训练过程中mini-batch的构建细节（如正负样本比例）。"
+    ],
+    "risk_points": [
+      "双线性插值及其梯度的正确实现是关键，实现错误会导致训练失败或性能不佳。",
+      "偏移量学习层的学习率设置（β值）需要仔细调整，尤其是对于不同的任务网络。",
+      "可变形模块的引入可能会略微增加训练时间和显存占用，需要相应的计算资源。"
+    ]
+  }
+}

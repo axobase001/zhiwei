@@ -1,0 +1,1996 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "大规模视频分类任务，现有视频分类基准数据集规模和多样性不足，且CNN在视频领域的应用面临计算挑战和时序信息融合方法不明确的问题。",
+      "anchors": [
+        "anc_00010"
+      ]
+    },
+    "motivation": {
+      "summary": "CNN在图像识别中取得巨大成功，但视频分类领域缺乏大规模数据集和有效的时序信息融合方法。作者希望通过大规模实验探索CNN在视频分类中的潜力，并解决训练效率问题。",
+      "anchors": [
+        "anc_00008",
+        "anc_00010"
+      ]
+    },
+    "core_idea": {
+      "summary": "通过收集大规模视频数据集（Sports-1M），系统评估多种CNN时序融合架构（单帧、早期融合、晚期融合、慢速融合），并提出多分辨率（上下文流+中央凹流）架构以加速训练，同时验证特征迁移能力。",
+      "anchors": [
+        "anc_00006",
+        "anc_00010",
+        "anc_00012",
+        "anc_00013"
+      ]
+    },
+    "method": {
+      "summary": "1. 构建Sports-1M数据集（100万YouTube视频，487类）。2. 设计并比较四种时序融合架构：单帧CNN、早期融合（第一层卷积扩展时间维度）、晚期融合（两个独立单帧网络后期融合）、慢速融合（多层逐步融合时间信息）。3. 提出多分辨率CNN架构，包含低分辨率上下文流和高分辨率中央凹流，以加速训练。4. 使用分布式随机梯度下降（Downpour SGD）进行优化。5. 在Sports-1M上训练，并在UCF-101上进行迁移学习实验。",
+      "anchors": [
+        "anc_00010",
+        "anc_00028",
+        "anc_00029",
+        "anc_00031",
+        "anc_00033",
+        "anc_00034",
+        "anc_00040",
+        "anc_00043",
+        "anc_00070"
+      ]
+    },
+    "experiments": {
+      "summary": "在Sports-1M测试集（20万视频）上评估所有架构，使用Hit@1和Hit@5指标。在UCF-101数据集上评估迁移学习效果，比较从头训练、微调顶层、微调顶层3层、微调所有层的性能。分析不同架构的训练速度。",
+      "anchors": [
+        "anc_00051",
+        "anc_00052",
+        "anc_00068",
+        "anc_00069",
+        "anc_00062"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "1. CNN在大规模视频分类上显著优于传统特征基线方法。2. 慢速融合架构在时序融合中表现最佳。3. 单帧模型已表现出强大性能，表明局部运动线索可能并非至关重要。4. 多分辨率架构可在不损失精度的情况下将训练速度提升2-4倍。5. 在Sports-1M上学习的特征可以有效迁移到UCF-101等其他数据集。",
+        "anchors": [
+          "anc_00051",
+          "anc_00052",
+          "anc_00062",
+          "anc_00068",
+          "anc_00069",
+          "anc_00070",
+          "anc_00083"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "1. 运动感知网络在存在相机运动时可能表现不佳，CNN难以学习完全的相机运动不变性。2. 视频级预测仅采用简单的clip预测平均，未探索更复杂的方法。3. 未对视频中的文本、特效、剪辑、徽标等伪影进行显式过滤。4. 迁移学习实验中无法保证Sports-1M与UCF-101完全无重叠。",
+        "anchors": [
+          "anc_00053",
+          "anc_00060",
+          "anc_00061",
+          "anc_00066",
+          "anc_00074"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "Sports-1M数据集构建",
+        "label": "数据准备",
+        "summary": "收集并发布一个包含100万YouTube视频、487个体育类别的大规模视频分类数据集，用于训练和评估CNN模型。",
+        "description": "为解决视频分类缺乏大规模基准的问题，作者从YouTube收集了约100万段视频，涵盖487个体育类别，构建了Sports-1M数据集。数据集平均视频时长为5分36秒。训练时从每个视频中随机采样最多100个半秒片段。",
+        "type": "data_preparation",
+        "anchors": [
+          "anc_00010",
+          "anc_00047",
+          "anc_00048"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "单帧CNN基线模型",
+        "label": "基线架构",
+        "summary": "基于AlexNet架构的单帧CNN模型，作为视频分类的基线，仅处理单帧图像，不包含时序信息。",
+        "description": "采用与Krizhevsky等人[11]相同的CNN架构参数（k=2, n=5, α=10^-4, β=0.5），最后一层连接softmax分类器。该模型独立处理视频的每一帧，不融合时间信息。",
+        "type": "baseline_architecture",
+        "anchors": [
+          "anc_00029",
+          "anc_00030",
+          "anc_00031"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "早期融合架构",
+        "label": "时序融合",
+        "summary": "通过扩展第一层卷积滤波器的时间维度，在像素级别早期融合时序信息。",
+        "description": "将第一层卷积滤波器的尺寸扩展为11×11×3×T像素，其中T为时间范围（实验中T=10，约1/3秒）。这使得网络能够直接在像素级别检测局部运动方向和速度。",
+        "type": "architecture_variant",
+        "anchors": [
+          "anc_00031",
+          "anc_00032"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "晚期融合架构",
+        "label": "时序融合",
+        "summary": "使用两个独立的单帧CNN处理相隔一定时间的两帧，然后在第一个全连接层融合它们的输出。",
+        "description": "放置两个共享参数的单帧网络（处理相隔15帧的图像），在第一个全连接层进行融合。单个网络无法检测运动，但全连接层可以通过比较两个流的输出来计算全局运动特征。",
+        "type": "architecture_variant",
+        "anchors": [
+          "anc_00033"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "慢速融合架构",
+        "label": "时序融合",
+        "summary": "在多个卷积层逐步融合时间信息，平衡早期和晚期融合，是表现最佳的时序融合架构。",
+        "description": "第一层卷积滤波器扩展为时间维度T=4，步长为2，在10帧输入上产生4个时间响应。第二和第三层使用T=2、步长为2的滤波器。因此，第三卷积层可以访问所有10个输入帧的信息。",
+        "type": "architecture_variant",
+        "anchors": [
+          "anc_00034",
+          "anc_00035",
+          "anc_00036"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "多分辨率CNN架构",
+        "label": "加速优化",
+        "summary": "提出包含低分辨率上下文流和高分辨率中央凹流的双流架构，在保持精度的同时显著加速训练。",
+        "description": "输入帧被送入两个独立的处理流：上下文流处理低分辨率图像，中央凹流处理高分辨率中心裁剪。两个流都由卷积、归一化和池化层交替组成，最后汇聚到两个全连接层。由于输入尺寸减半，移除了最后一个池化层以确保两个流都终止于7×7×256的层。激活值被拼接后送入第一个全连接层。",
+        "type": "architecture_variant",
+        "anchors": [
+          "anc_00040",
+          "anc_00041",
+          "anc_00042"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "分布式训练优化",
+        "label": "训练策略",
+        "summary": "使用Downpour SGD在计算集群上进行分布式训练，并采用数据增强和预处理策略。",
+        "description": "使用Downpour SGD进行优化，模型副本数在10到50之间，每个模型进一步划分为4到32个分区。使用小批量大小为32，动量0.9，权重衰减0.0005。所有模型以1e-3的学习率初始化，并在验证误差停止改善时手动降低。数据增强包括裁剪中心区域、调整大小到200×200、随机采样170×170区域、随机水平翻转。",
+        "type": "training_strategy",
+        "anchors": [
+          "anc_00043",
+          "anc_00044",
+          "anc_00045"
+        ]
+      },
+      {
+        "node_id": "node_008",
+        "title": "Sports-1M评估与比较",
+        "label": "实验评估",
+        "summary": "在Sports-1M测试集上评估所有CNN架构，并与特征基线方法进行比较。",
+        "description": "在20万视频的测试集上评估，使用Hit@k指标（k=1,5）。结果表明，所有CNN架构都显著优于特征基线方法（55.3% vs 63.9%）。慢速融合模型表现最佳（60.9%），但单帧模型已表现出强大性能（59.3%）。多分辨率架构在保持精度的同时实现了2-4倍的训练加速。",
+        "type": "evaluation",
+        "anchors": [
+          "anc_00051",
+          "anc_00052",
+          "anc_00059",
+          "anc_00062"
+        ]
+      },
+      {
+        "node_id": "node_009",
+        "title": "UCF-101迁移学习实验",
+        "label": "迁移学习",
+        "summary": "将在Sports-1M上训练的慢速融合网络迁移到UCF-101数据集，验证特征的泛化能力。",
+        "description": "在UCF-101数据集上进行迁移学习实验，比较从头训练、微调顶层、微调顶层3层、微调所有层的性能。最佳性能通过微调顶层3层获得（65.4%），显著优于从头训练（41.3%）和仅微调顶层（64.1%）。特征迁移在体育类别上效果显著，但在非体育类别上也表现出色。",
+        "type": "transfer_learning",
+        "anchors": [
+          "anc_00068",
+          "anc_00069",
+          "anc_00070",
+          "anc_00072",
+          "anc_00074",
+          "anc_00076"
+        ]
+      },
+      {
+        "node_id": "node_010",
+        "title": "定性分析与讨论",
+        "label": "分析",
+        "summary": "分析不同架构的性能差异，探讨运动信息的作用和局限性。",
+        "description": "通过比较单帧网络和慢速融合网络的每类平均精度，发现运动感知网络在某些类别上受益于运动信息，但这种情况相对较少。相反，运动感知网络在存在相机运动时更容易表现不佳。作者假设CNN难以学习所有可能的相机平移和缩放角度和速度的完全不变性。",
+        "type": "analysis",
+        "anchors": [
+          "anc_00063",
+          "anc_00064",
+          "anc_00065",
+          "anc_00066"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "relation": "provides_data_for",
+        "description": "Sports-1M数据集用于训练和评估所有CNN架构，包括单帧基线模型。",
+        "anchors": [
+          "anc_00010"
+        ]
+      },
+      {
+        "source": "node_001",
+        "target": "node_003",
+        "relation": "provides_data_for",
+        "description": "Sports-1M数据集用于训练和评估早期融合架构。",
+        "anchors": [
+          "anc_00010"
+        ]
+      },
+      {
+        "source": "node_001",
+        "target": "node_004",
+        "relation": "provides_data_for",
+        "description": "Sports-1M数据集用于训练和评估晚期融合架构。",
+        "anchors": [
+          "anc_00010"
+        ]
+      },
+      {
+        "source": "node_001",
+        "target": "node_005",
+        "relation": "provides_data_for",
+        "description": "Sports-1M数据集用于训练和评估慢速融合架构。",
+        "anchors": [
+          "anc_00010"
+        ]
+      },
+      {
+        "source": "node_001",
+        "target": "node_006",
+        "relation": "provides_data_for",
+        "description": "Sports-1M数据集用于训练和评估多分辨率架构。",
+        "anchors": [
+          "anc_00010"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "relation": "is_extended_by",
+        "description": "早期融合架构通过扩展单帧CNN第一层卷积滤波器的时间维度得到。",
+        "anchors": [
+          "anc_00031"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_004",
+        "relation": "is_modified_to_form",
+        "description": "晚期融合架构由两个共享参数的单帧CNN组成，在后期融合输出。",
+        "anchors": [
+          "anc_00033"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_005",
+        "relation": "is_modified_to_form",
+        "description": "慢速融合架构在单帧CNN基础上，逐步在多层卷积中融合时间信息。",
+        "anchors": [
+          "anc_00034"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_006",
+        "relation": "is_modified_to_form",
+        "description": "多分辨率架构包含两个处理不同分辨率输入的流，其中一个流类似于单帧CNN。",
+        "anchors": [
+          "anc_00040"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_008",
+        "relation": "is_evaluated_in",
+        "description": "早期融合架构在Sports-1M测试集上进行评估。",
+        "anchors": [
+          "anc_00051"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_008",
+        "relation": "is_evaluated_in",
+        "description": "晚期融合架构在Sports-1M测试集上进行评估。",
+        "anchors": [
+          "anc_00051"
+        ]
+      },
+      {
+        "source": "node_005",
+        "target": "node_008",
+        "relation": "is_evaluated_in",
+        "description": "慢速融合架构在Sports-1M测试集上进行评估。",
+        "anchors": [
+          "anc_00051"
+        ]
+      },
+      {
+        "source": "node_006",
+        "target": "node_008",
+        "relation": "is_evaluated_in",
+        "description": "多分辨率架构在Sports-1M测试集上进行评估。",
+        "anchors": [
+          "anc_00051"
+        ]
+      },
+      {
+        "source": "node_007",
+        "target": "node_002",
+        "relation": "optimizes_training_of",
+        "description": "分布式训练策略用于优化单帧CNN基线模型的训练。",
+        "anchors": [
+          "anc_00043"
+        ]
+      },
+      {
+        "source": "node_007",
+        "target": "node_003",
+        "relation": "optimizes_training_of",
+        "description": "分布式训练策略用于优化早期融合架构的训练。",
+        "anchors": [
+          "anc_00043"
+        ]
+      },
+      {
+        "source": "node_007",
+        "target": "node_004",
+        "relation": "optimizes_training_of",
+        "description": "分布式训练策略用于优化晚期融合架构的训练。",
+        "anchors": [
+          "anc_00043"
+        ]
+      },
+      {
+        "source": "node_007",
+        "target": "node_005",
+        "relation": "optimizes_training_of",
+        "description": "分布式训练策略用于优化慢速融合架构的训练。",
+        "anchors": [
+          "anc_00043"
+        ]
+      },
+      {
+        "source": "node_007",
+        "target": "node_006",
+        "relation": "optimizes_training_of",
+        "description": "分布式训练策略用于优化多分辨率架构的训练。",
+        "anchors": [
+          "anc_00043"
+        ]
+      },
+      {
+        "source": "node_005",
+        "target": "node_009",
+        "relation": "is_transferred_in",
+        "description": "在Sports-1M上训练的慢速融合网络被迁移到UCF-101数据集进行评估。",
+        "anchors": [
+          "anc_00070"
+        ]
+      },
+      {
+        "source": "node_008",
+        "target": "node_010",
+        "relation": "provides_results_for",
+        "description": "Sports-1M上的评估结果为定性分析提供了数据基础。",
+        "anchors": [
+          "anc_00063"
+        ]
+      },
+      {
+        "source": "node_009",
+        "target": "node_010",
+        "relation": "provides_results_for",
+        "description": "UCF-101上的迁移学习结果为分析特征泛化能力提供了证据。",
+        "anchors": [
+          "anc_00076"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00051"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00051",
+        "anc_00062"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "传统特征基线方法在Sports-1M测试集上达到55.3%的Hit@1准确率。",
+        "after": "最佳CNN架构（CNN平均）达到63.9%的Hit@1准确率，慢速融合模型达到60.9%。",
+        "why_it_matters": "证明了CNN在大规模视频分类任务上相比传统特征方法具有显著优势，能够学习更强大的特征表示。",
+        "anchors": [
+          "anc_00051",
+          "anc_00052"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "单帧CNN模型（59.3% Hit@1）仅处理静态图像，不包含时序信息。",
+        "after": "慢速融合模型（60.9% Hit@1）通过逐步融合时序信息，性能略有提升。",
+        "why_it_matters": "表明在Sports-1M数据集上，时序信息的融合带来的性能提升相对有限，单帧模型已能捕获大部分判别信息。这挑战了视频分类必须依赖复杂时序建模的假设。",
+        "anchors": [
+          "anc_00051",
+          "anc_00083"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "标准CNN架构训练速度慢，处理大规模视频数据需要数周时间。",
+        "after": "多分辨率CNN架构（上下文流+中央凹流）在保持精度的同时，将训练速度提升了2-4倍。",
+        "why_it_matters": "解决了大规模视频CNN训练的计算效率问题，使得更多实验和架构探索成为可能。",
+        "anchors": [
+          "anc_00037",
+          "anc_00039",
+          "anc_00062"
+        ],
+        "delta_id": "delta_3"
+      },
+      {
+        "before": "在UCF-101数据集上从头训练CNN（41.3%准确率）。",
+        "after": "使用在Sports-1M上预训练的慢速融合网络进行迁移学习，微调顶层3层后达到65.4%准确率。",
+        "why_it_matters": "证明了在大规模视频数据集上学习的特征具有强大的泛化能力，可以有效迁移到其他视频分类任务，显著提升小数据集上的性能。",
+        "anchors": [
+          "anc_00068",
+          "anc_00069",
+          "anc_00070"
+        ],
+        "delta_id": "delta_4"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\text{Hit@k} = \\frac{\\text{# samples with ground truth in top-k predictions}}{\\text{total # samples}}",
+        "variables": [
+          {
+            "name": "k",
+            "description": "预测排名的截断值（如1或5）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00052"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "衡量模型预测准确性的指标，表示在前k个预测中包含正确标签的样本比例。Hit@1是严格的准确率，Hit@5更宽松。",
+        "anchors": [
+          "anc_00052"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "\\text{Video Hit@k} = \\text{Average}(\\text{Clip Hit@k over all clips in video})",
+        "variables": [
+          {
+            "name": "Clip Hit@k",
+            "description": "单个视频片段的Hit@k值",
+            "confidence": "high",
+            "anchors": [
+              "anc_00053"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "通过平均视频内所有片段的预测结果来生成视频级别的预测，是一种简单但有效的聚合方法。",
+        "anchors": [
+          "anc_00053"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "\\text{Early Fusion Filter Size} = 11 \\times 11 \\times 3 \\times T",
+        "variables": [
+          {
+            "name": "T",
+            "description": "时间范围（帧数），实验中T=10",
+            "confidence": "high",
+            "anchors": [
+              "anc_00032"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "早期融合架构中第一层卷积滤波器的尺寸，通过扩展时间维度T来直接在像素级别融合时序信息。",
+        "anchors": [
+          "anc_00031",
+          "anc_00032"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "latex": "\\text{Slow Fusion Temporal Extent} T_l \\text{ for layer } l",
+        "variables": [
+          {
+            "name": "T_1",
+            "description": "第一层时间范围，T=4",
+            "confidence": "high",
+            "anchors": [
+              "anc_00034"
+            ]
+          },
+          {
+            "name": "T_2, T_3",
+            "description": "第二、三层时间范围，T=2",
+            "confidence": "high",
+            "anchors": [
+              "anc_00036"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "慢速融合架构中各层卷积滤波器的时间维度，通过逐步减小时间范围并增加步长，使高层能够访问更长时间跨度的信息。",
+        "anchors": [
+          "anc_00034",
+          "anc_00035",
+          "anc_00036"
+        ]
+      },
+      {
+        "formula_id": "formula_005",
+        "latex": "\\text{Multiresolution Input Size} = \\text{Context: } 89 \\times 89, \\text{ Fovea: } 170 \\times 170 \\text{ (center crop)}",
+        "variables": [
+          {
+            "name": "Context Size",
+            "description": "上下文流输入尺寸（低分辨率）",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00041"
+            ]
+          },
+          {
+            "name": "Fovea Size",
+            "description": "中央凹流输入尺寸（高分辨率中心裁剪）",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00041"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "多分辨率架构的两个流分别处理不同分辨率的输入：低分辨率的上下文流和高分辨率的中央凹流，以平衡计算效率和细节捕获。",
+        "anchors": [
+          "anc_00040",
+          "anc_00041"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "experiment": "Sports-1M测试集评估",
+        "metric": "Hit@1, Hit@5",
+        "result": "CNN平均Hit@1: 63.9%, 慢速融合Hit@1: 60.9%, 单帧Hit@1: 59.3%, 特征基线Hit@1: 55.3%",
+        "anchors": [
+          "anc_00051",
+          "anc_00052"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "experiment": "不同时间融合架构比较",
+        "metric": "Hit@1",
+        "result": "单帧: 59.3%, 早期融合: 57.7%, 晚期融合: 59.3%, 慢速融合: 60.9%",
+        "anchors": [
+          "anc_00051"
+        ]
+      },
+      {
+        "experiment": "多分辨率架构组件分析",
+        "metric": "Hit@1",
+        "result": "单帧+多分辨率: 60.0%, 仅中央凹流: 49.9%, 仅上下文流: 56.0%",
+        "anchors": [
+          "anc_00051"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "experiment": "UCF-101迁移学习不同微调策略",
+        "metric": "3-fold Accuracy",
+        "result": "从头训练: 41.3%, 微调顶层: 64.1%, 微调顶层3层: 65.4%, 微调所有层: 62.2%",
+        "anchors": [
+          "anc_00068",
+          "anc_00069"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "experiment": "多分辨率架构训练速度提升",
+        "metric": "clips/second",
+        "result": "单帧模型: 5→20 clips/sec (4x加速), 慢速融合模型: 5→10 clips/sec (2x加速)",
+        "anchors": [
+          "anc_00062"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "experiment": "运动感知网络与单帧网络性能差异分析",
+        "metric": "每类平均精度差异",
+        "result": "运动感知网络在某些类别（如需要运动信息的类别）上表现更好，但在存在相机运动时可能表现更差。",
+        "anchors": [
+          "anc_00063",
+          "anc_00064",
+          "anc_00065",
+          "anc_00066"
+        ]
+      }
+    ],
+    "human_eval": [],
+    "benchmark": [
+      {
+        "dataset": "Sports-1M",
+        "task": "视频分类",
+        "scale": "100万视频，487类",
+        "anchors": [
+          "anc_00010"
+        ]
+      },
+      {
+        "dataset": "UCF-101",
+        "task": "活动识别",
+        "scale": "13,320视频，101类",
+        "anchors": [
+          "anc_00072"
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "metric": "训练时间",
+        "result": "所有模型训练约一个月",
+        "anchors": [
+          "anc_00049"
+        ]
+      },
+      {
+        "metric": "训练速度",
+        "result": "全帧网络约5 clips/sec，多分辨率网络约20 clips/sec（单副本）",
+        "anchors": [
+          "anc_00049"
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "experiment": "Sports-1M测试集评估",
+        "metric": "Hit@1, Hit@5",
+        "result": "CNN平均Hit@1: 63.9%, 慢速融合Hit@1: 60.9%, 单帧Hit@1: 59.3%, 特征基线Hit@1: 55.3%",
+        "anchors": [
+          "anc_00051",
+          "anc_00052"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "Sports-1M测试集评估",
+        "dataset": [
+          "Sports-1M"
+        ],
+        "baseline": [
+          "特征基线"
+        ],
+        "metrics": [
+          "Hit@1",
+          "Hit@5"
+        ],
+        "result_summary": "CNN平均Hit@1: 63.9%, 慢速融合Hit@1: 60.9%, 单帧Hit@1: 59.3%, 特征基线Hit@1: 55.3%",
+        "what_it_tries_to_prove": "CNN在大规模视频分类上显著优于传统特征基线方法，且不同CNN架构间性能差异不大。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "不同时间融合架构比较",
+        "metric": "Hit@1",
+        "result": "单帧: 59.3%, 早期融合: 57.7%, 晚期融合: 59.3%, 慢速融合: 60.9%",
+        "anchors": [
+          "anc_00051"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "ablation",
+        "name": "不同时间融合架构比较",
+        "dataset": [
+          "Sports-1M"
+        ],
+        "baseline": [
+          "单帧CNN"
+        ],
+        "metrics": [
+          "Hit@1"
+        ],
+        "result_summary": "单帧: 59.3%, 早期融合: 57.7%, 晚期融合: 59.3%, 慢速融合: 60.9%",
+        "what_it_tries_to_prove": "比较不同时序融合架构的性能，慢速融合表现最佳，但单帧模型已表现出强大性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "多分辨率架构组件分析",
+        "metric": "Hit@1",
+        "result": "单帧+多分辨率: 60.0%, 仅中央凹流: 49.9%, 仅上下文流: 56.0%",
+        "anchors": [
+          "anc_00051"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "ablation",
+        "name": "多分辨率架构组件分析",
+        "dataset": [
+          "Sports-1M"
+        ],
+        "baseline": [
+          "单帧CNN"
+        ],
+        "metrics": [
+          "Hit@1"
+        ],
+        "result_summary": "单帧+多分辨率: 60.0%, 仅中央凹流: 49.9%, 仅上下文流: 56.0%",
+        "what_it_tries_to_prove": "分析多分辨率架构中上下文流和中央凹流的贡献，两者结合效果最佳。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "UCF-101迁移学习不同微调策略",
+        "metric": "3-fold Accuracy",
+        "result": "从头训练: 41.3%, 微调顶层: 64.1%, 微调顶层3层: 65.4%, 微调所有层: 62.2%",
+        "anchors": [
+          "anc_00068",
+          "anc_00069"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "robustness",
+        "name": "UCF-101迁移学习不同微调策略",
+        "dataset": [
+          "UCF-101"
+        ],
+        "baseline": [
+          "从头训练"
+        ],
+        "metrics": [
+          "3-fold Accuracy"
+        ],
+        "result_summary": "从头训练: 41.3%, 微调顶层: 64.1%, 微调顶层3层: 65.4%, 微调所有层: 62.2%",
+        "what_it_tries_to_prove": "验证在Sports-1M上学习的特征可以有效迁移到UCF-101，微调顶层3层效果最佳。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "多分辨率架构训练速度提升",
+        "metric": "clips/second",
+        "result": "单帧模型: 5→20 clips/sec (4x加速), 慢速融合模型: 5→10 clips/sec (2x加速)",
+        "anchors": [
+          "anc_00062"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "scaling",
+        "name": "多分辨率架构训练速度提升",
+        "dataset": [
+          "Sports-1M"
+        ],
+        "baseline": [
+          "全帧模型"
+        ],
+        "metrics": [
+          "clips/second"
+        ],
+        "result_summary": "单帧模型: 5→20 clips/sec (4x加速), 慢速融合模型: 5→10 clips/sec (2x加速)",
+        "what_it_tries_to_prove": "多分辨率架构可在不损失精度的情况下将训练速度提升2-4倍。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "运动感知网络与单帧网络性能差异分析",
+        "metric": "每类平均精度差异",
+        "result": "运动感知网络在某些类别（如需要运动信息的类别）上表现更好，但在存在相机运动时可能表现更差。",
+        "anchors": [
+          "anc_00063",
+          "anc_00064",
+          "anc_00065",
+          "anc_00066"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "case_study",
+        "name": "运动感知网络与单帧网络性能差异分析",
+        "dataset": [
+          "Sports-1M"
+        ],
+        "baseline": [
+          "单帧CNN"
+        ],
+        "metrics": [
+          "每类平均精度差异"
+        ],
+        "result_summary": "运动感知网络在某些类别（如需要运动信息的类别）上表现更好，但在存在相机运动时可能表现更差。",
+        "what_it_tries_to_prove": "分析运动信息的作用和局限性，运动感知网络在存在相机运动时可能表现不佳。",
+        "evidence_strength": "medium"
+      },
+      {
+        "experiment": "训练时间分析",
+        "metric": "训练时间",
+        "result": "所有模型训练约一个月",
+        "anchors": [
+          "anc_00049"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "efficiency",
+        "name": "训练时间分析",
+        "dataset": [
+          "Sports-1M"
+        ],
+        "baseline": [],
+        "metrics": [
+          "训练时间"
+        ],
+        "result_summary": "所有模型训练约一个月",
+        "what_it_tries_to_prove": "大规模视频CNN训练需要大量计算资源和时间。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "训练速度分析",
+        "metric": "训练速度",
+        "result": "全帧网络约5 clips/sec，多分辨率网络约20 clips/sec（单副本）",
+        "anchors": [
+          "anc_00049"
+        ],
+        "experiment_id": "experiment_8",
+        "type": "efficiency",
+        "name": "训练速度分析",
+        "dataset": [
+          "Sports-1M"
+        ],
+        "baseline": [
+          "全帧网络"
+        ],
+        "metrics": [
+          "训练速度"
+        ],
+        "result_summary": "全帧网络约5 clips/sec，多分辨率网络约20 clips/sec（单副本）",
+        "what_it_tries_to_prove": "多分辨率架构显著提升训练速度。",
+        "evidence_strength": "strong"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "CNN在大规模视频分类上显著优于传统特征基线方法。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00051",
+          "anc_00052"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_1",
+        "evidence": [
+          {
+            "evidence_id": "evidence_1",
+            "description": "Sports-1M测试集评估显示，CNN平均Hit@1达到63.9%，显著高于特征基线的55.3%。",
+            "anchors": [
+              "anc_00051",
+              "anc_00052"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "慢速融合架构在时序融合中表现最佳。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00051"
+        ],
+        "risk_flags": [
+          "性能提升幅度相对较小（60.9% vs 59.3%）"
+        ],
+        "claim_id": "claim_2",
+        "evidence": [
+          {
+            "evidence_id": "evidence_2",
+            "description": "在不同时间融合架构比较中，慢速融合模型Hit@1达到60.9%，高于单帧（59.3%）、早期融合（57.7%）和晚期融合（59.3%）。",
+            "anchors": [
+              "anc_00051"
+            ],
+            "strength": "medium"
+          }
+        ]
+      },
+      {
+        "claim": "单帧模型已表现出强大性能，表明局部运动线索可能并非至关重要。",
+        "evidence_source_type": "实验结果与分析",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00051",
+          "anc_00083"
+        ],
+        "risk_flags": [
+          "仅基于Sports-1M数据集，可能不适用于其他视频类型"
+        ],
+        "claim_id": "claim_3",
+        "evidence": [
+          {
+            "evidence_id": "evidence_3",
+            "description": "单帧模型在Sports-1M测试集上Hit@1达到59.3%，仅比慢速融合模型低1.6个百分点，表明静态外观信息已能捕获大部分判别信息。",
+            "anchors": [
+              "anc_00051",
+              "anc_00083"
+            ],
+            "strength": "medium"
+          }
+        ]
+      },
+      {
+        "claim": "多分辨率架构可在不损失精度的情况下将训练速度提升2-4倍。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00051",
+          "anc_00062"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_4",
+        "evidence": [
+          {
+            "evidence_id": "evidence_4",
+            "description": "多分辨率架构在保持精度（单帧+多分辨率Hit@1: 60.0%）的同时，训练速度提升2-4倍（单帧模型: 5→20 clips/sec, 慢速融合模型: 5→10 clips/sec）。",
+            "anchors": [
+              "anc_00051",
+              "anc_00062"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "在Sports-1M上学习的特征可以有效迁移到UCF-101等其他数据集。",
+        "evidence_source_type": "迁移学习实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00068",
+          "anc_00069",
+          "anc_00070"
+        ],
+        "risk_flags": [
+          "无法保证Sports-1M与UCF-101完全无重叠"
+        ],
+        "claim_id": "claim_5",
+        "evidence": [
+          {
+            "evidence_id": "evidence_5",
+            "description": "在UCF-101迁移学习实验中，使用Sports-1M预训练的慢速融合网络微调顶层3层后达到65.4%准确率，显著优于从头训练（41.3%）。",
+            "anchors": [
+              "anc_00068",
+              "anc_00069",
+              "anc_00070"
+            ],
+            "strength": "strong"
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "Sports-1M",
+        "definition": "作者收集的大规模视频分类数据集，包含约100万YouTube视频，涵盖487个体育类别。",
+        "anchors": [
+          "anc_00010"
+        ],
+        "appears_in": [
+          "anc_00010"
+        ]
+      },
+      {
+        "term": "Hit@k",
+        "definition": "评估指标，表示在前k个预测中包含正确标签的样本比例。",
+        "anchors": [
+          "anc_00052"
+        ],
+        "appears_in": [
+          "anc_00052"
+        ]
+      },
+      {
+        "term": "早期融合",
+        "definition": "一种时序融合方法，通过扩展第一层卷积滤波器的时间维度，在像素级别早期融合时序信息。",
+        "anchors": [
+          "anc_00031",
+          "anc_00032"
+        ],
+        "appears_in": [
+          "anc_00031",
+          "anc_00032"
+        ]
+      },
+      {
+        "term": "晚期融合",
+        "definition": "一种时序融合方法，使用两个独立的单帧CNN处理相隔一定时间的两帧，然后在后期融合它们的输出。",
+        "anchors": [
+          "anc_00033"
+        ],
+        "appears_in": [
+          "anc_00033"
+        ]
+      },
+      {
+        "term": "慢速融合",
+        "definition": "一种时序融合方法，在多个卷积层逐步融合时间信息，平衡早期和晚期融合。",
+        "anchors": [
+          "anc_00034",
+          "anc_00035",
+          "anc_00036"
+        ],
+        "appears_in": [
+          "anc_00034",
+          "anc_00035",
+          "anc_00036"
+        ]
+      },
+      {
+        "term": "多分辨率CNN",
+        "definition": "一种CNN架构，包含两个处理不同分辨率输入的流：低分辨率上下文流和高分辨率中央凹流，以加速训练。",
+        "anchors": [
+          "anc_00040",
+          "anc_00041"
+        ],
+        "appears_in": [
+          "anc_00040",
+          "anc_00041"
+        ]
+      },
+      {
+        "term": "Downpour SGD",
+        "definition": "一种分布式随机梯度下降算法，用于在计算集群上并行训练大规模神经网络。",
+        "anchors": [
+          "anc_00043"
+        ],
+        "appears_in": [
+          "anc_00043"
+        ]
+      },
+      {
+        "term": "迁移学习",
+        "definition": "将在一个任务（如Sports-1M视频分类）上训练的模型应用于另一个相关任务（如UCF-101活动识别）的技术。",
+        "anchors": [
+          "anc_00070"
+        ],
+        "appears_in": [
+          "anc_00070"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        {
+          "name": "Sports-1M",
+          "description": "大规模视频分类数据集，约100万YouTube视频，487类体育活动。",
+          "availability": "论文中提及将发布，但具体下载链接未在提供文本中给出。",
+          "anchors": [
+            "anc_00010"
+          ]
+        },
+        {
+          "name": "UCF-101",
+          "description": "活动识别数据集，13,320个视频，101个类别。",
+          "availability": "公开可用的数据集。",
+          "anchors": [
+            "anc_00072"
+          ]
+        }
+      ],
+      "required_models": [
+        {
+          "name": "基于AlexNet的CNN变体",
+          "description": "单帧CNN、早期融合、晚期融合、慢速融合、多分辨率CNN等架构。",
+          "availability": "论文描述了架构细节，但未提供预训练模型或代码。",
+          "anchors": [
+            "anc_00029",
+            "anc_00030",
+            "anc_00031",
+            "anc_00033",
+            "anc_00034",
+            "anc_00040"
+          ]
+        }
+      ],
+      "required_compute": [
+        {
+          "type": "GPU集群",
+          "description": "训练使用10-50个模型副本，每个副本可能跨4-32个分区。训练时间约一个月。",
+          "anchors": [
+            "anc_00043",
+            "anc_00049"
+          ]
+        }
+      ],
+      "code_available": false,
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 收集或获取Sports-1M和UCF-101数据集。",
+          "anchors": [
+            "anc_00010",
+            "anc_00072"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 实现单帧CNN基线模型（基于AlexNet架构）。",
+          "anchors": [
+            "anc_00029",
+            "anc_00030"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 实现早期融合、晚期融合、慢速融合等时序融合变体。",
+          "anchors": [
+            "anc_00031",
+            "anc_00033",
+            "anc_00034"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "4. 实现多分辨率CNN架构（上下文流+中央凹流）。",
+          "anchors": [
+            "anc_00040",
+            "anc_00041"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "5. 实现分布式训练框架（如Downpour SGD）或使用现有分布式训练库。",
+          "anchors": [
+            "anc_00043"
+          ]
+        },
+        {
+          "step": "step_6",
+          "description": "6. 在Sports-1M上训练所有模型，使用数据增强和预处理策略。",
+          "anchors": [
+            "anc_00045"
+          ]
+        },
+        {
+          "step": "step_7",
+          "description": "7. 在Sports-1M测试集上评估所有模型，计算Hit@1和Hit@5。",
+          "anchors": [
+            "anc_00051",
+            "anc_00052"
+          ]
+        },
+        {
+          "step": "step_8",
+          "description": "8. 选择最佳模型（慢速融合）在UCF-101上进行迁移学习实验，比较不同微调策略。",
+          "anchors": [
+            "anc_00068",
+            "anc_00069",
+            "anc_00070"
+          ]
+        },
+        {
+          "step": "step_9",
+          "description": "9. 进行定性分析，比较不同架构的预测结果。",
+          "anchors": [
+            "anc_00063",
+            "anc_00064",
+            "anc_00065",
+            "anc_00066"
+          ]
+        }
+      ],
+      "missing_details": [],
+      "risk_points": []
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-01T23:41:47+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_ml_093_large_scale_video_classification_with_convolutio_2014",
+    "title": "Large-Scale Video Classification with Convolutional Neural Networks",
+    "authors": [
+      "A. Karpathy",
+      "G. Toderici",
+      "Sanketh Shetty",
+      "Thomas Leung",
+      "R. Sukthankar",
+      "Li Fei-Fei"
+    ],
+    "venue": "2014 IEEE Conference on Computer Vision and Pattern Recognition",
+    "year": 2014,
+    "arxiv_id": null,
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-01T23:39:54+00:00",
+    "paper_type": "Computer Vision / CNN / Top-cited ML method paper",
+    "citation_count": 6661,
+    "influential_citation_count": 466,
+    "semantic_scholar_id": "6d4c9c923e9f145d1c01a2de2afc38ec23c44253",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/6d4c9c923e9f145d1c01a2de2afc38ec23c44253",
+    "importance_rank": 93,
+    "selection_source": "semantic_scholar_top_cited_ml_open_pdf_2026_05_01",
+    "open_access_pdf_url": "http://www.cs.cmu.edu/~rahuls/pub/cvpr2014-deepvideo-rahuls.pdf",
+    "fields_of_study": [
+      "Computer Science"
+    ],
+    "publication_types": [
+      "JournalArticle",
+      "Conference"
+    ]
+  },
+  "anchors": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Large-scale Video Classiﬁcation with Convolutional Neural Networks",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Andrej Karpathy1,2 George Toderici1 Sanketh Shetty1 karpathy@cs.stanford.edu gtoderici@google.com sanketh@google.com Thomas Leung1 Rahul Sukthankar1 Li Fei-Fei2 leungt@google.com sukthankar@google.com feifeili@cs.stanford.edu 1Google Research 2Computer Science Department, Stanford University http://cs.stanford.edu/people/karpathy/deepvideo",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Abstract",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Convolutional Neural Networks (CNNs) have been es- tablished as a powerful class of models for image recog- nition problems. Encouraged by these results, we pro-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "vide an extensive empirical evaluation of CNNs on large-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "scale video classiﬁcation using a new dataset of 1 million YouTube videos belonging to 487 classes. We study multi- ple approaches for extending the connectivity of the a CNN in time domain to take advantage of local spatio-temporal information and suggest a multiresolution, foveated archi- tecture as a promising way of speeding up the training. Our best spatio-temporal networks display signiﬁcant per- formance improvements compared to strong feature-based baselines (55.3% to 63.9%), but only a surprisingly mod- est improvement compared to single-frame models (59.3% to 60.9%). We further study the generalization performance of our best model by retraining the top layers on the UCF- 101 Action Recognition dataset and observe signiﬁcant per- formance improvements compared to the UCF-101 baseline",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 1,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "model (63.3% up from 43.9%).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 1,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "1. Introduction Images and videos have become ubiquitous on the in- ternet, which has encouraged the development of algo- rithms that can analyze their semantic content for vari- ous applications, including search and summarization. Re- cently, Convolutional Neural Networks (CNNs) [15] have been demonstrated as an effective class of models for un- derstanding image content, giving state-of-the-art results on image recognition, segmentation, detection and retrieval [11, 3, 2, 20, 9, 18]. The key enabling factors behind these results were techniques for scaling up the networks to tens of millions of parameters and massive labeled datasets that can support the learning process. Under these conditions, CNNs have been shown to learn powerful and interpretable image features [28]. Encouraged by positive results in do- main of images, we study the performance of CNNs in",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 1,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "large-scale video classiﬁcation, where the networks have",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 1,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "access to not only the appearance information present in single, static images, but also their complex temporal evolu- tion. There are several challenges to extending and applying CNNs in this setting. From a practical standpoint, there are currently no video classiﬁcation benchmarks that match the scale and variety of existing image datasets because videos are signiﬁcantly more difﬁcult to collect, annotate and store. To obtain sufﬁ- cient amount of data needed to train our CNN architectures, we collected a new Sports-1M dataset, which consists of 1 million YouTube videos belonging to a taxonomy of 487 classes of sports. We make Sports-1M available to the re- search community to support future work in this area. From a modeling perspective, we are interested in an- swering the following questions: what temporal connectiv- ity pattern in a CNN architecture is best at taking advantage of local motion information present in the video? How does the additional motion information inﬂuence...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 1,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "all? We examine these questions empirically by evaluating",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 1,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "multiple CNN architectures that each take a different ap- proach to combining information across the time domain. From a computational perspective, CNNs require exten- sively long periods of training time to effectively optimize the millions of parameters that parametrize the model. This difﬁculty is further compounded when extending the con- nectivity of the architecture in time because the network must process not just one image but several frames of video at a time. To mitigate this issue, we show that an effec- tive approach to speeding up the runtime performance of CNNs is to modify the architecture to contain two separate streams of processing: a context stream that learns features on low-resolution frames and a high-resolutionfovea stream that only operates on the middle portion of the frame. We",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 2,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "observe a 2-4x increase in runtime performance of the net- work due to the reduced dimensionality of the input, while retaining the classiﬁcation accuracy. Finally, a natural question that arises is whether features learned on the Sports-1M dataset are generic enough to generalize to a different, smaller dataset. We investigate the transfer learning problem empirically, achieving sig- niﬁcantly better performance (65.4%, up from 41.3%) on UCF-101 by re-purposing low-level features learned on the Sports-1M dataset than by training the entire network on UCF-101 alone. Furthermore, since only some classes in UCF-101 are related to sports, we can quantify the relative improvements of the transfer learning in both settings. Our contributions can be summarized as follows: • We provide extensive experimental evaluation of mul- tiple approaches for extending CNNs into video clas-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 2,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "siﬁcation on a large-scale dataset of 1 million videos",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 2,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "with 487 categories (which we release as Sports-1M dataset) and report signiﬁcant gains in performance over strong feature-based baselines. • We highlight an architecture that processes input at two spatial resolutions - a low-resolution context stream and a high-resolution fovea stream - as a promising way of improving the runtime performance of CNNs at no cost in accuracy. • We apply our networks to the UCF-101 dataset and re- port signiﬁcant improvement over feature-based state- of-the-art results and baselines established by training networks on UCF-101 alone. 2. Related Work The standard approach to video classiﬁcation [26, 16, 21, 17] involves three major stages: First, local visual fea- tures that describe a region of the video are extracted ei- ther densely [25] or at a sparse set of interest points [12, 8]. Next, the features get combined into a ﬁxed-sized video- level description. One popular approach is to quantize all features using a learned k-means dictionary and accumul...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 2,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Convolutional Neural Networks [15] are a biologically-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 2,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "inspired class of deep learning models that replace all three stages with a single neural network that is trained end to end from raw pixel values to classiﬁer outputs. The spa- tial structure of images is explicitly taken advantage of for regularization through restricted connectivity between lay- ers (local ﬁlters), parameter sharing (convolutions) and spe-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 2,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "cial local invariance-building neurons (max pooling). Thus,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 2,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "these architectures effectively shift the required engineer- ing from feature design and accumulation strategies to de- sign of the network connectivity structure and hyperparam- eter choices. Due to computational constraints, CNNs have until recently been applied to relatively small scale image recognition problems (on datasets such as MNIST, CIFAR- 10/100, NORB, and Caltech-101/256), but improvements on GPU hardware have enabled CNNs to scale to networks of millions of parameters, which has in turn led to signif- icant improvements in image classiﬁcation[11], object de- tection [20, 9], scene labeling [3], indoor segmentation [4] and house number digit classiﬁcation [19]. Additionally,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 2,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "features learned by large networks trained on ImageNet",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 2,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "[7] have been shown to yield state-of-the-art performance across many standard image recognition datasets when clas- siﬁed with an SVM, even with no ﬁne-tuning [18]. Compared to image data domains, there is relatively lit- tle work on applying CNNs to video classiﬁcation. Since all successful applications of CNNs in image domains share",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00022",
+      "page": 2,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "the availability of a large training set, we speculate that this",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 2,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "is partly attributable to lack of large-scale video classiﬁca-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00024",
+      "page": 2,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "tion benchmarks. In particular, commonly used datasets (KTH, Weizmann, UCF Sports, IXMAS, Hollywood 2, UCF-50) only contain up to few thousand clips and up to",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 2,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "few dozen classes. Even the largest available datasets such",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 2,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "as CCV (9,317 videos and 20 classes) and the recently in- troduced UCF-101[22] (13,320 videos and 101 classes) are still dwarfed by available image datasets in the number of instances and their variety [7]. Despite these limitations, some extensions of CNNs into the video domain have been explored. [1] and [10] extend an image CNN to video domains by treating space and time as equivalent dimen- sions of the input and perform convolutions in both time and space. We consider these extensions as only one of the possible generalizations in this work. Unsupervised learn- ing schemes for training spatio-temporal features have also been developed, based on Convolutional Gated Restricted Boltzmann Machines [23] and Independent Subspace Anal- ysis [14]. In contrast, our models are trained end to end fully supervised. 3. Models Unlike images which can be cropped and rescaled to a ﬁxed size, videos vary widely in temporal extent and can- not be easily processed with a ﬁxed-sized architecture. In...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00027",
+      "page": 3,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Figure 1: Explored approaches for fusing information over",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00028",
+      "page": 3,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "temporal dimension through the network. Red, green and blue boxes indicate convolutional, normalization and pool- ing layers respectively. In the Slow Fusion model, the de- picted columns share parameters. 3.1. Time Information Fusion in CNNs We investigate several approaches to fusing information across temporal domain (Figure 1): the fusion can be done early in the network by modifying the ﬁrst layer convolu- tional ﬁlters to extend in time, or it can be done late by placing two separate single-frame networks some distance in time apart and fusing their outputs later in the process- ing. We ﬁrst describe a baseline single-frame CNN and then discuss its extensions in time according to different types of fusion. Single-frame. We use a single-frame baseline architec- ture to understand the contribution of static appearance to the classiﬁcation accuracy. This network is similar to the ImageNet challenge winning model [11], but accepts in- puts of size 170 × 170 × 3 pixels instead of the...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 3,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "et al. [11] and use the same parameters: k = 2,n = 5,α =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 3,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "10−4,β = 0.5. The ﬁnal layer is connected to a softmax",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00031",
+      "page": 3,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "classiﬁer with dense connections. Early Fusion. The Early Fusion extension combines in- formation across an entire time window immediately on the pixel level. This is implemented by modifying the ﬁlters on the ﬁrst convolutional layer in the single-frame model by extending them to be of size 11 × 11 × 3 ×T pixels, where",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 3,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "T is some temporal extent (we use T = 10 , or approxi-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00033",
+      "page": 3,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "mately a third of a second). The early and direct connectiv- ity to pixel data allows the network to precisely detect local motion direction and speed. Late Fusion. The Late Fusion model places two sepa- rate single-frame networks (as described above, up to last convolutional layer C(256, 3, 1) with shared parameters a distance of 15 frames apart and then merges the two streams in the ﬁrst fully connected layer. Therefore, neither single- frame tower alone can detect any motion, but the ﬁrst fully connected layer can compute global motion characteristics by comparing outputs of both towers. Slow Fusion . The Slow Fusion model is a balanced mix between the two approaches that slowly fuses temporal information throughout the network such that higher lay- ers get access to progressively more global information in both spatial and temporal dimensions. This is implemented by extending the connectivity of all convolutional layers in time and carrying out temporal convolutions in addition to...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 3,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "extended to apply every ﬁlter of temporal extentT = 4 on",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00035",
+      "page": 3,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "an input clip of 10 frames through valid convolution with stride 2 and produces 4 responses in time. The second and third layers above iterate this process with ﬁlters of tempo-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 3,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "ral extentT = 2 and stride 2. Thus, the third convolutional",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00037",
+      "page": 3,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "layer has access to information across all 10 input frames. 3.2. Multiresolution CNNs Since CNNs normally take on orders of weeks to train on",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00038",
+      "page": 3,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "large-scale datasets even on the fastest available GPUs, the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00039",
+      "page": 3,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "runtime performance is a critical component to our ability to experiment with different architecture and hyperparame- ter settings. This motivates approaches for speeding up the models while still retaining their performance. There are multiple fronts to these endeavors, including improvements in hardware, weight quantization schemes, better optimiza- tion algorithms and initialization strategies, but in this work we focus on changes in the architecture that enable faster running times without sacriﬁcing performance. One approach to speeding up the networks is to reduce the number of layers and neurons in each layer, but simi- lar to [28] we found that this consistently lowers the per- formance. Instead of reducing the size of the network, we conducted further experiments on training with images of lower resolution. However, while this improved the run- ning time of the network, the high-frequency detail in the images proved critical to achieving good accuracy. Fovea and context strea...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 4,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Figure 2: Multiresolution CNN architecture. Input frames",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00041",
+      "page": 4,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "are fed into two separate streams of processing: a con- text stream that models low-resolution image and a fovea stream that processes high-resolution center crop. Both streams consist of alternating convolution (red), normaliza- tion (green) and pooling (blue) layers. Both streams con- verge to two fully connected layers (yellow). 89 × 89 clips of video. Since the input is only of half the spatial size as the full-frame models, we take out the last",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00042",
+      "page": 4,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "pooling layer to ensure that both streams still terminate in a",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00043",
+      "page": 4,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "layer of size 7 × 7 × 256. The activations from both streams are concatenated and fed into the ﬁrst fully connected layer with dense connections. 3.3. Learning Optimization. We use Downpour Stochastic Gradient Descent [6] to optimize our models across a computing cluster. The number of replicas for each model varies be- tween 10 and 50 and every model is further split across 4",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 4,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "to 32 partitions. We use mini-batches of 32 examples, mo-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00045",
+      "page": 4,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "mentum of 0.9 and weight decay of 0.0005. All models are initialized with learning rates of 1e−3 and this value is fur- ther reduced by hand whenever the validation error stops improving. Data augmentation and preprocessing. Following [11], we take advantage of data augmentation to reduce the effects of overﬁtting. Before presenting an example to a net- work, we preprocess all images by ﬁrst cropping to center region, resizing them to 200 × 200 pixels, randomly sam- pling a 170 × 170 region, and ﬁnally randomly ﬂipping the images horizontally with 50% probability. These prepro- cessing steps are applied consistently to all frames that are part of the same clip. As a last step of preprocessing we sub- tract a constant value of 117 from raw pixel values, which is the approximate value of the mean of all pixels in our images. 4. Results We ﬁrst present results on our Sports-1M dataset and qualitatively analyze the learned features and network pre- dictions. We then describe our transfer...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00046",
+      "page": 4,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "algorithm on the frame level and determined that only 1755",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00047",
+      "page": 4,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "videos (out of 1 million) contain a signiﬁcant fraction of near-duplicate frames. Furthermore, since we only use a random collection of up to 100 half-second clips from ev-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00048",
+      "page": 4,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "ery video and our videos are 5 minutes and 36 seconds in",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 4,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "length on average, it is unlikely that the same frames occur across data splits. Training. We trained our models over a period of one month, with models processing approximately 5 clips per second for full-frame networks and up to 20 clips per sec- ond for multiresolution networks on a single model replica. The rate of 5 clips per second is roughly 20 times slower than what one could expect from a high-end GPU, but we expect to reach comparable speeds overall given that we use 10-50 model replicas. We further estimate the size of our dataset of sampled frames to be on the order of 50 million examples and that our networks have each seen approxi- mately 500 million examples throughout the training period in total. Video-level predictions. To produce predictions for an entire video we randomly sample 20 clips and present each clip individually to the network. Every clip is propagated through the network 4 times (with different crops and ﬂips)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00050",
+      "page": 5,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Figure 4: Predictions on Sports-1M test data. Blue (ﬁrst row) indicates ground truth label and the bars below show model",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 5,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "predictions sorted in decreasing conﬁdence. Green and red distinguish correct and incorrect predictions, respectively. Model Clip Hit@1 Video Hit@1 Video Hit@5 Feature Histograms + Neural Net - 55.3 - Single-Frame 41.1 59.3 77.7 Single-Frame + Multires 42.4 60.0 78.5 Single-Frame Fovea Only 30.0 49.9 72.8 Single-Frame Context Only 38.1 56.0 77.2 Early Fusion 38.9 57.7 76.8 Late Fusion 40.7 59.3 78.7 Slow Fusion 41.9 60.9 80.2 CNN Average (Single+Early+Late+Slow) 41.4 63.9 82.4",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00052",
+      "page": 5,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 1: Results on the 200,000 videos of the Sports-1M test set. Hit@k values indicate the fraction of test samples that",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00053",
+      "page": 5,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "contained at least one of the ground truth labels in the top k predictions. and the network class predictions are averaged to produce a more robust estimate of the class probabilities. To produce video-level predictions we opted for the simplest approach of averaging individual clip predictions over the durations of each video. We expect more elaborate techniques to fur- ther improve performance but consider these to be outside of the scope of the paper. Feature histogram baselines. In addition to comparing CNN architectures among each other, we also report the ac- curacy of a feature-based approach. Following a standard bag-of-words pipeline we extract several types of features at all frames of our videos, discretize them using k-means vector quantization and accumulate words into histograms with spatial pyramid encoding and soft quantization. Ev- ery histogram is normalized to sum to 1 and all histograms are concatenated into a 25,000 dimensional video-level fea- ture vector. Our fe...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 5,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "tiﬁed Linear Units followed by a Softmax classiﬁer. We",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 5,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "found that a multilayer network performs consistently and signiﬁcantly better than linear models on separate validation experiments. Furthermore, we performed extensive cross- validations across many of the network’s hyperparameters by training multiple models and choosing the one with best performance on a validation set. The tuned hyper parame- ters include the learning rate, weight decay, the number of hidden layers (between 1-2), dropout probabilities and the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Figure 5: Examples that illustrate qualitative differences between single-frame network and Slow Fusion (motion-aware)",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00057",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "network in the same color scheme as Figure 4. A few classes are easier to disambiguate with motion information (left three).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00058",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Figure 3: Filters learned on ﬁrst layer of a multiresolution",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00059",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "network. Left: context stream, Right: fovea stream. No- tably, the fovea stream learns grayscale, high-frequency fea- tures while the context stream models lower frequencies and colors. GIFs of moving video features can be found on our website (linked on ﬁrst page). number of nodes in all layers. Quantitative results . The results for the Sports-1M dataset test set, which consists of 200,000 videos and 4,000,000 clips, are summarized in Table 1. As can be seen from the table, our networks consistently and signif- icantly outperform the feature-based baseline. We empha- size that the feature-based approach computes visual words densely over the duration of the video and produces predic- tions based on the entire video-level feature vector, while our networks only see 20 randomly sampled clips individ- ually. Moreover, our networks seem to learn well despite signiﬁcant label noise: the training videos are subject to incorrect annotations and even the correctly-labeled videos",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00060",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "often contain a large amount of artifacts such as text, ef-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00061",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "fects, cuts, and logos, none of which we attempted to ﬁlter",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00062",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "out explicitly. Compared to the wide gap relative to the feature-based baseline, the variation among different CNN architectures turns out to be surprisingly insigniﬁcant. Notably, the single-frame model already displays strong performance. Furthermore, we observe that the foveated architectures are between 2-4× faster in practice due to reduced input dimen- sionality. The precise speedups are in part a function of the details of model partitioning and our implementation, but in our experiments we observe a speedup during training of 6 to 21 clips per second (3.5x) for the single-frame model and 5 to 10 clips per second (2x) for the Slow Fusion model. Contributions of motion. We conduct further exper- Sports class ∆ AP ∆ AP Sports class Juggling Club 0.12 -0.07 Short Track Motor Racing Pole Climbing 0.10 -0.07 Road Racing Mountain Unicycling 0.08 -0.07 Jeet Kune Do Tricking 0.07 -0.06 Paintball Footbag 0.07 -0.06 Freeride Skipping Rope 0.06 -0.06 Cricket Rope Climbing 0.06 -0.06 Wrest...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 2: Classes for which a (motion-aware) Slow Fusion",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00064",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "CNN performs better than the single-frame CNN (left) and vice versa (right), as measured by difference in per-class average precision. iments to understand the differences between the single- frame network and networks that have access to motion in- formation. We choose the Slow Fusion network as a rep- resentative motion-aware network because it performs best. We compute and compare the per-class average precision for all Sports classes and highlight the ones that exhibit",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00065",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "largest differences (Table 2). Manually inspecting some of",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00066",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "the associated clips (Figure 5), we qualitatively observe that the motion-aware network clearly beneﬁts from motion in- formation in some cases, but these seem to be relatively un- common. On the other hand, balancing the improvements from access to motion information, we observe that motion- aware networks are more likely to underperform when there is camera motion present. We hypothesize that the CNNs struggle to learn complete invariance across all possible an- gles and speeds of camera translation and zoom. Qualitative analysis. Our learned features for the ﬁrst convolutional layer can be inspected on Figure 3. In- terestingly, the context stream learns more color features while the high-resolution fovea stream learns high fre- quency grayscale ﬁlters. As can be seen on Figure 4, our networks produce in- terpretable predictions and generally make reasonable mis- takes. Further analysis of the confusion matrix (attached in the supplementary material) reveals that most errors are am...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Model 3-fold Accuracy",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00068",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Soomro et al [22] 43.9% Feature Histograms + Neural Net 59.0% Train from scratch 41.3% Fine-tune top layer 64.1% Fine-tune top 3 layers 65.4% Fine-tune all layers 62.2%",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 3: Results on UCF-101 for various Transfer Learning",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00070",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "approaches using the Slow Fusion network. 4.2. Transfer Learning Experiments on UCF-101 The results of our analysis on the Sports-1M dataset in- dicate that the networks learn powerful motion features. A natural question that arises is whether these features also generalize to other datasets and class categories. We ex-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00071",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "amine this question in detail by performing transfer learn-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00072",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "ing experiments on the UCF-101 [22] Activity Recognition dataset. The dataset consists of 13,320 videos belonging to 101 categories that are separated into 5 broad groups: Human-Object interaction (Applying eye makeup, brush- ing teeth, hammering, etc.), Body-Motion (Baby crawling, push ups, blowing candles, etc.), Human-Human interac- tion (Head massage, salsa spin, haircut, etc.), Playing In- struments (ﬂute, guitar, piano, etc.) and Sports. This group- ing allows us to separately study the performance improve- ments on Sports classes relative to classes from unrelated videos that are less numerous in our training data. Transfer learning. Since we expect that CNNs learn more generic features on the bottom of the network (such as edges, local shapes) and more intricate, dataset-speciﬁc features near the top of the network, we consider the fol- lowing scenarios for our transfer learning experiments: Fine-tune top layer. We treat the CNN as a ﬁxed feature extractor and train a classiﬁe...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00073",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 4: Mean Average Precision of the Slow Fusion net-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00074",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "work on UCF-101 classes broken down by category groups. these were not available and hence we cannot guarantee that the Sports-1M dataset has no overlap with UCF-101. How- ever, these concerns are somewhat mitigated as we only use a few sampled clips from every video. We use the Slow Fusion network in our UCF-101 exper- iments as it provides the best performance on Sports-1M. The results of the experiments can be seen on Table 3. In-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00075",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "terestingly, retraining the softmax layer alone does not per-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00076",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "form best (possibly because the high-level features are too speciﬁc to sports) and the other extreme of ﬁne-tuning all layers is also not adequate (likely due to overﬁtting). In- stead, the best performance is obtained by taking a balanced approach and retraining the top few layers of the network. Lastly, training the entire network from scratch consistently leads to massive overﬁtting and dismal performance. Performance by group. We further break down our per- formance by 5 broad groups of classes present in the UCF- 101 dataset. We compute the average precision of every class and then compute the mean average precision over",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00077",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "classes in each group. As can be seen from Table 4, large",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00078",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "fractions of our performance can be attributed to the Sports categories in UCF-101, but the other groups still display im- pressive performance considering that the only way to ob- serve these types of frames in the training data is due to label noise. Moreover, the gain in performance when retraining only the top to retraining the top 3 layers is almost entirely due to improvements on non-Sports categories: Sports per- formance only decreases from 0.80 to 0.79, while mAP im- proves on all other categories. 5. Conclusions We studied the performance of convolutional neural net-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00079",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "works in large-scale video classiﬁcation. We found that",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00080",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "CNN architectures are capable of learning powerful fea- tures from weakly-labeled data that far surpass feature- based methods in performance and that these beneﬁts are surprisingly robust to details of the connectivity of the ar-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00081",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "chitectures in time. Qualitative examination of network out-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00082",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "puts and confusion matrices reveals interpretable errors. Our results indicate that while the performance is not particularly sensitive to the architectural details of the con- nectivity in time, a Slow Fusion model consistently per- forms better than the early and late fusion alternatives. Sur-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00083",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "prisingly, we ﬁnd that a single-frame model already dis- plays very strong performance, suggesting that local motion cues may not be critically important, even for a dynamic dataset such as Sports. An alternative theory is that more careful treatment of camera motion may be necessary (for example by extracting features in the local coordinate sys- tem of a tracked point, as seen in [25]), but this requires signiﬁcant changes to a CNN architecture that we leave for future work. We also identiﬁed mixed-resolution architec- tures that consist of a low-resolution context and a high- resolution fovea stream as an effective way of speeding up CNNs without sacriﬁcing accuracy. Our transfer learning experiments on UCF-101 suggest that the learned features are generic and generalize other video classiﬁcation tasks. In particular, we achieved the highest transfer learning performance by retraining the top 3 layers of the network. In future work we hope to incorporate broader categories in the d...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00084",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "References",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00085",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[1] M. Baccouche, F. Mamalet, C. Wolf, C. Garcia, and A. Baskurt. Sequential deep learning for human action recognition. In Human Behavior Understanding, pages 29– 39. Springer, 2011. 2, 3 [2] D. Ciresan, A. Giusti, J. Schmidhuber, et al. Deep neural net- works segment neuronal membranes in electron microscopy images. In NIPS, 2012. 1 [3] L. N. Clement Farabet, Camille Couprie and Y . LeCun. Learning hierarchical features for scene labeling. PAMI, 35(8), 2013. 1, 2 [4] C. Couprie, C. Farabet, L. Najman, and Y . LeCun. Indoor semantic segmentation using depth information.Internatinal Conference on Learning Representation, 2013. 2 [5] N. Dalal and B. Triggs. Histograms of oriented gradients for human detection. In CVPR, volume 1, 2005. 5 [6] J. Dean, G. Corrado, R. Monga, K. Chen, M. Devin, Q. V . Le, M. Z. Mao, M. Ranzato, A. Senior, P. Tucker, K. Yang,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00086",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "and A. Y . Ng. Large scale distributed deep networks. In",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00087",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "NIPS, 2012. 4 [7] J. Deng, W. Dong, R. Socher, L.-J. Li, K. Li, and L. Fei-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00088",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Fei. Imagenet: A large-scale hierarchical image database. In",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00089",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "CVPR, 2009. 2 [8] P. Doll ´ar, V . Rabaud, G. Cottrell, and S. Belongie. Behav- ior recognition via sparse spatio-temporal features. In Inter- national Workshop on Visual Surveillance and Performance Evaluation of Tracking and Surveillance, 2005. 2, 5 [9] R. Girshick, J. Donahue, T. Darrell, and J. Malik. Rich fea- ture hierarchies for accurate object detection and semantic segmentation. In CVPR, 2014. 1, 2 [10] S. Ji, W. Xu, M. Yang, and K. Yu. 3D convolutional neural networks for human action recognition. PAMI, 35(1):221– 231, 2013. 2, 3 [11] A. Krizhevsky, I. Sutskever, and G. Hinton. Imagenet clas- siﬁcation with deep convolutional neural networks. InNIPS, 2012. 1, 2, 3, 4 [12] I. Laptev. On space-time interest points. IJCV, 64(2-3):107– 123, 2005. 2 [13] I. Laptev, M. Marszalek, C. Schmid, and B. Rozenfeld. Learning realistic human actions from movies. In CVPR, 2008. 2 [14] Q. V . Le, W. Y . Zou, S. Y . Yeung, and A. Y . Ng. Learn- ing hierarchical invariant spatio-temporal featu...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00090",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[27] W. Yang and G. Toderici. Discriminative tag learning on",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00091",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "youtube videos with latent sub-tags. In CVPR, 2011. 5 [28] M. D. Zeiler and R. Fergus. Visualizing and under- standing convolutional neural networks. arXiv preprint arXiv:1311.2901, 2013. 1, 3",
+      "source_type": "reference"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "warnings": [
+      {
+        "code": "ok",
+        "message": "Grounding verification passed with current v1 checks.",
+        "target": null,
+        "severity": "info"
+      }
+    ],
+    "anchor_count": 91
+  }
+}

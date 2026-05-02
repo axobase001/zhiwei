@@ -1,0 +1,492 @@
+{
+  "paper_skeleton": {
+    "problem": "在社交网络中，节点分类任务面临数据稀疏和传统机器学习方法无法有效利用图结构信息的问题。传统关系分类方法依赖近似推理，容易产生级联错误，且难以扩展到大规模网络。",
+    "motivation": "社交网络中的链接关系违反了传统机器学习的独立同分布假设。现有方法要么需要全局视图，要么在标签稀疏时性能下降。需要一种能够学习节点潜在表示、编码社交关系、并适用于大规模在线学习的方法。",
+    "core_idea": "将语言建模和无监督特征学习（深度学习）从词序列推广到图结构。通过截断随机游走获取局部信息，将游走视为句子，利用Skip-gram模型学习节点的潜在向量表示。",
+    "method": "1. 对图中的每个节点执行γ次随机游走，生成长度为t的游走序列。2. 将随机游走视为句子，节点视为单词，使用Skip-gram模型（带分层Softmax）学习节点的d维潜在表示Φ。3. 优化目标是最大化给定中心节点时其上下文窗口内节点出现的概率。4. 使用异步随机梯度下降（ASGD）进行训练，支持在线学习和并行化。",
+    "experiments": "在BlogCatalog、Flickr和YouTube三个社交网络数据集上进行多标签分类任务评估。与SpectralClustering、Modularity、EdgeCluster、wvRN和Majority等基线方法比较。评估指标包括Macro-F1和Micro-F1。进行了参数敏感性分析（游走次数γ、窗口大小w、维度d）和并行化效率测试。",
+    "claims": [
+      "DeepWalk能够学习编码社交关系的节点潜在表示。",
+      "在标签数据稀疏时，DeepWalk的分类性能显著优于基线方法。",
+      "DeepWalk是可扩展的在线学习算法，支持并行化。",
+      "DeepWalk的表示可以用于多种分类任务，具有通用性。"
+    ],
+    "limitations": "论文未明确讨论方法的局限性。潜在局限包括：随机游走策略可能无法捕获所有类型的图结构；对于非常稀疏的图，性能可能下降；分层Softmax的树结构构建可能影响效率；未探讨动态图的实时更新策略。"
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "随机游走生成",
+        "label": "数据预处理",
+        "summary": "从图中的每个节点出发，执行γ次长度为t的截断随机游走，生成节点序列。",
+        "description": "对于图G=(V,E)中的每个节点v_i，生成γ条随机游走路径W_{v_i}，每条路径长度为t。游走过程中，下一步节点从当前节点的邻居中均匀随机选择。",
+        "type": "process",
+        "anchors": [
+          "anc_00068",
+          "anc_00061",
+          "anc_00048"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "语言建模类比",
+        "label": "核心思想",
+        "summary": "将随机游走序列类比为自然语言句子，节点类比为单词，从而应用语言建模技术。",
+        "description": "观察到社交网络中节点在随机游走中的出现频率与自然语言中单词的频率都遵循幂律分布。因此，将随机游走视为特殊语言中的句子，节点视为词汇。",
+        "type": "concept",
+        "anchors": [
+          "anc_00033",
+          "anc_00040",
+          "anc_00041"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "Skip-gram模型",
+        "label": "表示学习模型",
+        "summary": "使用Skip-gram语言模型学习节点的潜在向量表示，优化目标是最大化给定中心节点时其上下文节点出现的概率。",
+        "description": "给定一个中心节点v_i，Skip-gram模型试图最大化其上下文窗口（大小为w）内节点出现的概率。优化问题为最小化负对数似然：-log Pr({v_{i-w},...,v_{i-1},v_{i+1},...,v_{i+w}} | Φ(v_i))。",
+        "type": "model",
+        "anchors": [
+          "anc_00042",
+          "anc_00044",
+          "anc_00045",
+          "anc_00046",
+          "anc_00071",
+          "anc_00073"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "分层Softmax",
+        "label": "计算优化",
+        "summary": "使用分层Softmax近似计算softmax概率，降低计算复杂度。",
+        "description": "由于词汇量（节点数|V|）可能很大，直接计算softmax代价高昂。分层Softmax将概率计算分解为一系列二分类问题，构建一棵二叉树，每个节点对应一个二分类器。计算复杂度从O(|V|)降低到O(log|V|)。",
+        "type": "technique",
+        "anchors": [
+          "anc_00076",
+          "anc_00077",
+          "anc_00079",
+          "anc_00083",
+          "anc_00085",
+          "anc_00089"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "异步随机梯度下降",
+        "label": "优化算法",
+        "summary": "使用异步随机梯度下降（ASGD）进行模型训练，支持在线学习和并行化。",
+        "description": "模型参数{Φ, T}使用SGD优化。由于节点出现频率服从幂律分布，参数更新稀疏，因此可以使用ASGD进行并行训练，无需加锁，实现高效并行化。",
+        "type": "algorithm",
+        "anchors": [
+          "anc_00093",
+          "anc_00102",
+          "anc_00103"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "潜在表示输出",
+        "label": "输出",
+        "summary": "输出每个节点的d维潜在向量表示Φ(v)，可用于下游分类任务。",
+        "description": "最终得到一个|V|×d的矩阵Φ，其中每一行对应一个节点的d维潜在表示。该表示编码了节点的局部图结构信息，可以作为特征输入到任何标准分类器（如逻辑回归）。",
+        "type": "output",
+        "anchors": [
+          "anc_00042",
+          "anc_00026"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "提供输入",
+        "description": "随机游走生成的节点序列作为语言建模类比的输入数据。"
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "指导建模",
+        "description": "语言建模类比指导了Skip-gram模型的设计和应用。"
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "依赖优化",
+        "description": "Skip-gram模型使用分层Softmax来高效计算输出概率。"
+      },
+      {
+        "source": "node_003",
+        "target": "node_005",
+        "label": "参数优化",
+        "description": "Skip-gram模型的参数通过异步随机梯度下降进行优化。"
+      },
+      {
+        "source": "node_005",
+        "target": "node_006",
+        "label": "生成输出",
+        "description": "优化过程最终学习到节点的潜在表示。"
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "传统关系分类方法（如SpectralClustering、Modularity）和基于统计的图特征方法（如EdgeCluster）。",
+    "new_method": "DeepWalk：通过随机游走和Skip-gram模型学习节点的潜在向量表示。",
+    "deltas": [
+      {
+        "before": "传统方法依赖图的全局结构（如拉普拉斯矩阵、模度矩阵）或需要近似推理。",
+        "after": "DeepWalk仅使用局部随机游走信息，通过语言建模学习分布式表示。",
+        "why_it_matters": "避免了全局计算的高复杂度，适用于大规模图；学习到的表示是低维、稠密、连续的，便于下游机器学习模型使用；避免了迭代推理中的级联错误。",
+        "anchors": [
+          "anc_00025",
+          "anc_00026",
+          "anc_00207"
+        ]
+      },
+      {
+        "before": "现有方法通常是离线批处理算法。",
+        "after": "DeepWalk是在线学习算法，可以增量更新表示。",
+        "why_it_matters": "能够适应网络拓扑的变化，适用于动态网络场景。",
+        "anchors": [
+          "anc_00053",
+          "anc_00110"
+        ]
+      },
+      {
+        "before": "许多图表示方法难以并行化。",
+        "after": "DeepWalk使用异步随机梯度下降，更新稀疏，可以高效并行化。",
+        "why_it_matters": "显著提高了训练效率，能够扩展到非常大的网络。",
+        "anchors": [
+          "anc_00102",
+          "anc_00103",
+          "anc_00106"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\min_{\\Phi} -\\log \\Pr( \\{v_{i-w}, \\cdots, v_{i-1}, v_{i+1}, \\cdots, v_{i+w}\\} | \\Phi(v_i) )",
+        "variables": [
+          {
+            "name": "\\Phi",
+            "description": "节点到潜在向量的映射函数，由|V|×d的参数矩阵表示。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00042"
+            ]
+          },
+          {
+            "name": "v_i",
+            "description": "随机游走序列中的中心节点。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00044"
+            ]
+          },
+          {
+            "name": "w",
+            "description": "上下文窗口大小。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00044"
+            ]
+          }
+        ],
+        "dependencies": [
+          "Skip-gram模型",
+          "随机游走序列"
+        ],
+        "intuition": "核心优化目标：给定一个中心节点，最大化其上下文窗口内节点出现的概率。这迫使模型学习到的节点表示能够预测其局部图结构中的邻居节点。",
+        "anchors": [
+          "anc_00044",
+          "anc_00045",
+          "anc_00046"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "\\Pr(v_j | \\Phi(v_i)) = \\prod_{l=1}^{\\lceil \\log |V| \\rceil} \\Pr(b_l | \\Phi(v_j))",
+        "variables": [
+          {
+            "name": "b_l",
+            "description": "分层Softmax二叉树中从根节点到目标节点v_j路径上的第l个节点。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00085"
+            ]
+          },
+          {
+            "name": "\\Pr(b_l | \\Phi(v_j))",
+            "description": "由分配给节点b_l父节点的二元分类器建模的概率。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00089"
+            ]
+          }
+        ],
+        "dependencies": [
+          "分层Softmax二叉树"
+        ],
+        "intuition": "分层Softmax将计算一个节点概率的复杂问题，分解为沿着二叉树路径的一系列二分类问题，大大降低了计算复杂度。",
+        "anchors": [
+          "anc_00083",
+          "anc_00085",
+          "anc_00089"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "在BlogCatalog、Flickr和YouTube数据集上的多标签分类任务结果。",
+      "metrics": [
+        "Macro-F1",
+        "Micro-F1"
+      ],
+      "key_findings": "DeepWalk在所有数据集上均优于基线方法，尤其在标签数据稀疏时优势明显。例如，在Flickr数据集上，仅使用3%标签数据时的Micro-F1就超过了其他方法使用10%标签数据时的性能。",
+      "anchors": [
+        "anc_00141",
+        "anc_00142",
+        "anc_00143",
+        "anc_00144",
+        "anc_00147",
+        "anc_00148",
+        "anc_00151",
+        "anc_00152"
+      ]
+    },
+    "ablation": {
+      "description": "参数敏感性分析，研究游走次数γ、窗口大小w、维度d和训练数据比例TR的影响。",
+      "key_findings": "γ增加初期效果显著，但超过10后收益递减。最优维度d依赖于训练数据量。窗口大小w=10表现良好。",
+      "anchors": [
+        "anc_00181",
+        "anc_00182",
+        "anc_00184",
+        "anc_00186",
+        "anc_00189",
+        "anc_00191",
+        "anc_00193",
+        "anc_00194",
+        "anc_00196",
+        "anc_00198",
+        "anc_00200",
+        "anc_00201",
+        "anc_00203",
+        "anc_00204"
+      ]
+    },
+    "robustness": {
+      "description": "在不同训练数据比例下的性能评估。",
+      "key_findings": "DeepWalk在标签数据非常稀疏（如1%-10%）时仍能保持高性能，展现出对标签稀疏性的鲁棒性。",
+      "anchors": [
+        "anc_00141",
+        "anc_00142",
+        "anc_00147",
+        "anc_00151"
+      ]
+    },
+    "scaling": {
+      "description": "并行化效率测试。",
+      "key_findings": "随着工作线程数增加到8，处理BlogCatalog和Flickr网络的速度一致提升，且预测性能没有损失。",
+      "anchors": [
+        "anc_00105",
+        "anc_00106",
+        "anc_00115"
+      ]
+    },
+    "case_study": {
+      "description": "在Zachary空手道网络上的可视化案例。",
+      "key_findings": "DeepWalk学习到的2维潜在表示与通过模块度最大化发现的社区结构高度对应。",
+      "anchors": [
+        "anc_00007",
+        "anc_00008",
+        "anc_00010",
+        "anc_00011"
+      ]
+    },
+    "human_eval": {
+      "description": "未提及人工评估。",
+      "key_findings": "无",
+      "anchors": []
+    },
+    "benchmark": {
+      "description": "使用的基准数据集：BlogCatalog, Flickr, YouTube。",
+      "key_findings": "这些是真实世界的社交网络，具有多标签分类任务。",
+      "anchors": [
+        "anc_00124",
+        "anc_00125",
+        "anc_00126",
+        "anc_00127"
+      ]
+    },
+    "efficiency": {
+      "description": "训练效率和可扩展性。",
+      "key_findings": "DeepWalk是在线、可并行化的算法，能够处理大规模图（如YouTube）。",
+      "anchors": [
+        "anc_00102",
+        "anc_00103",
+        "anc_00106",
+        "anc_00151"
+      ]
+    }
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "DeepWalk能够学习编码社交关系的节点潜在表示。",
+        "evidence_source_type": "实验结果（分类性能）和案例研究（可视化）。",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00143",
+          "anc_00147",
+          "anc_00152",
+          "anc_00007",
+          "anc_00008",
+          "anc_00010",
+          "anc_00011"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "在标签数据稀疏时，DeepWalk的分类性能显著优于基线方法。",
+        "evidence_source_type": "在不同训练比例下的实验结果。",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00141",
+          "anc_00142",
+          "anc_00143",
+          "anc_00144",
+          "anc_00147",
+          "anc_00148",
+          "anc_00151",
+          "anc_00152"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "DeepWalk是可扩展的在线学习算法，支持并行化。",
+        "evidence_source_type": "并行化效率实验和算法设计描述。",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00102",
+          "anc_00103",
+          "anc_00105",
+          "anc_00106",
+          "anc_00115"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "DeepWalk的表示可以用于多种分类任务，具有通用性。",
+        "evidence_source_type": "方法描述和实验设置。",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00026",
+          "anc_00135"
+        ],
+        "risk_flags": [
+          "论文仅展示了多标签分类任务，未验证其他任务类型。"
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "DeepWalk",
+        "definition": "本文提出的图表示学习方法，通过随机游走和Skip-gram模型学习节点的潜在向量表示。",
+        "anchors": [
+          "anc_00003"
+        ]
+      },
+      {
+        "term": "潜在表示",
+        "definition": "将图中的节点映射到低维连续向量空间中的向量，编码了节点的结构信息。",
+        "anchors": [
+          "anc_00003",
+          "anc_00026"
+        ]
+      },
+      {
+        "term": "随机游走",
+        "definition": "从图中某个节点开始，随机选择邻居节点进行遍历的路径。",
+        "anchors": [
+          "anc_00003",
+          "anc_00068"
+        ]
+      },
+      {
+        "term": "Skip-gram",
+        "definition": "一种语言模型，用于根据中心词预测其上下文词。在本文中用于根据中心节点预测其上下文节点。",
+        "anchors": [
+          "anc_00071",
+          "anc_00073"
+        ]
+      },
+      {
+        "term": "分层Softmax",
+        "definition": "一种用于加速大规模softmax计算的技术，通过构建二叉树将多分类问题分解为一系列二分类问题。",
+        "anchors": [
+          "anc_00079",
+          "anc_00083"
+        ]
+      },
+      {
+        "term": "异步随机梯度下降",
+        "definition": "一种并行优化算法，多个工作线程同时更新模型参数而无需加锁。",
+        "anchors": [
+          "anc_00093",
+          "anc_00102"
+        ]
+      },
+      {
+        "term": "多标签分类",
+        "definition": "一个节点可以同时属于多个类别的分类任务。",
+        "anchors": [
+          "anc_00134"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "required_datasets": [
+      "BlogCatalog",
+      "Flickr",
+      "YouTube"
+    ],
+    "required_models": [
+      "逻辑回归分类器（用于下游评估）"
+    ],
+    "required_compute": "多核CPU或GPU，用于并行训练。具体算力需求未知。",
+    "code_available": "论文提到代码和数据将在第一作者网站提供，但未给出具体链接。状态未知。",
+    "steps": [
+      "1. 获取或构建BlogCatalog、Flickr、YouTube社交网络图数据。",
+      "2. 实现随机游走生成算法：对每个节点生成γ条长度为t的游走。",
+      "3. 实现Skip-gram模型，使用分层Softmax作为输出层。",
+      "4. 使用异步随机梯度下降（ASGD）在随机游走序列上训练模型，学习节点表示Φ。",
+      "5. 将学习到的节点表示作为特征，输入到逻辑回归分类器进行多标签分类训练和评估。",
+      "6. 进行参数敏感性实验（γ, w, d, TR）。"
+    ],
+    "missing_details": [
+      "随机游走中邻居选择的具体概率分布（论文假设均匀随机，但未明确说明）。",
+      "分层Softmax二叉树的具体构建方法（如霍夫曼树）。",
+      "异步SGD的具体实现细节（如学习率调度、梯度累积方式）。",
+      "下游逻辑回归分类器的具体实现和超参数。",
+      "数据集的具体预处理步骤和划分方式。",
+      "并行化实现的具体框架和线程管理方式。"
+    ],
+    "risk_points": [
+      "随机游走策略可能无法捕获图的长程依赖或特定结构模式。",
+      "分层Softmax的树结构构建方式可能影响最终表示质量。",
+      "异步SGD的收敛性和稳定性可能受并行度和学习率影响。",
+      "论文未提供超参数选择的详细指导，需要大量调参。",
+      "代码和数据的可获取性未知，可能影响复现。"
+    ]
+  }
+}

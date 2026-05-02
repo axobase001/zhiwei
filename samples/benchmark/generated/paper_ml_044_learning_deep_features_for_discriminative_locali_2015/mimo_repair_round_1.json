@@ -1,0 +1,1354 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "卷积神经网络（CNN）在仅使用图像级标签进行分类训练时，其卷积层具有物体定位能力，但该能力在使用全连接层进行分类时会丢失。现有弱监督定位方法需要多次前向传播或非端到端训练，难以扩展。",
+      "anchors": [
+        "anc_00004",
+        "anc_00006",
+        "anc_00008"
+      ]
+    },
+    "motivation": {
+      "summary": "重新审视全局平均池化（GAP）层，发现其不仅是一种正则化手段，还能构建通用的、可定位的深度表示，从而在仅使用分类标签训练的情况下，使CNN获得显著的物体定位能力。",
+      "anchors": [
+        "anc_00004",
+        "anc_00008"
+      ]
+    },
+    "core_idea": {
+      "summary": "通过将全局平均池化（GAP）层与最终的全连接层（或softmax层）结合，并利用类激活映射（CAM）技术，将分类预测分数反向投影到卷积特征图上，从而生成突出显示判别性图像区域的类激活图，实现弱监督定位。",
+      "anchors": [
+        "anc_00004",
+        "anc_00011",
+        "anc_00012",
+        "anc_00029",
+        "anc_00030",
+        "anc_00035"
+      ]
+    },
+    "method": {
+      "summary": "1. 修改网络架构：在最后一个卷积层后使用全局平均池化（GAP），然后连接一个全连接层（softmax）进行分类。2. 生成类激活图（CAM）：对于给定类别c，其类激活图Mc(x, y)是最后一个卷积层特征图fk(x, y)的加权和，权重为该类别对应的全连接层权重wc_k。3. 定位：通过阈值化CAM生成热力图，提取最大连通分量的边界框作为定位结果。",
+      "anchors": [
+        "anc_00035",
+        "anc_00037",
+        "anc_00038",
+        "anc_00039",
+        "anc_00040",
+        "anc_00041",
+        "anc_00042",
+        "anc_00051",
+        "anc_00052",
+        "anc_00053",
+        "anc_00054",
+        "anc_00080",
+        "anc_00083",
+        "anc_00084"
+      ]
+    },
+    "experiments": {
+      "summary": "在ILSVRC 2014数据集上进行弱监督物体定位和分类评估；在多个场景、物体、细粒度识别数据集（如SUN397, MIT Indoor67, CUB-200-2011）上评估特征的通用性和定位能力；进行消融实验比较GAP与GMP（全局最大池化）的效果。",
+      "anchors": [
+        "anc_00071",
+        "anc_00073",
+        "anc_00075",
+        "anc_00078",
+        "anc_00087",
+        "anc_00090",
+        "anc_00094",
+        "anc_00098",
+        "anc_00106",
+        "anc_00107"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "1. GAP层使CNN在仅使用图像级标签训练时获得显著的物体定位能力。2. CAM技术能够生成类别的判别性区域图。3. GAP比GMP更有利于定位物体的完整范围。4. 该方法生成的深度特征是通用的，可用于多种视觉识别任务。",
+        "anchors": [
+          "anc_00004",
+          "anc_00011",
+          "anc_00012",
+          "anc_00029",
+          "anc_00030",
+          "anc_00061",
+          "anc_00062",
+          "anc_00064",
+          "anc_00088",
+          "anc_00089",
+          "anc_00094",
+          "anc_00095",
+          "anc_00098",
+          "anc_00106"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "1. 定位精度依赖于最后一个卷积层的空间分辨率（映射分辨率）。2. 生成的边界框是基于阈值化和连通分量分析的简单启发式方法，可能不够精确。3. 对于需要精确定位的任务（如实例分割），该方法可能不足。",
+        "anchors": [
+          "anc_00073",
+          "anc_00080",
+          "anc_00083",
+          "anc_00084"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "输入图像",
+        "label": "Input",
+        "summary": "待分类和定位的原始图像。",
+        "description": "输入到CNN网络的原始图像数据。",
+        "type": "data",
+        "anchors": [
+          "anc_00004"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "卷积特征提取",
+        "label": "Feature Extraction",
+        "summary": "通过多个卷积层提取图像的层次化特征。",
+        "description": "网络主体由卷积层构成，提取从低级到高级的视觉特征。论文中使用了AlexNet、VGGnet、GoogLeNet等架构，并移除了部分层以提高最后一个卷积层的空间分辨率（映射分辨率）。",
+        "type": "process",
+        "anchors": [
+          "anc_00032",
+          "anc_00033",
+          "anc_00073"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "全局平均池化 (GAP)",
+        "label": "Global Average Pooling",
+        "summary": "对最后一个卷积层的每个特征图进行空间平均，得到一个特征向量。",
+        "description": "对于最后一个卷积层的第k个特征图fk(x, y)，其全局平均池化结果Fk = ∑_{x,y} fk(x, y)。这一步将空间信息压缩为通道级的统计量，同时保留了通道间的相对重要性。",
+        "type": "process",
+        "anchors": [
+          "anc_00035",
+          "anc_00037",
+          "anc_00038",
+          "anc_00039",
+          "anc_00040"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "全连接/Softmax层",
+        "label": "Classification Layer",
+        "summary": "将GAP输出的特征向量映射到类别分数。",
+        "description": "一个全连接层（或softmax层）将GAP输出的特征向量Fk转换为类别分数Sc。对于类别c，Sc = ∑_k wc_k * Fk，其中wc_k是类别c对应于单元k的权重。",
+        "type": "process",
+        "anchors": [
+          "anc_00041",
+          "anc_00042"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "类别预测",
+        "label": "Class Prediction",
+        "summary": "输出图像属于各个类别的概率。",
+        "description": "通过softmax函数计算类别概率Pc = exp(Sc) / ∑_c exp(Sc)。",
+        "type": "output",
+        "anchors": [
+          "anc_00043",
+          "anc_00044"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "类激活映射 (CAM) 生成",
+        "label": "CAM Generation",
+        "summary": "利用分类层的权重将类别分数映射回卷积特征图，生成类激活图。",
+        "description": "对于类别c，其类激活图Mc(x, y) = ∑_k wc_k * fk(x, y)。该图的每个空间位置值表示该位置对预测类别c的重要性。",
+        "type": "process",
+        "anchors": [
+          "anc_00051",
+          "anc_00052",
+          "anc_00053",
+          "anc_00054"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "定位边界框生成",
+        "label": "Bounding Box Generation",
+        "summary": "通过阈值化CAM并提取连通分量来生成物体边界框。",
+        "description": "对CAM进行阈值化（例如，取最大值的某个百分比），分割出高激活区域，然后提取最大连通分量的外接矩形作为预测的边界框。",
+        "type": "process",
+        "anchors": [
+          "anc_00080",
+          "anc_00083",
+          "anc_00084"
+        ]
+      },
+      {
+        "node_id": "node_008",
+        "title": "定位结果",
+        "label": "Localization Output",
+        "summary": "输出预测的物体类别和边界框。",
+        "description": "最终输出包括预测的物体类别和对应的边界框坐标。",
+        "type": "output",
+        "anchors": [
+          "anc_00087",
+          "anc_00090"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "输入",
+        "anchors": [
+          "anc_00004"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "特征图",
+        "anchors": [
+          "anc_00033",
+          "anc_00035"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "特征向量",
+        "anchors": [
+          "anc_00041"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "label": "类别分数",
+        "anchors": [
+          "anc_00043"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_004",
+        "target": "node_006",
+        "label": "权重",
+        "anchors": [
+          "anc_00051",
+          "anc_00053"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_002",
+        "target": "node_006",
+        "label": "特征图",
+        "anchors": [
+          "anc_00051",
+          "anc_00053"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_006",
+        "target": "node_007",
+        "label": "类激活图",
+        "anchors": [
+          "anc_00080"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_007",
+        "target": "node_008",
+        "label": "边界框",
+        "anchors": [
+          "anc_00087"
+        ],
+        "description": ""
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00006",
+        "anc_00018",
+        "anc_00019",
+        "anc_00020"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00004",
+        "anc_00008",
+        "anc_00035",
+        "anc_00037",
+        "anc_00038",
+        "anc_00039",
+        "anc_00040",
+        "anc_00051",
+        "anc_00052",
+        "anc_00053",
+        "anc_00054"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "网络使用全连接层进行分类，定位能力在卷积层之后丢失。",
+        "after": "网络使用GAP层后接一个全连接层（softmax），保留了卷积层的定位能力。",
+        "why_it_matters": "GAP层作为一个结构正则化器，同时构建了可定位的深度表示，使得仅用分类标签训练的网络能够进行物体定位。",
+        "anchors": [
+          "anc_00004",
+          "anc_00006",
+          "anc_00008"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "弱监督定位方法（如基于遮挡、多实例学习）需要多次前向传播或非端到端训练。",
+        "after": "CAM方法在单次前向传播中即可生成类激活图，实现端到端训练和快速定位。",
+        "why_it_matters": "提高了定位效率，使方法更易于扩展到大规模数据集。",
+        "anchors": [
+          "anc_00009",
+          "anc_00018"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "全局最大池化（GMP）用于定位时，倾向于只定位最具判别性的单个点。",
+        "after": "全局平均池化（GAP）鼓励网络识别物体的完整范围。",
+        "why_it_matters": "GAP的损失函数受益于网络识别物体的所有判别性区域，而GMP则不然，这使得GAP在定位任务上优于GMP。",
+        "anchors": [
+          "anc_00061",
+          "anc_00062",
+          "anc_00064",
+          "anc_00088",
+          "anc_00089"
+        ],
+        "delta_id": "delta_3"
+      },
+      {
+        "before": "标准CNN的特征（如fc7）是通用的，但不具备直接的定位可视化能力。",
+        "after": "GAP网络的特征（GAP层输出）既是通用的，又能通过CAM直接可视化判别性区域。",
+        "why_it_matters": "提供了对CNN决策过程的直观解释，并可用于改进下游任务（如细粒度识别）。",
+        "anchors": [
+          "anc_00094",
+          "anc_00095",
+          "anc_00098",
+          "anc_00106"
+        ],
+        "delta_id": "delta_4"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "F_k = \\sum_{x,y} f_k(x, y)",
+        "description": "全局平均池化（GAP）操作：对最后一个卷积层的第k个特征图f_k(x, y)在所有空间位置(x, y)上求平均，得到特征F_k。",
+        "variables": [
+          {
+            "name": "F_k",
+            "description": "第k个卷积核经过全局平均池化后的特征值。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00038",
+              "anc_00039",
+              "anc_00040"
+            ]
+          },
+          {
+            "name": "f_k(x, y)",
+            "description": "最后一个卷积层中，第k个卷积核在空间位置(x, y)的激活值。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00037"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "将每个特征图的空间信息压缩为一个标量，代表该特征图的整体激活强度。这迫使网络学习在空间上分布广泛的特征，从而有利于定位物体的完整范围。",
+        "anchors": [
+          "anc_00037",
+          "anc_00038",
+          "anc_00039",
+          "anc_00040"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "S_c = \\sum_k w^c_k F_k",
+        "description": "类别c的得分计算：将所有特征图的GAP值F_k与对应类别c的权重w^c_k进行加权求和。",
+        "variables": [
+          {
+            "name": "S_c",
+            "description": "类别c的原始得分（softmax之前的输入）。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00041",
+              "anc_00042"
+            ]
+          },
+          {
+            "name": "w^c_k",
+            "description": "全连接层中，类别c对应于第k个特征图的权重。它表示特征F_k对类别c的重要性。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00042"
+            ]
+          },
+          {
+            "name": "F_k",
+            "description": "第k个卷积核经过全局平均池化后的特征值。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00038",
+              "anc_00039",
+              "anc_00040"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "这是分类层的线性组合。权重w^c_k编码了每个特征图F_k对于判断图像是否属于类别c的贡献程度。",
+        "anchors": [
+          "anc_00041",
+          "anc_00042"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "M_c(x, y) = \\sum_k w^c_k f_k(x, y)",
+        "description": "类激活映射（CAM）生成：对于类别c，其激活图M_c(x, y)是最后一个卷积层特征图f_k(x, y)的加权和，权重为类别c对应的全连接层权重w^c_k。",
+        "variables": [
+          {
+            "name": "M_c(x, y)",
+            "description": "类别c在空间位置(x, y)的激活值，表示该位置对预测类别c的重要性。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00051",
+              "anc_00052",
+              "anc_00053"
+            ]
+          },
+          {
+            "name": "w^c_k",
+            "description": "全连接层中，类别c对应于第k个特征图的权重。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00042"
+            ]
+          },
+          {
+            "name": "f_k(x, y)",
+            "description": "最后一个卷积层中，第k个卷积核在空间位置(x, y)的激活值。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00037"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "这是CAM的核心公式。它将分类层的权重“投影”回卷积特征图的空间维度，从而生成一张热力图，直观地显示了图像中哪些区域对于预测特定类别最重要。",
+        "anchors": [
+          "anc_00051",
+          "anc_00052",
+          "anc_00053",
+          "anc_00054"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "latex": "P_c = \\frac{\\exp(S_c)}{\\sum_{c'} \\exp(S_{c'})}",
+        "description": "Softmax函数，将类别得分S_c转换为概率分布P_c。",
+        "variables": [
+          {
+            "name": "P_c",
+            "description": "图像属于类别c的预测概率。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00043"
+            ]
+          },
+          {
+            "name": "S_c",
+            "description": "类别c的原始得分。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00041",
+              "anc_00042"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "标准的分类输出层，将得分归一化为概率。",
+        "anchors": [
+          "anc_00043",
+          "anc_00044"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "experiment": "ILSVRC 2014 弱监督物体定位（测试集）",
+        "result": "GoogLeNet-GAP (使用启发式边界框选择) 达到37.1% top-5错误率。",
+        "anchors": [
+          "anc_00090",
+          "anc_00093",
+          "anc_00094"
+        ]
+      },
+      {
+        "experiment": "ILSVRC 2014 分类（验证集）",
+        "result": "GAP网络（如GoogLeNet-GAP）的分类性能与原始网络（如GoogLeNet）相当或略有下降，但保留了定位能力。",
+        "anchors": [
+          "anc_00078",
+          "anc_00079",
+          "anc_00081"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "experiment": "GAP vs GMP (全局最大池化) 在ILSVRC上的比较",
+        "result": "在分类任务上性能相似，但在定位任务上，GAP (GoogLeNet-GAP, 43.00% top-5 val error) 显著优于GMP (GoogLeNet-GMP, 45.26% top-5 val error)。",
+        "anchors": [
+          "anc_00076",
+          "anc_00077",
+          "anc_00088",
+          "anc_00089",
+          "anc_00092"
+        ]
+      },
+      {
+        "experiment": "不同网络架构（AlexNet, VGGnet, GoogLeNet）应用GAP后的效果",
+        "result": "GoogLeNet-GAP在定位上表现最好，部分原因是其较高的映射分辨率（14x14）。",
+        "anchors": [
+          "anc_00073",
+          "anc_00087",
+          "anc_00092"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "experiment": "在多个不同数据集（场景、物体、动作、事件）上评估特征的通用性",
+        "result": "GoogLeNet-GAP特征在SUN397, MIT Indoor67, Scene15等多个数据集上表现出色，与GoogLeNet特征相当，且能生成有意义的CAM。",
+        "anchors": [
+          "anc_00098",
+          "anc_00099",
+          "anc_00100",
+          "anc_00111",
+          "anc_00113",
+          "anc_00114",
+          "anc_00115"
+        ]
+      }
+    ],
+    "scaling": [],
+    "case_study": [
+      {
+        "experiment": "细粒度鸟类识别 (CUB-200-2011)",
+        "result": "使用CAM定位并裁剪鸟类区域后，分类准确率从63.0%提升至67.8%。",
+        "anchors": [
+          "anc_00106",
+          "anc_00107",
+          "anc_00108"
+        ]
+      },
+      {
+        "experiment": "概念发现与文本检测",
+        "result": "CAM能够高亮显示与特定概念（如“教室”中的黑板、椅子）或文本相关的区域。",
+        "anchors": [
+          "anc_00117",
+          "anc_00118",
+          "anc_00121",
+          "anc_00123",
+          "anc_00125",
+          "anc_00127"
+        ]
+      }
+    ],
+    "human_eval": [],
+    "benchmark": [
+      {
+        "name": "ILSVRC 2014",
+        "task": "物体分类与弱监督定位",
+        "anchors": [
+          "anc_00004",
+          "anc_00071",
+          "anc_00078",
+          "anc_00090"
+        ]
+      },
+      {
+        "name": "CUB-200-2011",
+        "task": "细粒度鸟类识别",
+        "anchors": [
+          "anc_00106",
+          "anc_00107"
+        ]
+      },
+      {
+        "name": "SUN397, MIT Indoor67, Scene15等",
+        "task": "场景与物体分类",
+        "anchors": [
+          "anc_00098",
+          "anc_00111"
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "experiment": "CAM生成效率",
+        "result": "CAM在单次前向传播中即可生成，相比需要多次前向传播的弱监督方法（如基于遮挡的方法）更高效。",
+        "anchors": [
+          "anc_00009",
+          "anc_00018"
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "experiment": "ILSVRC 2014 弱监督物体定位（测试集）",
+        "result": "GoogLeNet-GAP (使用启发式边界框选择) 达到37.1% top-5错误率。",
+        "anchors": [
+          "anc_00090",
+          "anc_00093",
+          "anc_00094"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "ILSVRC 2014 弱监督物体定位（测试集）",
+        "dataset": [
+          "ILSVRC 2014"
+        ],
+        "baseline": [
+          "GoogLeNet (fully supervised)",
+          "OverFeat (fully supervised)",
+          "AlexNet (fully supervised)"
+        ],
+        "metrics": [
+          "top-5 test error"
+        ],
+        "result_summary": "GoogLeNet-GAP (使用启发式边界框选择) 达到37.1% top-5错误率。",
+        "what_it_tries_to_prove": "证明GAP网络在仅使用图像级标签训练的情况下，能够实现接近全监督方法的弱监督物体定位性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "ILSVRC 2014 分类（验证集）",
+        "result": "GAP网络（如GoogLeNet-GAP）的分类性能与原始网络（如GoogLeNet）相当或略有下降，但保留了定位能力。",
+        "anchors": [
+          "anc_00078",
+          "anc_00079",
+          "anc_00081"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "main_result",
+        "name": "ILSVRC 2014 分类（验证集）",
+        "dataset": [
+          "ILSVRC 2014"
+        ],
+        "baseline": [
+          "AlexNet",
+          "VGGnet",
+          "GoogLeNet",
+          "NIN"
+        ],
+        "metrics": [
+          "top-1 val error",
+          "top-5 val error"
+        ],
+        "result_summary": "GAP网络（如GoogLeNet-GAP）的分类性能与原始网络（如GoogLeNet）相当或略有下降，但保留了定位能力。",
+        "what_it_tries_to_prove": "证明引入GAP层和CAM技术不会显著损害网络的分类性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "GAP vs GMP (全局最大池化) 在ILSVRC上的比较",
+        "result": "在分类任务上性能相似，但在定位任务上，GAP (GoogLeNet-GAP, 43.00% top-5 val error) 显著优于GMP (GoogLeNet-GMP, 45.26% top-5 val error)。",
+        "anchors": [
+          "anc_00076",
+          "anc_00077",
+          "anc_00088",
+          "anc_00089",
+          "anc_00092"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "ablation",
+        "name": "GAP vs GMP (全局最大池化) 在ILSVRC上的比较",
+        "dataset": [
+          "ILSVRC 2014"
+        ],
+        "baseline": [
+          "GoogLeNet-GMP"
+        ],
+        "metrics": [
+          "top-1 val error",
+          "top-5 val error"
+        ],
+        "result_summary": "在分类任务上性能相似，但在定位任务上，GAP (GoogLeNet-GAP, 43.00% top-5 val error) 显著优于GMP (GoogLeNet-GMP, 45.26% top-5 val error)。",
+        "what_it_tries_to_prove": "证明全局平均池化（GAP）在定位任务上优于全局最大池化（GMP），因为GAP鼓励网络识别物体的完整范围。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "不同网络架构（AlexNet, VGGnet, GoogLeNet）应用GAP后的效果",
+        "result": "GoogLeNet-GAP在定位上表现最好，部分原因是其较高的映射分辨率（14x14）。",
+        "anchors": [
+          "anc_00073",
+          "anc_00087",
+          "anc_00092"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "ablation",
+        "name": "不同网络架构（AlexNet, VGGnet, GoogLeNet）应用GAP后的效果",
+        "dataset": [
+          "ILSVRC 2014"
+        ],
+        "baseline": [
+          "AlexNet-GAP",
+          "VGGnet-GAP"
+        ],
+        "metrics": [
+          "top-5 val error"
+        ],
+        "result_summary": "GoogLeNet-GAP在定位上表现最好，部分原因是其较高的映射分辨率（14x14）。",
+        "what_it_tries_to_prove": "探索不同网络架构和映射分辨率对GAP定位能力的影响。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "在多个不同数据集（场景、物体、动作、事件）上评估特征的通用性",
+        "result": "GoogLeNet-GAP特征在SUN397, MIT Indoor67, Scene15等多个数据集上表现出色，与GoogLeNet特征相当，且能生成有意义的CAM。",
+        "anchors": [
+          "anc_00098",
+          "anc_00099",
+          "anc_00100",
+          "anc_00111",
+          "anc_00113",
+          "anc_00114",
+          "anc_00115"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "robustness",
+        "name": "在多个不同数据集（场景、物体、动作、事件）上评估特征的通用性",
+        "dataset": [
+          "SUN397",
+          "MIT Indoor67",
+          "Scene15",
+          "SUN Attribute",
+          "Caltech101",
+          "Caltech256",
+          "Stanford Action40",
+          "UIUC Event8"
+        ],
+        "baseline": [
+          "AlexNet fc7",
+          "GoogLeNet ave pool"
+        ],
+        "metrics": [
+          "分类准确率"
+        ],
+        "result_summary": "GoogLeNet-GAP特征在SUN397, MIT Indoor67, Scene15等多个数据集上表现出色，与GoogLeNet特征相当，且能生成有意义的CAM。",
+        "what_it_tries_to_prove": "证明GAP网络学习到的深度特征是通用的，可用于多种视觉识别任务，并且能够生成有意义的类激活图。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "细粒度鸟类识别 (CUB-200-2011)",
+        "result": "使用CAM定位并裁剪鸟类区域后，分类准确率从63.0%提升至67.8%。",
+        "anchors": [
+          "anc_00106",
+          "anc_00107",
+          "anc_00108"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "case_study",
+        "name": "细粒度鸟类识别 (CUB-200-2011)",
+        "dataset": [
+          "CUB-200-2011"
+        ],
+        "baseline": [
+          "GoogLeNet-GAP on full image",
+          "Alignments",
+          "DPD",
+          "DeCAF+DPD",
+          "PANDA R-CNN"
+        ],
+        "metrics": [
+          "分类准确率"
+        ],
+        "result_summary": "使用CAM定位并裁剪鸟类区域后，分类准确率从63.0%提升至67.8%。",
+        "what_it_tries_to_prove": "证明CAM的定位能力可以用于改进下游任务，如细粒度识别，通过聚焦于判别性区域来提高分类性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "概念发现与文本检测",
+        "result": "CAM能够高亮显示与特定概念（如“教室”中的黑板、椅子）或文本相关的区域。",
+        "anchors": [
+          "anc_00117",
+          "anc_00118",
+          "anc_00121",
+          "anc_00123",
+          "anc_00125",
+          "anc_00127"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "case_study",
+        "name": "概念发现与文本检测",
+        "dataset": [
+          "Places",
+          "自定义概念数据集"
+        ],
+        "baseline": [],
+        "metrics": [
+          "可视化"
+        ],
+        "result_summary": "CAM能够高亮显示与特定概念（如“教室”中的黑板、椅子）或文本相关的区域。",
+        "what_it_tries_to_prove": "证明CAM可以用于理解CNN的决策过程，发现网络学习到的视觉概念，并可用于弱监督文本检测等任务。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "CAM生成效率",
+        "result": "CAM在单次前向传播中即可生成，相比需要多次前向传播的弱监督方法（如基于遮挡的方法）更高效。",
+        "anchors": [
+          "anc_00009",
+          "anc_00018"
+        ],
+        "experiment_id": "experiment_8",
+        "type": "efficiency",
+        "name": "CAM生成效率",
+        "dataset": [],
+        "baseline": [
+          "基于遮挡的弱监督方法"
+        ],
+        "metrics": [
+          "前向传播次数"
+        ],
+        "result_summary": "CAM在单次前向传播中即可生成，相比需要多次前向传播的弱监督方法（如基于遮挡的方法）更高效。",
+        "what_it_tries_to_prove": "证明CAM方法在效率上优于需要多次前向传播的弱监督定位方法。",
+        "evidence_strength": "strong"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "全局平均池化（GAP）使CNN在仅使用图像级标签训练时获得显著的物体定位能力。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00004",
+          "anc_00087",
+          "anc_00090",
+          "anc_00094"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_1",
+        "evidence": [
+          {
+            "evidence_id": "evidence_1_1",
+            "description": "GoogLeNet-GAP在ILSVRC 2014测试集上达到37.1% top-5定位错误率，接近全监督AlexNet的34.2%。",
+            "anchors": [
+              "anc_00090",
+              "anc_00093",
+              "anc_00094"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_1_2",
+            "description": "GAP网络在分类性能上与原始网络相当，但获得了定位能力。",
+            "anchors": [
+              "anc_00078",
+              "anc_00079",
+              "anc_00081"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim": "类激活映射（CAM）技术能够生成类别的判别性区域图。",
+        "evidence_source_type": "方法描述与可视化",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00029",
+          "anc_00030",
+          "anc_00046",
+          "anc_00047",
+          "anc_00057",
+          "anc_00058"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_2",
+        "evidence": [
+          {
+            "evidence_id": "evidence_2_1",
+            "description": "论文详细描述了CAM的生成公式（公式2）和过程。",
+            "anchors": [
+              "anc_00051",
+              "anc_00052",
+              "anc_00053",
+              "anc_00054"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_2_2",
+            "description": "论文提供了多个数据集（ILSVRC, CUB200, SUN397等）的CAM可视化示例，显示CAM高亮了判别性区域。",
+            "anchors": [
+              "anc_00046",
+              "anc_00047",
+              "anc_00057",
+              "anc_00058",
+              "anc_00099",
+              "anc_00100",
+              "anc_00113",
+              "anc_00114",
+              "anc_00115"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim": "在定位任务上，全局平均池化（GAP）优于全局最大池化（GMP）。",
+        "evidence_source_type": "消融实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00061",
+          "anc_00062",
+          "anc_00064",
+          "anc_00088",
+          "anc_00089",
+          "anc_00092"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_3",
+        "evidence": [
+          {
+            "evidence_id": "evidence_3_1",
+            "description": "在ILSVRC验证集上，GoogLeNet-GAP的定位错误率（43.00% top-5）显著低于GoogLeNet-GMP（45.26% top-5）。",
+            "anchors": [
+              "anc_00076",
+              "anc_00077",
+              "anc_00088",
+              "anc_00089",
+              "anc_00092"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_3_2",
+            "description": "论文提供了GAP与GMP的直观解释：GAP鼓励网络识别物体的完整范围，而GMP倾向于只定位一个点。",
+            "anchors": [
+              "anc_00061",
+              "anc_00062",
+              "anc_00064"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim": "该方法生成的深度特征是通用的，可用于多种视觉识别任务（分类、定位、概念发现）。",
+        "evidence_source_type": "跨数据集实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00094",
+          "anc_00095",
+          "anc_00098",
+          "anc_00106",
+          "anc_00113",
+          "anc_00114",
+          "anc_00115"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_4",
+        "evidence": [
+          {
+            "evidence_id": "evidence_4_1",
+            "description": "GoogLeNet-GAP特征在多个场景、物体、动作、事件数据集（SUN397, MIT Indoor67, Scene15等）上表现出色，与GoogLeNet特征相当。",
+            "anchors": [
+              "anc_00098",
+              "anc_00099",
+              "anc_00100",
+              "anc_00111",
+              "anc_00113",
+              "anc_00114",
+              "anc_00115"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_4_2",
+            "description": "CAM可用于细粒度识别（CUB-200-2011），通过定位裁剪提升分类准确率。",
+            "anchors": [
+              "anc_00106",
+              "anc_00107",
+              "anc_00108"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_4_3",
+            "description": "CAM可用于概念发现和文本检测，高亮显示相关区域。",
+            "anchors": [
+              "anc_00117",
+              "anc_00118",
+              "anc_00121",
+              "anc_00123",
+              "anc_00125",
+              "anc_00127"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim": "CAM方法比基于反向传播的可视化方法能产生更准确的定位。",
+        "evidence_source_type": "实验对比",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00087",
+          "anc_00092",
+          "anc_00103",
+          "anc_00105"
+        ],
+        "risk_flags": [
+          "对比方法的具体实现细节可能影响结论"
+        ],
+        "claim_id": "claim_5",
+        "evidence": [
+          {
+            "evidence_id": "evidence_5_1",
+            "description": "在ILSVRC验证集上，GoogLeNet-GAP的定位错误率（43.00% top-5）低于使用反向传播的GoogLeNet（50.55% top-5）。",
+            "anchors": [
+              "anc_00087",
+              "anc_00092"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_5_2",
+            "description": "论文提供了CAM与反向传播方法的可视化对比（图5, 图6），显示CAM的定位更准确、更聚焦。",
+            "anchors": [
+              "anc_00103",
+              "anc_00105"
+            ],
+            "strength": "中"
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "全局平均池化 (Global Average Pooling, GAP)",
+        "definition": "一种池化操作，对特征图的每个通道在所有空间位置上取平均值，将空间维度压缩为1。",
+        "anchors": [
+          "anc_00004",
+          "anc_00008",
+          "anc_00035",
+          "anc_00038",
+          "anc_00039"
+        ],
+        "appears_in": [
+          "anc_00004",
+          "anc_00008",
+          "anc_00035",
+          "anc_00038",
+          "anc_00039"
+        ]
+      },
+      {
+        "term": "类激活映射 (Class Activation Mapping, CAM)",
+        "definition": "一种技术，通过将分类层的权重投影回卷积特征图，生成突出显示图像中对特定类别预测最重要的区域的热力图。",
+        "anchors": [
+          "anc_00011",
+          "anc_00012",
+          "anc_00027",
+          "anc_00029",
+          "anc_00030",
+          "anc_00046",
+          "anc_00047",
+          "anc_00051",
+          "anc_00052",
+          "anc_00053"
+        ],
+        "appears_in": [
+          "anc_00011",
+          "anc_00012",
+          "anc_00027",
+          "anc_00029",
+          "anc_00030",
+          "anc_00046",
+          "anc_00047",
+          "anc_00051",
+          "anc_00052",
+          "anc_00053"
+        ]
+      },
+      {
+        "term": "弱监督定位 (Weakly-supervised Localization)",
+        "definition": "仅使用图像级标签（如类别标签）训练模型，使其能够预测物体在图像中的位置（如边界框），而无需使用边界框标注进行训练。",
+        "anchors": [
+          "anc_00004",
+          "anc_00016",
+          "anc_00071",
+          "anc_00090"
+        ],
+        "appears_in": [
+          "anc_00004",
+          "anc_00016",
+          "anc_00071",
+          "anc_00090"
+        ]
+      },
+      {
+        "term": "映射分辨率 (Mapping Resolution)",
+        "definition": "指用于生成CAM的最后一个卷积层特征图的空间分辨率。更高的映射分辨率通常能产生更精细的定位。",
+        "anchors": [
+          "anc_00073",
+          "anc_00087"
+        ],
+        "appears_in": [
+          "anc_00073",
+          "anc_00087"
+        ]
+      },
+      {
+        "term": "全局最大池化 (Global Max Pooling, GMP)",
+        "definition": "一种池化操作，对特征图的每个通道在所有空间位置上取最大值。",
+        "anchors": [
+          "anc_00019",
+          "anc_00020",
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00076",
+          "anc_00077"
+        ],
+        "appears_in": [
+          "anc_00019",
+          "anc_00020",
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00076",
+          "anc_00077"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        {
+          "name": "ILSVRC 2014 (ImageNet)",
+          "description": "用于训练和评估分类与弱监督定位的主要数据集。",
+          "anchors": [
+            "anc_00004",
+            "anc_00071",
+            "anc_00075"
+          ]
+        },
+        {
+          "name": "CUB-200-2011",
+          "description": "细粒度鸟类识别数据集，用于评估特征的通用性和定位能力。",
+          "anchors": [
+            "anc_00106",
+            "anc_00107"
+          ]
+        },
+        {
+          "name": "SUN397, MIT Indoor67, Scene15, Caltech101/256, Stanford Action40, UIUC Event8等",
+          "description": "多个场景、物体、动作、事件识别数据集，用于评估特征的通用性。",
+          "anchors": [
+            "anc_00098",
+            "anc_00111"
+          ]
+        }
+      ],
+      "required_models": [
+        {
+          "name": "AlexNet",
+          "description": "基础CNN架构之一，论文中对其进行了修改（移除部分层）并应用GAP。",
+          "anchors": [
+            "anc_00073",
+            "anc_00075"
+          ]
+        },
+        {
+          "name": "VGGnet",
+          "description": "基础CNN架构之一，论文中对其进行了修改（移除部分层）并应用GAP。",
+          "anchors": [
+            "anc_00073",
+            "anc_00075"
+          ]
+        },
+        {
+          "name": "GoogLeNet",
+          "description": "基础CNN架构之一，论文中对其进行了修改（移除部分层）并应用GAP，是表现最好的模型。",
+          "anchors": [
+            "anc_00073",
+            "anc_00075",
+            "anc_00087"
+          ]
+        },
+        {
+          "name": "Network in Network (NIN)",
+          "description": "一个使用全局平均池化的参考网络。",
+          "anchors": [
+            "anc_00006",
+            "anc_00075"
+          ]
+        }
+      ],
+      "compute_requirements": "需要GPU进行模型训练和推理。具体硬件要求取决于选择的网络架构和数据集大小。",
+      "code_available": "论文未明确提及代码是否公开。需要检查作者主页或GitHub。",
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 准备数据集：下载并预处理ILSVRC 2014及其他评估数据集。",
+          "anchors": [
+            "anc_00071",
+            "anc_00075",
+            "anc_00098",
+            "anc_00106",
+            "anc_00111"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 修改网络架构：选择基础CNN（如GoogLeNet），移除最后一个池化层之后的部分（如pool4到prob），以获得较高的映射分辨率。在最后一个卷积层后添加全局平均池化（GAP）层，然后连接一个全连接层（或softmax层）进行分类。",
+          "anchors": [
+            "anc_00073",
+            "anc_00074",
+            "anc_00075"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 训练模型：使用ILSVRC 2014训练集对修改后的网络进行端到端的分类训练（1000类）。使用标准的分类损失（如交叉熵）。",
+          "anchors": [
+            "anc_00075"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "4. 生成类激活图（CAM）：对于给定的测试图像和预测类别，提取最后一个卷积层的特征图f_k(x, y)。获取该类别对应的全连接层权重w^c_k。计算CAM：M_c(x, y) = ∑_k w^c_k * f_k(x, y)。",
+          "anchors": [
+            "anc_00037",
+            "anc_00042",
+            "anc_00051",
+            "anc_00052",
+            "anc_00053",
+            "anc_00054"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "5. 生成定位边界框：对CAM进行归一化（如缩放到0-1）。应用阈值（如最大值的某个百分比）进行二值化。找到最大连通分量，并计算其外接矩形作为预测边界框。",
+          "anchors": [
+            "anc_00080",
+            "anc_00083",
+            "anc_00084"
+          ]
+        },
+        {
+          "step": "step_6",
+          "description": "6. 评估：在ILSVRC验证集和测试集上评估分类和定位性能（top-1, top-5错误率）。在其他数据集上评估特征的通用性（如使用线性SVM分类）。",
+          "anchors": [
+            "anc_00078",
+            "anc_00081",
+            "anc_00090",
+            "anc_00092",
+            "anc_00098"
+          ]
+        },
+        {
+          "step": "step_7",
+          "description": "7. （可选）应用：将CAM用于细粒度识别（裁剪高激活区域）、概念发现等任务。",
+          "anchors": [
+            "anc_00106",
+            "anc_00107",
+            "anc_00108",
+            "anc_00117",
+            "anc_00118",
+            "anc_00121",
+            "anc_00123",
+            "anc_00125",
+            "anc_00127"
+          ]
+        }
+      ],
+      "missing_details": [
+        "具体的训练超参数（学习率、批大小、迭代次数）未在论文中详细说明。",
+        "阈值化CAM的具体阈值百分比未明确给出。",
+        "启发式边界框选择策略（用于ILSVRC测试集）的具体细节需要进一步查阅论文或补充材料。"
+      ],
+      "risk_points": [
+        "定位精度依赖于最后一个卷积层的空间分辨率（映射分辨率），低分辨率可能导致粗糙定位。",
+        "基于阈值化和连通分量分析的边界框生成方法是启发式的，可能不够精确，尤其对于复杂场景或遮挡物体。",
+        "CAM生成依赖于分类层的权重，如果分类任务本身性能不佳，CAM的质量也会受影响。"
+      ]
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-01T22:41:55+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_ml_044_learning_deep_features_for_discriminative_locali_2015",
+    "title": "Learning Deep Features for Discriminative Localization",
+    "authors": [
+      "Bolei Zhou",
+      "A. Khosla",
+      "Àgata Lapedriza",
+      "A. Oliva",
+      "A. Torralba"
+    ],
+    "venue": "Computer Vision and Pattern Recognition",
+    "year": 2015,
+    "arxiv_id": "1512.04150",
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-01T22:40:06+00:00",
+    "paper_type": "Attention / Computer Vision / CNN / Top-cited ML method paper",
+    "citation_count": 10489,
+    "influential_citation_count": 1518,
+    "semantic_scholar_id": "31f9eb39d840821979e5df9f34a6e92dd9c879f2",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/31f9eb39d840821979e5df9f34a6e92dd9c879f2",
+    "importance_rank": 44,
+    "selection_source": "semantic_scholar_top_cited_ml_open_pdf_2026_05_01",
+    "open_access_pdf_url": "http://arxiv.org/pdf/1512.04150",
+    "fields_of_study": [
+      "Computer Science"
+    ],
+    "publication_types": [
+      "JournalArticle",
+      "Conference"
+    ],
+    "abstract": "In this work, we revisit the global average pooling layer proposed in [13], and shed light on how it explicitly enables the convolutional neural network (CNN) to have remarkable localization ability despite being trained on imagelevel labels. While this technique was previously proposed as a means for regularizing training, we find that it actually builds a generic localizable deep representation that exposes the implicit attention of CNNs on an image. Despite the apparent simplicity of global average pooling, we are able to achieve 37.1% top-5 error for object localization on ILSVRC 2014 without training on any bounding box annotation. We demonstrate in a variety of experiments that our network is able to localize the discriminative image regions despite just being trained for solving classification task1."
+  }
+}

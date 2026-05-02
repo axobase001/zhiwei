@@ -1,0 +1,705 @@
+{
+  "paper_skeleton": {
+    "problem": "现有目标检测模型在追求高精度的同时，模型尺寸和计算成本高昂，难以部署在机器人、自动驾驶等资源受限的实时应用中。需要一种能在广泛资源约束下实现高精度和高效率的检测器。",
+    "motivation": "模型效率在计算机视觉中日益重要。现有高效检测器通常牺牲精度，且大多只关注特定或小范围的资源需求。需要系统性地研究网络架构设计选择，提出关键优化以提高效率。",
+    "core_idea": "提出两个关键优化：1) 加权双向特征金字塔网络（BiFPN），实现简单快速的多尺度特征融合；2) 复合缩放方法，统一缩放骨干网络、特征网络和分类/回归网络的分辨率、深度和宽度。结合EfficientNet骨干网络，开发出一系列高效检测器EfficientDet。",
+    "method": "基于单阶段检测器范式，设计骨干网络（EfficientNet）、特征网络（BiFPN）和分类/回归预测网络。BiFPN通过引入可学习权重和双向跨尺度连接优化特征融合。复合缩放方法使用一个复合系数φ联合缩放所有维度。",
+    "experiments": "在COCO 2017检测数据集上评估。EfficientDet-D7在test-dev上达到52.2 AP，参数52M，FLOPs 325B，比先前最佳检测器小4-9倍，FLOPs少13-42倍。在Pascal VOC 2012语义分割上也展示了优越性能。",
+    "claims": [
+      "BiFPN通过加权特征融合和双向连接，比FPN、PANet和NAS-FPN更有效。",
+      "复合缩放方法比单一维度缩放更能提高效率。",
+      "EfficientDet在广泛资源约束下实现了最先进的精度和效率。",
+      "EfficientDet在GPU和CPU上比先前检测器快4-11倍。"
+    ],
+    "limitations": "复合缩放方法是启发式的，可能不是最优的。BiFPN的层数（重复次数）需要根据资源约束通过复合缩放确定。"
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "骨干网络",
+        "label": "Backbone",
+        "summary": "使用EfficientNet作为骨干网络，提取多尺度特征。",
+        "description": "EfficientNet系列网络，通过复合缩放平衡网络深度、宽度和分辨率，提供高效的特征提取。",
+        "type": "backbone",
+        "anchors": [
+          "anc_00006",
+          "anc_00017",
+          "anc_00070",
+          "anc_00081"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "加权双向特征金字塔网络",
+        "label": "BiFPN",
+        "summary": "提出BiFPN，通过可学习权重和双向跨尺度连接进行高效的多尺度特征融合。",
+        "description": "BiFPN移除仅有一个输入边的节点，添加从原始输入到输出的跳跃连接，并重复应用双向跨尺度连接。使用快速归一化融合（Fast Normalized Fusion）加权融合不同分辨率的特征。",
+        "type": "feature_network",
+        "anchors": [
+          "anc_00006",
+          "anc_00015",
+          "anc_00029",
+          "anc_00031",
+          "anc_00043",
+          "anc_00045",
+          "anc_00047",
+          "anc_00060",
+          "anc_00068"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "分类/回归预测网络",
+        "label": "Class/Box Network",
+        "summary": "共享特征的分类和边界框回归预测网络。",
+        "description": "分类和回归网络共享特征，其深度通过复合缩放方法确定。",
+        "type": "prediction_head",
+        "anchors": [
+          "anc_00070",
+          "anc_00078",
+          "anc_00083"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "复合缩放方法",
+        "label": "Compound Scaling",
+        "summary": "提出复合缩放方法，使用一个复合系数φ联合缩放骨干网络、BiFPN、分类/回归网络和输入分辨率。",
+        "description": "缩放规则：BiFPN宽度W_bifpn = 64 * (1.35^φ)，深度D_bifpn = 3 + φ；分类/回归网络深度D_box = D_class = 3 + floor(φ/3)；输入分辨率R_input = 512 + φ*128。",
+        "type": "scaling_method",
+        "anchors": [
+          "anc_00006",
+          "anc_00017",
+          "anc_00073",
+          "anc_00075",
+          "anc_00076",
+          "anc_00078",
+          "anc_00083",
+          "anc_00087",
+          "anc_00089",
+          "anc_00092",
+          "anc_00104"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "EfficientDet检测器",
+        "label": "EfficientDet",
+        "summary": "结合EfficientNet骨干、BiFPN和复合缩放，开发出一系列高效检测器（D0-D7）。",
+        "description": "整体架构遵循单阶段检测器范式，使用EfficientNet骨干、BiFPN特征网络和共享的分类/回归预测头。",
+        "type": "full_model",
+        "anchors": [
+          "anc_00006",
+          "anc_00069",
+          "anc_00070",
+          "anc_00081",
+          "anc_00089",
+          "anc_00092"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "特征输入",
+        "description": "骨干网络提取的多尺度特征输入到BiFPN进行融合。",
+        "anchors": [
+          "anc_00024",
+          "anc_00034"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "融合特征输出",
+        "description": "BiFPN融合后的特征输出到分类/回归预测网络。",
+        "anchors": [
+          "anc_00070"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_001",
+        "label": "缩放骨干",
+        "description": "复合缩放方法决定骨干网络的缩放（通过选择EfficientNet变体）。",
+        "anchors": [
+          "anc_00075",
+          "anc_00089",
+          "anc_00095",
+          "anc_00096",
+          "anc_00097",
+          "anc_00098",
+          "anc_00099",
+          "anc_00100",
+          "anc_00101",
+          "anc_00102"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_002",
+        "label": "缩放BiFPN",
+        "description": "复合缩放方法决定BiFPN的宽度和深度（重复次数）。",
+        "anchors": [
+          "anc_00076",
+          "anc_00092"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_003",
+        "label": "缩放预测头",
+        "description": "复合缩放方法决定分类/回归网络的深度。",
+        "anchors": [
+          "anc_00083",
+          "anc_00092"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "label": "缩放输入分辨率",
+        "description": "复合缩放方法决定输入图像的分辨率。",
+        "anchors": [
+          "anc_00087",
+          "anc_00092"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "RetinaNet (ResNet-50骨干 + FPN特征网络)",
+    "new_method": "EfficientDet (EfficientNet骨干 + BiFPN特征网络 + 复合缩放)",
+    "deltas": [
+      {
+        "before": "使用ResNet-50作为骨干网络。",
+        "after": "使用EfficientNet系列作为骨干网络。",
+        "why_it_matters": "EfficientNet通过复合缩放平衡深度、宽度和分辨率，比ResNet具有更好的精度-效率权衡。",
+        "anchors": [
+          "anc_00121",
+          "anc_00123"
+        ]
+      },
+      {
+        "before": "使用FPN（自上而下的单向路径）进行多尺度特征融合。",
+        "after": "使用BiFPN（双向跨尺度连接和加权特征融合）。",
+        "why_it_matters": "BiFPN通过双向信息流和可学习权重，更有效地融合不同分辨率的特征，显著提升精度并减少参数和计算量。",
+        "anchors": [
+          "anc_00015",
+          "anc_00029",
+          "anc_00031",
+          "anc_00043",
+          "anc_00045",
+          "anc_00047",
+          "anc_00060",
+          "anc_00068",
+          "anc_00121",
+          "anc_00123",
+          "anc_00124",
+          "anc_00127"
+        ]
+      },
+      {
+        "before": "通常通过单一维度（如增大骨干、增大输入图像）缩放检测器。",
+        "after": "提出复合缩放方法，使用一个复合系数φ联合缩放骨干、BiFPN、预测网络和输入分辨率。",
+        "why_it_matters": "联合缩放能更好地平衡不同架构维度，比单一维度缩放获得更好的效率。",
+        "anchors": [
+          "anc_00017",
+          "anc_00073",
+          "anc_00075",
+          "anc_00092",
+          "anc_00155",
+          "anc_00156"
+        ]
+      },
+      {
+        "before": "特征融合中，不同输入特征被平等对待（简单求和）。",
+        "after": "引入快速归一化融合（Fast Normalized Fusion），为每个输入特征分配可学习的权重。",
+        "why_it_matters": "不同分辨率的特征对输出的贡献不同，加权融合能学习其重要性，提升融合效果。快速归一化融合在保持精度的同时比softmax融合快30%。",
+        "anchors": [
+          "anc_00047",
+          "anc_00048",
+          "anc_00053",
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00065",
+          "anc_00067",
+          "anc_00068",
+          "anc_00131",
+          "anc_00132",
+          "anc_00133",
+          "anc_00142",
+          "anc_00143",
+          "anc_00144",
+          "anc_00145",
+          "anc_00146",
+          "anc_00147"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "name": "快速归一化融合",
+        "latex": "O = \\sum_{i} \\frac{w_i}{\\epsilon + \\sum_{j} w_j} \\cdot I_i",
+        "variables": [
+          {
+            "name": "O",
+            "description": "融合后的输出特征",
+            "confidence": "high"
+          },
+          {
+            "name": "I_i",
+            "description": "第i个输入特征",
+            "confidence": "high"
+          },
+          {
+            "name": "w_i",
+            "description": "第i个输入特征的可学习权重（通过ReLU确保非负）",
+            "confidence": "high"
+          },
+          {
+            "name": "\\epsilon",
+            "description": "小常数（0.0001），避免数值不稳定",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "BiFPN特征融合"
+        ],
+        "intuition": "为每个输入特征分配一个可学习的权重，权重经过归一化（除以权重和加一个小常数）后用于加权求和。这比softmax融合更快，且能学习不同特征的重要性。",
+        "anchors": [
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00065",
+          "anc_00068"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "name": "BiFPN中间特征计算（以第6层为例）",
+        "latex": "P^{td}_{6} = \\text{Conv}\\left( \\frac{w_1 \\cdot P^{in}_{6} + w_2 \\cdot \\text{Resize}(P^{in}_{7})}{w_1 + w_2 + \\epsilon} \\right)",
+        "variables": [
+          {
+            "name": "P^{td}_{6}",
+            "description": "第6层自上而下路径的中间特征",
+            "confidence": "high"
+          },
+          {
+            "name": "P^{in}_{6}, P^{in}_{7}",
+            "description": "骨干网络输出的第6层和第7层输入特征",
+            "confidence": "high"
+          },
+          {
+            "name": "w_1, w_2",
+            "description": "可学习权重",
+            "confidence": "high"
+          },
+          {
+            "name": "\\text{Resize}",
+            "description": "上采样或下采样操作以匹配分辨率",
+            "confidence": "high"
+          },
+          {
+            "name": "\\text{Conv}",
+            "description": "卷积操作（通常为深度可分离卷积）",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "快速归一化融合",
+          "骨干网络输出"
+        ],
+        "intuition": "BiFPN自上而下路径中，对同一层的输入特征和来自更高层的特征进行加权融合，然后通过卷积处理。",
+        "anchors": [
+          "anc_00068"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "name": "BiFPN输出特征计算（以第6层为例）",
+        "latex": "P^{out}_{6} = \\text{Conv}\\left( \\frac{w'_1 \\cdot P^{in}_{6} + w'_2 \\cdot P^{td}_{6} + w'_3 \\cdot \\text{Resize}(P^{out}_{5})}{w'_1 + w'_2 + w'_3 + \\epsilon} \\right)",
+        "variables": [
+          {
+            "name": "P^{out}_{6}",
+            "description": "第6层自下而上路径的输出特征",
+            "confidence": "high"
+          },
+          {
+            "name": "P^{in}_{6}",
+            "description": "骨干网络输出的第6层输入特征",
+            "confidence": "high"
+          },
+          {
+            "name": "P^{td}_{6}",
+            "description": "自上而下路径的中间特征",
+            "confidence": "high"
+          },
+          {
+            "name": "P^{out}_{5}",
+            "description": "第5层自下而上路径的输出特征",
+            "confidence": "high"
+          },
+          {
+            "name": "w'_1, w'_2, w'_3",
+            "description": "可学习权重",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "BiFPN中间特征计算",
+          "快速归一化融合"
+        ],
+        "intuition": "BiFPN自下而上路径中，融合原始输入特征、自上而下路径的中间特征以及来自更低层的输出特征，实现双向信息流。",
+        "anchors": [
+          "anc_00068"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "name": "复合缩放 - BiFPN宽度",
+        "latex": "W_{bifpn} = 64 \\cdot (1.35^{\\phi})",
+        "variables": [
+          {
+            "name": "W_{bifpn}",
+            "description": "BiFPN的通道宽度",
+            "confidence": "medium"
+          },
+          {
+            "name": "\\phi",
+            "description": "复合系数，控制所有缩放维度",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "复合缩放方法"
+        ],
+        "intuition": "BiFPN的通道宽度随复合系数φ指数增长。",
+        "anchors": [
+          "anc_00076"
+        ]
+      },
+      {
+        "formula_id": "formula_005",
+        "name": "复合缩放 - BiFPN深度",
+        "latex": "D_{bifpn} = 3 + \\phi",
+        "variables": [
+          {
+            "name": "D_{bifpn}",
+            "description": "BiFPN的深度（重复次数）",
+            "confidence": "high"
+          },
+          {
+            "name": "\\phi",
+            "description": "复合系数",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "复合缩放方法"
+        ],
+        "intuition": "BiFPN的深度（重复应用的次数）随φ线性增加。",
+        "anchors": [
+          "anc_00076"
+        ]
+      },
+      {
+        "formula_id": "formula_006",
+        "name": "复合缩放 - 分类/回归网络深度",
+        "latex": "D_{box} = D_{class} = 3 + \\lfloor \\phi / 3 \\rfloor",
+        "variables": [
+          {
+            "name": "D_{box}, D_{class}",
+            "description": "边界框回归和分类网络的深度",
+            "confidence": "high"
+          },
+          {
+            "name": "\\phi",
+            "description": "复合系数",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "复合缩放方法"
+        ],
+        "intuition": "分类和回归网络的深度增长较慢，每增加3个φ单位深度增加1。",
+        "anchors": [
+          "anc_00083"
+        ]
+      },
+      {
+        "formula_id": "formula_007",
+        "name": "复合缩放 - 输入分辨率",
+        "latex": "R_{input} = 512 + \\phi \\cdot 128",
+        "variables": [
+          {
+            "name": "R_{input}",
+            "description": "输入图像的分辨率（假设为正方形）",
+            "confidence": "high"
+          },
+          {
+            "name": "\\phi",
+            "description": "复合系数",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "复合缩放方法"
+        ],
+        "intuition": "输入分辨率随φ线性增加，从512开始，每增加1个φ，分辨率增加128像素。",
+        "anchors": [
+          "anc_00087"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "在COCO test-dev上，EfficientDet-D7达到52.2 AP，参数52M，FLOPs 325B。比先前最佳检测器（AmoebaNet+NAS-FPN+AA）小4-9倍，FLOPs少13-42倍。",
+      "anchors": [
+        "anc_00006",
+        "anc_00010",
+        "anc_00018",
+        "anc_00106",
+        "anc_00107",
+        "anc_00108",
+        "anc_00109",
+        "anc_00110"
+      ]
+    },
+    "ablation": {
+      "description": "消融研究：1) 分离骨干和BiFPN的贡献：将RetinaNet的ResNet-50骨干替换为EfficientNet-B3提升约3 AP，再将FPN替换为BiFPN额外提升4 AP。2) 比较不同特征网络：BiFPN比FPN、PANet、NAS-FPN在精度和效率上更优。3) 比较softmax融合与快速归一化融合：快速归一化融合精度相当，速度快30%。",
+      "anchors": [
+        "anc_00121",
+        "anc_00122",
+        "anc_00123",
+        "anc_00124",
+        "anc_00126",
+        "anc_00127",
+        "anc_00128",
+        "anc_00130",
+        "anc_00131",
+        "anc_00132",
+        "anc_00133",
+        "anc_00135",
+        "anc_00138",
+        "anc_00140",
+        "anc_00142",
+        "anc_00143",
+        "anc_00144",
+        "anc_00145",
+        "anc_00146",
+        "anc_00147"
+      ]
+    },
+    "robustness": {
+      "description": "未在提供的文本中明确提及鲁棒性实验。",
+      "anchors": []
+    },
+    "scaling": {
+      "description": "展示了从D0到D7的复合缩放系列模型。比较了不同缩放方法（单一维度缩放 vs 复合缩放），复合缩放在相同FLOPs下获得更高精度。",
+      "anchors": [
+        "anc_00089",
+        "anc_00092",
+        "anc_00095",
+        "anc_00096",
+        "anc_00097",
+        "anc_00098",
+        "anc_00099",
+        "anc_00100",
+        "anc_00101",
+        "anc_00102",
+        "anc_00104",
+        "anc_00155",
+        "anc_00156"
+      ]
+    },
+    "case_study": {
+      "description": "在Pascal VOC 2012语义分割任务上，EfficientDet达到81.74% mIOU，FLOPs 18B，比DeepLabV3+高1.7%精度，FLOPs少9.8倍。",
+      "anchors": [
+        "anc_00019",
+        "anc_00020",
+        "anc_00113",
+        "anc_00114",
+        "anc_00118",
+        "anc_00120"
+      ]
+    },
+    "human_eval": {
+      "description": "未在提供的文本中提及人工评估。",
+      "anchors": []
+    },
+    "benchmark": {
+      "description": "主要在COCO 2017检测数据集和Pascal VOC 2012分割数据集上评估。",
+      "anchors": [
+        "anc_00092",
+        "anc_00106",
+        "anc_00109",
+        "anc_00113",
+        "anc_00114",
+        "anc_00118",
+        "anc_00120"
+      ]
+    },
+    "efficiency": {
+      "description": "报告了参数量、FLOPs和推理延迟（TitanV FP32, V100 FP16, 单线程CPU）。EfficientDet比先前检测器快4.1倍（GPU）和10.8倍（CPU）。",
+      "anchors": [
+        "anc_00010",
+        "anc_00018",
+        "anc_00108",
+        "anc_00110",
+        "anc_00111",
+        "anc_00112",
+        "anc_00116"
+      ]
+    }
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "BiFPN通过加权特征融合和双向连接，比FPN、PANet和NAS-FPN更有效。",
+        "evidence_source_type": "实验（消融研究）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00015",
+          "anc_00029",
+          "anc_00031",
+          "anc_00043",
+          "anc_00045",
+          "anc_00047",
+          "anc_00060",
+          "anc_00068",
+          "anc_00121",
+          "anc_00123",
+          "anc_00124",
+          "anc_00127"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "复合缩放方法比单一维度缩放更能提高效率。",
+        "evidence_source_type": "实验（缩放比较）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00017",
+          "anc_00073",
+          "anc_00075",
+          "anc_00092",
+          "anc_00155",
+          "anc_00156"
+        ],
+        "risk_flags": [
+          "复合缩放是启发式的，可能不是最优的（anc_00092）。"
+        ]
+      },
+      {
+        "claim": "EfficientDet在广泛资源约束下实现了最先进的精度和效率。",
+        "evidence_source_type": "实验（COCO基准测试）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00006",
+          "anc_00010",
+          "anc_00018",
+          "anc_00106",
+          "anc_00107",
+          "anc_00108",
+          "anc_00109",
+          "anc_00110"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "EfficientDet在GPU和CPU上比先前检测器快4-11倍。",
+        "evidence_source_type": "实验（延迟测量）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00019",
+          "anc_00108",
+          "anc_00110",
+          "anc_00111",
+          "anc_00112",
+          "anc_00116"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "快速归一化融合在保持精度的同时比softmax融合快30%。",
+        "evidence_source_type": "实验（融合方法比较）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00065",
+          "anc_00067",
+          "anc_00068",
+          "anc_00131",
+          "anc_00132",
+          "anc_00133",
+          "anc_00142",
+          "anc_00143",
+          "anc_00144",
+          "anc_00145",
+          "anc_00146",
+          "anc_00147"
+        ],
+        "risk_flags": []
+      }
+    ]
+  },
+  "glossary": {
+    "BiFPN": "加权双向特征金字塔网络（Weighted Bi-directional Feature Pyramid Network），一种用于多尺度特征融合的网络结构，具有双向跨尺度连接和可学习的特征融合权重。",
+    "复合缩放": "Compound Scaling，使用一个复合系数φ联合缩放检测器的所有维度（骨干网络、特征网络、预测网络、输入分辨率）。",
+    "快速归一化融合": "Fast Normalized Fusion，BiFPN中使用的特征融合方法，通过归一化的可学习权重对输入特征进行加权求和，比softmax融合更快。",
+    "EfficientNet": "一系列通过复合缩放设计的高效卷积神经网络，用作EfficientDet的骨干网络。",
+    "单阶段检测器": "One-Stage Detector，没有显式区域提议步骤的目标检测器，直接从图像预测边界框和类别。",
+    "FLOPs": "浮点运算数（Floating Point Operations），衡量模型计算复杂度的指标。",
+    "深度可分离卷积": "Depthwise Separable Convolution，一种高效的卷积操作，将标准卷积分解为深度卷积和逐点卷积，减少参数和计算量。",
+    "复合系数": "Compound Coefficient (φ)，控制EfficientDet模型缩放的单一参数，φ越大，模型越大。"
+  },
+  "reproduction_roadmap": {
+    "required_datasets": [
+      "COCO 2017 检测数据集（118K训练图像）",
+      "Pascal VOC 2012 语义分割数据集"
+    ],
+    "required_models": [
+      "EfficientNet骨干网络（B0-B6）",
+      "RetinaNet基线模型（用于消融）"
+    ],
+    "compute": "训练D0-D6需要300个epoch，总批量大小128，在32个TPUv3核心上。训练D7/D7x需要600个epoch，在128个TPUv3核心上。",
+    "code_available": "论文未在提供的文本中明确提及代码是否开源。",
+    "steps": [
+      "1. 准备COCO 2017数据集。",
+      "2. 实现EfficientNet骨干网络（或使用现有实现）。",
+      "3. 实现BiFPN特征网络，包括快速归一化融合和双向跨尺度连接。",
+      "4. 实现共享的分类/回归预测网络。",
+      "5. 实现复合缩放方法，根据φ生成不同配置（D0-D7）。",
+      "6. 使用SGD优化器（动量0.9，权重衰减4e-5）训练，学习率预热后余弦退火。",
+      "7. 训练时使用水平翻转和尺度抖动（0.1x-2.0x）数据增强。",
+      "8. 评估时使用soft-NMS。",
+      "9. 在COCO val和test-dev上评估AP，在Pascal VOC上评估mIOU。"
+    ],
+    "missing_details": [
+      "BiFPN中深度可分离卷积的具体配置（核大小、步长等）。",
+      "分类/回归预测网络的具体层数和结构细节。",
+      "训练时同步批量归一化的具体实现。",
+      "评估时soft-NMS的具体参数。",
+      "代码是否开源及具体实现框架。"
+    ],
+    "risk_points": [
+      "复合缩放方法是启发式的，可能不是最优的，需要根据实际资源约束调整。",
+      "BiFPN的重复次数（深度）需要根据复合缩放公式确定，可能需要针对特定硬件进行微调。",
+      "训练需要大量计算资源（TPUv3），复现可能成本高昂。",
+      "快速归一化融合中的ε值（0.0001）可能需要根据数值稳定性调整。"
+    ]
+  }
+}

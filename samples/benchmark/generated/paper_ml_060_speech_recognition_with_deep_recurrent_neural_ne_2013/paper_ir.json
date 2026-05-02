@@ -1,0 +1,2781 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "传统RNN在语音识别任务上的表现不如深度前馈网络，且端到端训练方法（如CTC）在手写识别中成功，但在语音识别中效果有限。",
+      "anchors": [
+        "anc_00003",
+        "anc_00005"
+      ]
+    },
+    "motivation": {
+      "summary": "探索深度循环神经网络（Deep RNNs），结合深度网络的多层次表示能力和RNN的长程上下文利用能力，以提升语音识别性能。",
+      "anchors": [
+        "anc_00003",
+        "anc_00005"
+      ]
+    },
+    "core_idea": {
+      "summary": "使用深度双向长短期记忆（LSTM）循环神经网络，结合端到端训练（CTC或RNN Transducer）和正则化技术，在TIMIT音素识别基准上实现最优结果。",
+      "anchors": [
+        "anc_00003",
+        "anc_00045",
+        "anc_00100"
+      ]
+    },
+    "method": {
+      "summary": "提出深度双向LSTM架构，采用CTC和RNN Transducer两种端到端训练方法，并使用早停和权重噪声进行正则化。",
+      "anchors": [
+        "anc_00045",
+        "anc_00049",
+        "anc_00064",
+        "anc_00092"
+      ]
+    },
+    "experiments": {
+      "summary": "在TIMIT音素识别数据集上评估多种RNN配置（不同层数、单元类型、训练方法），比较音素错误率（PER）。",
+      "anchors": [
+        "anc_00093",
+        "anc_00095",
+        "anc_00100",
+        "anc_00102"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "深度LSTM RNNs在TIMIT上达到17.7%的测试集错误率，为当时最佳记录；深度比层大小更重要；LSTM优于tanh和单向LSTM；预训练的RNN Transducer表现更好。",
+        "anchors": [
+          "anc_00100",
+          "anc_00102"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "实验仅运行一次，随机初始化和权重噪声的方差未知；未扩展到大词汇量语音识别；未结合卷积神经网络。",
+        "anchors": [
+          "anc_00095",
+          "anc_00105",
+          "anc_00106"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "标准RNN",
+        "label": "基础模型",
+        "summary": "标准循环神经网络，通过迭代计算隐藏状态和输出序列。",
+        "description": "给定输入序列x，计算隐藏向量序列h和输出向量序列y，使用权重矩阵和偏置向量，隐藏层函数H通常为sigmoid。",
+        "type": "architecture",
+        "anchors": [
+          "anc_00006",
+          "anc_00007",
+          "anc_00008",
+          "anc_00009",
+          "anc_00010",
+          "anc_00011",
+          "anc_00012"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "LSTM单元",
+        "label": "记忆增强",
+        "summary": "长短期记忆单元，使用输入门、遗忘门、输出门和细胞状态来存储和访问长程信息。",
+        "description": "LSTM通过门控机制控制信息流，包括输入门i、遗忘门f、输出门o和细胞激活c，权重矩阵从细胞到门向量为对角矩阵。",
+        "type": "architecture",
+        "anchors": [
+          "anc_00013",
+          "anc_00014",
+          "anc_00015",
+          "anc_00016",
+          "anc_00017",
+          "anc_00018",
+          "anc_00019",
+          "anc_00020",
+          "anc_00021",
+          "anc_00023"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "双向RNN",
+        "label": "上下文扩展",
+        "summary": "双向RNN通过前向和后向隐藏层处理数据，利用未来和过去上下文。",
+        "description": "BRNN计算前向隐藏序列和后向隐藏序列，然后更新输出层，结合两个方向的信息。",
+        "type": "architecture",
+        "anchors": [
+          "anc_00024",
+          "anc_00025",
+          "anc_00026",
+          "anc_00027",
+          "anc_00028",
+          "anc_00029",
+          "anc_00030",
+          "anc_00031",
+          "anc_00032",
+          "anc_00033",
+          "anc_00034",
+          "anc_00035"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "深度RNN",
+        "label": "层次化表示",
+        "summary": "深度RNN通过堆叠多个RNN隐藏层，构建多层次表示。",
+        "description": "深度RNN将多个隐藏层堆叠，每层的输出序列作为下一层的输入序列，迭代计算隐藏向量序列。",
+        "type": "architecture",
+        "anchors": [
+          "anc_00036",
+          "anc_00037",
+          "anc_00038",
+          "anc_00039",
+          "anc_00040",
+          "anc_00041",
+          "anc_00042",
+          "anc_00043",
+          "anc_00044",
+          "anc_00045"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "CTC训练",
+        "label": "端到端训练",
+        "summary": "连接主义时序分类，使用softmax层定义每个时间步的输出分布，通过前向-后向算法计算目标序列概率。",
+        "description": "CTC使用softmax层定义每个时间步的分布Pr(k|t)，覆盖K个音素加空白符号，通过前向-后向算法求和所有对齐以确定目标序列概率。",
+        "type": "training_method",
+        "anchors": [
+          "anc_00046",
+          "anc_00047",
+          "anc_00048",
+          "anc_00049",
+          "anc_00050",
+          "anc_00051",
+          "anc_00052",
+          "anc_00053",
+          "anc_00054",
+          "anc_00055",
+          "anc_00056",
+          "anc_00057",
+          "anc_00058",
+          "anc_00059",
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "RNN Transducer",
+        "label": "联合模型",
+        "summary": "RNN Transducer结合CTC网络和预测网络，联合训练声学和语言模型。",
+        "description": "RNN Transducer为每个输入时间步和输出时间步组合定义分布Pr(k|t,u)，通过前向-后向算法计算目标序列概率，改进了声学和语言信息的结合方式。",
+        "type": "training_method",
+        "anchors": [
+          "anc_00064",
+          "anc_00065",
+          "anc_00066",
+          "anc_00067",
+          "anc_00068",
+          "anc_00069",
+          "anc_00070",
+          "anc_00071",
+          "anc_00072",
+          "anc_00073",
+          "anc_00074",
+          "anc_00075",
+          "anc_00076",
+          "anc_00077",
+          "anc_00078",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081",
+          "anc_00082",
+          "anc_00083",
+          "anc_00084",
+          "anc_00085",
+          "anc_00086"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "解码",
+        "label": "推理过程",
+        "summary": "使用束搜索解码RNN Transducer和CTC网络，生成候选转录列表。",
+        "description": "RNN Transducer使用束搜索解码生成n-best列表；CTC网络也使用束搜索，但输出标签概率不依赖于先前输出。",
+        "type": "inference_method",
+        "anchors": [
+          "anc_00087",
+          "anc_00088",
+          "anc_00089",
+          "anc_00090",
+          "anc_00091",
+          "anc_00092"
+        ]
+      },
+      {
+        "node_id": "node_008",
+        "title": "正则化",
+        "label": "防过拟合",
+        "summary": "使用早停和权重噪声进行正则化，以改善泛化能力。",
+        "description": "正则化包括早停和权重噪声（训练期间向网络权重添加高斯噪声），权重噪声倾向于简化神经网络，减少传输参数所需的信息量。",
+        "type": "training_technique",
+        "anchors": [
+          "anc_00093",
+          "anc_00094",
+          "anc_00095",
+          "anc_00096",
+          "anc_00097",
+          "anc_00098",
+          "anc_00099",
+          "anc_00100"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "relation": "扩展为",
+        "anchors": [
+          "anc_00013"
+        ],
+        "description": "扩展为"
+      },
+      {
+        "source": "node_001",
+        "target": "node_003",
+        "relation": "扩展为",
+        "anchors": [
+          "anc_00024",
+          "anc_00025"
+        ],
+        "description": "扩展为"
+      },
+      {
+        "source": "node_001",
+        "target": "node_004",
+        "relation": "扩展为",
+        "anchors": [
+          "anc_00036",
+          "anc_00037"
+        ],
+        "description": "扩展为"
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "relation": "结合为",
+        "anchors": [
+          "anc_00035"
+        ],
+        "description": "结合为"
+      },
+      {
+        "source": "node_002",
+        "target": "node_004",
+        "relation": "用于",
+        "anchors": [
+          "anc_00045"
+        ],
+        "description": "用于"
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "relation": "结合为",
+        "anchors": [
+          "anc_00045"
+        ],
+        "description": "结合为"
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "relation": "训练于",
+        "anchors": [
+          "anc_00046",
+          "anc_00047"
+        ],
+        "description": "训练于"
+      },
+      {
+        "source": "node_004",
+        "target": "node_006",
+        "relation": "训练于",
+        "anchors": [
+          "anc_00064",
+          "anc_00065"
+        ],
+        "description": "训练于"
+      },
+      {
+        "source": "node_005",
+        "target": "node_007",
+        "relation": "解码于",
+        "anchors": [
+          "anc_00087",
+          "anc_00088"
+        ],
+        "description": "解码于"
+      },
+      {
+        "source": "node_006",
+        "target": "node_007",
+        "relation": "解码于",
+        "anchors": [
+          "anc_00087"
+        ],
+        "description": "解码于"
+      },
+      {
+        "source": "node_005",
+        "target": "node_008",
+        "relation": "正则化于",
+        "anchors": [
+          "anc_00093",
+          "anc_00094"
+        ],
+        "description": "正则化于"
+      },
+      {
+        "source": "node_006",
+        "target": "node_008",
+        "relation": "正则化于",
+        "anchors": [
+          "anc_00093",
+          "anc_00094"
+        ],
+        "description": "正则化于"
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00100",
+        "anc_00102"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00100",
+        "anc_00102"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "单层LSTM RNN（CTC-1l-250h）在TIMIT上达到23.9% PER。",
+        "after": "深度LSTM RNN（CTC-5l-250h）将PER降至18.4%。",
+        "why_it_matters": "深度架构显著提升性能，表明深度比层大小更重要。",
+        "anchors": [
+          "anc_00100",
+          "anc_00102"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "tanh RNN（CTC-3l-500h-tanh）达到37.6% PER。",
+        "after": "LSTM RNN（CTC-3l-250h）达到18.6% PER。",
+        "why_it_matters": "LSTM架构远优于tanh，能更好地利用长程上下文。",
+        "anchors": [
+          "anc_00100",
+          "anc_00102"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "单向LSTM RNN（CTC-3l-421h-uni）达到19.6% PER。",
+        "after": "双向LSTM RNN（CTC-3l-250h）达到18.6% PER。",
+        "why_it_matters": "双向处理略有优势，能利用未来上下文。",
+        "anchors": [
+          "anc_00100",
+          "anc_00102"
+        ],
+        "delta_id": "delta_3"
+      },
+      {
+        "before": "随机初始化的RNN Transducer（Trans-3l-250h）达到18.3% PER。",
+        "after": "预训练的RNN Transducer（PreTrans-3l-250h）达到17.7% PER。",
+        "why_it_matters": "预训练进一步提升性能，结合声学和语言模型。",
+        "anchors": [
+          "anc_00100",
+          "anc_00102",
+          "anc_00085",
+          "anc_00086"
+        ],
+        "delta_id": "delta_4"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "h_t = H(W_{xh} x_t + W_{hh} h_{t-1} + b_h)",
+        "variables": [
+          {
+            "name": "h_t",
+            "description": "时间步t的隐藏向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00011"
+            ]
+          },
+          {
+            "name": "H",
+            "description": "隐藏层函数（通常为sigmoid）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00013"
+            ]
+          },
+          {
+            "name": "W_{xh}",
+            "description": "输入-隐藏权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00011"
+            ]
+          },
+          {
+            "name": "x_t",
+            "description": "时间步t的输入向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00011"
+            ]
+          },
+          {
+            "name": "W_{hh}",
+            "description": "隐藏-隐藏权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00011"
+            ]
+          },
+          {
+            "name": "h_{t-1}",
+            "description": "时间步t-1的隐藏向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00011"
+            ]
+          },
+          {
+            "name": "b_h",
+            "description": "隐藏偏置向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00011"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "标准RNN的隐藏状态更新方程，通过当前输入和前一隐藏状态计算新隐藏状态。",
+        "anchors": [
+          "anc_00011"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "y_t = W_{hy} h_t + b_y",
+        "variables": [
+          {
+            "name": "y_t",
+            "description": "时间步t的输出向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00012"
+            ]
+          },
+          {
+            "name": "W_{hy}",
+            "description": "隐藏-输出权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00012"
+            ]
+          },
+          {
+            "name": "h_t",
+            "description": "时间步t的隐藏向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00012"
+            ]
+          },
+          {
+            "name": "b_y",
+            "description": "输出偏置向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00012"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "标准RNN的输出计算方程，从隐藏状态生成输出。",
+        "anchors": [
+          "anc_00012"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "i_t = \\sigma(W_{xi} x_t + W_{hi} h_{t-1} + W_{ci} c_{t-1} + b_i)",
+        "variables": [
+          {
+            "name": "i_t",
+            "description": "输入门向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00014"
+            ]
+          },
+          {
+            "name": "\\sigma",
+            "description": "逻辑sigmoid函数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00019"
+            ]
+          },
+          {
+            "name": "W_{xi}",
+            "description": "输入-输入门权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00014"
+            ]
+          },
+          {
+            "name": "x_t",
+            "description": "时间步t的输入向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00014"
+            ]
+          },
+          {
+            "name": "W_{hi}",
+            "description": "隐藏-输入门权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00014"
+            ]
+          },
+          {
+            "name": "h_{t-1}",
+            "description": "时间步t-1的隐藏向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00014"
+            ]
+          },
+          {
+            "name": "W_{ci}",
+            "description": "细胞-输入门权重矩阵（对角）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00023"
+            ]
+          },
+          {
+            "name": "c_{t-1}",
+            "description": "时间步t-1的细胞状态向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00014"
+            ]
+          },
+          {
+            "name": "b_i",
+            "description": "输入门偏置向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00014"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "LSTM输入门的计算，控制新信息流入细胞状态。",
+        "anchors": [
+          "anc_00014"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "latex": "f_t = \\sigma(W_{xf} x_t + W_{hf} h_{t-1} + W_{cf} c_{t-1} + b_f)",
+        "variables": [
+          {
+            "name": "f_t",
+            "description": "遗忘门向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00015"
+            ]
+          },
+          {
+            "name": "W_{xf}",
+            "description": "输入-遗忘门权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00015"
+            ]
+          },
+          {
+            "name": "W_{hf}",
+            "description": "隐藏-遗忘门权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00015"
+            ]
+          },
+          {
+            "name": "W_{cf}",
+            "description": "细胞-遗忘门权重矩阵（对角）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00023"
+            ]
+          },
+          {
+            "name": "b_f",
+            "description": "遗忘门偏置向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00015"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "LSTM遗忘门的计算，控制从细胞状态中丢弃旧信息。",
+        "anchors": [
+          "anc_00015"
+        ]
+      },
+      {
+        "formula_id": "formula_005",
+        "latex": "c_t = f_t \\odot c_{t-1} + i_t \\odot \\tanh(W_{xc} x_t + W_{hc} h_{t-1} + b_c)",
+        "variables": [
+          {
+            "name": "c_t",
+            "description": "时间步t的细胞状态向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00016"
+            ]
+          },
+          {
+            "name": "\\odot",
+            "description": "逐元素乘法",
+            "confidence": "high",
+            "anchors": [
+              "anc_00016"
+            ]
+          },
+          {
+            "name": "W_{xc}",
+            "description": "输入-细胞权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00016"
+            ]
+          },
+          {
+            "name": "W_{hc}",
+            "description": "隐藏-细胞权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00016"
+            ]
+          },
+          {
+            "name": "b_c",
+            "description": "细胞偏置向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00016"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "LSTM细胞状态的更新，结合遗忘旧信息和添加新信息。",
+        "anchors": [
+          "anc_00016"
+        ]
+      },
+      {
+        "formula_id": "formula_006",
+        "latex": "o_t = \\sigma(W_{xo} x_t + W_{ho} h_{t-1} + W_{co} c_t + b_o)",
+        "variables": [
+          {
+            "name": "o_t",
+            "description": "输出门向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00017"
+            ]
+          },
+          {
+            "name": "W_{xo}",
+            "description": "输入-输出门权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00017"
+            ]
+          },
+          {
+            "name": "W_{ho}",
+            "description": "隐藏-输出门权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00017"
+            ]
+          },
+          {
+            "name": "W_{co}",
+            "description": "细胞-输出门权重矩阵（对角）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00023"
+            ]
+          },
+          {
+            "name": "b_o",
+            "description": "输出门偏置向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00017"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "LSTM输出门的计算，控制细胞状态中哪些信息输出到隐藏状态。",
+        "anchors": [
+          "anc_00017"
+        ]
+      },
+      {
+        "formula_id": "formula_007",
+        "latex": "h_t = o_t \\odot \\tanh(c_t)",
+        "variables": [
+          {
+            "name": "h_t",
+            "description": "时间步t的隐藏向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00018"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "LSTM隐藏状态的计算，通过输出门过滤细胞状态。",
+        "anchors": [
+          "anc_00018"
+        ]
+      },
+      {
+        "formula_id": "formula_008",
+        "latex": "\\vec{h}_t = H(W_{x\\vec{h}} x_t + W_{\\vec{h}\\vec{h}} \\vec{h}_{t-1} + b_{\\vec{h}})",
+        "variables": [
+          {
+            "name": "\\vec{h}_t",
+            "description": "前向隐藏向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00030",
+              "anc_00031"
+            ]
+          },
+          {
+            "name": "W_{x\\vec{h}}",
+            "description": "输入-前向隐藏权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00030",
+              "anc_00031"
+            ]
+          },
+          {
+            "name": "W_{\\vec{h}\\vec{h}}",
+            "description": "前向隐藏-前向隐藏权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00030",
+              "anc_00031"
+            ]
+          },
+          {
+            "name": "b_{\\vec{h}}",
+            "description": "前向隐藏偏置向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00030",
+              "anc_00031"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "双向RNN前向隐藏层的计算。",
+        "anchors": [
+          "anc_00030",
+          "anc_00031"
+        ]
+      },
+      {
+        "formula_id": "formula_009",
+        "latex": "\\overleftarrow{h}_t = H(W_{x\\overleftarrow{h}} x_t + W_{\\overleftarrow{h}\\overleftarrow{h}} \\overleftarrow{h}_{t+1} + b_{\\overleftarrow{h}})",
+        "variables": [
+          {
+            "name": "\\overleftarrow{h}_t",
+            "description": "后向隐藏向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00032",
+              "anc_00033"
+            ]
+          },
+          {
+            "name": "W_{x\\overleftarrow{h}}",
+            "description": "输入-后向隐藏权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00032",
+              "anc_00033"
+            ]
+          },
+          {
+            "name": "W_{\\overleftarrow{h}\\overleftarrow{h}}",
+            "description": "后向隐藏-后向隐藏权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00032",
+              "anc_00033"
+            ]
+          },
+          {
+            "name": "b_{\\overleftarrow{h}}",
+            "description": "后向隐藏偏置向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00032",
+              "anc_00033"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "双向RNN后向隐藏层的计算。",
+        "anchors": [
+          "anc_00032",
+          "anc_00033"
+        ]
+      },
+      {
+        "formula_id": "formula_010",
+        "latex": "y_t = W_{\\vec{h}y} \\vec{h}_t + W_{\\overleftarrow{h}y} \\overleftarrow{h}_t + b_y",
+        "variables": [
+          {
+            "name": "W_{\\vec{h}y}",
+            "description": "前向隐藏-输出权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00034",
+              "anc_00035"
+            ]
+          },
+          {
+            "name": "W_{\\overleftarrow{h}y}",
+            "description": "后向隐藏-输出权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00034",
+              "anc_00035"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "双向RNN的输出计算，结合前向和后向隐藏状态。",
+        "anchors": [
+          "anc_00034",
+          "anc_00035"
+        ]
+      },
+      {
+        "formula_id": "formula_011",
+        "latex": "h^n_t = H(W_{h^{n-1}h^n} h^{n-1}_t + W_{h^n h^n} h^n_{t-1} + b^n_h)",
+        "variables": [
+          {
+            "name": "h^n_t",
+            "description": "第n层时间步t的隐藏向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00041",
+              "anc_00042"
+            ]
+          },
+          {
+            "name": "W_{h^{n-1}h^n}",
+            "description": "第n-1层到第n层的权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00041",
+              "anc_00042"
+            ]
+          },
+          {
+            "name": "h^{n-1}_t",
+            "description": "第n-1层时间步t的隐藏向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00041",
+              "anc_00042"
+            ]
+          },
+          {
+            "name": "W_{h^n h^n}",
+            "description": "第n层隐藏-隐藏权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00041",
+              "anc_00042"
+            ]
+          },
+          {
+            "name": "b^n_h",
+            "description": "第n层隐藏偏置向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00041",
+              "anc_00042"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "深度RNN的隐藏层更新，堆叠多层以构建层次化表示。",
+        "anchors": [
+          "anc_00041",
+          "anc_00042"
+        ]
+      },
+      {
+        "formula_id": "formula_012",
+        "latex": "y_t = W_{h^N y} h^N_t + b_y",
+        "variables": [
+          {
+            "name": "W_{h^N y}",
+            "description": "最顶层隐藏-输出权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00044",
+              "anc_00045"
+            ]
+          },
+          {
+            "name": "h^N_t",
+            "description": "最顶层时间步t的隐藏向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00044",
+              "anc_00045"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "深度RNN的输出计算，从最顶层隐藏状态生成输出。",
+        "anchors": [
+          "anc_00044",
+          "anc_00045"
+        ]
+      },
+      {
+        "formula_id": "formula_013",
+        "latex": "Pr(k|t) = \\frac{\\exp(y_t[k])}{\\sum_{k'=1}^{K} \\exp(y_t[k'])}",
+        "variables": [
+          {
+            "name": "Pr(k|t)",
+            "description": "时间步t输出音素k的概率",
+            "confidence": "high",
+            "anchors": [
+              "anc_00061",
+              "anc_00062"
+            ]
+          },
+          {
+            "name": "y_t[k]",
+            "description": "未归一化输出向量y_t的第k个元素",
+            "confidence": "high",
+            "anchors": [
+              "anc_00061",
+              "anc_00062"
+            ]
+          },
+          {
+            "name": "K",
+            "description": "可能音素的数量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00051"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "CTC中每个时间步的输出分布，通过softmax归一化。",
+        "anchors": [
+          "anc_00061",
+          "anc_00062"
+        ]
+      },
+      {
+        "formula_id": "formula_014",
+        "latex": "l_t = W_{\\vec{h}^N l} \\vec{h}^N_t + W_{\\overleftarrow{h}^N l} \\overleftarrow{h}^N_t + b_l",
+        "variables": [
+          {
+            "name": "l_t",
+            "description": "时间步t的线性层输出向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00075",
+              "anc_00076"
+            ]
+          },
+          {
+            "name": "W_{\\vec{h}^N l}",
+            "description": "前向隐藏-线性层权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00075",
+              "anc_00076"
+            ]
+          },
+          {
+            "name": "W_{\\overleftarrow{h}^N l}",
+            "description": "后向隐藏-线性层权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00075",
+              "anc_00076"
+            ]
+          },
+          {
+            "name": "b_l",
+            "description": "线性层偏置向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00075",
+              "anc_00076"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "RNN Transducer中输出网络的第一步，从声学网络隐藏状态生成线性层输出。",
+        "anchors": [
+          "anc_00075",
+          "anc_00076"
+        ]
+      },
+      {
+        "formula_id": "formula_015",
+        "latex": "h_{t,u} = \\tanh(W_{lh} l_t + W_{pb} p_u + b_h)",
+        "variables": [
+          {
+            "name": "h_{t,u}",
+            "description": "时间步t和u的隐藏向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00077"
+            ]
+          },
+          {
+            "name": "W_{lh}",
+            "description": "线性层-隐藏层权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00077"
+            ]
+          },
+          {
+            "name": "W_{pb}",
+            "description": "预测网络隐藏-隐藏层权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00077"
+            ]
+          },
+          {
+            "name": "p_u",
+            "description": "预测网络时间步u的隐藏向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00077"
+            ]
+          },
+          {
+            "name": "b_h",
+            "description": "隐藏层偏置向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00077"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "RNN Transducer中输出网络的第二步，结合声学和语言信息生成隐藏状态。",
+        "anchors": [
+          "anc_00077"
+        ]
+      },
+      {
+        "formula_id": "formula_016",
+        "latex": "y_{t,u} = W_{hy} h_{t,u} + b_y",
+        "variables": [
+          {
+            "name": "y_{t,u}",
+            "description": "时间步t和u的未归一化输出向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00078"
+            ]
+          },
+          {
+            "name": "W_{hy}",
+            "description": "隐藏-输出权重矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00078"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "RNN Transducer中输出网络的第三步，生成未归一化输出。",
+        "anchors": [
+          "anc_00078"
+        ]
+      },
+      {
+        "formula_id": "formula_017",
+        "latex": "Pr(k|t,u) = \\frac{\\exp(y_{t,u}[k])}{\\sum_{k'=1}^{K} \\exp(y_{t,u}[k'])}",
+        "variables": [
+          {
+            "name": "Pr(k|t,u)",
+            "description": "时间步t和u输出音素k的概率",
+            "confidence": "high",
+            "anchors": [
+              "anc_00079",
+              "anc_00080"
+            ]
+          },
+          {
+            "name": "y_{t,u}[k]",
+            "description": "未归一化输出向量y_{t,u}的第k个元素",
+            "confidence": "high",
+            "anchors": [
+              "anc_00079",
+              "anc_00080"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "RNN Transducer中每个时间步组合的输出分布，通过softmax归一化。",
+        "anchors": [
+          "anc_00079",
+          "anc_00080"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "在TIMIT音素识别基准上，预训练的深度双向LSTM RNN Transducer（PreTrans-3l-250h）达到17.7%的音素错误率（PER），为当时最佳记录。",
+      "anchors": [
+        "anc_00100",
+        "anc_00102"
+      ]
+    },
+    "ablation": {
+      "description": "比较不同配置：层数（1-5层）、单元类型（LSTM vs tanh）、方向性（双向 vs 单向）、训练方法（CTC vs Transducer vs 预训练Transducer）。",
+      "anchors": [
+        "anc_00100",
+        "anc_00102"
+      ]
+    },
+    "robustness": {
+      "description": "未知，实验仅运行一次，随机初始化和权重噪声的方差未知。",
+      "anchors": [
+        "anc_00095"
+      ]
+    },
+    "scaling": {
+      "description": "深度增加（从1层到5层）显著降低PER（从23.9%到18.4%），表明深度比层大小更重要。",
+      "anchors": [
+        "anc_00100",
+        "anc_00102"
+      ]
+    },
+    "case_study": {
+      "description": "图3展示了深度CTC RNN的输入敏感性热图，显示敏感性扩展到周围片段，可能是因为CTC试图从声学数据中学习语言依赖。",
+      "anchors": [
+        "anc_00103",
+        "anc_00104"
+      ]
+    },
+    "human_eval": {
+      "description": "未提及人工评估。",
+      "anchors": []
+    },
+    "benchmark": {
+      "description": "TIMIT音素识别基准，使用标准462说话人训练集、50说话人开发集和24说话人核心测试集。",
+      "anchors": [
+        "anc_00093",
+        "anc_00094"
+      ]
+    },
+    "efficiency": {
+      "description": "未详细报告训练时间或计算资源，但提到权重数量和收敛轮数。",
+      "anchors": [
+        "anc_00102"
+      ]
+    },
+    "experiments": [
+      {
+        "description": "在TIMIT音素识别基准上，预训练的深度双向LSTM RNN Transducer（PreTrans-3l-250h）达到17.7%的音素错误率（PER），为当时最佳记录。",
+        "anchors": [
+          "anc_00100",
+          "anc_00102"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "main_result_1",
+        "dataset": [
+          "TIMIT"
+        ],
+        "baseline": [
+          "CTC-3l-250h",
+          "Trans-3l-250h"
+        ],
+        "metrics": [
+          "PER"
+        ],
+        "result_summary": "PreTrans-3l-250h达到17.7% PER，优于所有其他配置。",
+        "what_it_tries_to_prove": "深度双向LSTM结合预训练RNN Transducer在TIMIT上实现最佳性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "比较不同配置：层数（1-5层）、单元类型（LSTM vs tanh）、方向性（双向 vs 单向）、训练方法（CTC vs Transducer vs 预训练Transducer）。",
+        "anchors": [
+          "anc_00100",
+          "anc_00102"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "ablation",
+        "name": "ablation_2",
+        "dataset": [
+          "TIMIT"
+        ],
+        "baseline": [
+          "CTC-1l-250h",
+          "CTC-3l-500h-tanh",
+          "CTC-3l-421h-uni"
+        ],
+        "metrics": [
+          "PER"
+        ],
+        "result_summary": "深度、LSTM单元、双向处理和预训练均对性能有积极影响。",
+        "what_it_tries_to_prove": "验证深度、LSTM、双向性和预训练对语音识别性能的重要性。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "未知，实验仅运行一次，随机初始化和权重噪声的方差未知。",
+        "anchors": [
+          "anc_00095"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "robustness",
+        "name": "robustness_3",
+        "dataset": [
+          "TIMIT"
+        ],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "实验仅运行一次，方差未知。",
+        "what_it_tries_to_prove": "评估实验结果的可重复性。",
+        "evidence_strength": "weak"
+      },
+      {
+        "description": "深度增加（从1层到5层）显著降低PER（从23.9%到18.4%），表明深度比层大小更重要。",
+        "anchors": [
+          "anc_00100",
+          "anc_00102"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "scaling",
+        "name": "scaling_4",
+        "dataset": [
+          "TIMIT"
+        ],
+        "baseline": [
+          "CTC-1l-250h"
+        ],
+        "metrics": [
+          "PER"
+        ],
+        "result_summary": "CTC-1l-250h: 23.9% PER; CTC-5l-250h: 18.4% PER。",
+        "what_it_tries_to_prove": "深度比层大小更重要。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "图3展示了深度CTC RNN的输入敏感性热图，显示敏感性扩展到周围片段，可能是因为CTC试图从声学数据中学习语言依赖。",
+        "anchors": [
+          "anc_00103",
+          "anc_00104"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "case_study",
+        "name": "case_study_5",
+        "dataset": [
+          "TIMIT"
+        ],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "输入敏感性扩展到周围片段，表明CTC可能学习语言依赖。",
+        "what_it_tries_to_prove": "分析深度CTC RNN的行为和局限性。",
+        "evidence_strength": "moderate"
+      },
+      {
+        "description": "TIMIT音素识别基准，使用标准462说话人训练集、50说话人开发集和24说话人核心测试集。",
+        "anchors": [
+          "anc_00093",
+          "anc_00094"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "benchmark",
+        "name": "benchmark_6",
+        "dataset": [
+          "TIMIT"
+        ],
+        "baseline": [],
+        "metrics": [
+          "PER"
+        ],
+        "result_summary": "标准TIMIT基准设置。",
+        "what_it_tries_to_prove": "提供实验基准和评估标准。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "未详细报告训练时间或计算资源，但提到权重数量和收敛轮数。",
+        "anchors": [
+          "anc_00102"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "efficiency",
+        "name": "efficiency_7",
+        "dataset": [
+          "TIMIT"
+        ],
+        "baseline": [],
+        "metrics": [
+          "权重数量",
+          "收敛轮数"
+        ],
+        "result_summary": "报告权重数量和收敛轮数，但未详细报告训练时间。",
+        "what_it_tries_to_prove": "评估模型效率和资源需求。",
+        "evidence_strength": "weak"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "深度LSTM RNNs在TIMIT音素识别上达到17.7%的测试集错误率，为当时最佳记录。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00100",
+          "anc_00102"
+        ],
+        "risk_flags": [
+          "实验仅运行一次，方差未知"
+        ],
+        "claim_id": "claim_1",
+        "evidence": [
+          {
+            "evidence_id": "evidence_1",
+            "description": "Table 1显示PreTrans-3l-250h达到17.7% PER，为所有配置中最低。",
+            "anchors": [
+              "anc_00100",
+              "anc_00102"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "深度比层大小更重要。",
+        "evidence_source_type": "实验比较",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00100",
+          "anc_00102"
+        ],
+        "risk_flags": [
+          "基于特定配置比较，可能不泛化"
+        ],
+        "claim_id": "claim_2",
+        "evidence": [
+          {
+            "evidence_id": "evidence_2",
+            "description": "CTC-1l-250h: 23.9% PER; CTC-5l-250h: 18.4% PER，深度增加显著降低错误率。",
+            "anchors": [
+              "anc_00100",
+              "anc_00102"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "LSTM架构优于tanh和单向LSTM。",
+        "evidence_source_type": "实验比较",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00100",
+          "anc_00102"
+        ],
+        "risk_flags": [
+          "基于特定配置比较"
+        ],
+        "claim_id": "claim_3",
+        "evidence": [
+          {
+            "evidence_id": "evidence_3",
+            "description": "CTC-3l-500h-tanh: 37.6% PER; CTC-3l-250h: 18.6% PER; CTC-3l-421h-uni: 19.6% PER。",
+            "anchors": [
+              "anc_00100",
+              "anc_00102"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "预训练的RNN Transducer比随机初始化的版本表现更好。",
+        "evidence_source_type": "实验比较",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00100",
+          "anc_00102",
+          "anc_00085",
+          "anc_00086"
+        ],
+        "risk_flags": [
+          "预训练细节可能影响结果"
+        ],
+        "claim_id": "claim_4",
+        "evidence": [
+          {
+            "evidence_id": "evidence_4",
+            "description": "Trans-3l-250h: 18.3% PER; PreTrans-3l-250h: 17.7% PER。",
+            "anchors": [
+              "anc_00100",
+              "anc_00102",
+              "anc_00085",
+              "anc_00086"
+            ],
+            "strength": "moderate"
+          }
+        ]
+      },
+      {
+        "claim": "深度双向LSTM是首次应用于语音识别。",
+        "evidence_source_type": "作者声明",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00045"
+        ],
+        "risk_flags": [
+          "可能未涵盖所有先前工作"
+        ],
+        "claim_id": "claim_5",
+        "evidence": [
+          {
+            "evidence_id": "evidence_5",
+            "description": "作者声明：'As far as we are aware this is the first time deep LSTM has been applied to speech recognition'。",
+            "anchors": [
+              "anc_00045"
+            ],
+            "strength": "moderate"
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "RNN",
+        "definition": "循环神经网络，一种用于序列数据的神经网络，隐藏状态依赖于先前隐藏状态。",
+        "anchors": [
+          "anc_00003"
+        ],
+        "appears_in": [
+          "anc_00003"
+        ]
+      },
+      {
+        "term": "LSTM",
+        "definition": "长短期记忆，一种RNN架构，使用门控机制（输入门、遗忘门、输出门）和细胞状态来存储和访问长程信息。",
+        "anchors": [
+          "anc_00013",
+          "anc_00014",
+          "anc_00015",
+          "anc_00016",
+          "anc_00017",
+          "anc_00018",
+          "anc_00019",
+          "anc_00020",
+          "anc_00021"
+        ],
+        "appears_in": [
+          "anc_00013",
+          "anc_00014",
+          "anc_00015",
+          "anc_00016",
+          "anc_00017",
+          "anc_00018",
+          "anc_00019",
+          "anc_00020",
+          "anc_00021"
+        ]
+      },
+      {
+        "term": "CTC",
+        "definition": "连接主义时序分类，一种端到端训练方法，使用softmax层定义每个时间步的输出分布，并通过前向-后向算法计算目标序列概率。",
+        "anchors": [
+          "anc_00049",
+          "anc_00050",
+          "anc_00051",
+          "anc_00052",
+          "anc_00053",
+          "anc_00054",
+          "anc_00055",
+          "anc_00056",
+          "anc_00057"
+        ],
+        "appears_in": [
+          "anc_00049",
+          "anc_00050",
+          "anc_00051",
+          "anc_00052",
+          "anc_00053",
+          "anc_00054",
+          "anc_00055",
+          "anc_00056",
+          "anc_00057"
+        ]
+      },
+      {
+        "term": "RNN Transducer",
+        "definition": "一种结合CTC网络和预测网络的模型，联合训练声学和语言模型，为每个输入和输出时间步组合定义输出分布。",
+        "anchors": [
+          "anc_00064",
+          "anc_00065",
+          "anc_00066",
+          "anc_00067",
+          "anc_00068",
+          "anc_00069",
+          "anc_00070",
+          "anc_00071",
+          "anc_00072",
+          "anc_00073",
+          "anc_00074"
+        ],
+        "appears_in": [
+          "anc_00064",
+          "anc_00065",
+          "anc_00066",
+          "anc_00067",
+          "anc_00068",
+          "anc_00069",
+          "anc_00070",
+          "anc_00071",
+          "anc_00072",
+          "anc_00073",
+          "anc_00074"
+        ]
+      },
+      {
+        "term": "双向RNN",
+        "definition": "双向循环神经网络，通过前向和后向隐藏层处理数据，利用未来和过去上下文。",
+        "anchors": [
+          "anc_00024",
+          "anc_00025",
+          "anc_00026",
+          "anc_00027",
+          "anc_00028",
+          "anc_00029",
+          "anc_00030",
+          "anc_00031",
+          "anc_00032",
+          "anc_00033",
+          "anc_00034",
+          "anc_00035"
+        ],
+        "appears_in": [
+          "anc_00024",
+          "anc_00025",
+          "anc_00026",
+          "anc_00027",
+          "anc_00028",
+          "anc_00029",
+          "anc_00030",
+          "anc_00031",
+          "anc_00032",
+          "anc_00033",
+          "anc_00034",
+          "anc_00035"
+        ]
+      },
+      {
+        "term": "深度RNN",
+        "definition": "深度循环神经网络，通过堆叠多个RNN隐藏层，构建多层次表示。",
+        "anchors": [
+          "anc_00036",
+          "anc_00037",
+          "anc_00038",
+          "anc_00039",
+          "anc_00040",
+          "anc_00041",
+          "anc_00042",
+          "anc_00043",
+          "anc_00044",
+          "anc_00045"
+        ],
+        "appears_in": [
+          "anc_00036",
+          "anc_00037",
+          "anc_00038",
+          "anc_00039",
+          "anc_00040",
+          "anc_00041",
+          "anc_00042",
+          "anc_00043",
+          "anc_00044",
+          "anc_00045"
+        ]
+      },
+      {
+        "term": "束搜索",
+        "definition": "一种解码算法，维护一个候选序列的束（beam），在每一步扩展最可能的候选，用于RNN Transducer和CTC网络的解码。",
+        "anchors": [
+          "anc_00087",
+          "anc_00088",
+          "anc_00089"
+        ],
+        "appears_in": [
+          "anc_00087",
+          "anc_00088",
+          "anc_00089"
+        ]
+      },
+      {
+        "term": "权重噪声",
+        "definition": "一种正则化技术，在训练期间向网络权重添加高斯噪声，以简化网络并改善泛化。",
+        "anchors": [
+          "anc_00093",
+          "anc_00094",
+          "anc_00095",
+          "anc_00096",
+          "anc_00097"
+        ],
+        "appears_in": [
+          "anc_00093",
+          "anc_00094",
+          "anc_00095",
+          "anc_00096",
+          "anc_00097"
+        ]
+      },
+      {
+        "term": "音素错误率（PER）",
+        "definition": "语音识别中衡量性能的指标，计算识别出的音素序列与参考序列之间的错误率。",
+        "anchors": [
+          "anc_00102"
+        ],
+        "appears_in": [
+          "anc_00102"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        "TIMIT音素识别数据集（标准462说话人训练集、50说话人开发集、24说话人核心测试集）"
+      ],
+      "required_models": [
+        "深度双向LSTM RNNs（不同层数和单元数）、CTC网络、RNN Transducer、预测网络"
+      ],
+      "compute": "未知，论文未详细报告训练时间或硬件要求。",
+      "code_available": "未知，论文未提及代码发布。",
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 准备TIMIT数据集，进行音频特征提取（40个梅尔尺度滤波器系数加能量及其一阶和二阶时间导数）。",
+          "anchors": [
+            "anc_00093",
+            "anc_00094"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 实现标准RNN、LSTM单元、双向RNN和深度RNN架构。",
+          "anchors": [
+            "anc_00006",
+            "anc_00011",
+            "anc_00013",
+            "anc_00024",
+            "anc_00036"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 实现CTC训练方法，包括softmax输出层和前向-后向算法。",
+          "anchors": [
+            "anc_00049",
+            "anc_00050",
+            "anc_00051",
+            "anc_00052",
+            "anc_00053",
+            "anc_00054",
+            "anc_00055",
+            "anc_00056",
+            "anc_00057"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "4. 实现RNN Transducer，包括输出网络和联合训练。",
+          "anchors": [
+            "anc_00064",
+            "anc_00065",
+            "anc_00066",
+            "anc_00067",
+            "anc_00068",
+            "anc_00069",
+            "anc_00070",
+            "anc_00071",
+            "anc_00072",
+            "anc_00073",
+            "anc_00074"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "5. 实现束搜索解码算法。",
+          "anchors": [
+            "anc_00087",
+            "anc_00088",
+            "anc_00089"
+          ]
+        },
+        {
+          "step": "step_6",
+          "description": "6. 应用正则化：早停和权重噪声（σ=0.075）。",
+          "anchors": [
+            "anc_00093",
+            "anc_00094",
+            "anc_00095",
+            "anc_00096",
+            "anc_00097"
+          ]
+        },
+        {
+          "step": "step_7",
+          "description": "7. 训练不同配置的网络（如CTC-1l-250h、CTC-5l-250h、Trans-3l-250h、PreTrans-3l-250h等）。",
+          "anchors": [
+            "anc_00100",
+            "anc_00102"
+          ]
+        },
+        {
+          "step": "step_8",
+          "description": "8. 评估音素错误率（PER），将61个音素映射到39个类别进行评分。",
+          "anchors": [
+            "anc_00094",
+            "anc_00102"
+          ]
+        }
+      ],
+      "missing_details": [],
+      "risk_points": []
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-01T22:58:12+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_ml_060_speech_recognition_with_deep_recurrent_neural_ne_2013",
+    "title": "Speech recognition with deep recurrent neural networks",
+    "authors": [
+      "Alex Graves",
+      "Abdel-rahman Mohamed",
+      "Geoffrey E. Hinton"
+    ],
+    "venue": "IEEE International Conference on Acoustics, Speech, and Signal Processing",
+    "year": 2013,
+    "arxiv_id": "1303.5778",
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-01T22:56:04+00:00",
+    "paper_type": "Top-cited ML method paper",
+    "citation_count": 8928,
+    "influential_citation_count": 433,
+    "semantic_scholar_id": "4177ec52d1b80ed57f2e72b0f9a42365f1a8598d",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/4177ec52d1b80ed57f2e72b0f9a42365f1a8598d",
+    "importance_rank": 60,
+    "selection_source": "semantic_scholar_top_cited_ml_open_pdf_2026_05_01",
+    "open_access_pdf_url": "https://arxiv.org/pdf/1303.5778",
+    "fields_of_study": [
+      "Computer Science"
+    ],
+    "publication_types": [
+      "JournalArticle",
+      "Conference"
+    ],
+    "abstract": "Recurrent neural networks (RNNs) are a powerful model for sequential data. End-to-end training methods such as Connectionist Temporal Classification make it possible to train RNNs for sequence labelling problems where the input-output alignment is unknown. The combination of these methods with the Long Short-term Memory RNN architecture has proved particularly fruitful, delivering state-of-the-art results in cursive handwriting recognition. However RNN performance in speech recognition has so far been disappointing, with better results returned by deep feedforward networks. This paper investigates deep recurrent neural networks, which combine the multiple levels of representation that have proved so effective in deep networks with the flexible use of long range context that empowers RNNs. When trained end-to-end with suitable regularisation, we find that deep Long Short-term Memory RNNs achieve a test set error of 17.7% on the TIMIT phoneme recognition benchmark, which to our knowledge is the best recorded score."
+  },
+  "anchors": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "SPEECH RECOGNITION WITH DEEP RECURRENT NEURAL NETWORKS Alex Graves, Abdel-rahman Mohamed and Geoffrey Hinton Department of Computer Science, University of Toronto",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ABSTRACT",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Recurrent neural networks (RNNs) are a powerful model for sequential data. End-to-end training methods such as Connec- tionist Temporal Classiﬁcation make it possible to train RNNs for sequence labelling problems where the input-output align- ment is unknown. The combination of these methods with the Long Short-term Memory RNN architecture has proved particularly fruitful, delivering state-of-the-art results in cur- sive handwriting recognition. However RNN performance in speech recognition has so far been disappointing, with better results returned by deep feedforward networks. This paper in- vestigates deep recurrent neural networks, which combine the multiple levels of representation that have proved so effective in deep networks with the ﬂexible use of long range context that empowers RNNs. When trained end-to-end with suit- able regularisation, we ﬁnd that deep Long Short-term Mem- ory RNNs achieve a test set error of 17.7% on the TIMIT phoneme recognition benchmark, which to our...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "This approach exploits the larger state-space and richer dy-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "namics of RNNs compared to HMMs, and avoids the prob- lem of using potentially incorrect alignments as training tar- gets. The combination of Long Short-term Memory [11], an RNN architecture with an improved memory, with end-to-end training has proved especially effective for cursive handwrit- ing recognition [12, 13]. However it has so far made little impact on speech recognition. RNNs are inherently deep in time, since their hidden state is a function of all previous hidden states. The question that inspired this paper was whether RNNs could also beneﬁt from depth in space; that is from stacking multiple recurrent hid- den layers on top of each other, just as feedforward layers are stacked in conventional deep networks. To answer this ques- tion we introduce deep Long Short-term Memory RNNs and assess their potential for speech recognition. We also present an enhancement to a recently introduced end-to-end learning method that jointly trains two separate RNNs as acoustic and linguis...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Given an input sequence x = (x1,...,x T ), a standard recur-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "rent neural network (RNN) computes the hidden vector se-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "quence h = (h1,...,h T ) and output vector sequence y =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(y1,...,y T ) by iterating the following equations from t = 1",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "toT :",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ht = H (Wxhxt +Whhht−1 +bh) (1)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "yt =Whyht +by (2)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "where the W terms denote weight matrices (e.g. Wxh is the input-hidden weight matrix), the b terms denote bias vectors (e.g.bh is hidden bias vector) and H is the hidden layer func- tion. H is usually an elementwise application of a sigmoid function. However we have found that the Long Short-Term Memory (LSTM) architecture [11], which uses purpose-built memory cells to store information, is better at ﬁnding and ex- ploiting long range context. Fig. 1 illustrates a single LSTM memory cell. For the version of LSTM used in this paper [14] H is implemented by the following composite function:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "it =σ (Wxixt +Whiht−1 +Wcict−1 +bi) (3)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ft =σ (Wxfxt +Whfht−1 +Wcfct−1 +bf ) (4)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ct =ftct−1 +it tanh (Wxcxt +Whcht−1 +bc) (5)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ot =σ (Wxoxt +Whoht−1 +Wcoct +bo) (6)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ht =ot tanh(ct) (7)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "where σ is the logistic sigmoid function, and i, f, o and c",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "are respectively the input gate, forget gate, output gate and arXiv:1303.5778v1 [cs.NE] 22 Mar 2013",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 1. Long Short-term Memory Cell",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00022",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 2. Bidirectional RNN",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "cell activation vectors, all of which are the same size as the hidden vector h. The weight matrices from the cell to gate vectors (e.g. Wsi) are diagonal, so element m in each gate vector only receives input from elementm of the cell vector.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00024",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "One shortcoming of conventional RNNs is that they are",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "only able to make use of previous context. In speech recog- nition, where whole utterances are transcribed at once, there is no reason not to exploit future context as well. Bidirec- tional RNNs (BRNNs) [15] do this by processing the data in both directions with two separate hidden layers, which are then fed forwards to the same output layer. As illustrated in",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 2, a BRNN computes the forward hidden sequence − →h ,",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00027",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the backward hidden sequence ← −h and the output sequence y",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00028",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "by iterating the backward layer from t =T to 1, the forward",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "layer fromt = 1 toT and then updating the output layer:",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "− →h t = H",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00031",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "( Wx− →hxt +W− →h − →h − →h t−1 +b− →h ) (8)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "← −h t = H",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00033",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "( Wx← −hxt +W← −h ← −h ← −h t+1 +b← −h ) (9)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "yt =W− →h y",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00035",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "− →h t +W← −h y ← −h t +by (10) Combing BRNNs with LSTM gives bidirectional LSTM [16], which can access long-range context in both input directions. A crucial element of the recent success of hybrid HMM- neural network systems is the use ofdeep architectures, which are able to build up progressively higher level representations of acoustic data. Deep RNNs can be created by stacking mul- tiple RNN hidden layers on top of each other, with the out-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "put sequence of one layer forming the input sequence for the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00037",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "next. Assuming the same hidden layer function is used for",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00038",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "allN layers in the stack, the hidden vector sequences hn are",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00039",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "iteratively computed fromn = 1 toN andt = 1 toT :",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "hn",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00041",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "t = H",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00042",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "( Whn−1hnhn−1 t +Whnhnhn t−1 +bn h ) (11)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00043",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "where we deﬁneh0 = x. The network outputsyt are",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "yt =WhN yhN",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00045",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "t +by (12) Deep bidirectional RNNs can be implemented by replacing each hidden sequence hn with the forward and backward se- quences − →h n and ← −h n, and ensuring that every hidden layer receives input from both the forward and backward layers at the level below. If LSTM is used for the hidden layers we get deep bidirectional LSTM, the main architecture used in this paper. As far as we are aware this is the ﬁrst time deep LSTM has been applied to speech recognition, and we ﬁnd that it yields a dramatic improvement over single-layer LSTM. 3. NETWORK TRAINING We focus on end-to-end training, where RNNs learn to map directly from acoustic to phonetic sequences. One advantage of this approach is that it removes the need for a predeﬁned",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00046",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(and error-prone) alignment to create the training targets. The",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00047",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ﬁrst step is to to use the network outputs to parameterise a differentiable distribution Pr(y|x) over all possible phonetic output sequences y given an acoustic input sequence x. The",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00048",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "log-probability log Pr(z|x) of the target output sequence z",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "can then be differentiated with respect to the network weights using backpropagation through time [17], and the whole sys- tem can be optimised with gradient descent. We now describe two ways to deﬁne the output distribution and hence train the network. We refer throughout to the length of x as T , the length of z asU, and the number of possible phonemes asK. 3.1. Connectionist Temporal Classiﬁcation The ﬁrst method, known as Connectionist Temporal Classi-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00050",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ﬁcation (CTC) [8, 9], uses a softmax layer to deﬁne a sepa-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "rate output distribution Pr(k|t) at every step t along the in- put sequence. This distribution covers the K phonemes plus an extra blank symbol ∅ which represents a non-output (the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00052",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "softmax layer is therefore size K + 1). Intuitively the net-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00053",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "work decides whether to emit any label, or no label, at every timestep. Taken together these decisions deﬁne a distribu-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tion over alignments between the input and target sequences.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "CTC then uses a forward-backward algorithm to sum over all",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "possible alignments and determine the normalised probability",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00057",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Pr(z|x) of the target sequence given the input sequence [8].",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00058",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Similar procedures have been used elsewhere in speech and handwriting recognition to integrate out over possible seg- mentations [18, 19]; however CTC differs in that it ignores segmentation altogether and sums over single-timestep label decisions instead. RNNs trained with CTC are generally bidirectional, to en- sure that every Pr(k|t) depends on the entire input sequence, and not just the inputs up tot. In this work we focus on deep bidirectional networks, with Pr(k|t) deﬁned as follows:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00059",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "yt =W− →h N y",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00060",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "− →h N t +W← −h N y ← −h N t +by (13)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00061",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Pr(k|t) = exp(yt[k])∑K",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00062",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "k′=1 exp(yt[k′])",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": ", (14) where yt[k] is the kth element of the length K + 1 unnor- malised output vectoryt, andN is the number of bidirectional levels. 3.2. RNN Transducer CTC deﬁnes a distribution over phoneme sequences that de- pends only on the acoustic input sequence x. It is therefore an acoustic-only model. A recent augmentation, known as an RNN transducer [10] combines a CTC-like network with a separate RNN that predicts each phoneme given the previous ones, thereby yielding a jointly trained acoustic and language model. Joint LM-acoustic training has proved beneﬁcial in the past for speech recognition [20, 21].",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00064",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Whereas CTC determines an output distribution at every",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00065",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "input timestep, an RNN transducer determines a separate dis-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00066",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tribution Pr(k|t,u ) for every combination of input timestept and output timestep u. As with CTC, each distribution cov- ers the K phonemes plus ∅. Intuitively the network ‘de- cides’ what to output depending both on where it is in the input sequence and the outputs it has already emitted. For a",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "lengthU target sequence z, the complete set ofTU decisions",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00068",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "jointly determines a distribution over all possible alignments",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "between x and z, which can then be integrated out with a",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00070",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "forward-backward algorithm to determine log Pr(z|x) [10].",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00071",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "In the original formulation Pr(k|t,u ) was deﬁned by tak- ing an ‘acoustic’ distribution Pr(k|t) from the CTC network, a ‘linguistic’ distribution Pr(k|u) from the prediction net- work, then multiplying the two together and renormalising. An improvement introduced in this paper is to instead feed the hidden activations of both networks into a separate feed- forward output network, whose outputs are then normalised",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00072",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "with a softmax function to yield Pr(k|t,u ). This allows a",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00073",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "richer set of possibilities for combining linguistic and acous- tic information, and appears to lead to better generalisation. In particular we have found that the number of deletion errors encountered during decoding is reduced. Denote by − →h N and ← −h N the uppermost forward and backward hidden sequences of the CTC network, and by p the hidden sequence of the prediction network. At each t,u the output network is implemented by feeding − →h N and ← −h N to a linear layer to generate the vector lt, then feeding lt and pu to a tanh hidden layer to yield ht,u, and ﬁnally feeding",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00074",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ht,u to a sizeK + 1 softmax layer to determine Pr(k|t,u ):",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00075",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "lt =W− →h N l",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00076",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "− →h N t +W← −h N l ← −h N t +bl (15)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00077",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ht,u = tanh (Wlhlt,u +Wpbpu +bh) (16)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00078",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "yt,u =Whyht,u +by (17)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00079",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Pr(k|t,u ) = exp(yt,u[k])∑K",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00080",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "k′=1 exp(yt,u[k′])",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00081",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": ", (18) whereyt,u[k] is the kth element of the length K + 1 unnor- malised output vector. For simplicity we constrained all non- output layers to be the same size ( |− →h n",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00082",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "t | = |← −h n",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00083",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "t | = |pu| =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00084",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "|lt| = |ht,u|); however they could be varied independently.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00085",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "RNN transducers can be trained from random initial weights. However they appear to work better when initialised with the weights of a pretrained CTC network and a pre- trained next-step prediction network (so that only the output network starts from random weights). The output layers (and all associated weights) used by the networks during pretrain- ing are removed during retraining. In this work we pretrain the prediction network on the phonetic transcriptions of the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00086",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "audio training data; however for large-scale applications it",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00087",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "would make more sense to pretrain on a separate text corpus. 3.3. Decoding RNN transducers can be decoded with beam search [10] to yield an n-best list of candidate transcriptions. In the past CTC networks have been decoded using either a form of best- ﬁrst decoding known aspreﬁx search, or by simply taking the most active output at every timestep [8]. In this work however we exploit the same beam search as the transducer, with the modiﬁcation that the output label probabilities Pr(k|t,u ) do",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00088",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "not depend on the previous outputs (soPr(k|t,u ) = Pr(k|t)).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00089",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "We ﬁnd beam search both faster and more effective than pre- ﬁx search for CTC. Note the n-best list from the transducer",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00090",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "was originally sorted by the length normalised log-probabilty",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00091",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "log Pr(y)/|y|; in the current work we dispense with the nor-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00092",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "malisation (which only helps when there are many more dele- tions than insertions) and sort by Pr(y). 3.4. Regularisation Regularisation is vital for good performance with RNNs, as their ﬂexibility makes them prone to overﬁtting. Two regu- larisers were used in this paper: early stopping and weight noise (the addition of Gaussian noise to the network weights during training [22]). Weight noise was added once per train- ing sequence, rather than at every timestep. Weight noise",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00093",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tends to ‘simplify’ neural networks, in the sense of reducing the amount of information required to transmit the parame- ters [23, 24], which improves generalisation. 4. EXPERIMENTS Phoneme recognition experiments were performed on the TIMIT corpus [25]. The standard 462 speaker set with all SA records removed was used for training, and a separate development set of 50 speakers was used for early stop- ping. Results are reported for the 24-speaker core test set. The audio data was encoded using a Fourier-transform-based ﬁlter-bank with 40 coefﬁcients (plus energy) distributed on a mel-scale, together with their ﬁrst and second temporal derivatives. Each input vector was therefore size 123. The data were normalised so that every element of the input vec- tors had zero mean and unit variance over the training set. All 61 phoneme labels were used during training and decoding",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00094",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(so K = 61 ), then mapped to 39 classes for scoring [26].",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00095",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Note that all experiments were run only once, so the vari- ance due to random weight initialisation and weight noise is unknown. As shown in Table 1, nine RNNs were evaluated, vary- ing along three main dimensions: the training method used (CTC, Transducer or pretrained Transducer), the number of hidden levels (1–5), and the number of LSTM cells in each hidden layer. Bidirectional LSTM was used for all networks except CTC-3l-500h-tanh, which had tanh units instead of LSTM cells, and CTC-3l-421h-uni where the LSTM layers were unidirectional. All networks were trained using stochas- tic gradient descent, with learning rate 10−4, momentum 0.9 and random initial weights drawn uniformly from[−0.1, 0.1]. All networks except CTC-3l-500h-tanh and PreTrans-3l-250h were ﬁrst trained with no noise and then, starting from the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00096",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "point of highest log-probability on the development set, re-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00097",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "trained with Gaussian weight noise ( σ = 0 .075) until the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00098",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "point of lowest phoneme error rate on the development set. PreTrans-3l-250h was initialised with the weights of CTC- 3l-250h, along with the weights of a phoneme prediction net- work (which also had a hidden layer of 250 LSTM cells), both of which were trained without noise, retrained with noise, and",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00099",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "stopped at the point of highest log-probability. PreTrans-3l-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00100",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "250h was trained from this point with noise added. CTC-3l- 500h-tanh was entirely trained without weight noise because it failed to learn with noise added. Beam search decoding was used for all networks, with a beam width of 100. The advantage of deep networks is immediately obvious, with the error rate for CTC dropping from 23.9% to 18.4% as the number of hidden levels increases from one to ﬁve. The four networks CTC-3l-500h-tanh, CTC-1l-622h, CTC- 3l-421h-uni and CTC-3l-250h all had approximately the same number of weights, but give radically different results. The three main conclusions we can draw from this are (a) LSTM works much better than tanh for this task, (b) bidirectional",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00101",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 1. TIMIT Phoneme Recognition Results. ‘Epochs’ is",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00102",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the number of passes through the training set before conver- gence. ‘PER’ is the phoneme error rate on the core test set. NETWORK WEIGHTS EPOCHS PER CTC-3 L-500 H-TANH 3.7M 107 37.6% CTC-1 L-250 H 0.8M 82 23.9% CTC-1 L-622 H 3.8M 87 23.0% CTC-2 L-250 H 2.3M 55 21.0% CTC-3 L-421 H-UNI 3.8M 115 19.6% CTC-3 L-250 H 3.8M 124 18.6% CTC-5 L-250 H 6.8M 150 18.4% TRANS -3 L-250 H 4.3M 112 18.3% PRETRANS -3 L-250 H 4.3M 144 17.7%",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00103",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 3. Input Sensitivity of a deep CTC RNN. The heatmap",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00104",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(top) shows the derivatives of the ‘ah’ and ‘p’ outputs printed in red with respect to the ﬁlterbank inputs (bottom). The TIMIT ground truth segmentation is shown below. Note that the sensitivity extends to surrounding segments; this may be because CTC (which lacks an explicit language model) at- tempts to learn linguistic dependencies from the acoustic data. LSTM has a slight advantage over unidirectional LSTMand (c) depth is more important than layer size (which supports previous ﬁndings for deep networks [3]). Although the advan- tage of the transducer is slight when the weights are randomly initialised, it becomes more substantial when pretraining is used. 5. CONCLUSIONS AND FUTURE WORK We have shown that the combination of deep, bidirectional Long Short-term Memory RNNs with end-to-end training and weight noise gives state-of-the-art results in phoneme recog- nition on the TIMIT database. An obvious next step is to ex-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00105",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tend the system to large vocabulary speech recognition. An-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00106",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "other interesting direction would be to combine frequency- domain convolutional neural networks [27] with deep LSTM.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00107",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "6. REFERENCES [1] H.A. Bourlard and N. Morgan, Connnectionist Speech Recognition: A Hybrid Approach , Kluwer Academic Publishers, 1994. [2] Qifeng Zhu, Barry Chen, Nelson Morgan, and Andreas Stolcke, “Tandem connectionist feature extraction for conversational speech recognition,” in International Conference on Machine Learning for Multimodal Inter- action, Berlin, Heidelberg, 2005, MLMI’04, pp. 223– 231, Springer-Verlag. [3] A. Mohamed, G.E. Dahl, and G. Hinton, “Acoustic modeling using deep belief networks,” Audio, Speech, and Language Processing, IEEE Transactions on , vol. 20, no. 1, pp. 14 –22, jan. 2012. [4] G. Hinton, Li Deng, Dong Yu, G.E. Dahl, A. Mohamed, N. Jaitly, A. Senior, V . Vanhoucke, P. Nguyen, T.N. Sainath, and B. Kingsbury, “Deep neural networks for acoustic modeling in speech recognition,” Signal Pro- cessing Magazine, IEEE, vol. 29, no. 6, pp. 82 –97, nov. 2012. [5] A. J. Robinson, “An Application of Recurrent Nets to Phone Probability Estimation,” IEEE Transactio...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00108",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Precise Timing with LSTM Recurrent Networks,” Jour-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00109",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "nal of Machine Learning Research, vol. 3, pp. 115–143, 2002. [15] M. Schuster and K. K. Paliwal, “Bidirectional Recur- rent Neural Networks,” IEEE Transactions on Signal Processing, vol. 45, pp. 2673–2681, 1997. [16] A. Graves and J. Schmidhuber, “Framewise Phoneme Classiﬁcation with Bidirectional LSTM and Other Neu- ral Network Architectures,” Neural Networks, vol. 18, no. 5-6, pp. 602–610, June/July 2005. [17] David E. Rumelhart, Geoffrey E. Hinton, and Ronald J. Williams, Learning representations by back- propagating errors, pp. 696–699, MIT Press, 1988. [18] Georey Zweig and Patrick Nguyen, “SCARF: A seg- mental CRF speech recognition system,” Tech. Rep., Microsoft Research, 2009. [19] Andrew W. Senior and Anthony J. Robinson, “Forward- backward retraining of recurrent neural networks,” in NIPS, 1995, pp. 743–749. [20] Abdel rahman Mohamed, Dong Yu, and Li Deng, “In- vestigation of full-sequence training of deep belief net- works for speech recognition,” in in Interspeech, 2010.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00110",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "[21] M. Lehr and I. Shafran, “Discriminatively estimated",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00111",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "joint acoustic, duration, and language model for speech recognition,” in ICASSP, 2010, pp. 5542 –5545. [22] Kam-Chuen Jim, C.L. Giles, and B.G. Horne, “An anal- ysis of noise in recurrent neural networks: convergence and generalization,” Neural Networks, IEEE Transac- tions on, vol. 7, no. 6, pp. 1424 –1438, nov 1996. [23] Geoffrey E. Hinton and Drew van Camp, “Keeping the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00112",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "neural networks simple by minimizing the description",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00113",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "length of the weights,” in COLT, 1993, pp. 5–13. [24] Alex Graves, “Practical variational inference for neural networks,” in NIPS, pp. 2348–2356. 2011. [25] DARPA-ISTO, The DARPA TIMIT Acoustic-Phonetic Continuous Speech Corpus (TIMIT) , speech disc cd1- 1.1 edition, 1990. [26] Kai fu Lee and Hsiao wuen Hon, “Speaker-independent phone recognition using hidden markov models,” IEEE Transactions on Acoustics, Speech, and Signal Process- ing, 1989. [27] O. Abdel-Hamid, A. Mohamed, Hui Jiang, and G. Penn, “Applying convolutional neural networks concepts to hybrid nn-hmm model for speech recognition,” in ICASSP, march 2012, pp. 4277 –4280.",
+      "source_type": "paragraph"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "warnings": [
+      {
+        "code": "ok",
+        "message": "Grounding verification passed with current v1 checks.",
+        "target": null,
+        "severity": "info"
+      }
+    ],
+    "anchor_count": 113
+  }
+}

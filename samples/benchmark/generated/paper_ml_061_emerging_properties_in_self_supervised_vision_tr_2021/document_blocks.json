@@ -1,0 +1,2936 @@
+[
+  {
+    "block_id": "blk_00001",
+    "type": "title",
+    "content": "Emerging Properties in Self-Supervised Vision Transformers Mathilde Caron1,2 Hugo Touvron1,3 Ishan Misra1 Herv´e Jegou1 Julien Mairal2 Piotr Bojanowski1 Armand Joulin1 1 Facebook AI Research 2 Inria∗ 3 Sorbonne University",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "anchor_id": "anc_00001"
+  },
+  {
+    "block_id": "blk_00002",
+    "type": "caption",
+    "content": "Figure 1: Self-attention from a Vision Transformer with 8× 8 patches trained with no supervision. We look at the self-attention of",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "anchor_id": "anc_00002"
+  },
+  {
+    "block_id": "blk_00003",
+    "type": "paragraph",
+    "content": "the [CLS] token on the heads of the last layer. This token is not attached to any label nor supervision. These maps show that the model automatically learns class-speciﬁc features leading to unsupervised object segmentations.",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "anchor_id": "anc_00003"
+  },
+  {
+    "block_id": "blk_00004",
+    "type": "section_heading",
+    "content": "Abstract",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00004"
+  },
+  {
+    "block_id": "blk_00005",
+    "type": "paragraph",
+    "content": "In this paper, we question if self-supervised learning pro- vides new properties to Vision Transformer (ViT) [19] that stand out compared to convolutional networks (convnets). Beyond the fact that adapting self-supervised methods to this architecture works particularly well, we make the follow- ing observations: ﬁrst, self-supervised ViT features contain explicit information about the semantic segmentation of an image, which does not emerge as clearly with supervised ViTs, nor with convnets. Second, these features are also ex- cellentk-NN classiﬁers, reaching 78.3% top-1 on ImageNet with a small ViT. Our study also underlines the importance of momentum encoder [33], multi-crop training [10], and the use of small patches with ViTs. We implement our ﬁndings into a simple self-supervised method, called DINO, which we interpret as a form of self- distillation with no labels. We show the synergy between DINO and ViTs by achieving 80.1% top-1 on ImageNet in linear evaluation with ViT-Base. ∗Univ. Grenoble Alpes, Inria, CNRS, Grenoble INP, LJK, 38000 Grenoble, France. Correspondence: mathilde@fb.com Code: https://github.com/facebookresearch/dino 1. Introduction Transformers [70] have recently emerged as an alternative to convolutional neural networks (convnets) for visual recog- nition [19, 69, 83]. Their adoption has been coupled with a training strategy inspired by natural language processing",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00005"
+  },
+  {
+    "block_id": "blk_00006",
+    "type": "formula",
+    "content": "(NLP), that is, pretraining on large quantities of data and",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00006"
+  },
+  {
+    "block_id": "blk_00007",
+    "type": "formula",
+    "content": "ﬁnetuning on the target dataset [18, 55]. The resulting Vision",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00007"
+  },
+  {
+    "block_id": "blk_00008",
+    "type": "paragraph",
+    "content": "Transformers (ViT) [19] are competitive with convnets but, they have not yet delivered clear beneﬁts over them: they are computationally more demanding, require more training data, and their features do not exhibit unique properties. In this paper, we question whether the muted success of Transformers in vision can be explained by the use of super- vision in their pretraining. Our motivation is that one of the main ingredients for the success of Transformers in NLP was the use of self-supervised pretraining, in the form of close procedure in BERT [18] or language modeling in GPT [55]. These self-supervised pretraining objectives use the words in a sentence to create pretext tasks that provide a richer learning signal than the supervised objective of predicting a single label per sentence. Similarly, in images, image- level supervision often reduces the rich visual information contained in an image to a single concept selected from a predeﬁned set of a few thousand categories of objects [60]. While the self-supervised pretext tasks used in NLP are 1 arXiv:2104.14294v2 [cs.CV] 24 May 2021",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00008"
+  },
+  {
+    "block_id": "blk_00009",
+    "type": "paragraph",
+    "content": "text speciﬁc, many existing self-supervised methods have shown their potential on images with convnets [10, 12, 30, 33]. They typically share a similar structure but with differ- ent components designed to avoid trivial solutions (collapse) or to improve performance [16]. In this work, inspired from these methods, we study the impact of self-supervised pre- training on ViT features. Of particular interest, we have identiﬁed several interesting properties that do not emerge with supervised ViTs, nor with convnets: • Self-supervised ViT features explicitly contain the scene layout and, in particular, object boundaries, as shown in Figure 1. This information is directly accessi- ble in the self-attention modules of the last block. • Self-supervised ViT features perform particularly well with a basic nearest neighbors classiﬁer (k-NN) without any ﬁnetuning, linear classiﬁer nor data augmentation, achieving 78.3% top-1 accuracy on ImageNet. The emergence of segmentation masks seems to be a property shared across self-supervised methods. However, the good performance withk-NN only emerge when com- bining certain components such as momentum encoder [33] and multi-crop augmentation [10]. Another ﬁnding from our study is the importance of using smaller patches with ViTs to improve the quality of the resulting features. Overall, our ﬁndings about the importance of these components lead us to design a simple self-supervised ap- proach that can be interpreted as a form of knowledge distillation [35] with no labels. The resulting framework, DINO, simpliﬁes self-supervised training by directly pre- dicting the output of a teacher network—built with a mo- mentum encoder—by using a standard cross-entropy loss. Interestingly, our method can work with only a centering and sharpening of the teacher output to avoid collapse, while other popular components such as predictor [30], advanced normalization [10] or contrastive loss [33] add little beneﬁts in terms of stability or performance. Of particular impor- tance, our framework is ﬂexible and works on both convnets and ViTs without the need to modify the architecture, nor adapt internal normalizations [58]. We further validate the synergy between DINO and ViT",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00009"
+  },
+  {
+    "block_id": "blk_00010",
+    "type": "formula",
+    "content": "by outperforming previous self-supervised features on the",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00010"
+  },
+  {
+    "block_id": "blk_00011",
+    "type": "paragraph",
+    "content": "ImageNet linear classiﬁcation benchmark with 80.1% top-1 accuracy with a ViT-Base with small patches. We also con- ﬁrm that DINO works with convnets by matching the state of the art with a ResNet-50 architecture. Finally, we discuss different scenarios to use DINO with ViTs in case of limited computation and memory capacity. In particular, training DINO with ViT takes just two 8-GPU servers over 3 days to achieve 76.1% on ImageNet linear benchmark, which outperforms self-supervised systems based on convnets of comparable sizes with signiﬁcantly reduced compute require- ments [10, 30]. studentgθs x x2x1 teachergθt centering sg softmax p1 p2 softmax loss:",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00011"
+  },
+  {
+    "block_id": "blk_00012",
+    "type": "formula",
+    "content": "-p2 log p1",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00012"
+  },
+  {
+    "block_id": "blk_00013",
+    "type": "paragraph",
+    "content": "ema",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00013"
+  },
+  {
+    "block_id": "blk_00014",
+    "type": "caption",
+    "content": "Figure 2: Self-distillation with no labels. We illustrate DINO in",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00014"
+  },
+  {
+    "block_id": "blk_00015",
+    "type": "paragraph",
+    "content": "the case of one single pair of views ( x1, x2) for simplicity. The model passes two different random transformations of an input image to the student and teacher networks. Both networks have the same architecture but different parameters. The output of the teacher network is centered with a mean computed over the batch. Each networks outputs a K dimensional feature that is normalized",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00015"
+  },
+  {
+    "block_id": "blk_00016",
+    "type": "formula",
+    "content": "with a temperature softmax over the feature dimension. Their",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00016"
+  },
+  {
+    "block_id": "blk_00017",
+    "type": "paragraph",
+    "content": "similarity is then measured with a cross-entropy loss. We apply a stop-gradient (sg) operator on the teacher to propagate gradients only through the student. The teacher parameters are updated with an exponential moving average (ema) of the student parameters. 2. Related work",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00017"
+  },
+  {
+    "block_id": "blk_00018",
+    "type": "formula",
+    "content": "Self-supervised learning. A large body of work on self-",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00018"
+  },
+  {
+    "block_id": "blk_00019",
+    "type": "formula",
+    "content": "supervised learning focuses on discriminative approaches",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00019"
+  },
+  {
+    "block_id": "blk_00020",
+    "type": "paragraph",
+    "content": "coined instance classiﬁcation [12, 20, 33, 73], which con- siders each image a different class and trains the model",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00020"
+  },
+  {
+    "block_id": "blk_00021",
+    "type": "formula",
+    "content": "by discriminating them up to data augmentations. How-",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00021"
+  },
+  {
+    "block_id": "blk_00022",
+    "type": "formula",
+    "content": "ever, explicitly learning a classiﬁer to discriminate be-",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00022"
+  },
+  {
+    "block_id": "blk_00023",
+    "type": "paragraph",
+    "content": "tween all images [ 20] does not scale well with the num- ber of images. Wu et al . [ 73] propose to use a noise contrastive estimator (NCE) [32] to compare instances in- stead of classifying them. A caveat of this approach is",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00023"
+  },
+  {
+    "block_id": "blk_00024",
+    "type": "formula",
+    "content": "that it requires comparing features from a large number",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00024"
+  },
+  {
+    "block_id": "blk_00025",
+    "type": "formula",
+    "content": "of images simultaneously. In practice, this requires large",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00025"
+  },
+  {
+    "block_id": "blk_00026",
+    "type": "paragraph",
+    "content": "batches [12] or memory banks [ 33, 73]. Several variants allow automatic grouping of instances in the form of cluster- ing [2, 8, 9, 36, 42, 74, 80, 85]. Recent works have shown that we can learn unsupervised",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00026"
+  },
+  {
+    "block_id": "blk_00027",
+    "type": "formula",
+    "content": "features without discriminating between images. Of par-",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00027"
+  },
+  {
+    "block_id": "blk_00028",
+    "type": "paragraph",
+    "content": "ticular interest, Grill et al. [30] propose a metric-learning formulation called BYOL, where features are trained by matching them to representations obtained with a momentum encoder. Methods like BYOL work even without a momen- tum encoder, at the cost of a drop of performance [16, 30]. Several other works echo this direction, showing that one can match more elaborate representations [26, 27], train fea- tures matching them to a uniform distribution [6] or by using whitening [23, 81]. Our approach takes its inspiration from BYOL but operates with a different similarity matching loss",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00028"
+  },
+  {
+    "block_id": "blk_00029",
+    "type": "paragraph",
+    "content": "and uses the exact same architecture for the student and the teacher. That way, our work completes the interpretation initiated in BYOL of self-supervised learning as a form of Mean Teacher self-distillation [65] with no labels. Self-training and knowledge distillation. Self-training aims at improving the quality of features by propagating",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00029"
+  },
+  {
+    "block_id": "blk_00030",
+    "type": "formula",
+    "content": "a small initial set of annotations to a large set of unlabeled",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00030"
+  },
+  {
+    "block_id": "blk_00031",
+    "type": "paragraph",
+    "content": "instances. This propagation can either be done with hard assignments of labels [ 41, 78, 79] or with a soft assign- ment [76]. When using soft labels, the approach is often referred to as knowledge distillation [ 7, 35] and has been primarily designed to train a small network to mimic the",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00031"
+  },
+  {
+    "block_id": "blk_00032",
+    "type": "formula",
+    "content": "output of a larger network to compress models. Xie et",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00032"
+  },
+  {
+    "block_id": "blk_00033",
+    "type": "paragraph",
+    "content": "al. [76] have shown that distillation could be used to propa- gate soft pseudo-labels to unlabelled data in a self-training pipeline, drawing an essential connection between self- training and knowledge distillation. Our work builds on this relation and extends knowledge distillation to the case where no labels are available. Previous works have also combined self-supervised learning and knowledge distilla- tion [25, 63, 13, 47], enabling self-supervised model com- pression and performance gains. However, these works rely on a pre-trained ﬁxed teacher while our teacher is dynam- ically built during training. This way, knowledge distilla- tion, instead of being used as a post-processing step to self- supervised pre-training, is directly cast as a self-supervised objective. Finally, our work is also related to codistilla- tion [1] where student and teacher have the same architecture and use distillation during training. However, the teacher in codistillation is also distilling from the student, while it is updated with an average of the student in our work. 3. Approach 3.1. SSL with Knowledge Distillation The framework used for this work, DINO, shares the same overall structure as recent self-supervised approaches [ 10, 16, 12, 30, 33]. However, our method shares also similarities with knowledge distillation [ 35] and we present it under this angle. We illustrate DINO in Figure 2 and propose a pseudo-code implementation in Algorithm 1. Knowledge distillation is a learning paradigm where we train a student network gθs to match the output of a given teacher networkgθt, parameterized byθs andθt respectively. Given an input image x, both networks output probability distributions overK dimensions denoted byPs andPt. The probabilityP is obtained by normalizing the output of the",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00033"
+  },
+  {
+    "block_id": "blk_00034",
+    "type": "formula",
+    "content": "networkg with a softmax function. More precisely,",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00034"
+  },
+  {
+    "block_id": "blk_00035",
+    "type": "formula",
+    "content": "Ps(x)(i) = exp(gθs (x)(i)/τs)∑K",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00035"
+  },
+  {
+    "block_id": "blk_00036",
+    "type": "formula",
+    "content": "k=1 exp(gθs (x)(k)/τs)",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00036"
+  },
+  {
+    "block_id": "blk_00037",
+    "type": "paragraph",
+    "content": ", (1) with τs > 0 a temperature parameter that controls the Algorithm 1 DINO PyTorch pseudocode w/o multi-crop. # gs, gt: student and teacher networks # C: center (K) # tps, tpt: student and teacher temperatures # l, m: network and center momentum rates",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00037"
+  },
+  {
+    "block_id": "blk_00038",
+    "type": "formula",
+    "content": "gt.params = gs.params",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00038"
+  },
+  {
+    "block_id": "blk_00039",
+    "type": "formula",
+    "content": "for x in loader: # load a minibatch x with n samples",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00039"
+  },
+  {
+    "block_id": "blk_00040",
+    "type": "formula",
+    "content": "x1, x2 = augment(x), augment(x) # random views",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00040"
+  },
+  {
+    "block_id": "blk_00041",
+    "type": "formula",
+    "content": "s1, s2 = gs(x1), gs(x2) # student output n-by-K",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00041"
+  },
+  {
+    "block_id": "blk_00042",
+    "type": "formula",
+    "content": "t1, t2 = gt(x1), gt(x2) # teacher output n-by-K",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00042"
+  },
+  {
+    "block_id": "blk_00043",
+    "type": "formula",
+    "content": "loss = H(t1, s2)/2 + H(t2, s1)/2",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00043"
+  },
+  {
+    "block_id": "blk_00044",
+    "type": "paragraph",
+    "content": "loss.backward() # back-propagate # student, teacher and center updates update(gs) # SGD",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00044"
+  },
+  {
+    "block_id": "blk_00045",
+    "type": "formula",
+    "content": "gt.params = l *gt.params + (1-l) *gs.params",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00045"
+  },
+  {
+    "block_id": "blk_00046",
+    "type": "formula",
+    "content": "C = m *C + (1-m) *cat([t1, t2]).mean(dim=0)",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00046"
+  },
+  {
+    "block_id": "blk_00047",
+    "type": "paragraph",
+    "content": "def H(t, s):",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00047"
+  },
+  {
+    "block_id": "blk_00048",
+    "type": "formula",
+    "content": "t = t.detach() # stop gradient",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00048"
+  },
+  {
+    "block_id": "blk_00049",
+    "type": "formula",
+    "content": "s = softmax(s / tps, dim=1)",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00049"
+  },
+  {
+    "block_id": "blk_00050",
+    "type": "formula",
+    "content": "t = softmax((t - C) / tpt, dim=1) # center + sharpen",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00050"
+  },
+  {
+    "block_id": "blk_00051",
+    "type": "formula",
+    "content": "return - (t * log(s)).sum(dim=1).mean()",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00051"
+  },
+  {
+    "block_id": "blk_00052",
+    "type": "paragraph",
+    "content": "sharpness of the output distribution, and a similar formula holds for Pt with temperature τt. Given a ﬁxed teacher",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00052"
+  },
+  {
+    "block_id": "blk_00053",
+    "type": "formula",
+    "content": "networkgθt, we learn to match these distributions by min-",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00053"
+  },
+  {
+    "block_id": "blk_00054",
+    "type": "formula",
+    "content": "imizing the cross-entropy loss w.r.t. the parameters of the student networkθs: min θs H(Pt(x),Ps(x)), (2)",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00054"
+  },
+  {
+    "block_id": "blk_00055",
+    "type": "formula",
+    "content": "whereH(a,b ) = −a logb.",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00055"
+  },
+  {
+    "block_id": "blk_00056",
+    "type": "paragraph",
+    "content": "In the following, we detail how we adapt the problem in Eq. (2) to self-supervised learning. First, we construct different distorted views, or crops, of an image with multi- crop strategy [10]. More precisely, from a given image, we generate a set V of different views. This set contains two global views,xg 1 andxg 2 and several local views of smaller resolution. All crops are passed through the student while only the global views are passed through the teacher, there- fore encouraging “local-to-global” correspondences. We",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00056"
+  },
+  {
+    "block_id": "blk_00057",
+    "type": "formula",
+    "content": "minimize the loss:",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00057"
+  },
+  {
+    "block_id": "blk_00058",
+    "type": "formula",
+    "content": "min θs ∑ x∈{xg 1,xg 2} ∑ x′∈V",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00058"
+  },
+  {
+    "block_id": "blk_00059",
+    "type": "formula",
+    "content": "x′̸=x",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00059"
+  },
+  {
+    "block_id": "blk_00060",
+    "type": "paragraph",
+    "content": "H(Pt(x),Ps(x′)). (3) This loss is general and can be used on any number of views, even only 2. However, we follow the standard setting for multi-crop by using 2 global views at resolution 2242",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00060"
+  },
+  {
+    "block_id": "blk_00061",
+    "type": "formula",
+    "content": "covering a large (for example greater than 50%) area of the",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00061"
+  },
+  {
+    "block_id": "blk_00062",
+    "type": "paragraph",
+    "content": "original image, and several local views of resolution 962 covering only small areas (for example less than 50%) of the original image. We refer to this setting as the basic parametrization of DINO, unless mentioned otherwise. Both networks share the same architectureg with differ- ent sets of parametersθs andθt. We learn the parametersθs",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00062"
+  },
+  {
+    "block_id": "blk_00063",
+    "type": "formula",
+    "content": "by minimizing Eq. (3) with stochastic gradient descent.",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00063"
+  },
+  {
+    "block_id": "blk_00064",
+    "type": "caption",
+    "content": "Table 1: Networks conﬁguration. “Blocks” is the number of",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00064"
+  },
+  {
+    "block_id": "blk_00065",
+    "type": "paragraph",
+    "content": "Transformer blocks, “dim” is channel dimension and “heads” is the number of heads in multi-head attention. “# tokens” is the length of the token sequence when considering 2242 resolution inputs, “# params” is the total number of parameters (without counting the projection head) and “im/s” is the inference time on a NVIDIA V100 GPU with 128 samples per forward. model blocks dim heads #tokens #params im/s ResNet-50 – 2048 – – 23M 1237 ViT-S/16 12 384 6 197 21M 1007 ViT-S/8 12 384 6 785 21M 180 ViT-B/16 12 768 12 197 85M 312 ViT-B/8 12 768 12 785 85M 63 Teacher network. Unlike knowledge distillation, we do not have a teachergθt given a priori and hence, we build it from past iterations of the student network. We study dif- ferent update rules for the teacher in Section 5.2 and show that freezing the teacher network over an epoch works sur- prisingly well in our framework, while copying the student weight for the teacher fails to converge. Of particular in- terest, using an exponential moving average (EMA) on the student weights, i.e., a momentum encoder [ 33], is partic- ularly well suited for our framework. The update rule is θt ←λθt + (1 −λ)θs, withλ following a cosine schedule from 0.996 to 1 during training [30]. Originally the momen- tum encoder has been introduced as a substitute for a queue in contrastive learning [33]. However, in our framework, its role differs since we do not have a queue nor a contrastive loss, and may be closer to the role of the mean teacher used in self-training [65]. Indeed, we observe that this teacher per- forms a form of model ensembling similar to Polyak-Ruppert averaging with an exponential decay [51, 59]. Using Polyak- Ruppert averaging for model ensembling is a standard prac- tice to improve the performance of a model [38]. We observe that this teacher has better performance than the student throughout the training, and hence, guides the training of the",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00065"
+  },
+  {
+    "block_id": "blk_00066",
+    "type": "formula",
+    "content": "student by providing target features of higher quality. This",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00066"
+  },
+  {
+    "block_id": "blk_00067",
+    "type": "paragraph",
+    "content": "dynamic was not observed in previous works [30, 58]. Network architecture. The neural networkg is composed of a backbonef (ViT [19] or ResNet [34]), and of a projec-",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00067"
+  },
+  {
+    "block_id": "blk_00068",
+    "type": "formula",
+    "content": "tion headh: g = h ◦f. The features used in downstream",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00068"
+  },
+  {
+    "block_id": "blk_00069",
+    "type": "paragraph",
+    "content": "tasks are the backbonef output. The projection head con- sists of a 3-layer multi-layer perceptron (MLP) with hidden dimension 2048 followed byℓ2 normalization and a weight normalized fully connected layer [61] withK dimensions, which is similar to the design from SwA V [10]. We have tested other projection heads and this particular design ap- pears to work best for DINO (Appendix C). We do not use a predictor [30, 16], resulting in the exact same architecture in both student and teacher networks. Of particular interest, we note that unlike standard convnets, ViT architectures do not use batch normalizations (BN) by default. Therefore, when applying DINO to ViT we do not use any BN also in the projection heads, making the system entirely BN-free. Avoiding collapse. Several self-supervised methods dif- fer by the operation used to avoid collapse, either through contrastive loss [73], clustering constraints [8, 10], predic- tor [30] or batch normalizations [30, 58]. While our frame- work can be stabilized with multiple normalizations [ 10], it can also work with only a centering and sharpening of the momentum teacher outputs to avoid model collapse. As shown experimentally in Section 5.3, centering prevents",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00069"
+  },
+  {
+    "block_id": "blk_00070",
+    "type": "formula",
+    "content": "one dimension to dominate but encourages collapse to the",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00070"
+  },
+  {
+    "block_id": "blk_00071",
+    "type": "paragraph",
+    "content": "uniform distribution, while the sharpening has the oppo- site effect. Applying both operations balances their effects which is sufﬁcient to avoid collapse in presence of a momen- tum teacher. Choosing this method to avoid collapse trades stability for less dependence over the batch: the centering operation only depends on ﬁrst-order batch statistics and can be interpreted as adding a bias term c to the teacher: gt(x) ← gt(x) +c. The center c is updated with an expo- nential moving average, which allows the approach to work well across different batch sizes as shown in Section 5.5: c ←mc + (1 −m) 1 B B∑ i=1 gθt (xi), (4) wherem > 0 is a rate parameter and B is the batch size. Output sharpening is obtained by using a low value for the",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00071"
+  },
+  {
+    "block_id": "blk_00072",
+    "type": "formula",
+    "content": "temperatureτt in the teacher softmax normalization.",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00072"
+  },
+  {
+    "block_id": "blk_00073",
+    "type": "paragraph",
+    "content": "3.2. Implementation and evaluation protocols In this section, we provide the implementation details to train with DINO and present the evaluation protocols used in our experiments. Vision Transformer. We brieﬂy describe the mechanism of the Vision Transformer (ViT) [ 19, 70] and refer to Vaswani et al. [70] for details about Transformers and to Dosovitskiy et al. [19] for its adaptation to images. We fol- low the implementation used in DeiT [69]. We summarize the conﬁguration of the different networks used in this pa- per in Table 1. The ViT architecture takes as input a grid of non-overlapping contiguous image patches of resolution",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00073"
+  },
+  {
+    "block_id": "blk_00074",
+    "type": "formula",
+    "content": "N ×N. In this paper we typically use N = 16 (“/16”)",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00074"
+  },
+  {
+    "block_id": "blk_00075",
+    "type": "formula",
+    "content": "orN = 8 (“/8”). The patches are then passed through a",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00075"
+  },
+  {
+    "block_id": "blk_00076",
+    "type": "paragraph",
+    "content": "linear layer to form a set of embeddings. We add an extra learnable token to the sequence [ 18, 19]. The role of this token is to aggregate information from the entire sequence and we attach the projection headh at its output. We refer to this token as the class token [CLS] for consistency with",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00076"
+  },
+  {
+    "block_id": "blk_00077",
+    "type": "paragraph",
+    "content": "previous works[18, 19, 69], even though it is not attached to any label nor supervision in our case. The set of patch tokens and [CLS] token are fed to a standard Transformer network with a “pre-norm” layer normalization [11, 39]. The Transformer is a sequence of self-attention and feed-forward layers, paralleled with skip connections. The self-attention layers update the token representations by looking at the other token representations with an attention mechanism [4]. Implementation details. We pretrain the models on the ImageNet dataset [ 60] without labels. We train with the adamw optimizer [44] and a batch size of 1024, distributed over 16 GPUs when using ViT-S/16. The learning rate is linearly ramped up during the ﬁrst 10 epochs to its base",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00077"
+  },
+  {
+    "block_id": "blk_00078",
+    "type": "formula",
+    "content": "value determined with the following linear scaling rule [29]:",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00078"
+  },
+  {
+    "block_id": "blk_00079",
+    "type": "formula",
+    "content": "lr = 0.0005 ∗ batchsize/256. After this warmup, we decay",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00079"
+  },
+  {
+    "block_id": "blk_00080",
+    "type": "paragraph",
+    "content": "the learning rate with a cosine schedule [ 43]. The weight decay also follows a cosine schedule from 0.04 to 0.4. The temperatureτs is set to 0.1 while we use a linear warm-up for τt from 0.04 to 0.07 during the ﬁrst 30 epochs. We follow the data augmentations of BYOL [30] (color jittering, Gaussian blur and solarization) and multi-crop [10] with a bicubic interpolation to adapt the position embeddings to the scales [19, 69]. The code and models to reproduce our results is publicly available. Evaluation protocols. Standard protocols for self- supervised learning are to either learn a linear classiﬁer on frozen features [ 82, 33] or to ﬁnetune the features on downstream tasks. For linear evaluations, we apply random resize crops and horizontal ﬂips augmentation during training, and report accuracy on a central crop. For ﬁnetuning evaluations, we initialize networks with the pretrained weights and adapt them during training. However, both evaluations are sensitive to hyperparameters,",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00080"
+  },
+  {
+    "block_id": "blk_00081",
+    "type": "formula",
+    "content": "and we observe a large variance in accuracy between runs",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00081"
+  },
+  {
+    "block_id": "blk_00082",
+    "type": "paragraph",
+    "content": "when varying the learning rate for example. We thus also evaluate the quality of features with a simple weighted nearest neighbor classiﬁer (k-NN) as in [ 73]. We freeze the pretrain model to compute and store the features of the training data of the downstream task. The nearest neighbor classiﬁer then matches the feature of an image to the k nearest stored features that votes for the label. We sweep over different number of nearest neighbors and ﬁnd that",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00082"
+  },
+  {
+    "block_id": "blk_00083",
+    "type": "paragraph",
+    "content": "20 NN is consistently working the best for most of our",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00083"
+  },
+  {
+    "block_id": "blk_00084",
+    "type": "paragraph",
+    "content": "runs. This evaluation protocol does not require any other hyperparameter tuning, nor data augmentation and can be run with only one pass over the downstream dataset, greatly simplifying the feature evaluation.",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00084"
+  },
+  {
+    "block_id": "blk_00085",
+    "type": "caption",
+    "content": "Table 2: Linear and k-NN classiﬁcation on ImageNet. We report",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00085"
+  },
+  {
+    "block_id": "blk_00086",
+    "type": "paragraph",
+    "content": "top-1 accuracy for linear and k-NN evaluations on the validation set of ImageNet for different self-supervised methods. We focus on ResNet-50 and ViT-small architectures, but also report the best results obtained across architectures. ∗ are run by us. We run the k-NN evaluation for models with ofﬁcial released weights. The throughput (im/s) is calculated on a NVIDIA V100 GPU with 128 samples per forward. Parameters (M) are of the feature extractor. Method Arch. Param. im/s Linear k-NN Supervised RN50 23 1237 79.3 79.3 SCLR [12] RN50 23 1237 69.1 60.7 MoCov2 [15] RN50 23 1237 71.1 61.9 InfoMin [67] RN50 23 1237 73.0 65.3 BarlowT [81] RN50 23 1237 73.2 66.0 OBoW [27] RN50 23 1237 73.8 61.9 BYOL [30] RN50 23 1237 74.4 64.8 DCv2 [10] RN50 23 1237 75.2 67.1 SwA V [10] RN50 23 1237 75.3 65.7 DINO RN50 23 1237 75.3 67.5 Supervised ViT-S 21 1007 79.8 79.8 BYOL∗ [30] ViT-S 21 1007 71.4 66.6 MoCov2∗ [15] ViT-S 21 1007 72.7 64.4 SwA V∗ [10] ViT-S 21 1007 73.5 66.3 DINO ViT-S 21 1007 77.0 74.5 Comparison across architectures SCLR [12] RN50w4 375 117 76.8 69.3 SwA V [10] RN50w2 93 384 77.3 67.3 BYOL [30] RN50w2 93 384 77.4 – DINO ViT-B/16 85 312 78.2 76.1 SwA V [10] RN50w5 586 76 78.5 67.1 BYOL [30] RN50w4 375 117 78.6 – BYOL [30] RN200w2 250 123 79.6 73.9 DINO ViT-S/8 21 180 79.7 78.3 SCLRv2 [13] RN152w3+SK 794 46 79.8 73.1 DINO ViT-B/8 85 63 80.1 77.4 4. Main Results We ﬁrst validate the DINO framework used in this study with the standard self-supervised benchmark on ImageNet. We then study the properties of the resulting features for retrieval, object discovery and transfer-learning. 4.1. Comparing with SSL frameworks on ImageNet We consider two different settings: comparison with the same architecture and across architectures. Comparing with the same architecture. In top panel of",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00086"
+  },
+  {
+    "block_id": "blk_00087",
+    "type": "caption",
+    "content": "Table 2, we compare DINO with other self-supervised meth-",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00087"
+  },
+  {
+    "block_id": "blk_00088",
+    "type": "paragraph",
+    "content": "ods with the same architecture, either a ResNet-50 [34] or a ViT-small (which follows the design of DeiT-S [69]). The choice of ViT-S is motivated by its similarity with ResNet-50 along several axes: number of parameters (21M vs 23M),",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00088"
+  },
+  {
+    "block_id": "blk_00089",
+    "type": "caption",
+    "content": "Table 3: Image retrieval. We compare the performance in retrieval",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00089"
+  },
+  {
+    "block_id": "blk_00090",
+    "type": "paragraph",
+    "content": "of off-the-shelf features pretrained with supervision or with DINO on ImageNet and Google Landmarks v2 (GLDv2) dataset. We report mAP on revisited Oxford and Paris. Pretraining with DINO on a landmark dataset performs particularly well. For reference, we also report the best retrieval method with off-the-shelf features [57]. ROx RPar Pretrain Arch. Pretrain M H M H Sup. [57] RN101+R-MAC ImNet 49.8 18.5 74.0 52.1 Sup. ViT-S/16 ImNet 33.5 8.9 63.0 37.2 DINO ResNet-50 ImNet 35.4 11.1 55.9 27.5 DINO ViT-S/16 ImNet 41.8 13.7 63.1 34.4 DINO ViT-S/16 GLDv2 51.5 24.3 75.3 51.6 throughput (1237/sec VS 1007 im/sec) and supervised per- formance on ImageNet with the training procedure of [69] (79.3% VS 79.8%). We explore variants of ViT-S in Ap- pendix D. First, we observe that DINO performs on par with the state of the art on ResNet-50, validating that DINO works in the standard setting. When we switch to a ViT architecture, DINO outperforms BYOL, MoCov2 and SwA V by +3.5% with linear classiﬁcation and by +7.9% withk-NN evaluation. More surprisingly, the performance with a sim- plek-NN classiﬁer is almost on par with a linear classiﬁer (74.5% versus 77.0%). This property emerges only when us- ing DINO with ViT architectures, and does not appear with other existing self-supervised methods nor with a ResNet-50. Comparing across architectures. On the bottom panel of",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00090"
+  },
+  {
+    "block_id": "blk_00091",
+    "type": "caption",
+    "content": "Table 2, we compare the best performance obtained across",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00091"
+  },
+  {
+    "block_id": "blk_00092",
+    "type": "paragraph",
+    "content": "architectures. The interest of this setting is not to compare methods directly, but to evaluate the limits of a ViT trained",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00092"
+  },
+  {
+    "block_id": "blk_00093",
+    "type": "formula",
+    "content": "with DINO when moving to larger architectures. While",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00093"
+  },
+  {
+    "block_id": "blk_00094",
+    "type": "formula",
+    "content": "training a larger ViT with DINO improves the performance,",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00094"
+  },
+  {
+    "block_id": "blk_00095",
+    "type": "paragraph",
+    "content": "reducing the size of the patches (“/8” variants) has a bigger impact on the performance. While reducing the patch size do not add parameters, it still leads to a signiﬁcant reduction",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00095"
+  },
+  {
+    "block_id": "blk_00096",
+    "type": "formula",
+    "content": "of running time, and larger memory usage. Nonetheless, a",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00096"
+  },
+  {
+    "block_id": "blk_00097",
+    "type": "paragraph",
+    "content": "base ViT with 8 × 8 patches trained with DINO achieves 80.1% top-1 in linear classiﬁcation and 77.4% with ak-NN classiﬁer with10× less parameters and 1.4× faster run time than previous state of the art [13]. 4.2. Properties of ViT trained with SSL We evaluate properties of the DINO features in terms of nearest neighbor search, retaining information about object location and transferability to downstream tasks.",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00097"
+  },
+  {
+    "block_id": "blk_00098",
+    "type": "caption",
+    "content": "Table 4: Copy detection. We report the mAP performance in copy",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00098"
+  },
+  {
+    "block_id": "blk_00099",
+    "type": "paragraph",
+    "content": "detection on Copydays “strong” subset [ 21]. For reference, we also report the performance of the multigrain model [ 5], trained speciﬁcally for particular object retrieval. Method Arch. Dim. Resolution mAP Multigrain [5] ResNet-50 2048 2242 75.1",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00099"
+  },
+  {
+    "block_id": "blk_00100",
+    "type": "formula",
+    "content": "Multigrain [5] ResNet-50 2048 largest side 800 82.5",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00100"
+  },
+  {
+    "block_id": "blk_00101",
+    "type": "paragraph",
+    "content": "Supervised [69] ViT-B/16 1536 2242 76.4 DINO ViT-B/16 1536 2242 81.7 DINO ViT-B/8 1536 3202 85.5",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00101"
+  },
+  {
+    "block_id": "blk_00102",
+    "type": "paragraph",
+    "content": "4.2.1 Nearest neighbor retrieval with DINO ViT",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00102"
+  },
+  {
+    "block_id": "blk_00103",
+    "type": "paragraph",
+    "content": "The results on ImageNet classiﬁcation have exposed the potential of our features for tasks relying on nearest neighbor retrieval. In this set of experiments, we further consolidate this ﬁnding on landmark retrieval and copy detection tasks. Image Retrieval. We consider the revisited [53] Oxford and Paris image retrieval datasets [50]. They contain 3 differ- ent splits of gradual difﬁculty with query/database pairs. We report the Mean Average Precision (mAP) for the Medium (M) and Hard (H) splits. In Table 3, we compare the perfor- mance of different off-the-shelf features obtained with either supervised or DINO training. We freeze the features and directly apply k-NN for retrieval. We observe that DINO features outperform those trained on ImageNet with labels. An advantage of SSL approaches is that they can be trained on any dataset, without requiring any form of anno- tations. We train DINO on the 1.2M clean set from Google Landmarks v2 (GLDv2) [ 72], a dataset of landmarks de- signed for retrieval purposes. DINO ViT features trained on",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00103"
+  },
+  {
+    "block_id": "blk_00104",
+    "type": "formula",
+    "content": "GLDv2 are remarkably good, outperforming previously pub-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00104"
+  },
+  {
+    "block_id": "blk_00105",
+    "type": "paragraph",
+    "content": "lished methods based on off-the-shelf descriptors [68, 57]. Copy detection. We also evaluate the performance of ViTs trained with DINO on a copy detection task. We report the mean average precision on the “strong” subset of the INRIA Copydays dataset [ 21]. The task is to recognize images that have been distorted by blur, insertions, print and scan, etc. Following prior work [5], we add 10k distractor images randomly sampled from the YFCC100M dataset [66]. We perform copy detection directly with cosine similarity on the features obtained from our pretrained network. The features are obtained as the concatenation of the output[CLS] token and of the GeM pooled [54] output patch tokens. This results in a 1536d descriptor for ViT-B. Following [ 5], we apply whitening on the features. We learn this transformation on an extra 20K random images from YFCC100M, distincts from the distractors. Table 4 shows that ViT trained with DINO is very competitive on copy detection.",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00105"
+  },
+  {
+    "block_id": "blk_00106",
+    "type": "caption",
+    "content": "Table 5: DA VIS 2017 Video object segmentation. We evaluate",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00106"
+  },
+  {
+    "block_id": "blk_00107",
+    "type": "paragraph",
+    "content": "the quality of frozen features on video instance tracking. We report mean region similarityJm and mean contour-based accuracyFm. We compare with existing self-supervised methods and a supervised ViT-S/8 trained on ImageNet. Image resolution is 480p. Method Data Arch. (J &F)m Jm Fm Supervised ImageNet INet ViT-S/8 66.0 63.9 68.1 STM [48] I/D/Y RN50 81.8 79.2 84.3 Self-supervised CT [71] VLOG RN50 48.7 46.4 50.0 MAST [40] YT-VOS RN18 65.5 63.3 67.6 STC [37] Kinetics RN18 67.6 64.8 70.2 DINO INet ViT-S/16 61.8 60.2 63.4 DINO INet ViT-B/16 62.3 60.7 63.9 DINO INet ViT-S/8 69.9 66.6 73.1 DINO INet ViT-B/8 71.4 67.9 74.9",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00107"
+  },
+  {
+    "block_id": "blk_00108",
+    "type": "caption",
+    "content": "Figure 3: Attention maps from multiple heads. We consider",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00108"
+  },
+  {
+    "block_id": "blk_00109",
+    "type": "paragraph",
+    "content": "the heads from the last layer of a ViT-S/8 trained with DINO and display the self-attention for [CLS] token query. Different heads, materialized by different colors, focus on different locations that represents different objects or parts (more examples in Appendix).",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00109"
+  },
+  {
+    "block_id": "blk_00110",
+    "type": "paragraph",
+    "content": "4.2.2 Discovering the semantic layout of scenes",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00110"
+  },
+  {
+    "block_id": "blk_00111",
+    "type": "paragraph",
+    "content": "As shown qualitatively in Figure 1, our self-attention maps contain information about the segmentation of an image. In this study, we measure this property on a standard benchmark as well as by directly probing the quality of masks generated from these attention maps. Video instance segmentation. In Tab. 5, we evaluate the output patch tokens on the DA VIS-2017 video instance seg- mentation benchmark [52]. We follow the experimental pro- tocol in Jabri et al. [37] and segment scenes with a nearest- neighbor between consecutive frames; we thus do not train any model on top of the features, nor ﬁnetune any weights for the task. We observe in Tab. 5 that even though our training objective nor our architecture are designed for dense tasks, the performance is competitive on this benchmark. Since the network is not ﬁnetuned, the output of the model must have retained some spatial information. Finally, for this dense recognition task, the variants with small patches (“/8”) perform much better (+ 9.1% (J &F )m for ViT-B). Probing the self-attention map. In Fig. 3, we show that different heads can attend to different semantic regions of an image, even when they are occluded (the bushes on the third row) or small (the ﬂag on the second row). Visualizations are obtained with 480p images, resulting in sequences of 3601 tokens for ViT-S/8. In Fig. 4, we show that a supervised ViT does not attend well to objects in presence of clutter both qualitatively and quantitatively. We report the Jaccard similarity between the ground truth and segmentation masks obtained by thresholding the self-attention map to keep 60% of the mass. Note that the self-attention maps are smooth and not optimized to produce a mask. Nonetheless, we see a clear difference between the supervised or DINO models with a signiﬁcant gap in terms of Jaccard similarities. Note that self-supervised convnets also contain information about segmentations but it requires dedicated methods to extract it from their weights [31].",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00111"
+  },
+  {
+    "block_id": "blk_00112",
+    "type": "paragraph",
+    "content": "4.2.3 Transfer learning on downstream tasks",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00112"
+  },
+  {
+    "block_id": "blk_00113",
+    "type": "paragraph",
+    "content": "In Tab. 6, we evaluate the quality of the features pretrained with DINO on different downstream tasks. We compare with features from the same architectures trained with super- vision on ImageNet. We follow the protocol used in Tou- vron et al. [69] and ﬁnetune the features on each downstream task. We observe that for ViT architectures, self-supervised pretraining transfers better than features trained with su- pervision, which is consistent with observations made on convolutional networks [10, 33, 62]. Finally, self-supervised pretraining greatly improves results on ImageNet (+1-2%). 5. Ablation Study of DINO In this section, we empirically study DINO applied to ViT. The model considered for this entire study is ViT-S. We also refer the reader to Appendix for additional studies. 5.1. Importance of the Different Components We show the impact of adding different components from self-supervised learning on ViT trained with our framework.",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00113"
+  },
+  {
+    "block_id": "blk_00114",
+    "type": "paragraph",
+    "content": "Supervised DINO Random Supervised DINO ViT-S/16 22.0 27.3 45.9 ViT-S/8 21.8 23.7 44.7",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00114"
+  },
+  {
+    "block_id": "blk_00115",
+    "type": "caption",
+    "content": "Figure 4: Segmentations from supervised versus DINO. We vi-",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00115"
+  },
+  {
+    "block_id": "blk_00116",
+    "type": "paragraph",
+    "content": "sualize masks obtained by thresholding the self-attention maps to keep 60% of the mass. On top, we show the resulting masks for a ViT-S/8 trained with supervision and DINO. We show the best head for both models. The table at the bottom compares the Jac- card similarity between the ground truth and these masks on the validation images of PASCAL VOC12 dataset.",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00116"
+  },
+  {
+    "block_id": "blk_00117",
+    "type": "caption",
+    "content": "Table 6: Transfer learning by ﬁnetuning pretrained models on",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00117"
+  },
+  {
+    "block_id": "blk_00118",
+    "type": "paragraph",
+    "content": "different datasets. We report top-1 accuracy. Self-supervised pretraining with DINO transfers better than supervised pretraining. Cifar10 Cifar100 INat18 INat19 Flwrs Cars INet ViT-S/16 Sup. [69] 99.0 89.5 70.7 76.6 98.2 92.1 79.9 DINO 99.0 90.5 72.0 78.2 98.5 93.0 81.5 ViT-B/16 Sup. [69] 99.0 90.8 73.2 77.7 98.4 92.1 81.8 DINO 99.1 91.7 72.6 78.6 98.8 93.0 82.8 In Table 7, we report different model variants as we add or remove components. First, we observe that in the absence of momentum, our framework does not work (row 2) and more advanced operations, SK for example, are required to avoid collapse (row 9). However, with momentum, using SK has little impact (row 3). In addtition, comparing rows 3 and 9 highlights the importance of the momentum encoder for performance. Second, in rows 4 and 5, we observe that multi-crop training and the cross-entropy loss in DINO are important components to obtain good features. We also ob- serve that adding a predictor to the student network has little impact (row 6) while it is critical in BYOL to prevent col- lapse [16, 30]. For completeness, we propose in Appendix B an extended version of this ablation study. Importance of the patch size. In Fig. 5, we compare the k-NN classiﬁcation performance of ViT-S models trained",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00118"
+  },
+  {
+    "block_id": "blk_00119",
+    "type": "caption",
+    "content": "Table 7: Important component for self-supervised ViT pre-",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00119"
+  },
+  {
+    "block_id": "blk_00120",
+    "type": "paragraph",
+    "content": "training. Models are trained for 300 epochs with ViT-S/16. We study the different components that matter for the k-NN and linear (“Lin.”) evaluations. For the different variants, we highlight the differences from the default DINO setting. The best combination is the momentum encoder with the multicrop augmentation and the cross-entropy loss. We also report results with BYOL [ 30], MoCo-v2 [15] and SwA V [10]. Method Mom. SK MC Loss Pred. k-NN Lin. 1 DINO ✓ \u0017 ✓ CE \u0017 72.8 76.1 2 \u0017 \u0017 ✓ CE \u0017 0.1 0.1 3 ✓ ✓ ✓ CE \u0017 72.2 76.0 4 ✓ \u0017 \u0017 CE \u0017 67.9 72.5 5 ✓ \u0017 ✓ MSE \u0017 52.6 62.4 6 ✓ \u0017 ✓ CE ✓ 71.8 75.6 7 BYOL ✓ \u0017 \u0017 MSE ✓ 66.6 71.4 8 MoCov2 ✓ \u0017 \u0017 INCE \u0017 62.0 71.6 9 SwA V \u0017 ✓ ✓ CE \u0017 64.7 71.8 SK: Sinkhorn-Knopp, MC: Multi-Crop, Pred.: Predictor CE: Cross-Entropy, MSE: Mean Square Error, INCE: InfoNCE 102 103 throughput (im/s) 72 74 76 78 ImageNet top-1 5x5 8x8 16x16 8x8 16x16 ViT-B DeiT-S",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00120"
+  },
+  {
+    "block_id": "blk_00121",
+    "type": "caption",
+    "content": "Figure 5: Effect of",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00121"
+  },
+  {
+    "block_id": "blk_00122",
+    "type": "paragraph",
+    "content": "Patch Size. k-NN eval- uation as a function of the throughputs for dif- ferent input patch sizes with ViT-B and ViT-S.",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00122"
+  },
+  {
+    "block_id": "blk_00123",
+    "type": "section_heading",
+    "content": "Models are trained for",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00123"
+  },
+  {
+    "block_id": "blk_00124",
+    "type": "paragraph",
+    "content": "300 epochs. with different patch sizes, 16 × 16, 8 × 8 and 5 × 5. We also compare to ViT-B with 16 × 16 and 8 × 8 patches. All the models are trained for 300 epochs. We observe that the performance greatly improves as we decrease the size of the patch. It is interesting to see that performance can be greatly improved without adding additional parameters. However, the performance gain from using smaller patches comes at the expense of throughput: when using 5 ×5 patches, the throughput falls to 44 im/s, vs 180 im/s for 8×8 patches. 5.2. Impact of the choice of Teacher Network In this ablation, we experiment with different teacher network to understand its role in DINO. We compare models trained for 300 epochs using thek-NN protocol. Building different teachers from the student. In",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00124"
+  },
+  {
+    "block_id": "blk_00125",
+    "type": "caption",
+    "content": "Fig. 6(right), we compare different strategies to build the",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00125"
+  },
+  {
+    "block_id": "blk_00126",
+    "type": "paragraph",
+    "content": "teacher from previous instances of the student besides the",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00126"
+  },
+  {
+    "block_id": "blk_00127",
+    "type": "paragraph",
+    "content": "0 100 200 300epochs 64 68 72val acc@1 Student Teacher Teacher Top-1 Student copy 0.1 Previous iter 0.1 Previous epoch 66.6 Momentum 72.8",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00127"
+  },
+  {
+    "block_id": "blk_00128",
+    "type": "caption",
+    "content": "Figure 6: Top-1 accuracy on ImageNet validation withk-NN classi-",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00128"
+  },
+  {
+    "block_id": "blk_00129",
+    "type": "paragraph",
+    "content": "ﬁer.(left) Comparison between the performance of the momentum teacher and the student during training. (right) Comparison be- tween different types of teacher network. The momentum encoder leads to the best performance but is not the only viable option. momentum teacher. First we consider using the student net- work from a previous epoch as a teacher. This strategy has been used in a memory bank [73] or as a form of clustering hard-distillation [8, 2, 14]. Second, we consider using the student network from the previous iteration, as well as a copy of the student for the teacher. In our setting, using a teacher based on a recent version of the student does not converge. This setting requires more normalizations to work. Interestingly, we observe that using a teacher from the previ- ous epoch does not collapse, providing performance in the k-NN evaluation competitive with existing frameworks such as MoCo-v2 or BYOL. While using a momentum encoder clearly provides superior performance to this naive teacher, this ﬁnding suggests that there is a space to investigate alter- natives for the teacher. Analyzing the training dynamic. To further understand the reasons why a momentum teacher works well in our framework, we study its dynamic during the training of a ViT in the left panel of Fig. 6. A key observation is that this teacher constantly outperforms the student during the training, and we observe the same behavior when training with a ResNet-50 (Appendix D). This behavior has not been observed by other frameworks also using momentum [ 33, 30], nor when the teacher is built from the previous epoch. We propose to interpret the momentum teacher in DINO as a form of Polyak-Ruppert averaging [ 51, 59] with an exponentially decay. Polyak-Ruppert averaging is often used to simulate model ensembling to improve the performance of a network at the end of the training [38]. Our method can be interpreted as applying Polyak-Ruppert averaging during the training to constantly build a model ensembling that has superior performances. This model ensembling then guides the training of the student network [65]. 5.3. Avoiding collapse We study the complementarity role of centering and tar- get sharpening to avoid collapse. There are two forms of 0 100epochs 0 2 4 6",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00129"
+  },
+  {
+    "block_id": "blk_00130",
+    "type": "formula",
+    "content": "8Target Entropy",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00130"
+  },
+  {
+    "block_id": "blk_00131",
+    "type": "paragraph",
+    "content": "sharpening centering both 0 100epochs 0 2KL divergence",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00131"
+  },
+  {
+    "block_id": "blk_00132",
+    "type": "caption",
+    "content": "Figure 7: Collapse study. (left): evolution of the teacher’s target",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00132"
+  },
+  {
+    "block_id": "blk_00133",
+    "type": "paragraph",
+    "content": "entropy along training epochs; (right): evolution of KL divergence between teacher and student outputs.",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00133"
+  },
+  {
+    "block_id": "blk_00134",
+    "type": "caption",
+    "content": "Table 8: Time and memory requirements.We show total running",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00134"
+  },
+  {
+    "block_id": "blk_00135",
+    "type": "paragraph",
+    "content": "time and peak memory per GPU (“mem.”) when running ViT-S/16 DINO models on two 8-GPU machines. We report top-1 ImageNet val acc with linear evaluation for several variants of multi-crop, each having a different level of compute requirement. 100 epochs 300 epochs multi-crop top-1 time top-1 time mem. 2×2242 67.8 15.3h 72.5 45.9h 9.3G 2×2242 + 2 ×962 71.5 17.0h 74.5 51.0h 10.5G 2×2242 + 6 ×962 73.8 20.3h 75.9 60.9h 12.9G 2×2242 + 10×962 74.6 24.2h 76.1 72.6h 15.4G collapse: regardless of the input, the model output is uniform",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00135"
+  },
+  {
+    "block_id": "blk_00136",
+    "type": "formula",
+    "content": "along all the dimensions or dominated by one dimension.",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00136"
+  },
+  {
+    "block_id": "blk_00137",
+    "type": "formula",
+    "content": "The centering avoids the collapse induced by a dominant",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00137"
+  },
+  {
+    "block_id": "blk_00138",
+    "type": "paragraph",
+    "content": "dimension, but encourages an uniform output. Sharpening induces the opposite effect. We show this complementarity by decomposing the cross-entropyH into an entropyh and the Kullback-Leibler divergence (“KL”)DKL:",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00138"
+  },
+  {
+    "block_id": "blk_00139",
+    "type": "formula",
+    "content": "H(Pt,Ps) = h(Pt) +DKL (Pt|Ps). (5)",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00139"
+  },
+  {
+    "block_id": "blk_00140",
+    "type": "paragraph",
+    "content": "A KL equal to zero indicates a constant output, and hence a collapse. In Fig. 7, we plot the entropy and KL during training with and without centering and sharpening. If one operation is missing, the KL converges to zero, indicating a collapse. However, the entropy h converges to different",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00140"
+  },
+  {
+    "block_id": "blk_00141",
+    "type": "formula",
+    "content": "values: 0 with no centering and − log(1/K) with no sharp-",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00141"
+  },
+  {
+    "block_id": "blk_00142",
+    "type": "paragraph",
+    "content": "ening, indicating that both operations induce different form of collapse. Applying both operations balances these effects (see study of the sharpening parameterτt in Appendix D). 5.4. Compute requirements In Tab. 8, we detail the time and GPU memory require- ments when running ViT-S/16 DINO models on two 8-GPU machines. We report results with several variants of multi- crop training, each having a different level of compute re- quirement. We observe in Tab. 8 that using multi-crop im- proves the accuracy / running-time tradeoff for DINO runs.",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00142"
+  },
+  {
+    "block_id": "blk_00143",
+    "type": "paragraph",
+    "content": "For example, the performance is 72.5% after 46 hours of training without multi-crop (i.e. 2×2242) while DINO in 2×2242+10×962 crop setting reaches74.6% in 24 hours only. This is an improvement of+2% while requiring 2× less time, though the memory usage is higher (15.4G versus 9.3G). We observe that the performance boost brought with multi-crop cannot be caught up by more training in the 2×2242 setting, which shows the value of the “local-to-global” augmentation.",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00143"
+  },
+  {
+    "block_id": "blk_00144",
+    "type": "formula",
+    "content": "Finally, the gain from adding more views diminishes (+.2%",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00144"
+  },
+  {
+    "block_id": "blk_00145",
+    "type": "paragraph",
+    "content": "form 6× to 10× 962 crops) for longer trainings. Overall, training DINO with Vision Transformers achieves 76.1 top-1 accuracy using two 8-GPU servers for 3 days. This result outperforms state-of-the-art self-supervised systems based on convolutional networks of comparable sizes with a signiﬁcant reduction of computational require- ments [30, 10]. Our code is available to train self-supervised ViT on a limited number of GPUs. 5.5. Training with small batches bs 128 256 512 1024 top-1 57.9 59.1 59.6 59.9",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00145"
+  },
+  {
+    "block_id": "blk_00146",
+    "type": "caption",
+    "content": "Table 9: Effect of batch",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00146"
+  },
+  {
+    "block_id": "blk_00147",
+    "type": "paragraph",
+    "content": "sizes. Top-1 with k-NN for models trained for 100 epochs without multi-crop. In Tab. 9, we study the impact of the batch size on the features obtained with DINO. We also study the impact of the smooth parameter m used in the centering update rule of Eq. 4 in Appendix D. We scale the learning rate lin-",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00147"
+  },
+  {
+    "block_id": "blk_00148",
+    "type": "formula",
+    "content": "early with the batch size [29]:lr = 0.0005 ∗ batchsize/256.",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00148"
+  },
+  {
+    "block_id": "blk_00149",
+    "type": "paragraph",
+    "content": "Tab. 9 conﬁrms that we can train models to high perfor- mance with small batches. Results with the smaller batch",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00149"
+  },
+  {
+    "block_id": "blk_00150",
+    "type": "formula",
+    "content": "sizes (bs = 128) are slightly below our default training setup",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00150"
+  },
+  {
+    "block_id": "blk_00151",
+    "type": "formula",
+    "content": "ofbs = 1024, and would certainly require to re-tune hyper-",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00151"
+  },
+  {
+    "block_id": "blk_00152",
+    "type": "paragraph",
+    "content": "parameters like the momentum rates for example. Note that the experiment with batch size of 128 runs on only 1 GPU. We have explored training a model with a batch size of 8, reaching 35.2% after 50 epochs, showing the potential for",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00152"
+  },
+  {
+    "block_id": "blk_00153",
+    "type": "formula",
+    "content": "training large models that barely ﬁt an image per GPU.",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00153"
+  },
+  {
+    "block_id": "blk_00154",
+    "type": "paragraph",
+    "content": "6. Conclusion In this work, we have shown the potential of self- supervised pretraining a standard ViT model, achieving per- formance that are comparable with the best convnets speciﬁ- cally designed for this setting. We have also seen emerged two properties that can be leveraged in future applications: the quality of the features in k-NN classiﬁcation has a po- tential for image retrieval where ViT are already showing promising results [22]. The presence of information about the scene layout in the features can also beneﬁt weakly super- vised image segmentation. However, the main result of this paper is that we have evidences that self-supervised learning could be the key to developing a BERT-like model based on",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00154"
+  },
+  {
+    "block_id": "blk_00155",
+    "type": "formula",
+    "content": "ViT. In the future, we plan to explore if pretraining a large",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00155"
+  },
+  {
+    "block_id": "blk_00156",
+    "type": "paragraph",
+    "content": "ViT model with DINO on random uncurated images could push the limits of visual features [28]. Acknowledgement. We thank Mahmoud Assran, Matthijs Douze, Allan Jabri, Jure Zbontar, Alaaeldin El-Nouby, Y-",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00156"
+  },
+  {
+    "block_id": "blk_00157",
+    "type": "formula",
+    "content": "Lan Boureau, Kaiming He, Thomas Lucas as well as the",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00157"
+  },
+  {
+    "block_id": "blk_00158",
+    "type": "paragraph",
+    "content": "Thoth and FAIR teams for their help, support and discussions around this project. Julien Mairal was funded by the ERC grant number 714381 (SOLARIS project) and by ANR 3IA MIAI@Grenoble Alpes (ANR-19-P3IA-0003).",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00158"
+  },
+  {
+    "block_id": "blk_00159",
+    "type": "section_heading",
+    "content": "References",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00159"
+  },
+  {
+    "block_id": "blk_00160",
+    "type": "reference",
+    "content": "[1] Rohan Anil, Gabriel Pereyra, Alexandre Passos, Robert Or-",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00160"
+  },
+  {
+    "block_id": "blk_00161",
+    "type": "reference",
+    "content": "mandi, George E Dahl, and Geoffrey E Hinton. Large scale",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00161"
+  },
+  {
+    "block_id": "blk_00162",
+    "type": "reference",
+    "content": "distributed neural network training through online distillation. arXiv preprint arXiv:1804.03235, 2018. 3 [2] Yuki Markus Asano, Christian Rupprecht, and Andrea Vedaldi. Self-labelling via simultaneous clustering and repre- sentation learning. In ICLR, 2020. 2, 9 [3] Mahmoud Assran, Nicolas Ballas, Lluis Castrejon, and Michael Rabbat. Recovering petaﬂops in contrastive semi- supervised learning of visual representations. preprint arXiv:2006.10803, 2020. 14 [4] Dzmitry Bahdanau, Kyunghyun Cho, and Yoshua Bengio. Neural machine translation by jointly learning to align and translate. preprint arXiv:1409.0473, 2014. 5 [5] Maxim Berman, Herv ´e J ´egou, Vedaldi Andrea, Iasonas Kokkinos, and Matthijs Douze. MultiGrain: a uniﬁed im- age embedding for classes and instances. arXiv preprint arXiv:1902.05509, 2019. 6 [6] Piotr Bojanowski and Armand Joulin. Unsupervised learning by predicting noise. In ICML, 2017. 2 [7] Cristian Buciluˇa, Rich Caruana, and Alexandru Niculescu- Mizil. Model compression. In SIGKDD, 2006. 3 [8] Mathilde Caron, Piotr Bojanowski, Armand Joulin, and Matthijs Douze. Deep clustering for unsupervised learning of visual features. In ECCV, 2018. 2, 4, 9, 16 [9] Mathilde Caron, Piotr Bojanowski, Julien Mairal, and Ar- mand Joulin. Unsupervised pre-training of image features on non-curated data. In ICCV, 2019. 2, 16 [10] Mathilde Caron, Ishan Misra, Julien Mairal, Priya Goyal, Piotr Bojanowski, and Armand Joulin. Unsupervised learn- ing of visual features by contrasting cluster assignments. In NeurIPS, 2020. 1, 2, 3, 4, 5, 7, 8, 10, 14, 15, 16, 17, 18 [11] Mia Xu Chen, Orhan Firat, Ankur Bapna, Melvin Johnson, Wolfgang Macherey, George Foster, Llion Jones, Niki Parmar, Mike Schuster, Zhifeng Chen, et al. The best of both worlds: Combining recent advances in neural machine translation. preprint arXiv:1804.09849, 2018. 5 [12] Ting Chen, Simon Kornblith, Mohammad Norouzi, and Geof- frey Hinton. A simple framework for contrastive learning of visual representations. preprint arXiv:2002.05709, 2020. 2, 3, 5, 16, 17",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00162"
+  },
+  {
+    "block_id": "blk_00163",
+    "type": "reference",
+    "content": "[13] Ting Chen, Simon Kornblith, Kevin Swersky, Mohammad Norouzi, and Geoffrey Hinton. Big self-supervised models are strong semi-supervised learners. In NeurIPS, 2020. 3, 5, 6, 14 [14] Weijie Chen, Shiliang Pu, Di Xie, Shicai Yang, Yilu Guo, and Luojun Lin. Unsupervised image classiﬁcation for deep representation learning. arXiv preprint arXiv:2006.11480, 2020. 9, 15",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00163"
+  },
+  {
+    "block_id": "blk_00164",
+    "type": "reference",
+    "content": "[15] Xinlei Chen, Haoqi Fan, Ross Girshick, and Kaiming He.",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00164"
+  },
+  {
+    "block_id": "blk_00165",
+    "type": "reference",
+    "content": "Improved baselines with momentum contrastive learning. preprint arXiv:2003.04297, 2020. 5, 8, 14, 15, 18",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00165"
+  },
+  {
+    "block_id": "blk_00166",
+    "type": "reference",
+    "content": "[16] Xinlei Chen and Kaiming He. Exploring simple siamese",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00166"
+  },
+  {
+    "block_id": "blk_00167",
+    "type": "reference",
+    "content": "representation learning. preprint arXiv:2011.10566, 2020. 2, 3, 4, 8, 14, 16, 18 [17] Marco Cuturi. Sinkhorn distances: Lightspeed computation of optimal transport. In NeurIPS, 2013. 15 [18] Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. Bert: Pre-training of deep bidirectional transform- ers for language understanding. preprint arXiv:1810.04805, 2018. 1, 4, 5, 19 [19] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Syl- vain Gelly, et al. An image is worth 16x16 words: Transform- ers for image recognition at scale. preprint arXiv:2010.11929, 2020. 1, 4, 5, 13 [20] Alexey Dosovitskiy, Philipp Fischer, Jost Tobias Springen-",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00167"
+  },
+  {
+    "block_id": "blk_00168",
+    "type": "reference",
+    "content": "berg, Martin Riedmiller, and Thomas Brox. Discriminative",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00168"
+  },
+  {
+    "block_id": "blk_00169",
+    "type": "reference",
+    "content": "unsupervised feature learning with exemplar convolutional neural networks. TPAMI, 2016. 2 [21] Matthijs Douze, Herv´e J´egou, Harsimrat Sandhawalia, Lau- rent Amsaleg, and Cordelia Schmid. Evaluation of gist de- scriptors for web-scale image search. In CIVR, 2009. 6 [22] Alaaeldin El-Nouby, Natalia Neverova, Ivan Laptev, and Herv´e J´egou. Training vision transformers for image retrieval. preprint arXiv:2102.05644, 2021. 10 [23] Aleksandr Ermolov, Aliaksandr Siarohin, Enver Sangineto, and Nicu Sebe. Whitening for self-supervised representation learning. preprint arXiv:2007.06346, 2020. 2 [24] Mark Everingham, Luc Van Gool, Christopher KI Williams, John Winn, and Andrew Zisserman. The pascal visual object classes (voc) challenge. IJCV, 2010. 13 [25] Zhiyuan Fang, Jianfeng Wang, Lijuan Wang, Lei Zhang, Yezhou Yang, and Zicheng Liu. Seed: Self-supervised distil- lation for visual representation. 2021. 3 [26] Spyros Gidaris, Andrei Bursuc, Nikos Komodakis, Patrick P´erez, and Matthieu Cord. Learning representations by pre- dicting bags of visual words. In CVPR, 2020. 2 [27] Spyros Gidaris, Andrei Bursuc, Gilles Puy, Nikos Komodakis, Matthieu Cord, and Patrick P ´erez. Online bag-of-visual- words generation for unsupervised representation learning. arXiv preprint arXiv:2012.11552, 2020. 2, 5",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00169"
+  },
+  {
+    "block_id": "blk_00170",
+    "type": "reference",
+    "content": "[28] Priya Goyal, Mathilde Caron, Benjamin Lefaudeux, Min",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00170"
+  },
+  {
+    "block_id": "blk_00171",
+    "type": "reference",
+    "content": "Xu, Pengchao Wang, Vivek Pai, Mannat Singh, Vitaliy Liptchinsky, Ishan Misra, Armand Joulin, et al. Self- supervised pretraining of visual features in the wild. preprint arXiv:2103.01988, 2021. 10 [29] Priya Goyal, Piotr Doll ´ar, Ross Girshick, Pieter Noord- huis, Lukasz Wesolowski, Aapo Kyrola, Andrew Tulloch,",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00171"
+  },
+  {
+    "block_id": "blk_00172",
+    "type": "reference",
+    "content": "Yangqing Jia, and Kaiming He. Accurate, large minibatch",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00172"
+  },
+  {
+    "block_id": "blk_00173",
+    "type": "reference",
+    "content": "sgd: Training imagenet in 1 hour. preprint arXiv:1706.02677, 2017. 5, 10 [30] Jean-Bastien Grill, Florian Strub, Florent Altch ´e, Corentin Tallec, Pierre H Richemond, Elena Buchatskaya, Carl Do- ersch, Bernardo Avila Pires, Zhaohan Daniel Guo, Moham- mad Gheshlaghi Azar, Bilal Piot, Koray Kavukcuoglu, R´emi Munos, and Michal Valko. Bootstrap your own latent: A new approach to self-supervised learning. In NeurIPS, 2020. 2, 3, 4, 5, 8, 9, 10, 14, 15, 16, 18 [31] Shir Gur, Ameen Ali, and Lior Wolf. Visualization of su- pervised and self-supervised neural networks via attribution guided factorization. preprint arXiv:2012.02166, 2020. 7 [32] Michael Gutmann and Aapo Hyv ¨arinen. Noise-contrastive estimation: A new estimation principle for unnormalized statistical models. In International Conference on Artiﬁcial Intelligence and Statistics, 2010. 2",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00173"
+  },
+  {
+    "block_id": "blk_00174",
+    "type": "reference",
+    "content": "[33] Kaiming He, Haoqi Fan, Yuxin Wu, Saining Xie, and Ross",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00174"
+  },
+  {
+    "block_id": "blk_00175",
+    "type": "reference",
+    "content": "Girshick. Momentum contrast for unsupervised visual rep- resentation learning. In CVPR, 2020. 1, 2, 3, 4, 5, 7, 9, 16",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00175"
+  },
+  {
+    "block_id": "blk_00176",
+    "type": "reference",
+    "content": "[34] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun.",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00176"
+  },
+  {
+    "block_id": "blk_00177",
+    "type": "reference",
+    "content": "Deep residual learning for image recognition. In CVPR, 2016. 4, 5 [35] Geoffrey Hinton, Oriol Vinyals, and Jeff Dean. Distilling the knowledge in a neural network. preprint arXiv:1503.02531, 2015. 2, 3 [36] Jiabo Huang, Qi Dong, Shaogang Gong, and Xiatian Zhu. Unsupervised deep learning by neighbourhood discovery. In ICML, 2019. 2 [37] Allan Jabri, Andrew Owens, and Alexei A Efros. Space-time correspondence as a contrastive random walk. 2020. 7 [38] S´ebastien Jean, Kyunghyun Cho, Roland Memisevic, and",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00177"
+  },
+  {
+    "block_id": "blk_00178",
+    "type": "reference",
+    "content": "Yoshua Bengio. On using very large target vocabulary for",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00178"
+  },
+  {
+    "block_id": "blk_00179",
+    "type": "reference",
+    "content": "neural machine translation. preprint arXiv:1412.2007, 2014. 4, 9 [39] Guillaume Klein, Yoon Kim, Yuntian Deng, Jean Senellart, and Alexander M Rush. Opennmt: Open-source toolkit for neural machine translation. preprint arXiv:1701.02810, 2017. 5 [40] Zihang Lai, Erika Lu, and Weidi Xie. Mast: A memory- augmented self-supervised tracker. In CVPR, 2020. 7 [41] Dong-Hyun Lee et al. Pseudo-label: The simple and efﬁcient semi-supervised learning method for deep neural networks. In Workshop on challenges in representation learning, ICML, 2013. 3",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00179"
+  },
+  {
+    "block_id": "blk_00180",
+    "type": "reference",
+    "content": "[42] Junnan Li, Pan Zhou, Caiming Xiong, and Steven C.H. Hoi.",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00180"
+  },
+  {
+    "block_id": "blk_00181",
+    "type": "reference",
+    "content": "Prototypical contrastive learning of unsupervised representa- tions. ICLR, 2021. 2 [43] Ilya Loshchilov and Frank Hutter. Sgdr: Stochastic gradient descent with warm restarts. preprint arXiv:1608.03983, 2016. 5 [44] Ilya Loshchilov and Frank Hutter. Fixing weight decay regu- larization in adam. 2018. 5",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00181"
+  },
+  {
+    "block_id": "blk_00182",
+    "type": "reference",
+    "content": "[45] Julien Mairal. Cyanure: An open-source toolbox for empirical",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00182"
+  },
+  {
+    "block_id": "blk_00183",
+    "type": "reference",
+    "content": "risk minimization for python, c++, and soon more. preprint",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00183"
+  },
+  {
+    "block_id": "blk_00184",
+    "type": "reference",
+    "content": "arXiv:1912.08165, 2019. 13, 14 [46] Maria-Elena Nilsback and Andrew Zisserman. Automated",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00184"
+  },
+  {
+    "block_id": "blk_00185",
+    "type": "reference",
+    "content": "ﬂower classiﬁcation over a large number of classes. In 2008",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00185"
+  },
+  {
+    "block_id": "blk_00186",
+    "type": "reference",
+    "content": "Sixth Indian Conference on Computer Vision, Graphics & Image Processing, 2008. 13 [47] Mehdi Noroozi, Ananth Vinjimoor, Paolo Favaro, and Hamed Pirsiavash. Boosting self-supervised learning via knowledge transfer. In CVPR, 2018. 3 [48] Seoung Wug Oh, Joon-Young Lee, Ning Xu, and Seon Joo Kim. Video object segmentation using space-time memory networks. In ICCV, 2019. 7 [49] Hieu Pham, Qizhe Xie, Zihang Dai, and Quoc V Le. Meta pseudo labels. preprint arXiv:2003.10580, 2020. 14 [50] James Philbin, Ondrej Chum, Michael Isard, Josef Sivic, and Andrew Zisserman. Lost in quantization: Improving",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00186"
+  },
+  {
+    "block_id": "blk_00187",
+    "type": "reference",
+    "content": "particular object retrieval in large scale image databases. In",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00187"
+  },
+  {
+    "block_id": "blk_00188",
+    "type": "reference",
+    "content": "CVPR, 2008. 6 [51] Boris T Polyak and Anatoli B Juditsky. Acceleration of stochastic approximation by averaging. SIAM journal on control and optimization, 30(4):838–855, 1992. 4, 9, 17 [52] Jordi Pont-Tuset, Federico Perazzi, Sergi Caelles, Pablo Ar- bel´aez, Alex Sorkine-Hornung, and Luc Van Gool. The 2017 davis challenge on video object segmentation. preprint arXiv:1704.00675, 2017. 7 [53] Filip Radenovi ´c, Ahmet Iscen, Giorgos Tolias, Yannis Avrithis, and Ond ˇrej Chum. Revisiting oxford and paris:",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00188"
+  },
+  {
+    "block_id": "blk_00189",
+    "type": "reference",
+    "content": "Large-scale image retrieval benchmarking. 2018. 6",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00189"
+  },
+  {
+    "block_id": "blk_00190",
+    "type": "reference",
+    "content": "[54] Filip Radenovi´c, Giorgos Tolias, and Ond ˇrej Chum. Fine- tuning cnn image retrieval with no human annotation. IEEE transactions on pattern analysis and machine intelligence , 2018. 6 [55] Alec Radford, Jeffrey Wu, Rewon Child, David Luan, Dario Amodei, and Ilya Sutskever. Language models are unsuper- vised multitask learners. 1 [56] Ilija Radosavovic, Raj Prateek Kosaraju, Ross Girshick, Kaim- ing He, and Piotr Doll´ar. Designing network design spaces. In CVPR, 2020. 13 [57] Jerome Revaud, Jon Almaz´an, Rafael S Rezende, and Cesar Roberto de Souza. Learning with average precision: Training image retrieval with a listwise loss. In ICCV, 2019. 6 [58] Pierre H Richemond, Jean-Bastien Grill, Florent Altch ´e, Corentin Tallec, Florian Strub, Andrew Brock, Samuel Smith, Soham De, Razvan Pascanu, Bilal Piot, et al. Byol works even without batch statistics. preprint arXiv:2010.10241, 2020. 2, 4 [59] David Ruppert. Efﬁcient estimations from a slowly conver- gent robbins-monro process. Technical report, 1988. 4, 9 [60] Olga Russakovsky, Jia Deng, Hao Su, Jonathan Krause, San- jeev Satheesh, Sean Ma, Zhiheng Huang, Andrej Karpathy, Aditya Khosla, Michael Bernstein, Alexander C Berg, and Li",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00190"
+  },
+  {
+    "block_id": "blk_00191",
+    "type": "reference",
+    "content": "Fei-Fei. Imagenet large scale visual recognition challenge.",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00191"
+  },
+  {
+    "block_id": "blk_00192",
+    "type": "reference",
+    "content": "IJCV, 2015. 1, 5, 13 [61] Tim Salimans and Diederik P Kingma. Weight normalization: A simple reparameterization to accelerate training of deep neural networks. NeurIPS, 2016. 4, 16 [62] Mert Bulent Sariyildiz, Yannis Kalantidis, Diane Larlus, and Karteek Alahari. Concept generalization in visual representa- tion learning. arXiv preprint arXiv:2012.05649, 2020. 7 [63] Zhiqiang Shen, Zechun Liu, Jie Qin, Lei Huang, Kwang- Ting Cheng, and Marios Savvides. S2-bnn: Bridging the gap between self-supervised real and 1-bit neural net- works via guided distribution calibration. arXiv preprint arXiv:2102.08946, 2021. 3 [64] Kihyuk Sohn, David Berthelot, Chun-Liang Li, Zizhao Zhang, Nicholas Carlini, Ekin D Cubuk, Alex Kurakin, Han Zhang, and Colin Raffel. Fixmatch: Simplifying semi-supervised learning with consistency and conﬁdence. In NeurIPS, 2020. 14 [65] Antti Tarvainen and Harri Valpola. Mean teachers are",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00192"
+  },
+  {
+    "block_id": "blk_00193",
+    "type": "reference",
+    "content": "better role models: Weight-averaged consistency targets",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00193"
+  },
+  {
+    "block_id": "blk_00194",
+    "type": "reference",
+    "content": "improve semi-supervised deep learning results. preprint arXiv:1703.01780, 2017. 3, 4, 9, 17",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00194"
+  },
+  {
+    "block_id": "blk_00195",
+    "type": "reference",
+    "content": "[66] Bart Thomee, David A Shamma, Gerald Friedland, Benjamin",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00195"
+  },
+  {
+    "block_id": "blk_00196",
+    "type": "reference",
+    "content": "Elizalde, Karl Ni, Douglas Poland, Damian Borth, and Li-Jia Li. Yfcc100m: The new data in multimedia research. arXiv preprint arXiv:1503.01817, 2015. 6 [67] Yonglong Tian, Chen Sun, Ben Poole, Dilip Krishnan, Cordelia Schmid, and Phillip Isola. What makes for good views for contrastive learning. NeurIPS, 2020. 5 [68] Giorgos Tolias, Ronan Sicre, and Herv ´e J´egou. Particular",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00196"
+  },
+  {
+    "block_id": "blk_00197",
+    "type": "reference",
+    "content": "object retrieval with integral max-pooling of cnn activations.",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00197"
+  },
+  {
+    "block_id": "blk_00198",
+    "type": "reference",
+    "content": "arXiv preprint arXiv:1511.05879, 2015. 6 [69] Hugo Touvron, Matthieu Cord, Matthijs Douze, Francisco Massa, Alexandre Sablayrolles, and Herv´e J´egou. Training data-efﬁcient image transformers & distillation through atten- tion. preprint arXiv:2012.12877, 2020. 1, 4, 5, 6, 7, 8, 13, 17 [70] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszko- reit, Llion Jones, Aidan N Gomez, Łukasz Kaiser, and Illia Polosukhin. Attention is all you need. In NeurIPS, 2017. 1, 4 [71] Xiaolong Wang, Allan Jabri, and Alexei A Efros. Learning correspondence from the cycle-consistency of time. In CVPR, 2019. 7 [72] Tobias Weyand, Andre Araujo, Bingyi Cao, and Jack Sim.",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00198"
+  },
+  {
+    "block_id": "blk_00199",
+    "type": "reference",
+    "content": "Google landmarks dataset v2-a large-scale benchmark for",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00199"
+  },
+  {
+    "block_id": "blk_00200",
+    "type": "reference",
+    "content": "instance-level recognition and retrieval. 2020. 6 [73] Zhirong Wu, Yuanjun Xiong, Stella X Yu, and Dahua Lin. Unsupervised feature learning via non-parametric instance",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00200"
+  },
+  {
+    "block_id": "blk_00201",
+    "type": "reference",
+    "content": "discrimination. In CVPR, 2018. 2, 4, 5, 9, 18",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00201"
+  },
+  {
+    "block_id": "blk_00202",
+    "type": "reference",
+    "content": "[74] Junyuan Xie, Ross Girshick, and Ali Farhadi. Unsupervised deep embedding for clustering analysis. In ICML, 2016. 2 [75] Qizhe Xie, Zihang Dai Dai, Eduard Hovy, Minh-Thang Lu- ong, and Quoc V . Le. Unsupervised data augmentation for consistency training. preprint arXiv:1904.12848, 2020. 14 [76] Qizhe Xie, Minh-Thang Luong, Eduard Hovy, and Quoc V Le. Self-training with noisy student improves imagenet clas- siﬁcation. In CVPR, 2020. 3 [77] Haohang Xu, Xiaopeng Zhang, Hao Li, Lingxi Xie, Hongkai Xiong, and Qi Tian. Seed the views: Hierarchical seman- tic alignment for contrastive representation learning. arXiv preprint arXiv:2012.02733, 2021. 16",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00202"
+  },
+  {
+    "block_id": "blk_00203",
+    "type": "reference",
+    "content": "[78] Qiantong Xu, Tatiana Likhomanenko, Jacob Kahn, Awni Hannun, Gabriel Synnaeve, and Ronan Collobert. Iter- ative pseudo-labeling for speech recognition. preprint arXiv:2005.09267, 2020. 3 [79] I Zeki Yalniz, Herv´e J´egou, Kan Chen, Manohar Paluri, and Dhruv Mahajan. Billion-scale semi-supervised learning for image classiﬁcation. preprint arXiv:1905.00546, 2019. 3 [80] Jianwei Yang, Devi Parikh, and Dhruv Batra. Joint unsuper- vised learning of deep representations and image clusters. In CVPR, 2016. 2 [81] Jure Zbontar, Li Jing, Ishan Misra, Yann LeCun, and St´ephane Deny. Barlow twins: Self-supervised learning via redundancy reduction. arXiv preprint arXiv:2103.03230, 2021. 2, 5 [82] Richard Zhang, Phillip Isola, and Alexei A Efros. Colorful image colorization. In ECCV, 2016. 5 [83] Hengshuang Zhao, Jiaya Jia, and Vladlen Koltun. Exploring self-attention for image recognition. In CVPR, 2020. 1 [84] Bolei Zhou, Agata Lapedriza, Jianxiong Xiao, Antonio Tor- ralba, and Aude Oliva. Learning deep features for scene recognition using places database. In NeurIPS, 2014. 13",
+    "page": 13,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00203"
+  },
+  {
+    "block_id": "blk_00204",
+    "type": "reference",
+    "content": "[85] Chengxu Zhuang, Alex Lin Zhai, and Daniel Yamins. Local",
+    "page": 13,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00204"
+  },
+  {
+    "block_id": "blk_00205",
+    "type": "reference",
+    "content": "aggregation for unsupervised learning of visual embeddings. In ICCV, 2019. 2 Appendix A. Additional Results k-NN classiﬁcation. In Tab. 10, we evaluate the frozen representations given by ResNet-50 or ViT-small pre-trained with DINO with two evaluation protocols: linear ork-NN. For both evaluations, we extract representations from a pre- trained network without using any data augmentation. Then, we perform classiﬁcation either with weightedk-NN or with a linear regression learned with cyanure library [45]. In Tab. 10 we see that ViT-S accuracies are better than accu- racies obtained with RN50 both with a linear or a k-NN classiﬁer. However, the performance gap when using the k-NN evaluation is much more signiﬁcant than when consid- ering linear evaluation. For example on ImageNet 1%, ViT-S",
+    "page": 13,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00205"
+  },
+  {
+    "block_id": "blk_00206",
+    "type": "reference",
+    "content": "outperforms ResNet-50 by a large margin of +14.1% with",
+    "page": 13,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00206"
+  },
+  {
+    "block_id": "blk_00207",
+    "type": "reference",
+    "content": "k-NN evaluation. This suggests that transformers architec- tures trained with DINO might offer more model ﬂexibility that beneﬁts thek-NN evaluation. K-NN classiﬁers have the great advantage of being fast and light to deploy, without requiring any domain adaptation. Overall, ViT trained with DINO provides features that combine particularly well with k-NN classiﬁers. Self-supervised ImageNet pretraining of ViT. In this ex- periment, we study the impact of pretraining a supervised ViT model with our method. In Tab. 11, we compare the performance of supervised ViT models that are initialized with different pretraining or guided during training with an additional pretrained convnet. The ﬁrst set of models are",
+    "page": 13,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00207"
+  },
+  {
+    "block_id": "blk_00208",
+    "type": "caption",
+    "content": "Table 10: k-NN and linear evaluation for ViT-S/16 and ResNet-",
+    "page": 13,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00208"
+  },
+  {
+    "block_id": "blk_00209",
+    "type": "reference",
+    "content": "50 pre-trained with DINO. We use ImageNet-1k [ 60] (“Inet”), Places205 [ 84], PASCAL VOC [ 24] and Oxford-102 ﬂowers (“FLOWERS”) [ 46]. ViT trained with DINO provides features that are particularly k-NN friendly. Logistic k-NN RN50 ViT-S ∆ RN50 ViT-S ∆ Inet 100% 72.1 75.7 3.6 67.5 74.5 7.0 Inet 10% 67.8 72.2 4.4 59.3 69.1 9.8 Inet 1% 55.1 64.5 9.4 47.2 61.3 14.1 Pl. 10% 53.4 52.1 -1.3 46.9 48.6 1.7 Pl. 1% 46.5 46.3 -0.2 39.2 41.3 2.1 VOC07 88.9 89.2 0.3 84.9 88.0 3.1 FLOWERS 95.6 96.4 0.8 87.9 89.1 1.2 Average ∆ 2.4 5.6",
+    "page": 13,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00209"
+  },
+  {
+    "block_id": "blk_00210",
+    "type": "caption",
+    "content": "Table 11: ImageNet classiﬁcation with different pretraining.",
+    "page": 13,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00210"
+  },
+  {
+    "block_id": "blk_00211",
+    "type": "reference",
+    "content": "Top-1 accuracy on ImageNet for supervised ViT-B/16 models using different pretrainings or using an additional pretrained convnet to guide the training. The methods use different image resolution (“res.”) and training procedure (“tr. proc.”), i.e., data augmentation and optimization. “MPP” is Masked Patch Prediction. Pretraining method data res. tr. proc. Top-1 Pretrain on additional data MMP JFT-300M 384 [19] 79.9 Supervised JFT-300M 384 [19] 84.2 Train with additional model Rand. init. - 224 [69] 83.4 No additional data nor model Rand. init. - 224 [19] 77.9 Rand. init. - 224 [69] 81.8 Supervised ImNet 224 [69] 81.9 DINO ImNet 224 [69] 82.8",
+    "page": 13,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00211"
+  },
+  {
+    "block_id": "blk_00212",
+    "type": "reference",
+    "content": "pretrained with and without supervision on the large curated",
+    "page": 13,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00212"
+  },
+  {
+    "block_id": "blk_00213",
+    "type": "reference",
+    "content": "dataset composed of 300M images. The second set of mod- els are trained with hard knowledge distillation from a pre- trained supervised RegNetY [56]. The last set of models do not use any additional data nor models, and are initialized ei- ther randomly or after a pretraining with DINO on ImageNet. Compare to random initialization, pretraining with DINO leads to a performance gain of +1%. This is not caused by a longer training since pretraining with supervision instead of DINO does not improve performance. Using self-supervised pretraining reduces the gap with models pretrained on extra data or distilled from a convnet.",
+    "page": 13,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00213"
+  },
+  {
+    "block_id": "blk_00214",
+    "type": "caption",
+    "content": "Table 12: Low-shot learning on ImageNet with frozen ViT fea-",
+    "page": 14,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00214"
+  },
+  {
+    "block_id": "blk_00215",
+    "type": "reference",
+    "content": "tures. We train a logistic regression on frozen features (FROZEN ).",
+    "page": 14,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00215"
+  },
+  {
+    "block_id": "blk_00216",
+    "type": "reference",
+    "content": "Note that this FROZEN evaluation is performed without any ﬁne- tuning nor data augmentation . We report top-1 accuracy. For reference, we show previously published results that uses ﬁnetun- ing and semi-supervised learning. Top 1",
+    "page": 14,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00216"
+  },
+  {
+    "block_id": "blk_00217",
+    "type": "section_heading",
+    "content": "Method Arch Param. 1% 10%",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00217"
+  },
+  {
+    "block_id": "blk_00218",
+    "type": "paragraph",
+    "content": "Self-supervised pretraining with ﬁnetuning UDA [75] RN50 23 – 68.1 SimCLRv2 [13] RN50 23 57.9 68.4 BYOL [30] RN50 23 53.2 68.8 SwA V [10] RN50 23 53.9 70.2 SimCLRv2 [16] RN50w4 375 63.0 74.4 BYOL [30] RN200w2 250 71.2 77.7 Semi-supervised methods SimCLRv2+KD [13] RN50 23 60.0 70.5 SwA V+CT [3] RN50 23 – 70.8 FixMatch [64] RN50 23 – 71.5 MPL [49] RN50 23 – 73.9 SimCLRv2+KD [13] RN152w3+SK 794 76.6 80.9 Frozen self-supervised features DINO -FROZEN ViT-S/16 21 64.5 72.2 Low-shot learning on ImageNet. We evaluate the fea- tures obtained with DINO applied on ViT-S on low-shot learning. In Tab. 12, we report the validation accuracy of",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00218"
+  },
+  {
+    "block_id": "blk_00219",
+    "type": "formula",
+    "content": "a logistic regression trained on frozen features ( FROZEN )",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00219"
+  },
+  {
+    "block_id": "blk_00220",
+    "type": "formula",
+    "content": "with 1% and 10% labels. The logistic regression is trained",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00220"
+  },
+  {
+    "block_id": "blk_00221",
+    "type": "paragraph",
+    "content": "with the cyanure library [ 45]. When comparing mod- els with a similar number of parameters and image/sec, we observe that our features are on par with state-of-the-art semi-supervised models. Interestingly, this performance",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00221"
+  },
+  {
+    "block_id": "blk_00222",
+    "type": "formula",
+    "content": "is obtained by training a multi-class logistic regression on",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00222"
+  },
+  {
+    "block_id": "blk_00223",
+    "type": "paragraph",
+    "content": "frozen features, without data augmentation nor ﬁnetuning.",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00223"
+  },
+  {
+    "block_id": "blk_00224",
+    "type": "formula",
+    "content": "B. Methodology Comparison",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00224"
+  },
+  {
+    "block_id": "blk_00225",
+    "type": "paragraph",
+    "content": "We compare the performance of different self-supervised frameworks, MoCo-v2 [ 15], SwA V [10] and BYOL [ 30] when using convnet or ViT. In Tab. 13, we see that when trained with ResNet-50 (convnet), DINO performs on par with SwA V and BYOL. However, DINO unravels its poten-",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00225"
+  },
+  {
+    "block_id": "blk_00226",
+    "type": "formula",
+    "content": "tial with ViT, outperforming MoCo-v2, SwA V and BYOL",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00226"
+  },
+  {
+    "block_id": "blk_00227",
+    "type": "formula",
+    "content": "by large margins (+4.3% with linear and +6.2% with k-NN",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00227"
+  },
+  {
+    "block_id": "blk_00228",
+    "type": "paragraph",
+    "content": "evaluations). In the rest of this section, we perform ablations to better understand the performance of DINO applied to ViT. In particular, we provide a detailed comparison with meth- ods that either use a momentum encoder, namely MoCo-v2 and BYOL, and methods that use multi-crop, namely SwA V .",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00228"
+  },
+  {
+    "block_id": "blk_00229",
+    "type": "caption",
+    "content": "Table 13: Methodology comparison for DEIT-small and",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00229"
+  },
+  {
+    "block_id": "blk_00230",
+    "type": "paragraph",
+    "content": "ResNet-50. We report ImageNet linear and k-NN evaluations validation accuracy after 300 epochs pre-training. All numbers are run by us and match or outperform published results. ResNet-50 ViT-small Method Linear k-NN Linear k-NN MoCo-v2 71.1 62.9 71.6 62.0 BYOL 72.7 65.4 71.4 66.6 SwA V 74.1 65.4 71.8 64.7 DINO 74.5 65.6 76.1 72.8 Relation to MoCo-v2 and BYOL. In Tab. 14, we present the impact of ablating components that differ between DINO, MoCo-v2 and BYOL: the choice of loss, the predictor in the student head, the centering operation, the batch normaliza- tion in the projection heads, and ﬁnally, the multi-crop aug- mentation. The loss in DINO is a cross-entropy on sharpened",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00230"
+  },
+  {
+    "block_id": "blk_00231",
+    "type": "formula",
+    "content": "softmax outputs (CE) while MoCo-v2 uses the InfoNCE con-",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00231"
+  },
+  {
+    "block_id": "blk_00232",
+    "type": "paragraph",
+    "content": "trastive loss ( INCE) and BYOL a mean squared error on l2-normalized outputs (MSE). No sharpening is applied with the MSE criterion. Though, DINO surprisingly still works when changing the loss function to MSE, but this signiﬁ- cantly alters the performance (see rows (1, 2) and (4, 9)). We also observe that adding a predictor has little impact (1, 3). However, in the case of BYOL, the predictor is critical to prevent collapse (7, 8) which is consistent with previous studies [16, 30]. Interestingly, we observe that the teacher output centering avoids collapse without predictor nor batch normalizations in BYOL (7, 9), though with a signiﬁcant performance drop which can likely be explained by the fact that our centering operator is designed to work in combina- tion with sharpening. Finally, we observe that multi-crop works particularly well with DINO and MoCo-v2, removing it hurts performance by 2 − 4% (1 versus 4 and, 5 versus 6). Adding multi-crop to BYOL does not work out-of-the-box (7, 10) as detailed in Appendix E and further adaptation may be required. Relation to SwA V . In Tab. 15, we evaluate the differences between DINO and SwA V: the presence of the momentum encoder and the operation on top of the teacher output. In absence of the momentum, a copy of the student with a stop- gradient is used. We consider three operations on the teacher",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00232"
+  },
+  {
+    "block_id": "blk_00233",
+    "type": "formula",
+    "content": "output: Centering, Sinkhorn-Knopp or a Softmax",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00233"
+  },
+  {
+    "block_id": "blk_00234",
+    "type": "formula",
+    "content": "along the batch axis. The Softmax is similar to a single",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00234"
+  },
+  {
+    "block_id": "blk_00235",
+    "type": "paragraph",
+    "content": "Sinkhorn-Knopp iteration as detailed in the next paragraph. First, these ablations show that using a momentum encoder signiﬁcantly improves the performance for ViT (3 versus 6, and 2 versus 5). Second, the momentum encoder also avoids collapse when using only centering (row 1). In the absence",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00235"
+  },
+  {
+    "block_id": "blk_00236",
+    "type": "caption",
+    "content": "Figure 8: Self-attention for a set of reference points. We visualize the self-attention module from the last block of a ViT-S/8 trained with",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00236"
+  },
+  {
+    "block_id": "blk_00237",
+    "type": "paragraph",
+    "content": "DINO. The network is able to separate objects, though it has been trained with no supervision at all.",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00237"
+  },
+  {
+    "block_id": "blk_00238",
+    "type": "caption",
+    "content": "Table 14: Relation to MoCo-v2 and BYOL. We ablate the com-",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00238"
+  },
+  {
+    "block_id": "blk_00239",
+    "type": "paragraph",
+    "content": "ponents that differ between DINO, MoCo-v2 and BYOL: the loss function (cross-entropy, CE, versus InfoNCE, INCE, versus mean- square error, MSE), the multi-crop training, the centering operator, the batch normalization in the projection heads and the student predictor. Models are run for 300 epochs with ViT-S/16. We report top-1 accuracy on ImageNet linear evaluation. Method Loss multi-crop Center. BN Pred. Top-1 1 DINO CE ✓ ✓ 76.1 2 – MSE ✓ ✓ 62.4 3 – CE ✓ ✓ ✓ 75.6 4 – CE ✓ 72.5 5 MoCov2 INCE ✓ 71.4 6 INCE ✓ ✓ 73.4 7 BYOL MSE ✓ ✓ 71.4 8 – MSE ✓ 0.1 9 – MSE ✓ 52.6 10 – MSE ✓ ✓ ✓ 64.8",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00239"
+  },
+  {
+    "block_id": "blk_00240",
+    "type": "caption",
+    "content": "Table 15: Relation to SwA V .We vary the operation on the teacher",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00240"
+  },
+  {
+    "block_id": "blk_00241",
+    "type": "formula",
+    "content": "output between centering, a softmax applied over the batch di-",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00241"
+  },
+  {
+    "block_id": "blk_00242",
+    "type": "paragraph",
+    "content": "mension and the Sinkhorn-Knopp algorithm. We also ablate the Momentum encoder by replacing it with a hard copy of the student with a stop-gradient as in SwA V . Models are run for 300 epochs with ViT-S/16. We report top-1 accuracy on ImageNet linear evalu- ation. Method Momentum Operation Top-1 1 DINO ✓ Centering 76.1",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00242"
+  },
+  {
+    "block_id": "blk_00243",
+    "type": "formula",
+    "content": "2 – ✓ Softmax(batch) 75.8",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00243"
+  },
+  {
+    "block_id": "blk_00244",
+    "type": "paragraph",
+    "content": "3 – ✓ Sinkhorn-Knopp 76.0 4 – Centering 0.1",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00244"
+  },
+  {
+    "block_id": "blk_00245",
+    "type": "formula",
+    "content": "5 – Softmax(batch) 72.2",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00245"
+  },
+  {
+    "block_id": "blk_00246",
+    "type": "paragraph",
+    "content": "6 SwA V Sinkhorn-Knopp 71.8 of momentum, centering the outputs does not work (4) and more advanced operations are required (5, 6). Overall, these ablations highlight the importance of the momentum en- coder, not only for performance but also to stabilize training, removing the need for normalization beyond centering.",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00246"
+  },
+  {
+    "block_id": "blk_00247",
+    "type": "formula",
+    "content": "Details on the Softmax(batch) variant. The itera-",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00247"
+  },
+  {
+    "block_id": "blk_00248",
+    "type": "paragraph",
+    "content": "tive Sinkhorn-Knopp algorithm [17] used in SwA V [10] is implemented simply with the following PyTorch style code. # x is n-by-K # tau is Sinkhorn regularization param",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00248"
+  },
+  {
+    "block_id": "blk_00249",
+    "type": "formula",
+    "content": "x = exp(x / tau)",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00249"
+  },
+  {
+    "block_id": "blk_00250",
+    "type": "paragraph",
+    "content": "for _ in range (num_iters): # 1 iter of Sinkhorn # total weight per dimension (or cluster)",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00250"
+  },
+  {
+    "block_id": "blk_00251",
+    "type": "formula",
+    "content": "c = sum(x, dim=0, keepdim=True)",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00251"
+  },
+  {
+    "block_id": "blk_00252",
+    "type": "formula",
+    "content": "x /= c",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00252"
+  },
+  {
+    "block_id": "blk_00253",
+    "type": "paragraph",
+    "content": "# total weight per sample",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00253"
+  },
+  {
+    "block_id": "blk_00254",
+    "type": "formula",
+    "content": "n = sum(x, dim=1, keepdim=True)",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00254"
+  },
+  {
+    "block_id": "blk_00255",
+    "type": "paragraph",
+    "content": "# x sums to 1 for each sample (assignment)",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00255"
+  },
+  {
+    "block_id": "blk_00256",
+    "type": "formula",
+    "content": "x /= n",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00256"
+  },
+  {
+    "block_id": "blk_00257",
+    "type": "formula",
+    "content": "When performing a single Sinkhorn iteration",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00257"
+  },
+  {
+    "block_id": "blk_00258",
+    "type": "formula",
+    "content": "(num iters=1) the implementation can be highly",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00258"
+  },
+  {
+    "block_id": "blk_00259",
+    "type": "paragraph",
+    "content": "simpliﬁed into only two lines of code, which is our",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00259"
+  },
+  {
+    "block_id": "blk_00260",
+    "type": "formula",
+    "content": "softmax(batch) variant:",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00260"
+  },
+  {
+    "block_id": "blk_00261",
+    "type": "formula",
+    "content": "x = softmax(x / tau, dim=0)",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00261"
+  },
+  {
+    "block_id": "blk_00262",
+    "type": "formula",
+    "content": "x /= sum(x, dim=1, keepdim=True)",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00262"
+  },
+  {
+    "block_id": "blk_00263",
+    "type": "paragraph",
+    "content": "We have seen in Tab. 15 that this highly simpliﬁed variant of SwA V works competitively with SwA V . Intuitively, the",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00263"
+  },
+  {
+    "block_id": "blk_00264",
+    "type": "formula",
+    "content": "softmax operation on the batch axis allows to select for",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00264"
+  },
+  {
+    "block_id": "blk_00265",
+    "type": "paragraph",
+    "content": "each dimension (or “cluster”) its best matches in the batch. Validating our implementation. We observe in Tab. 13 that our reproduction of BYOL, MoCo-v2, SwA V matches or outperforms the corresponding published numbers with ResNet-50. Indeed, we obtain 72.7% for BYOL while [30] report 72.5% in this 300-epochs setting. We obtain 71.1% for MoCo after 300 epochs of training while [ 15] report 71.1% after 800 epochs of training. Our improvement com- pared to the implementation of [ 15] can be explained by",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00265"
+  },
+  {
+    "block_id": "blk_00266",
+    "type": "formula",
+    "content": "the use of a larger projection head (3-layer, use of batch-",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00266"
+  },
+  {
+    "block_id": "blk_00267",
+    "type": "paragraph",
+    "content": "normalizations and projection dimension of 256). Relation to other works. DINO is also related to UIC [14] that use outputs from the previous epoch as hard",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00267"
+  },
+  {
+    "block_id": "blk_00268",
+    "type": "paragraph",
+    "content": "pseudo-labels for “unsupervised classiﬁcation”. However, we use centering to prevent collapse while UIC resorts to balance sampling techniques as in [ 8]. Our work can be interpreted as a soft UIC variant with momentum teacher. The concurrent work CsMI [77] also exhibits strong per- formance with simple k-NN classiﬁers on ImageNet, even with convnets. As DINO, CsMI combines a momentum net- work and multi-crop training, which we have seen are both crucial for good k-NN performance in our experiments with ViTs. We believe studying this work would help us identify- ing more precisely the components important for goodk-NN performance and leave this investigation for future work. C. Projection Head Similarly to other self-supervised frameworks, using a projection head [12] improves greatly the accuracy of our method. The projection head starts with a n-layer multi- layer perceptron (MLP). The hidden layers are 2048d and are with gaussian error linear units (GELU) activations. The last layer of the MLP is without GELU. Then we apply a ℓ2 normalization and a weight normalized fully connected layer [16, 61] withK dimensions. This design is inspired from the projection head with a “prototype layer” used in SwA V [10]. We do not apply batch normalizations. BN-free system. Unlike standard convnets, ViT architec- tures do not use batch normalizations (BN) by default. There- ViT-S, 100 epochs heads w/o BN heads w/ BN k-NN top-1 69.7 68.6 fore, when applying DINO to ViT we do not use any BN also in the projection heads. In this table we evaluate the impact of adding BN in the heads. We observe that adding BN in the projection heads has little impact, showing that BN is not important in our framework. Overall, when applying DINO to ViT, we do not use any BN anywhere, making the system entirely BN-free. This is a great advantage of DINO + ViT to work at state-of-the-art performance without requiring any BN. Indeed, training with BN typically slows down trainings considerably, especially when these BN modules need to be synchronized across processes [33, 10, 9, 30]. L2-normalization bottleneck in projection head. We il- lustrate the design of the projection head with or without l2- normalization bottleneck in Fig. 9. We evaluate the accuracy # proj. head linear layers 1 2 3 4 w/ l2-norm bottleneck – 62.2 68.0 69.3 w/o l2-norm bottleneck 61.6 62.9 0.1 0.1 of DINO models trained with or without l2-normalization bottleneck and we vary the number of linear layers in the projection head. With l2 bottleneck, the total number of f n-layer MLP l2 normalization linear layer xB x 3 x 224 x 224 B x 384 B x 256 B x 256 B x K g(x) projection head h f n-layer MLP x B x 384 B x K g(x) projection head h B x 3 x 224 x 224 w/ l2-bottleneck w/o l2-bottleneck",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00268"
+  },
+  {
+    "block_id": "blk_00269",
+    "type": "caption",
+    "content": "Figure 9: Projection head design w/ or w/o l2-norm bottleneck.",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00269"
+  },
+  {
+    "block_id": "blk_00270",
+    "type": "paragraph",
+    "content": "linear layers is n + 1 (n from the MLP and 1 from the weight normalized layer) while without bottleneck the to- tal number of linear layers is n in the head. In this table, we report ImageNet top-1 k-NN evaluation accuracy after 100 epochs pre-training with ViT-S/16. The output dimen- sionalityK is set to 4096 in this experiment. We observe that DINO training fails without the l2-normalization bot- tleneck when increasing the depth of the projection head. L2-normalization bottleneck stabilizes the training of DINO with deep projection head. We observe that increasing the depth of the projection head improves accuracy. Our default is to use a total of 4 linear layers: 3 are in the MLP and one is after the l2 bottleneck. Output dimension. In this table, we evaluate the effect of varying the output dimensionalityK. We observe that a K 1024 4096 16384 65536 262144 k-NN top-1 67.8 69.3 69.2 69.7 69.1",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00270"
+  },
+  {
+    "block_id": "blk_00271",
+    "type": "formula",
+    "content": "large output dimensionality improves the performance. We",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00271"
+  },
+  {
+    "block_id": "blk_00272",
+    "type": "paragraph",
+    "content": "note that the use of l2-normalization bottleneck permits to",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00272"
+  },
+  {
+    "block_id": "blk_00273",
+    "type": "formula",
+    "content": "use a large output dimension with a moderate increase in the",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00273"
+  },
+  {
+    "block_id": "blk_00274",
+    "type": "paragraph",
+    "content": "total number of parameters. Our default is to useK equals",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00274"
+  },
+  {
+    "block_id": "blk_00275",
+    "type": "formula",
+    "content": "to 65536 andd = 256 for the bottleneck.",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00275"
+  },
+  {
+    "block_id": "blk_00276",
+    "type": "paragraph",
+    "content": "GELU activations. By default, the activations used in ViT are gaussian error linear units (GELU). Therefore, for consis- ViT-S, 100 epochs heads w/ GELU heads w/ ReLU k-NN top-1 69.7 68.9 tency within the architecture, we choose to use GELU also in the projection head. We evaluate the effect of using ReLU instead of GELU in this table and observe that changing the activation unit to ReLU has relatively little impact.",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00276"
+  },
+  {
+    "block_id": "blk_00277",
+    "type": "paragraph",
+    "content": "D. Additional Ablations We have detailed in the main paper that the combination of centering and sharpening is important to avoid collapse in DINO. We ablate the hyperparameters for these two opera- tions in the following. We also study the impact of training length and some design choices for the ViT networks. Online centering. We study the impact of the smoothing parameters in the update rule for the center c used in the output of the teacher network. The convergence is robust m 0 0.9 0.99 0.999 k-NN top-1 69.1 69.7 69.4 0.1 to a wide range of smoothing, and the model only collapses",
+    "page": 17,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00277"
+  },
+  {
+    "block_id": "blk_00278",
+    "type": "formula",
+    "content": "when the update is too slow, i.e.,m = 0.999.",
+    "page": 17,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00278"
+  },
+  {
+    "block_id": "blk_00279",
+    "type": "formula",
+    "content": "Sharpening. We enforce sharp targets by tuning the",
+    "page": 17,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00279"
+  },
+  {
+    "block_id": "blk_00280",
+    "type": "formula",
+    "content": "teacher softmax temperature parameter τt. In this table,",
+    "page": 17,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00280"
+  },
+  {
+    "block_id": "blk_00281",
+    "type": "paragraph",
+    "content": "we observe that a temperature lower than 0.06 is required to avoid collapse. When the temperature is higher than 0.06, τt 0 0 .02 0 .04 0 .06 0 .08 0 .04 → 0.07 k-NN top-1 43.9 66.7 69.6 68.7 0.1 69.7 the training loss consistently converges toln(K). However, we have observed that using higher temperature than 0.06 does not collapse if we start the training from a smaller value and increase it during the ﬁrst epochs. In practice, we use a linear warm-up for τt from 0.04 to 0.07 during the ﬁrst 30 epochs of training. Finally, note that τ → 0 (extreme",
+    "page": 17,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00281"
+  },
+  {
+    "block_id": "blk_00282",
+    "type": "formula",
+    "content": "sharpening) correspond to the argmax operation and leads",
+    "page": 17,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00282"
+  },
+  {
+    "block_id": "blk_00283",
+    "type": "paragraph",
+    "content": "to one-hot hard distributions. Longer training. We observe in this table that longer train- ing improves the performance of DINO applied to ViT-Small. This observation is consistent with self-supervised results DINO ViT-S 100-ep 300-ep 800-ep k-NN top-1 70.9 72.8 74.5 obtained with convolutional architectures [12]. We note that in our experiments with BYOL on ViT-S, training longer than 300 epochs has been leading to worse performance com- pare our 300 epochs run. For this reason we report BYOL for 300 epochs in Tab. 2 while SwA V , MoCo-v2 and DINO are trained for 800 epochs. The teacher outperforms the student. We have shown in Fig. 6 that the momentum teacher outperforms the student with ViT and we show in this Figure that it is also the case with ResNet-50. The fact that the teacher continually out- performs the student further encourages the interpretation of DINO as a form of Mean Teacher [65] self-distillation. In- deed, as motivated in Tarvainen et al. [65], weight averaging 0 100epochs 40 45 50 55 60val acc@1 Student Teacher usually produces a better model than the individual models",
+    "page": 17,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00283"
+  },
+  {
+    "block_id": "blk_00284",
+    "type": "formula",
+    "content": "from each iteration [51]. By aiming a target obtained with a",
+    "page": 17,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00284"
+  },
+  {
+    "block_id": "blk_00285",
+    "type": "paragraph",
+    "content": "teacher better than the student, the student’s representations improve. Consequently, the teacher also improves since it is built directly from the student weights. Self-attention maps from supervised versus self- supervised learning. We evaluate the masks obtained by thresholding the self-attention maps to keep 80% of the mass. We compare the Jaccard similarity between the ViT-S/16 weights Random weights 22.0 Supervised 27.3 DINO 45.9 DINO w/o multicrop 45.1 MoCo-v2 46.3 BYOL 47.8 SwA V 46.8 ground truth and these masks on the validation images of PASCAL VOC12 dataset for different ViT-S trained with different frameworks. The properties that self-attention maps from ViT explicitly contain the scene layout and, in particular, object boundaries is observed across different self-supervised methods. Impact of the number of heads in ViT-S. We study the impact of the number of heads in ViT-S on the accuracy and throughput (images processed per second at inference time on a singe V100 GPU). We ﬁnd that increasing the number # heads dim dim/head # params im/sec k-NN 6 384 64 21 1007 72.8 8 384 48 21 971 73.1 12 384 32 21 927 73.7 16 384 24 21 860 73.8 of heads improves the performance, at the cost of a slighlty worse throughput. In our paper, all experiments are run with the default model DeiT-S [69], i.e. with 6 heads only. E. Multi-crop In this Appendix, we study a core component of DINO: multi-crop training [10].",
+    "page": 17,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00285"
+  },
+  {
+    "block_id": "blk_00286",
+    "type": "paragraph",
+    "content": "Range of scales in multi-crop. For generating the dif- ferent views, we use the RandomResizedCrop method from torchvision.transforms module in PyTorch. We sample two global views with scale range (s, 1) before (0.05,s), (s, 1),s: 0.08 0.16 0.24 0.32 0.48 k-NN top-1 65.6 68.0 69.7 69.8 69.5 resizing them to 2242 and 6 local views with scale sampled in the range (0.05,s ) resized to 962 pixels. Note that we arbitrarily choose to have non-overlapping scaling range for the global and local views following the original design of SwA V . However, the ranges could deﬁnitely be overlapping and experimenting with ﬁner hyperparameters search could lead to a more optimal setting. In this table, we vary the pa- rameters that controls the range of scales used in multi-crop and ﬁnd the optimum to be around 0.3 in our experiments. We note that this is higher than the parameter used in SwA V which is of 0.14. Multi-crop in different self-supervised frameworks. We compare different recent self-supervised learning frame- works, namely MoCo-v2 [15], BYOL [30] and SwA V [10] with ViT-S/16 architecture. For fair comparisons, all models crops 2 × 2242 2 × 2242 + 6 × 962 eval k-NN linear k-NN linear BYOL 66.6 71.4 59.8 64.8 SwA V 60.5 68.5 64.7 71.8 MoCo-v2 62.0 71.6 65.4 73.4 DINO 67.9 72.5 72.7 75.9 are pretrained either with two 2242 crops or with multi- crop [10] training, i.e. two 2242 crops and six 962 crops for each image. We reportk-NN and linear probing evaluations after 300 epochs of training. Multi-crop does not beneﬁt all frameworks equally, which has been ignored in benchmarks considering only the two crops setting [16]. The effective- ness of multi-crop depends on the considered framework, which positions multi-crop as a core component of a model and not a simple “add-ons” that will boost any framework the same way. Without multi-crop, DINO has better accuracy",
+    "page": 18,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00286"
+  },
+  {
+    "block_id": "blk_00287",
+    "type": "formula",
+    "content": "than other frameworks, though by a moderate margin (1%).",
+    "page": 18,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00287"
+  },
+  {
+    "block_id": "blk_00288",
+    "type": "paragraph",
+    "content": "Remarkably, DINO beneﬁts the most from multi-crop train- ing (+3.4% in linear eval). Interestingly, we also observe that the ranking of the frameworks depends on the evaluation protocol considered. Training BYOL with multi-crop. When applying multi- crop to BYOL with ViT-S, we observe the transfer perfor- mance is higher than the baseline without multi-crop for the ﬁrst training epochs. However, the transfer performance growth rate is slowing down and declines after a certain 0 100 200 300epochs 45 50 55 60 65k-nn val top-1 w/o mc w/ mc amount of training. We have performed learning rate, weight decay, multi-crop parameters sweeps for this setting and systematically observe the same pattern. More precisely, we experiment with {1e−5, 3e−5, 1e−4, 3e−4, 1e−3, 3e−3} for learning rate base values, with {0.02, 0.05, 0.1} for weight decay and with different number of small crops: {2, 4, 6}. All our runs are performed with synchronized batch normal- izations in the heads. When using a low learning rate, we did not observe the performance break point, i.e. the trans- fer performance was improving continually during training, but the overall accuracy was low. We have tried a run with multi-crop training on ResNet-50 where we also observe the same behavior. Since integrating multi-crop training to BYOL is not the focus of this study we did not push that direction further. However, we believe this is worth investi- gating why multi-crop does not combine well with BYOL in our experiments and leave this for future work. F. Evaluation Protocols F.1 k-NN classiﬁcation Following the setting of Wu et al. [73], we evaluate the qual- ity of features with a simple weightedk Nearest Neighbor classiﬁer. We freeze the pretrained model to compute and store the features of the training data of the downstream task. To classify a test image x, we compute its representation and compare it against all stored training features T . The representation of an image is given by the output [CLS]",
+    "page": 18,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00288"
+  },
+  {
+    "block_id": "blk_00289",
+    "type": "formula",
+    "content": "token: it has dimensionalityd = 384 for ViT-S andd = 768",
+    "page": 18,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00289"
+  },
+  {
+    "block_id": "blk_00290",
+    "type": "paragraph",
+    "content": "for ViT-B. The topk NN (denoted Nk) are used to make a prediction via weighted voting. Speciﬁcally, the classc gets",
+    "page": 18,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00290"
+  },
+  {
+    "block_id": "blk_00291",
+    "type": "formula",
+    "content": "a total weight of ∑",
+    "page": 18,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00291"
+  },
+  {
+    "block_id": "blk_00292",
+    "type": "paragraph",
+    "content": "i∈Nk",
+    "page": 18,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00292"
+  },
+  {
+    "block_id": "blk_00293",
+    "type": "formula",
+    "content": "αi1ci=c, whereαi is a contribution",
+    "page": 18,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00293"
+  },
+  {
+    "block_id": "blk_00294",
+    "type": "formula",
+    "content": "weight. We useαi = exp(Tix/τ ) withτ equals to 0.07 as",
+    "page": 18,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00294"
+  },
+  {
+    "block_id": "blk_00295",
+    "type": "paragraph",
+    "content": "in [73] which we do not tune. We evaluate different values",
+    "page": 18,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00295"
+  },
+  {
+    "block_id": "blk_00296",
+    "type": "formula",
+    "content": "fork and ﬁnd thatk = 20 is consistently leading to the best",
+    "page": 18,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00296"
+  },
+  {
+    "block_id": "blk_00297",
+    "type": "paragraph",
+    "content": "accuracy across our runs. This evaluation protocol does not require hyperparameter tuning, nor data augmentation and can be run with only one pass over the downstream dataset. F.2 Linear classiﬁcation Following common practice in self-supervised learning, we evaluate the representation quality with a linear classiﬁer. The projection head is removed, and we train a supervised linear classiﬁer on top of frozen features. This linear clas- siﬁer is trained with SGD and a batch size of 1024 during",
+    "page": 18,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00297"
+  },
+  {
+    "block_id": "blk_00298",
+    "type": "paragraph",
+    "content": "100 epochs on ImageNet. We do not apply weight decay. For each model, we sweep the learning rate value. Dur- ing training, we apply only random resizes crops (with de- fault parameters from PyTorch RandomResizedCrop) and horizontal ﬂips as data augmentation. We report central- crop top-1 accuracy. When evaluating convnets, the common practice is to perform global average pooling on the ﬁnal feature map before the linear classiﬁer. In the following, we describe how we adapt this design when evaluating ViTs. ViT-S representations for linear eval. Following the feature-based evaluations in BERT [ 18], we concatenate the [CLS] tokens from the l last layers. We experiment concatenate l last layers 1 2 4 6 representation dim 384 768 1536 2304 ViT-S/16 linear eval 76.1 76.6 77.0 77.0 with the concatenation of a different numberl of layers and",
+    "page": 19,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00298"
+  },
+  {
+    "block_id": "blk_00299",
+    "type": "formula",
+    "content": "similarly to [18] we ﬁndl = 4 to be optimal.",
+    "page": 19,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00299"
+  },
+  {
+    "block_id": "blk_00300",
+    "type": "paragraph",
+    "content": "ViT-B representations for linear eval. With ViT-B we did not ﬁnd that concatenating the representations from the lastl layers to provide any performance gain, and consider",
+    "page": 19,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00300"
+  },
+  {
+    "block_id": "blk_00301",
+    "type": "formula",
+    "content": "the ﬁnal layer only (l = 1 ). In this setting, we adapt the",
+    "page": 19,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00301"
+  },
+  {
+    "block_id": "blk_00302",
+    "type": "paragraph",
+    "content": "pooling strategy [CLS] tok. concatenate [CLS] tok. only and avgpooled patch tok. representation dim 768 1536 ViT-B/16 linear eval 78.0 78.2 pipeline used in convnets with global average pooling on the output patch tokens. We concatenate these pooled features to the ﬁnal[CLS] output token. G. Self-Attention Visualizations We provide more self-attention visualizations in Fig. 8 and in Fig. 10. The images are randomly selected from COCO validation set, and are not used during training of DINO. In Fig. 8, we show the self-attention from the last layer of a DINO ViT-S/8 for several reference points. H. Class Representation As a ﬁnal visualization, we propose to look at the distribu- tion of ImageNet concepts in the feature space from DINO. We represent each ImageNet class with the average feature vector for its validation images. We reduce the dimension of these features to 30 with PCA, and run t-SNE with a perplexity of 20, a learning rate of 200 for 5000 iterations. We present the resulting class embeddings in Fig. 11. Our model recovers structures between classes: similar animal",
+    "page": 19,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00302"
+  },
+  {
+    "block_id": "blk_00303",
+    "type": "formula",
+    "content": "species are grouped together, forming coherent clusters of",
+    "page": 19,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00303"
+  },
+  {
+    "block_id": "blk_00304",
+    "type": "paragraph",
+    "content": "birds (top) or dogs, and especially terriers (far right).",
+    "page": 19,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00304"
+  },
+  {
+    "block_id": "blk_00305",
+    "type": "paragraph",
+    "content": "DINO Supervised DINO Supervised",
+    "page": 20,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00305"
+  },
+  {
+    "block_id": "blk_00306",
+    "type": "caption",
+    "content": "Figure 10: Self-attention heads from the last layer. We look at the attention map when using the [CLS] token as a query for the different",
+    "page": 20,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00306"
+  },
+  {
+    "block_id": "blk_00307",
+    "type": "paragraph",
+    "content": "heads in the last layer. Note that the [CLS] token is not attached to any label or supervision.",
+    "page": 20,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00307"
+  },
+  {
+    "block_id": "blk_00308",
+    "type": "paragraph",
+    "content": "tench goldfish great white sharktiger shark hammerheadelectric ray stingray cockhen ostrich brambling goldfinch house finch junco indigo bunting robin bulbuljay magpie chickadee water ouzel kite bald eagle vulture great grey owl European fire salamander common newt eftspotted salamander axolotl bullfrog tree frog tailed frog",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00308"
+  },
+  {
+    "block_id": "blk_00309",
+    "type": "formula",
+    "content": "loggerheadleatherback turtle",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00309"
+  },
+  {
+    "block_id": "blk_00310",
+    "type": "paragraph",
+    "content": "mud turtle terrapin box turtle banded gecko common iguana American chameleonwhiptail agama frilled lizard alligator lizard Gila monster green lizard African chameleon Komodo dragon African crocodile American alligator triceratops thunder snake ringneck snakehognose snake green snake king snake garter snake water snake vine snake night snake boa constrictor rock python Indian cobra green mamba sea snake horned viper diamondback sidewinder trilobiteharvestman scorpion black and gold garden spider barn spidergarden spiderblack widow tarantula wolf spider tick centipede black grouse ptarmigan ruffed grouse prairie chicken peacock quailpartridge African greymacawsulphur-crested cockatoo lorikeet coucal bee eater hornbillhummingbird jacamar toucan drake red-breasted merganser goose black swan tusker echidna platypus wallaby koala wombat jellyfish sea anemone brain coral flatworm nematode conch snailslug sea slug chiton chambered nautilus Dungeness crab rock crab fiddler crab king crabAmerican lobster spiny lobster crayfish hermit crab isopod white stork black stork spoonbill flamingo little blue heronAmerican egret bittern crane limpkin European gallinule American coot bustard ruddy turnstone red-backed sandpiper redshank dowitcher oystercatcher pelican king penguin albatross grey whale killer whale dugong sea lion Chihuahua Japanese spaniel Maltese dog Pekinese Shih-Tzu Blenheim spanielpapillon toy terrier Rhodesian ridgeback Afghan hound bassetbeagle bloodhound bluetick black-and-tan coonhound Walker houndEnglish foxhound redbone borzoi Irish wolfhound Italian greyhound whippet Ibizan hound Norwegian elkhound otterhound Saluki Scottish deerhound Weimaraner Staffordshire bullterrier American Staffordshire terrier Bedlington terrier Border terrier Kerry blue terrier Irish terrier Norfolk terrier Norwich terrier Yorkshire terrier wire-haired fox terrier Lakeland terrier Sealyham terrier Airedale cairn Australian terrier Dandie Dinmont Boston bull",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00310"
+  },
+  {
+    "block_id": "blk_00311",
+    "type": "formula",
+    "content": "miniature schnauzer",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00311"
+  },
+  {
+    "block_id": "blk_00312",
+    "type": "paragraph",
+    "content": "giant schnauzer standard schnauzer Scotch terrier Tibetan terrier silky terrier soft-coated wheaten terrier West Highland white terrier Lhasa flat-coated retriever curly-coated retriever golden retriever Labrador retriever Chesapeake Bay retriever German short-haired pointer vizsla English setter Irish setter Gordon setter Brittany spaniel clumber English springer Welsh springer spaniel cocker spaniel Sussex spaniel Irish water spaniel kuvasz schipperkegroenendael malinois briard kelpie komondorOld English sheepdog Shetland sheepdog collie Border collie Bouvier des Flandres Rottweiler German shepherd",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00312"
+  },
+  {
+    "block_id": "blk_00313",
+    "type": "formula",
+    "content": "Doberman miniature pinscher",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00313"
+  },
+  {
+    "block_id": "blk_00314",
+    "type": "paragraph",
+    "content": "Greater Swiss Mountain dog Bernese mountain dog Appenzeller EntleBucher boxer bull mastiff Tibetan mastiff French bulldog Great Dane Saint Bernard Eskimo dog malamute Siberian husky dalmatian affenpinscher basenji pug Leonberg Newfoundland Great Pyrenees Samoyed Pomeranian chowkeeshond Brabancon griffon PembrokeCardigan",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00314"
+  },
+  {
+    "block_id": "blk_00315",
+    "type": "formula",
+    "content": "toy poodleminiature poodle",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00315"
+  },
+  {
+    "block_id": "blk_00316",
+    "type": "paragraph",
+    "content": "standard poodle Mexican hairless timber wolf white wolf red wolf coyote dingo dholeAfrican hunting dog hyena red fox kit fox Arctic fox grey fox tabby tiger cat Persian cat Siamese catEgyptian cat cougar lynx leopardsnow leopardjaguar liontiger cheetah brown bear American black bear ice bear sloth bear mongoose meerkat tiger beetle ladybug ground beetlelong-horned beetle leaf beetle dung beetle rhinoceros beetle weevil fly bee antgrasshopper cricket walking stick cockroach mantis cicada leafhopper lacewing dragonfly damselfly admiral ringlet monarch cabbage butterfly sulphur butterfly lycaenid starfish sea urchin sea cucumber wood rabbit hare Angorahamster porcupine fox squirrel marmot beaver guinea pig sorrel zebra hog wild boarwarthog hippopotamus ox water buffalo bison ram bighorn ibex hartebeest impala gazelle Arabian camel llama weaselmink polecatblack-footed ferret otter skunkbadger armadillo three-toed sloth orangutan gorilla chimpanzeegibbon siamang guenon patas baboon macaque langur colobus proboscis monkey marmoset capuchin howler monkeytiti spider monkeysquirrel monkey Madagascar catindri Indian elephant African elephant lesser panda giant panda barracoutaeel coho rock beauty anemone fish sturgeongar lionfish puffer abacus abaya academic gown accordion acoustic guitar aircraft carrier airliner airship altar ambulance amphibian",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00316"
+  },
+  {
+    "block_id": "blk_00317",
+    "type": "formula",
+    "content": "analog clock",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00317"
+  },
+  {
+    "block_id": "blk_00318",
+    "type": "paragraph",
+    "content": "apiary apron ashcan assault rifle backpack bakery balance beam balloon ballpoint Band Aid banjo bannister barbell barber chair barbershop barnbarometer barrel barrow baseball basketball bassinet bassoon bathing cap bath towel bathtub beach wagon beacon beaker bearskin beer bottle beer glass bell cote bib bicycle-built-for-two bikini binder binoculars birdhouse boathouse bobsled bolo tie bonnet bookcase bookshop bottlecap bow bow tie brass brassiere breakwater breastplate broom bucket buckle bulletproof vest bullet train butcher shop cab caldron candle cannon canoe can opener cardigan car mirror carousel carpenters kit carton car wheel cash machine cassette cassette player castle catamaran CD player cello cellular telephone chain chainlink fence chain mail chain saw chest chiffonier chime china cabinet Christmas stocking church cinema cleaver cliff dwelling cloak clog cocktail shaker coffee mug coffeepot coil combination lock computer keyboard confectionery container ship convertible corkscrew cornet cowboy boot cowboy hat cradle crane crash helmet crate crib Crock Pot croquet ball crutch cuirass dam deskdesktop computer dial telephone diaper digital clock digital watch dining table dishrag dishwasher disk brake dock dogsled dome doormat drilling platform drum drumstick dumbbell Dutch oven electric fan electric guitar electric locomotive entertainment center envelope espresso maker face powder feather boa file fireboat fire engine fire screen flagpole flute folding chair football helmet forklift fountain fountain pen four-poster freight car French horn frying pan fur coat garbage truck gasmask gas pump goblet go-kart golf ball golfcart gondolagong gown grand piano greenhouse grille grocery store guillotine hair slide hair spray half track hammer hamper hand blower hand-held computer handkerchief hard disc harmonica harp harvester hatchet holster home theater honeycomb hook hoopskirt horizontal bar horse cart hourglass iPod iron jack-o-lantern jean jeep jersey jigsaw puzzle jinrikisha joystick kimono knee pad knot lab coat ladle lampshade laptop lawn mower lens cap letter opener library lifeboat lighter limousine liner lipstick Loafer lotion loudspeaker loupe lumbermill magnetic compass mailbag mailbox maillot maillot manhole cover maraca marimbamask matchstick maypole maze measuring cup medicine chest megalith microphone microwave military uniform milk can minibus miniskirt minivan missile mitten mixing bowl mobile home",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00318"
+  },
+  {
+    "block_id": "blk_00319",
+    "type": "section_heading",
+    "content": "Model T",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00319"
+  },
+  {
+    "block_id": "blk_00320",
+    "type": "paragraph",
+    "content": "modem monastery monitor moped mortar mortarboard mosque mosquito net motor scooter mountain bike mountain tent mouse mousetrap moving van muzzle nail neck brace necklace nipple notebook obelisk oboe ocarina odometer oil filter organ oscilloscope overskirt oxcart oxygen mask packet paddle paddlewheel padlockpaintbrush pajama palace panpipe paper towel parachute parallel bars park bench parking meter passenger car patio pay-phone pedestal pencil box pencil sharpenerperfume Petri dish photocopier pick pickelhaube picket fence pickup pier piggy bank pill bottle pillow ping-pong ball pinwheel pirate pitcher plane planetarium plastic bag plate rack plow plunger Polaroid camera pole police van poncho pool tablepop bottle pot potters wheel power drill prayer rug printer prison projectile projector puck punching bag purse quill quilt racer racket radiator radio radio telescope rain barrel recreational vehicle reel reflex camera refrigerator remote control restaurant revolver rifle rocking chair rotisserie rubber eraser rugby ball rule running shoe safe safety pin saltshaker sandal sarong sax scabbard scale school bus schooner scoreboard screen screw screwdriver seat belt sewing machine shield shoe shop shoji shopping basket shopping cart shovel shower cap shower curtain ski ski mask sleeping bag slide rule sliding door slot snorkel snowmobile snowplow soap dispenser soccer ball sock solar dish sombrero soup bowl space bar space heater space shuttle spatula speedboat spider web spindle sports car spotlight stage steam locomotive steel arch bridge steel drum stethoscope stole stone wall stopwatch stove strainer streetcar stretcher studio couch stupa submarine suit sundial sunglass sunglasses sunscreen suspension bridge swab sweatshirt",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00320"
+  },
+  {
+    "block_id": "blk_00321",
+    "type": "formula",
+    "content": "swimming trunks",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00321"
+  },
+  {
+    "block_id": "blk_00322",
+    "type": "paragraph",
+    "content": "swing switch syringe",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00322"
+  },
+  {
+    "block_id": "blk_00323",
+    "type": "caption",
+    "content": "table lamp",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00323"
+  },
+  {
+    "block_id": "blk_00324",
+    "type": "paragraph",
+    "content": "tank tape player teapot teddy television tennis ball thatch theater curtain thimble thresher throne tile roof toaster tobacco shop toilet seat torch totem pole tow truck toyshop tractor trailer truck tray trench coat tricycle trimaran tripod triumphal arch trolleybus trombone tub turnstile typewriter keyboard umbrella unicycle upright vacuum vase vault velvet vending machine vestment viaduct violin volleyball waffle iron wall clock wallet wardrobe warplane washbasin washer water bottle water jug water tower whiskey jug whistle wig window screen window shade Windsor tie wine bottle wing wok wooden spoon wool worm fence wreck yawl yurt web site comic book crossword puzzle street sign traffic light book jacket menu plate guacamole consomme hot pot trifle ice cream ice lolly French loafbagel pretzel cheeseburger hotdog mashed potato head cabbagebroccoli cauliflower zucchini spaghetti squash acorn squash butternut squash cucumber artichoke bell pepper cardoon mushroom Granny Smith strawberry orange lemon fig pineapple banana jackfruit custard apple pomegranate hay carbonara chocolate sauce dough meat loaf pizza potpieburrito red wine espresso cup eggnog alp bubble cliff coral reef geyser lakeside promontory sandbarseashore valley volcano ballplayer groom scuba diver rapeseed daisy yellow ladys slipper corn acorn hip buckeye coral fungus agaric gyromitra stinkhorn earthstar hen-of-the-woods bolete ear toilet tissue",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00324"
+  },
+  {
+    "block_id": "blk_00325",
+    "type": "caption",
+    "content": "Figure 11: t-SNE visualization of ImageNet classes as represented using DINO. For each class, we obtain the embedding by taking the",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00325"
+  },
+  {
+    "block_id": "blk_00326",
+    "type": "paragraph",
+    "content": "average feature for all images of that class in the validation set.",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00326"
+  }
+]

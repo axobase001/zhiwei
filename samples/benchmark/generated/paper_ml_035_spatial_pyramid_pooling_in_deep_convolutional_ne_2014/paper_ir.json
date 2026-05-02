@@ -1,0 +1,3425 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "现有深度卷积神经网络（CNN）要求固定大小的输入图像（例如224×224），这一要求是人为的，可能降低对任意大小/尺度图像或子图像的识别精度。",
+      "anchors": [
+        "anc_00003",
+        "anc_00011"
+      ]
+    },
+    "motivation": {
+      "summary": "固定输入尺寸的限制忽略了尺度变化问题，裁剪或扭曲图像会丢失信息或引入失真。CNN的卷积层本身不需要固定尺寸，但后续的全连接层需要固定长度的输入。需要一种方法来消除这一限制，同时保持或提升性能。",
+      "anchors": [
+        "anc_00011",
+        "anc_00015"
+      ]
+    },
+    "core_idea": {
+      "summary": "在最后一个卷积层之上引入空间金字塔池化（SPP）层，对任意大小的特征图进行多尺度池化，生成固定长度的表示，从而允许网络接受任意大小的输入图像。",
+      "anchors": [
+        "anc_00016",
+        "anc_00018"
+      ]
+    },
+    "method": {
+      "summary": "提出SPP-net网络结构，将SPP层插入卷积层和全连接层之间。SPP层使用多级金字塔（例如{6×6, 3×3, 2×2, 1×1}）对特征图进行池化，将池化后的特征拼接成固定长度的向量。训练时采用单尺寸或多尺寸训练策略。在检测任务中，对整个图像只运行一次卷积，然后对候选窗口的特征图区域进行SPP池化，提取固定长度特征用于训练检测器。",
+      "anchors": [
+        "anc_00016",
+        "anc_00018",
+        "anc_00046",
+        "anc_00061",
+        "anc_00078",
+        "anc_00165",
+        "anc_00167"
+      ]
+    },
+    "experiments": {
+      "summary": "在ImageNet 2012分类、Pascal VOC 2007分类与检测、Caltech101分类以及ILSVRC 2014竞赛上进行了广泛实验。实验比较了不同CNN架构（ZF-5, Convnet*-5, Overfeat-5, Overfeat-7）有无SPP的效果，以及单尺寸训练、多尺寸训练、全图表示、多尺度检测、模型组合等策略。",
+      "anchors": [
+        "anc_00096",
+        "anc_00100",
+        "anc_00108",
+        "anc_00139",
+        "anc_00141",
+        "anc_00148",
+        "anc_00159",
+        "anc_00193",
+        "anc_00204",
+        "anc_00222"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "SPP-net可以消除CNN对固定输入尺寸的要求，生成固定长度的表示。",
+        "anchors": [
+          "anc_00003",
+          "anc_00004",
+          "anc_00005",
+          "anc_00016"
+        ]
+      },
+      {
+        "claim_id": "claim_2",
+        "claim": "SPP对物体形变具有鲁棒性，能提升各种CNN架构的分类精度。",
+        "anchors": [
+          "anc_00005",
+          "anc_00089",
+          "anc_00096",
+          "anc_00100"
+        ]
+      },
+      {
+        "claim_id": "claim_3",
+        "claim": "在检测任务中，SPP-net只需对整个图像运行一次卷积，然后对任意窗口的特征图进行池化，比R-CNN快数十到上百倍，同时精度相当或更高。",
+        "anchors": [
+          "anc_00162",
+          "anc_00163",
+          "anc_00165",
+          "anc_00166",
+          "anc_00193",
+          "anc_00204",
+          "anc_00206",
+          "anc_00223"
+        ]
+      },
+      {
+        "claim_id": "claim_4",
+        "claim": "SPP-net在ImageNet 2012、Pascal VOC 2007、Caltech101上取得了当时最优的分类结果。",
+        "anchors": [
+          "anc_00100",
+          "anc_00108",
+          "anc_00139",
+          "anc_00141",
+          "anc_00148",
+          "anc_00156",
+          "anc_00158",
+          "anc_00159"
+        ]
+      },
+      {
+        "claim_id": "claim_5",
+        "claim": "在ILSVRC 2014竞赛中，基于SPP-net的方法在检测和分类任务上分别获得第2名和第3名。",
+        "anchors": [
+          "anc_00006",
+          "anc_00132",
+          "anc_00133",
+          "anc_00222"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "论文未详细讨论SPP层引入的额外计算开销。在检测任务中，当使用未经微调的全连接层时，性能可能下降，因为预训练是在图像区域上进行的，而检测时是在特征图区域上使用。多尺寸训练的收敛速度可能比单尺寸训练慢。",
+        "anchors": [
+          "anc_00192",
+          "anc_00082"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "输入图像",
+        "label": "Input Image",
+        "summary": "任意大小和尺度的原始图像。",
+        "description": "网络接受任意尺寸的输入图像，无需裁剪或扭曲到固定大小。",
+        "type": "input",
+        "anchors": [
+          "anc_00003",
+          "anc_00011"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "卷积层",
+        "label": "Convolutional Layers",
+        "summary": "提取图像特征，生成特征图。卷积操作本身不依赖固定输入尺寸。",
+        "description": "由多个卷积层和池化层组成，以滑动窗口方式操作，输出特征图，其空间尺寸随输入图像大小而变化。",
+        "type": "process",
+        "anchors": [
+          "anc_00015",
+          "anc_00030"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "空间金字塔池化层",
+        "label": "Spatial Pyramid Pooling (SPP) Layer",
+        "summary": "核心创新模块。对特征图进行多尺度池化，生成固定长度的表示。",
+        "description": "位于最后一个卷积层之后。使用多级金字塔（如{6×6, 3×3, 2×2, 1×1}）对特征图进行最大池化，将各级池化结果拼接成一个固定长度的向量。这使得网络能够处理任意大小的输入。",
+        "type": "process",
+        "anchors": [
+          "anc_00016",
+          "anc_00018",
+          "anc_00046",
+          "anc_00061",
+          "anc_00078"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "全连接层",
+        "label": "Fully-Connected Layers",
+        "summary": "接收SPP层输出的固定长度特征向量，进行分类或回归。",
+        "description": "SPP层输出的固定长度向量被送入全连接层，最后接softmax或其他分类器。由于输入长度固定，全连接层可以正常工作。",
+        "type": "process",
+        "anchors": [
+          "anc_00015",
+          "anc_00016"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "分类输出",
+        "label": "Classification Output",
+        "summary": "图像分类任务的预测结果。",
+        "description": "对于分类任务，网络输出类别概率分布。",
+        "type": "output",
+        "anchors": [
+          "anc_00005",
+          "anc_00096"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "检测特征提取",
+        "label": "Detection Feature Extraction",
+        "summary": "在检测任务中，对整个图像只运行一次卷积，然后对候选窗口的特征图区域进行SPP池化。",
+        "description": "对于检测任务，首先对整个图像提取卷积特征图（可能在多个尺度上）。然后，对于每个候选窗口，将其映射到特征图上对应区域，并对该区域应用SPP层，提取固定长度的特征向量用于训练检测器（如SVM）。",
+        "type": "process",
+        "anchors": [
+          "anc_00165",
+          "anc_00167",
+          "anc_00172",
+          "anc_00173"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "检测输出",
+        "label": "Detection Output",
+        "summary": "物体检测任务的预测边界框和类别。",
+        "description": "使用提取的特征训练二分类SVM，并可能结合边界框回归，输出检测结果。",
+        "type": "output",
+        "anchors": [
+          "anc_00173",
+          "anc_00188",
+          "anc_00190"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "输入到卷积层",
+        "anchors": [
+          "anc_00011"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "特征图到SPP层",
+        "anchors": [
+          "anc_00016"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "固定长度特征到全连接层",
+        "anchors": [
+          "anc_00016"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "label": "分类预测",
+        "anchors": [
+          "anc_00005"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_002",
+        "target": "node_006",
+        "label": "特征图用于检测",
+        "anchors": [
+          "anc_00165"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_006",
+        "target": "node_007",
+        "label": "检测特征到检测器",
+        "anchors": [
+          "anc_00173",
+          "anc_00188"
+        ],
+        "description": ""
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00011",
+        "anc_00015"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00016",
+        "anc_00018"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "网络输入必须是固定尺寸的图像。",
+        "after": "网络可以接受任意尺寸的输入图像。",
+        "why_it_matters": "消除了人为的尺寸限制，避免了裁剪或扭曲带来的信息损失或失真，能更好地处理不同尺度和长宽比的物体。",
+        "anchors": [
+          "anc_00003",
+          "anc_00011",
+          "anc_00016"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "池化层（如最大池化）通常使用固定大小的窗口和步长，输出尺寸依赖于输入尺寸。",
+        "after": "SPP层使用多级金字塔（如{6×6, 3×3, 2×2, 1×1}）对特征图进行池化，无论输入特征图大小如何，输出都是固定长度的向量。",
+        "why_it_matters": "实现了从任意大小特征图到固定长度表示的转换，是连接卷积层和全连接层的关键桥梁。",
+        "anchors": [
+          "anc_00016",
+          "anc_00018",
+          "anc_00046",
+          "anc_00061"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "在检测任务中，R-CNN需要对每个候选窗口（约2000个）独立运行整个CNN进行特征提取，计算非常耗时。",
+        "after": "SPP-net对整个图像只运行一次卷积，然后对每个候选窗口的特征图区域进行SPP池化提取特征。",
+        "why_it_matters": "极大地提升了检测速度（论文报告比R-CNN快24-102倍），同时保持了相当的精度。",
+        "anchors": [
+          "anc_00162",
+          "anc_00163",
+          "anc_00165",
+          "anc_00166",
+          "anc_00206"
+        ],
+        "delta_id": "delta_3"
+      },
+      {
+        "before": "训练时通常使用单一固定尺寸的图像。",
+        "after": "提出多尺寸训练策略，在训练过程中交替使用不同尺寸（如224和180）的图像，但网络参数共享。",
+        "why_it_matters": "增强了网络对尺度变化的鲁棒性，进一步提升了分类精度。",
+        "anchors": [
+          "anc_00082",
+          "anc_00107",
+          "anc_00108"
+        ],
+        "delta_id": "delta_4"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\text{SPP output} = \\text{Concat}(\\text{Pool}_{level_1}(\\text{feat}), \\text{Pool}_{level_2}(\\text{feat}), ..., \\text{Pool}_{level_L}(\\text{feat}))",
+        "variables": [
+          {
+            "name": "feat",
+            "description": "最后一个卷积层输出的特征图，尺寸可变。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00016"
+            ]
+          },
+          {
+            "name": "L",
+            "description": "金字塔的级数（例如3或4）。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00061"
+            ]
+          },
+          {
+            "name": "Pool_{level_i}",
+            "description": "第i级金字塔的池化操作，通常为最大池化，窗口大小和步长根据该级网格划分确定（例如6×6, 3×3, 2×2, 1×1）。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00061",
+              "anc_00078"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "SPP层的核心操作。它将特征图在多个空间尺度上进行池化（例如在6×6、3×3、2×2、1×1的网格上分别做最大池化），然后将所有池化结果拼接起来。这样，无论输入特征图的大小如何，输出向量的长度都是固定的（例如6*6 + 3*3 + 2*2 + 1*1 = 50个bin，乘以特征通道数）。",
+        "anchors": [
+          "anc_00016",
+          "anc_00018",
+          "anc_00046",
+          "anc_00061",
+          "anc_00078"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "\\text{Window mapping: } x' = \\lfloor x/S \\rfloor + 1, \\quad x'' = \\lceil x/S \\rceil - 1",
+        "variables": [
+          {
+            "name": "x, x''",
+            "description": "图像域中窗口的左/右（或上/下）边界坐标。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00234"
+            ]
+          },
+          {
+            "name": "x', x''",
+            "description": "映射到特征图上的对应边界坐标。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00234"
+            ]
+          },
+          {
+            "name": "S",
+            "description": "特征图相对于图像的总步长（stride）。例如，对于ZF-5在conv5上，S=16。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00231",
+              "anc_00232"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "在检测任务中，需要将图像域中的候选窗口映射到卷积特征图上的对应区域。这个公式描述了如何根据特征图的总步长S，将图像坐标转换为特征图坐标，并考虑了取整操作。",
+        "anchors": [
+          "anc_00229",
+          "anc_00231",
+          "anc_00232",
+          "anc_00234",
+          "anc_00235"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "task": "ImageNet 2012 分类",
+        "dataset": "ImageNet 2012",
+        "metric": "Top-1/Top-5 错误率",
+        "result": "SPP-net (Overfeat-7, 多尺寸训练) 达到 29.68% top-1 错误率，比无SPP的对应模型低2.33%。",
+        "anchors": [
+          "anc_00100",
+          "anc_00108"
+        ]
+      },
+      {
+        "task": "Pascal VOC 2007 分类",
+        "dataset": "Pascal VOC 2007",
+        "metric": "mAP",
+        "result": "SPP-net (Overfeat-7, 多尺寸训练) 达到 82.44% mAP。",
+        "anchors": [
+          "anc_00139",
+          "anc_00148"
+        ]
+      },
+      {
+        "task": "Caltech101 分类",
+        "dataset": "Caltech101",
+        "metric": "准确率",
+        "result": "SPP-net 达到 93.42% 准确率，比之前最好结果高4.88%。",
+        "anchors": [
+          "anc_00141",
+          "anc_00159",
+          "anc_00160"
+        ]
+      },
+      {
+        "task": "Pascal VOC 2007 检测",
+        "dataset": "Pascal VOC 2007",
+        "metric": "mAP",
+        "result": "SPP-net (单模型) 达到 59.2% mAP，与R-CNN相当，但速度快得多。",
+        "anchors": [
+          "anc_00193",
+          "anc_00204"
+        ]
+      },
+      {
+        "task": "ILSVRC 2014 竞赛",
+        "dataset": "ILSVRC 2014",
+        "metric": "排名",
+        "result": "在检测任务中排名第2，在分类任务中排名第3。",
+        "anchors": [
+          "anc_00006",
+          "anc_00132",
+          "anc_00133",
+          "anc_00222"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "study": "SPP层的效果",
+        "description": "比较有SPP层和无SPP层的网络在相同架构下的分类错误率。",
+        "finding": "在所有测试的架构（ZF-5, Convnet*-5, Overfeat-5, Overfeat-7）上，加入SPP层都能降低错误率。",
+        "anchors": [
+          "anc_00096",
+          "anc_00100"
+        ]
+      },
+      {
+        "study": "单尺寸训练 vs 多尺寸训练",
+        "description": "比较仅使用224尺寸训练和使用224与180尺寸交替训练的效果。",
+        "finding": "多尺寸训练进一步降低了分类错误率（例如Overfeat-7的top-1错误从30.36%降至29.68%）。",
+        "anchors": [
+          "anc_00107",
+          "anc_00108"
+        ]
+      },
+      {
+        "study": "全图表示 vs 裁剪表示",
+        "description": "在分类任务中，比较使用全图特征和使用中心裁剪特征的效果。",
+        "finding": "使用全图表示（通过SPP）通常比使用裁剪表示获得更高的准确率。",
+        "anchors": [
+          "anc_00115",
+          "anc_00142",
+          "anc_00143",
+          "anc_00150"
+        ]
+      },
+      {
+        "study": "检测中微调全连接层的效果",
+        "description": "比较使用预训练的全连接层和微调后的全连接层进行检测的效果。",
+        "finding": "微调全连接层后，检测mAP显著提升（例如从44.9%提升到59.2%）。",
+        "anchors": [
+          "anc_00192",
+          "anc_00193"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "aspect": "对物体形变的鲁棒性",
+        "description": "论文声称金字塔池化对物体形变具有鲁棒性。",
+        "evidence": "在分类和检测任务中取得了优异结果，但未提供专门的形变鲁棒性实验。",
+        "anchors": [
+          "anc_00005"
+        ]
+      },
+      {
+        "aspect": "对尺度变化的鲁棒性",
+        "description": "通过多尺寸训练和多尺度检测（使用多个尺度的特征图）来处理尺度变化。",
+        "evidence": "在检测中使用多尺度（s ∈ {480, 576, 688, 864, 1200}）提升了性能。",
+        "anchors": [
+          "anc_00179",
+          "anc_00180"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "aspect": "网络架构的扩展性",
+        "description": "SPP层被证明能提升多种不同深度和宽度的CNN架构（ZF-5, Convnet*-5, Overfeat-5, Overfeat-7）的性能。",
+        "finding": "SPP的优势独立于具体的卷积网络架构。",
+        "anchors": [
+          "anc_00089",
+          "anc_00096"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "description": "展示了在Pascal VOC 2007测试集上的检测结果示例。",
+        "finding": "可视化结果显示SPP-net能够检测出图像中不同尺度和位置的物体。",
+        "anchors": [
+          "anc_00226",
+          "anc_00227"
+        ]
+      }
+    ],
+    "human_eval": [],
+    "benchmark": [
+      {
+        "name": "ImageNet 2012 (ILSVRC 2012)",
+        "task": "分类",
+        "result": "单模型top-5错误率9.14%（验证集），9.08%（测试集）。",
+        "anchors": [
+          "anc_00133"
+        ]
+      },
+      {
+        "name": "Pascal VOC 2007",
+        "task": "分类",
+        "result": "mAP 82.44%。",
+        "anchors": [
+          "anc_00139",
+          "anc_00148"
+        ]
+      },
+      {
+        "name": "Caltech101",
+        "task": "分类",
+        "result": "准确率93.42%。",
+        "anchors": [
+          "anc_00141",
+          "anc_00159"
+        ]
+      },
+      {
+        "name": "Pascal VOC 2007",
+        "task": "检测",
+        "result": "mAP 59.2% (单模型), 60.9% (模型组合)。",
+        "anchors": [
+          "anc_00193",
+          "anc_00204",
+          "anc_00205"
+        ]
+      },
+      {
+        "name": "ILSVRC 2014",
+        "task": "检测 (provided-data-only track)",
+        "result": "排名第2。",
+        "anchors": [
+          "anc_00222"
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "metric": "检测特征提取速度",
+        "comparison": "与R-CNN相比",
+        "result": "在VOC 2007上，SPP-net (1-scale) 的卷积特征提取速度比R-CNN快270倍 (0.053s vs 14.37s per image)。5-scale版本快49倍。",
+        "anchors": [
+          "anc_00206"
+        ]
+      },
+      {
+        "metric": "ILSVRC 2014 检测速度",
+        "comparison": "与R-CNN相比",
+        "result": "处理40k测试图像，SPP-net需要8 GPU·小时计算卷积特征，而R-CNN需要15 GPU·天。",
+        "anchors": [
+          "anc_00223"
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "task": "ImageNet 2012 分类",
+        "dataset": "ImageNet 2012",
+        "metric": "Top-1/Top-5 错误率",
+        "result": "SPP-net (Overfeat-7, 多尺寸训练) 达到 29.68% top-1 错误率，比无SPP的对应模型低2.33%。",
+        "anchors": [
+          "anc_00100",
+          "anc_00108"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "ImageNet 2012 分类",
+        "baseline": [],
+        "metrics": [
+          "Top-1/Top-5 错误率"
+        ],
+        "result_summary": "SPP-net (Overfeat-7, 多尺寸训练) 达到 29.68% top-1 错误率，比无SPP的对应模型低2.33%。",
+        "what_it_tries_to_prove": "SPP-net (Overfeat-7, 多尺寸训练) 达到 29.68% top-1 错误率，比无SPP的对应模型低2.33%。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "task": "Pascal VOC 2007 分类",
+        "dataset": "Pascal VOC 2007",
+        "metric": "mAP",
+        "result": "SPP-net (Overfeat-7, 多尺寸训练) 达到 82.44% mAP。",
+        "anchors": [
+          "anc_00139",
+          "anc_00148"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "main_result",
+        "name": "Pascal VOC 2007 分类",
+        "baseline": [],
+        "metrics": [
+          "mAP"
+        ],
+        "result_summary": "SPP-net (Overfeat-7, 多尺寸训练) 达到 82.44% mAP。",
+        "what_it_tries_to_prove": "SPP-net (Overfeat-7, 多尺寸训练) 达到 82.44% mAP。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "task": "Caltech101 分类",
+        "dataset": "Caltech101",
+        "metric": "准确率",
+        "result": "SPP-net 达到 93.42% 准确率，比之前最好结果高4.88%。",
+        "anchors": [
+          "anc_00141",
+          "anc_00159",
+          "anc_00160"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "main_result",
+        "name": "Caltech101 分类",
+        "baseline": [],
+        "metrics": [
+          "准确率"
+        ],
+        "result_summary": "SPP-net 达到 93.42% 准确率，比之前最好结果高4.88%。",
+        "what_it_tries_to_prove": "SPP-net 达到 93.42% 准确率，比之前最好结果高4.88%。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "task": "Pascal VOC 2007 检测",
+        "dataset": "Pascal VOC 2007",
+        "metric": "mAP",
+        "result": "SPP-net (单模型) 达到 59.2% mAP，与R-CNN相当，但速度快得多。",
+        "anchors": [
+          "anc_00193",
+          "anc_00204"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "main_result",
+        "name": "Pascal VOC 2007 检测",
+        "baseline": [],
+        "metrics": [
+          "mAP"
+        ],
+        "result_summary": "SPP-net (单模型) 达到 59.2% mAP，与R-CNN相当，但速度快得多。",
+        "what_it_tries_to_prove": "SPP-net (单模型) 达到 59.2% mAP，与R-CNN相当，但速度快得多。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "task": "ILSVRC 2014 竞赛",
+        "dataset": "ILSVRC 2014",
+        "metric": "排名",
+        "result": "在检测任务中排名第2，在分类任务中排名第3。",
+        "anchors": [
+          "anc_00006",
+          "anc_00132",
+          "anc_00133",
+          "anc_00222"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "main_result",
+        "name": "ILSVRC 2014 竞赛",
+        "baseline": [],
+        "metrics": [
+          "排名"
+        ],
+        "result_summary": "在检测任务中排名第2，在分类任务中排名第3。",
+        "what_it_tries_to_prove": "在检测任务中排名第2，在分类任务中排名第3。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "study": "SPP层的效果",
+        "description": "比较有SPP层和无SPP层的网络在相同架构下的分类错误率。",
+        "finding": "在所有测试的架构（ZF-5, Convnet*-5, Overfeat-5, Overfeat-7）上，加入SPP层都能降低错误率。",
+        "anchors": [
+          "anc_00096",
+          "anc_00100"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "ablation",
+        "name": "ablation_6",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "在所有测试的架构（ZF-5, Convnet*-5, Overfeat-5, Overfeat-7）上，加入SPP层都能降低错误率。",
+        "what_it_tries_to_prove": "在所有测试的架构（ZF-5, Convnet*-5, Overfeat-5, Overfeat-7）上，加入SPP层都能降低错误率。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "study": "单尺寸训练 vs 多尺寸训练",
+        "description": "比较仅使用224尺寸训练和使用224与180尺寸交替训练的效果。",
+        "finding": "多尺寸训练进一步降低了分类错误率（例如Overfeat-7的top-1错误从30.36%降至29.68%）。",
+        "anchors": [
+          "anc_00107",
+          "anc_00108"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "ablation",
+        "name": "ablation_7",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "多尺寸训练进一步降低了分类错误率（例如Overfeat-7的top-1错误从30.36%降至29.68%）。",
+        "what_it_tries_to_prove": "多尺寸训练进一步降低了分类错误率（例如Overfeat-7的top-1错误从30.36%降至29.68%）。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "study": "全图表示 vs 裁剪表示",
+        "description": "在分类任务中，比较使用全图特征和使用中心裁剪特征的效果。",
+        "finding": "使用全图表示（通过SPP）通常比使用裁剪表示获得更高的准确率。",
+        "anchors": [
+          "anc_00115",
+          "anc_00142",
+          "anc_00143",
+          "anc_00150"
+        ],
+        "experiment_id": "experiment_8",
+        "type": "ablation",
+        "name": "ablation_8",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "使用全图表示（通过SPP）通常比使用裁剪表示获得更高的准确率。",
+        "what_it_tries_to_prove": "使用全图表示（通过SPP）通常比使用裁剪表示获得更高的准确率。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "study": "检测中微调全连接层的效果",
+        "description": "比较使用预训练的全连接层和微调后的全连接层进行检测的效果。",
+        "finding": "微调全连接层后，检测mAP显著提升（例如从44.9%提升到59.2%）。",
+        "anchors": [
+          "anc_00192",
+          "anc_00193"
+        ],
+        "experiment_id": "experiment_9",
+        "type": "ablation",
+        "name": "ablation_9",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "微调全连接层后，检测mAP显著提升（例如从44.9%提升到59.2%）。",
+        "what_it_tries_to_prove": "微调全连接层后，检测mAP显著提升（例如从44.9%提升到59.2%）。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "aspect": "对物体形变的鲁棒性",
+        "description": "论文声称金字塔池化对物体形变具有鲁棒性。",
+        "evidence": "在分类和检测任务中取得了优异结果，但未提供专门的形变鲁棒性实验。",
+        "anchors": [
+          "anc_00005"
+        ],
+        "experiment_id": "experiment_10",
+        "type": "robustness",
+        "name": "对物体形变的鲁棒性",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "论文声称金字塔池化对物体形变具有鲁棒性。",
+        "what_it_tries_to_prove": "论文声称金字塔池化对物体形变具有鲁棒性。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "aspect": "对尺度变化的鲁棒性",
+        "description": "通过多尺寸训练和多尺度检测（使用多个尺度的特征图）来处理尺度变化。",
+        "evidence": "在检测中使用多尺度（s ∈ {480, 576, 688, 864, 1200}）提升了性能。",
+        "anchors": [
+          "anc_00179",
+          "anc_00180"
+        ],
+        "experiment_id": "experiment_11",
+        "type": "robustness",
+        "name": "对尺度变化的鲁棒性",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "通过多尺寸训练和多尺度检测（使用多个尺度的特征图）来处理尺度变化。",
+        "what_it_tries_to_prove": "通过多尺寸训练和多尺度检测（使用多个尺度的特征图）来处理尺度变化。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "aspect": "网络架构的扩展性",
+        "description": "SPP层被证明能提升多种不同深度和宽度的CNN架构（ZF-5, Convnet*-5, Overfeat-5, Overfeat-7）的性能。",
+        "finding": "SPP的优势独立于具体的卷积网络架构。",
+        "anchors": [
+          "anc_00089",
+          "anc_00096"
+        ],
+        "experiment_id": "experiment_12",
+        "type": "scaling",
+        "name": "网络架构的扩展性",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "SPP的优势独立于具体的卷积网络架构。",
+        "what_it_tries_to_prove": "SPP的优势独立于具体的卷积网络架构。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "description": "展示了在Pascal VOC 2007测试集上的检测结果示例。",
+        "finding": "可视化结果显示SPP-net能够检测出图像中不同尺度和位置的物体。",
+        "anchors": [
+          "anc_00226",
+          "anc_00227"
+        ],
+        "experiment_id": "experiment_13",
+        "type": "case_study",
+        "name": "case_study_13",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "可视化结果显示SPP-net能够检测出图像中不同尺度和位置的物体。",
+        "what_it_tries_to_prove": "可视化结果显示SPP-net能够检测出图像中不同尺度和位置的物体。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "name": "ImageNet 2012 (ILSVRC 2012)",
+        "task": "分类",
+        "result": "单模型top-5错误率9.14%（验证集），9.08%（测试集）。",
+        "anchors": [
+          "anc_00133"
+        ],
+        "experiment_id": "experiment_14",
+        "type": "benchmark",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "单模型top-5错误率9.14%（验证集），9.08%（测试集）。",
+        "what_it_tries_to_prove": "单模型top-5错误率9.14%（验证集），9.08%（测试集）。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "name": "Pascal VOC 2007",
+        "task": "分类",
+        "result": "mAP 82.44%。",
+        "anchors": [
+          "anc_00139",
+          "anc_00148"
+        ],
+        "experiment_id": "experiment_15",
+        "type": "benchmark",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "mAP 82.44%。",
+        "what_it_tries_to_prove": "mAP 82.44%。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "name": "Caltech101",
+        "task": "分类",
+        "result": "准确率93.42%。",
+        "anchors": [
+          "anc_00141",
+          "anc_00159"
+        ],
+        "experiment_id": "experiment_16",
+        "type": "benchmark",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "准确率93.42%。",
+        "what_it_tries_to_prove": "准确率93.42%。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "name": "Pascal VOC 2007",
+        "task": "检测",
+        "result": "mAP 59.2% (单模型), 60.9% (模型组合)。",
+        "anchors": [
+          "anc_00193",
+          "anc_00204",
+          "anc_00205"
+        ],
+        "experiment_id": "experiment_17",
+        "type": "benchmark",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "mAP 59.2% (单模型), 60.9% (模型组合)。",
+        "what_it_tries_to_prove": "mAP 59.2% (单模型), 60.9% (模型组合)。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "name": "ILSVRC 2014",
+        "task": "检测 (provided-data-only track)",
+        "result": "排名第2。",
+        "anchors": [
+          "anc_00222"
+        ],
+        "experiment_id": "experiment_18",
+        "type": "benchmark",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "排名第2。",
+        "what_it_tries_to_prove": "排名第2。",
+        "evidence_strength": "unknown"
+      },
+      {
+        "metric": "检测特征提取速度",
+        "comparison": "与R-CNN相比",
+        "result": "在VOC 2007上，SPP-net (1-scale) 的卷积特征提取速度比R-CNN快270倍 (0.053s vs 14.37s per image)。5-scale版本快49倍。",
+        "anchors": [
+          "anc_00206"
+        ],
+        "experiment_id": "experiment_19",
+        "type": "efficiency",
+        "name": "efficiency_19",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [
+          "检测特征提取速度"
+        ],
+        "result_summary": "在VOC 2007上，SPP-net (1-scale) 的卷积特征提取速度比R-CNN快270倍 (0.053s vs 14.37s per image)。5-scale版本快49倍。",
+        "what_it_tries_to_prove": "与R-CNN相比",
+        "evidence_strength": "unknown"
+      },
+      {
+        "metric": "ILSVRC 2014 检测速度",
+        "comparison": "与R-CNN相比",
+        "result": "处理40k测试图像，SPP-net需要8 GPU·小时计算卷积特征，而R-CNN需要15 GPU·天。",
+        "anchors": [
+          "anc_00223"
+        ],
+        "experiment_id": "experiment_20",
+        "type": "efficiency",
+        "name": "efficiency_20",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [
+          "ILSVRC 2014 检测速度"
+        ],
+        "result_summary": "处理40k测试图像，SPP-net需要8 GPU·小时计算卷积特征，而R-CNN需要15 GPU·天。",
+        "what_it_tries_to_prove": "与R-CNN相比",
+        "evidence_strength": "unknown"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "SPP-net可以消除CNN对固定输入尺寸的要求，生成固定长度的表示。",
+        "evidence_source_type": "方法描述、实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00003",
+          "anc_00004",
+          "anc_00005",
+          "anc_00016",
+          "anc_00096"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_1",
+        "evidence": [
+          {
+            "evidence_id": "evidence_1_1",
+            "description": "论文在摘要和引言中明确指出SPP-net可以生成固定长度的表示，无论图像大小/尺度如何。",
+            "anchors": [
+              "anc_00003",
+              "anc_00004",
+              "anc_00005"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_1_2",
+            "description": "实验结果表明，使用SPP层的网络在各种架构上都能正常工作并提升性能，证明了其有效性。",
+            "anchors": [
+              "anc_00096",
+              "anc_00100"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim": "SPP对物体形变具有鲁棒性，能提升各种CNN架构的分类精度。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00005",
+          "anc_00089",
+          "anc_00096",
+          "anc_00100"
+        ],
+        "risk_flags": [
+          "形变鲁棒性主要基于分类精度提升的间接证据，未提供专门的形变实验。"
+        ],
+        "claim_id": "claim_2",
+        "evidence": [
+          {
+            "evidence_id": "evidence_2_1",
+            "description": "论文声称金字塔池化对物体形变具有鲁棒性。",
+            "anchors": [
+              "anc_00005"
+            ],
+            "strength": "中"
+          },
+          {
+            "evidence_id": "evidence_2_2",
+            "description": "实验表明SPP层能提升多种CNN架构（ZF-5, Convnet*-5, Overfeat-5, Overfeat-7）的分类精度。",
+            "anchors": [
+              "anc_00089",
+              "anc_00096",
+              "anc_00100"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim": "在检测任务中，SPP-net只需对整个图像运行一次卷积，然后对任意窗口的特征图进行池化，比R-CNN快数十到上百倍，同时精度相当或更高。",
+        "evidence_source_type": "方法描述、实验结果（速度与精度）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00162",
+          "anc_00163",
+          "anc_00165",
+          "anc_00166",
+          "anc_00193",
+          "anc_00204",
+          "anc_00206",
+          "anc_00223"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_3",
+        "evidence": [
+          {
+            "evidence_id": "evidence_3_1",
+            "description": "论文描述了SPP-net的检测方法：对整个图像只运行一次卷积，然后对候选窗口的特征图区域进行SPP池化。",
+            "anchors": [
+              "anc_00162",
+              "anc_00163",
+              "anc_00165",
+              "anc_00166"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_3_2",
+            "description": "实验结果表明SPP-net在Pascal VOC 2007上达到59.2% mAP，与R-CNN相当。",
+            "anchors": [
+              "anc_00193",
+              "anc_00204"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_3_3",
+            "description": "速度比较显示SPP-net (1-scale) 的卷积特征提取速度比R-CNN快270倍。",
+            "anchors": [
+              "anc_00206"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_3_4",
+            "description": "在ILSVRC 2014检测任务中，SPP-net需要8 GPU·小时计算卷积特征，而R-CNN需要15 GPU·天。",
+            "anchors": [
+              "anc_00223"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim": "SPP-net在ImageNet 2012、Pascal VOC 2007、Caltech101上取得了当时最优的分类结果。",
+        "evidence_source_type": "实验结果、与现有方法的比较",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00100",
+          "anc_00108",
+          "anc_00139",
+          "anc_00141",
+          "anc_00148",
+          "anc_00156",
+          "anc_00158",
+          "anc_00159"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_4",
+        "evidence": [
+          {
+            "evidence_id": "evidence_4_1",
+            "description": "在ImageNet 2012上，SPP-net (Overfeat-7, 多尺寸训练) 达到29.68% top-1错误率，比无SPP的对应模型低2.33%。",
+            "anchors": [
+              "anc_00100",
+              "anc_00108"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_4_2",
+            "description": "在Pascal VOC 2007分类上，SPP-net达到82.44% mAP。",
+            "anchors": [
+              "anc_00139",
+              "anc_00148"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_4_3",
+            "description": "在Caltech101上，SPP-net达到93.42%准确率，比之前最好结果高4.88%。",
+            "anchors": [
+              "anc_00141",
+              "anc_00159",
+              "anc_00160"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim": "在ILSVRC 2014竞赛中，基于SPP-net的方法在检测和分类任务上分别获得第2名和第3名。",
+        "evidence_source_type": "竞赛结果报告",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00006",
+          "anc_00132",
+          "anc_00133",
+          "anc_00222"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_5",
+        "evidence": [
+          {
+            "evidence_id": "evidence_5_1",
+            "description": "论文报告在ILSVRC 2014竞赛中，基于SPP-net的方法在检测任务中排名第2，在分类任务中排名第3。",
+            "anchors": [
+              "anc_00006",
+              "anc_00132",
+              "anc_00133",
+              "anc_00222"
+            ],
+            "strength": "强"
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "SPP (Spatial Pyramid Pooling)": "空间金字塔池化。一种池化策略，将特征图在多个空间尺度（金字塔层级）上进行划分，并在每个划分区域内进行池化（如最大池化），最后将所有池化结果拼接起来，生成固定长度的表示。",
+    "SPP-net": "空间金字塔池化网络。本文提出的网络结构，在标准CNN的最后一个卷积层和全连接层之间插入SPP层。",
+    "Feature Map": "特征图。卷积层或池化层的输出，是一个三维张量（高度×宽度×通道数），包含了输入图像在不同空间位置的特征响应。",
+    "Fully-Connected Layer": "全连接层。神经网络中的一种层，其中每个神经元与前一层的所有神经元相连接。在CNN中，通常位于卷积层之后，用于将学习到的特征表示映射到样本标记空间。",
+    "R-CNN": "Regions with CNN features。一种物体检测方法，首先生成候选区域，然后对每个区域独立运行CNN提取特征，最后用SVM分类。",
+    "Selective Search": "选择性搜索。一种图像分割和候选区域生成算法，用于物体检测中生成可能包含物体的候选窗口。",
+    "Fine-tuning": "微调。在预训练模型的基础上，使用新的数据集对网络的部分或全部参数进行进一步训练，以适应新任务。",
+    "Bounding Box Regression": "边界框回归。一种用于提高物体检测定位精度的技术，通过回归模型对候选窗口的坐标进行微调，使其更接近真实边界框。",
+    "mAP (mean Average Precision)": "平均精度均值。物体检测和分类任务中常用的评估指标，计算每个类别的平均精度（AP），然后取所有类别AP的平均值。",
+    "Top-1/Top-5 Error": "Top-1/Top-5错误率。图像分类任务的评估指标。Top-1错误率是指模型预测的最可能类别与真实类别不一致的比例；Top-5错误率是指真实类别不在模型预测的前5个最可能类别中的比例。",
+    "Multi-size Training": "多尺寸训练。在训练过程中，交替使用不同尺寸的输入图像（如224和180），但网络参数共享，以增强模型对尺度变化的适应性。",
+    "Single-size Training": "单尺寸训练。在训练过程中，只使用单一固定尺寸（如224×224）的输入图像。",
+    "ILSVRC": "ImageNet Large Scale Visual Recognition Challenge。一个大规模的视觉识别竞赛，包括图像分类、物体检测等任务。",
+    "Pascal VOC": "Visual Object Classes Challenge。一个常用的物体检测和图像分割基准数据集和竞赛。",
+    "Caltech101": "一个包含101个物体类别的图像分类数据集。",
+    "terms": []
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        "ImageNet 2012 (ILSVRC 2012) 用于分类预训练和评估。",
+        "Pascal VOC 2007 用于分类和检测任务的评估。",
+        "Caltech101 用于分类任务的评估。",
+        "ILSVRC 2014 检测数据集 (provided-data-only track) 用于检测任务的评估。"
+      ],
+      "required_models": [
+        "ZF-5 (基于Zeiler and Fergus的模型)",
+        "Convnet*-5 (基于Krizhevsky et al.的模型修改)",
+        "Overfeat-5",
+        "Overfeat-7",
+        "AlexNet (用于R-CNN基线比较)"
+      ],
+      "compute_requirements": "需要GPU进行训练和推理。论文中提到在GPU上进行实验。具体硬件规格未详细说明，但训练和检测速度测试表明需要相当的计算资源。",
+      "code_available": "论文未提供官方代码。但提到了使用Caffe框架进行实现。社区可能有第三方复现。",
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 准备数据集：下载并预处理ImageNet 2012, Pascal VOC 2007, Caltech101等数据集。",
+          "anchors": [
+            "anc_00096",
+            "anc_00100",
+            "anc_00139",
+            "anc_00141"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 实现基础CNN架构：实现ZF-5, Convnet*-5, Overfeat-5, Overfeat-7等网络结构。",
+          "anchors": [
+            "anc_00089",
+            "anc_00092"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 实现SPP层：根据论文描述，实现多级金字塔池化（如{6×6, 3×3, 2×2, 1×1}），包括前向和反向传播。",
+          "anchors": [
+            "anc_00016",
+            "anc_00018",
+            "anc_00046",
+            "anc_00061",
+            "anc_00078"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "4. 构建SPP-net：将SPP层插入到基础CNN的最后一个卷积层和全连接层之间。",
+          "anchors": [
+            "anc_00016",
+            "anc_00018"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "5. 训练策略：实现单尺寸训练（固定224输入）和多尺寸训练（交替使用224和180输入，参数共享）。",
+          "anchors": [
+            "anc_00082",
+            "anc_00107",
+            "anc_00108"
+          ]
+        },
+        {
+          "step": "step_6",
+          "description": "6. 分类任务评估：在ImageNet 2012验证集上使用10-view预测评估Top-1/Top-5错误率；在Pascal VOC 2007和Caltech101上提取特征训练SVM并评估mAP/准确率。",
+          "anchors": [
+            "anc_00096",
+            "anc_00100",
+            "anc_00108",
+            "anc_00139",
+            "anc_00141",
+            "anc_00148",
+            "anc_00159"
+          ]
+        },
+        {
+          "step": "step_7",
+          "description": "7. 检测任务实现：实现基于SPP-net的检测流程，包括：对整个图像提取多尺度特征图；将候选窗口映射到特征图；对每个窗口的特征图区域应用SPP池化；提取特征训练二分类SVM；可选地进行边界框回归。",
+          "anchors": [
+            "anc_00165",
+            "anc_00167",
+            "anc_00172",
+            "anc_00173",
+            "anc_00179",
+            "anc_00180",
+            "anc_00188"
+          ]
+        },
+        {
+          "step": "step_8",
+          "description": "8. 检测任务评估：在Pascal VOC 2007测试集上评估检测mAP，并与R-CNN等方法比较速度和精度。",
+          "anchors": [
+            "anc_00193",
+            "anc_00204",
+            "anc_00206"
+          ]
+        },
+        {
+          "step": "step_9",
+          "description": "9. 模型组合（可选）：训练多个不同随机初始化的SPP-net模型，在检测时组合它们的预测结果。",
+          "anchors": [
+            "anc_00207",
+            "anc_00208",
+            "anc_00210",
+            "anc_00212"
+          ]
+        }
+      ],
+      "missing_details": [],
+      "risk_points": []
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-01T22:38:32+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_ml_035_spatial_pyramid_pooling_in_deep_convolutional_ne_2014",
+    "title": "Spatial Pyramid Pooling in Deep Convolutional Networks for Visual Recognition",
+    "authors": [
+      "Kaiming He",
+      "X. Zhang",
+      "Shaoqing Ren",
+      "Jian Sun"
+    ],
+    "venue": "IEEE Transactions on Pattern Analysis and Machine Intelligence",
+    "year": 2014,
+    "arxiv_id": "1406.4729",
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-01T22:36:36+00:00",
+    "paper_type": "Computer Vision / CNN / Computer Vision / Detection / Classical ML / Boosting / Top-cited ML method paper",
+    "citation_count": 12469,
+    "influential_citation_count": 723,
+    "semantic_scholar_id": "cbb19236820a96038d000dc629225d36e0b6294a",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/cbb19236820a96038d000dc629225d36e0b6294a",
+    "importance_rank": 35,
+    "selection_source": "semantic_scholar_top_cited_ml_open_pdf_2026_05_01",
+    "open_access_pdf_url": "https://arxiv.org/pdf/1406.4729",
+    "fields_of_study": [
+      "Computer Science",
+      "Medicine"
+    ],
+    "publication_types": [
+      "JournalArticle"
+    ],
+    "abstract": "Existing deep convolutional neural networks (CNNs) require a fixed-size (e.g., 224<inline-formula><tex-math>$\\times$ </tex-math><alternatives><inline-graphic xlink:type=\"simple\" xlink:href=\"he-ieq1-2389824.gif\"/></alternatives></inline-formula>224) input image. This requirement is “artificial” and may reduce the recognition accuracy for the images or sub-images of an arbitrary size/scale. In this work, we equip the networks with another pooling strategy, “spatial pyramid pooling”, to eliminate the above requirement. The new network structure, called SPP-net, can generate a fixed-length representation regardless of image size/scale. Pyramid pooling is also robust to object deformations. With these advantages, SPP-net should in general improve all CNN-based image classification methods. On the ImageNet 2012 dataset, we demonstrate that SPP-net boosts the accuracy of a variety of CNN architectures despite their different designs. On the Pascal VOC 2007 and Caltech101 datasets, SPP-net achieves state-of-the-art classification results using a single full-image representation and no fine-tuning. The power of SPP-net is also significant in object detection. Using SPP-net, we compute the feature maps from the entire image only once, and then pool features in arbitrary regions (sub-images) to generate fixed-length representations for training the detectors. This method avoids repeatedly computing the convolutional features. In processing test images, our method is 24-102 <inline-formula><tex-math>$\\times$</tex-math><alternatives><inline-graphic xlink:type=\"simple\" xlink:href=\"he-ieq2-2389824.gif\"/> </alternatives></inline-formula> faster than the R-CNN method, while achieving better or comparable accuracy on Pascal VOC 2007. In ImageNet Large Scale Visual Recognition Challenge (ILSVRC) 2014, our methods rank #2 in object detection and #3 in image classification among all 38 teams. This manuscript also introduces the improvement made for this competition."
+  },
+  "anchors": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "1 Spatial Pyramid Pooling in Deep Convolutional Networks for Visual Recognition",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Abstract—Existing deep convolutional neural networks (CNNs) require a ﬁxed-size ( e.g., 224×224) input image. This require- ment is “artiﬁcial” and may reduce the recognition accuracy for the images or sub-images of an arbitrary size/scale. In this",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "work, we equip the networks with another pooling strategy, “spatial pyramid pooling”, to eliminate the above requirement. The",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "new network structure, called SPP-net, can generate a ﬁxed-length representation regardless of image size/scale. Pyramid pooling is also robust to object deformations. With these advantages, SPP-net should in general improve all CNN-based image classiﬁcation methods. On the ImageNet 2012 dataset, we demonstrate that SPP-net boosts the accuracy of a variety of CNN architectures despite their different designs. On the Pascal VOC 2007 and Caltech101 datasets, SPP-net achieves state-of-the- art classiﬁcation results using a single full-image representation and no ﬁne-tuning. The power of SPP-net is also signiﬁcant in object detection. Using SPP-net, we compute the feature maps from the entire image only once, and then pool features in arbitrary regions (sub-images) to generate ﬁxed-length representations for training the detectors. This method avoids repeatedly computing the convolutional features. In processing test images, our method is 24-102× faster than the R-CNN method, while achiev...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "In ImageNet Large Scale Visual Recognition Challenge (ILSVRC) 2014, our methods rank #2 in object detection and #3 in",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "image classiﬁcation among all 38 teams. This manuscript also introduces the improvement made for this competition. Index Terms—Convolutional Neural Networks, Spatial Pyramid Pooling, Image Classiﬁcation, Object Detection !",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "1 I NTRODUCTION",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "We are witnessing a rapid, revolutionary change in our vision community, mainly caused by deep con- volutional neural networks (CNNs) [1] and the avail-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "ability of large scale training data [2]. Deep-networks-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "based approaches have recently been substantially improving upon the state of the art in image clas- siﬁcation [3], [4], [5], [6], object detection [7], [8], [5], many other recognition tasks [9], [10], [11], [12], and even non-recognition tasks. However, there is a technical issue in the training and testing of the CNNs: the prevalent CNNs require a ﬁxed input image size ( e.g., 224×224), which limits both the aspect ratio and the scale of the input image. When applied to images of arbitrary sizes, current methods mostly ﬁt the input image to the ﬁxed size, either via cropping [3], [4] or via warping [13], [7], as shown in Figure 1 (top). But the cropped region may not contain the entire object, while the warped content may result in unwanted geometric distortion. Recognition accuracy can be compromised due to the content loss or distortion. Besides, a pre-deﬁned scale • K. He and J. Sun are with Microsoft Research, Beijing, China. E-mail: {kahe,jiansun}@microsoft.com • X. Zhang is w...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "• S. Ren is with University of Science and Technology of China, Hefei,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "China. Email: sqren@mail.ustc.edu.cn This work was done when X. Zhang and S. Ren were interns at Microsoft Research. crop warp spatial pyramid pooling crop / warp conv layersimage fc layers output image conv layers fc layers output",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Figure 1: Top: cropping or warping to ﬁt a ﬁxed",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "size. Middle: a conventional CNN. Bottom: our spatial pyramid pooling network structure. may not be suitable when object scales vary. Fixing input sizes overlooks the issues involving scales. So why do CNNs require a ﬁxed input size? A CNN mainly consists of two parts: convolutional layers, and fully-connected layers that follow. The convo- lutional layers operate in a sliding-window manner and output feature maps which represent the spatial arrangement of the activations (Figure 2). In fact, con- volutional layers do not require a ﬁxed image size and can generate feature maps of any sizes. On the other hand, the fully-connected layers need to have ﬁxed- size/length input by their deﬁnition. Hence, the ﬁxed- size constraint comes only from the fully-connected layers, which exist at a deeper stage of the network. In this paper, we introduce a spatial pyramid pool- ing (SPP) [14], [15] layer to remove the ﬁxed-size constraint of the network. Speciﬁcally, we add an arXiv:1406.4729v4 [cs....",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "2 SPP layer on top of the last convolutional layer. The SPP layer pools the features and generates ﬁxed- length outputs, which are then fed into the fully- connected layers (or other classiﬁers). In other words, we perform some information “aggregation” at a deeper stage of the network hierarchy (between con- volutional layers and fully-connected layers) to avoid the need for cropping or warping at the beginning.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "Figure 1 (bottom) shows the change of the network",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "architecture by introducing the SPP layer. We call the new network structure SPP-net. Spatial pyramid pooling [14], [15] (popularly known as spatial pyramid matching or SPM [15]), as an extension of the Bag-of-Words (BoW) model [16], is one of the most successful methods in computer vision. It partitions the image into divisions from ﬁner to coarser levels, and aggregates local features in them. SPP has long been a key component in the leading and competition-winning systems for classi- ﬁcation (e.g., [17], [18], [19]) and detection ( e.g., [20]) before the recent prevalence of CNNs. Nevertheless, SPP has not been considered in the context of CNNs. We note that SPP has several remarkable properties for deep CNNs: 1) SPP is able to generate a ﬁxed- length output regardless of the input size, while the sliding window pooling used in the previous deep networks [3] cannot; 2) SPP uses multi-level spatial bins, while the sliding window pooling uses only a single window size. Multi-level po...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "and larger) convolutional architectures. SPP-net also",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "shows state-of-the-art classiﬁcation results on Cal- tech101 [21] and Pascal VOC 2007 [22] using only a single full-image representation and no ﬁne-tuning. SPP-net also shows great strength in object detec- tion. In the leading object detection method R-CNN [7], the features from candidate windows are extracted via deep convolutional networks. This method shows remarkable detection accuracy on both the VOC and ImageNet datasets. But the feature computation in R-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "CNN is time-consuming, because it repeatedly applies",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00022",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "the deep convolutional networks to the raw pixels of thousands of warped regions per image. In this paper, we show that we can run the convolutional layers only once on the entire image (regardless of the number of windows), and then extract features by SPP-net on the feature maps. This method yields a speedup of over one hundred times over R-CNN. Note that training/running a detector on the feature maps (rather than image regions) is actually a more popular idea [23], [24], [20], [5]. But SPP-net inherits the power of the deep CNN feature maps and also the ﬂexibility of SPP on arbitrary window sizes, which leads to outstanding accuracy and efﬁciency. In our experiment, the SPP-net-based system (built upon the R-CNN pipeline) computes features 24-102 × faster than R-CNN, while has better or comparable accuracy. With the recent fast proposal method of EdgeBoxes [25], our system takes 0.5 seconds processing an image (including all steps ). This makes our method practical for real-world...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "A preliminary version of this manuscript has been",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00024",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "published in ECCV 2014. Based on this work, we attended the competition of ILSVRC 2014 [26], and ranked #2 in object detection and #3 in image clas- siﬁcation (both are provided-data-only tracks) among all 38 teams. There are a few modiﬁcations made for ILSVRC 2014. We show that the SPP-nets can",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "boost various networks that are deeper and larger",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "(Sec. 3.1.2-3.1.4) over the no-SPP counterparts. Fur- ther, driven by our detection framework, we ﬁnd that multi-view testing on feature maps with ﬂexibly located/sized windows (Sec. 3.1.5) can increase the classiﬁcation accuracy. This manuscript also provides the details of these modiﬁcations. We have released the code to facilitate future re- search (http://research.microsoft.com/en-us/um/people/kahe/ ).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00027",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "2 D EEP NETWORKS WITH SPATIAL PYRA -",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00028",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "MID POOLING",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "2.1 Convolutional Layers and Feature Maps",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "Consider the popular seven-layer architectures [3], [4]. The ﬁrst ﬁve layers are convolutional, some of which are followed by pooling layers. These pooling layers can also be considered as “convolutional”, in the sense that they are using sliding windows. The last two",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00031",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "3",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "filter #175 filter #55 (a) image (b) feature maps (c) strongest activations",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00033",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "filter #66 filter #118 (a) image (b) feature maps (c) strongest activations",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "Figure 2: Visualization of the feature maps. (a) Two images in Pascal VOC 2007. (b) The feature maps of some",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00035",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "conv5 ﬁlters. The arrows indicate the strongest responses and their corresponding positions in the images. (c) The ImageNet images that have the strongest responses of the corresponding ﬁlters. The green rectangles mark the receptive ﬁelds of the strongest responses.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "layers are fully connected, with an N-way softmax as",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00037",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "the output, where N is the number of categories. The deep network described above needs a ﬁxed image size. However, we notice that the requirement of ﬁxed sizes is only due to the fully-connected layers that demand ﬁxed-length vectors as inputs. On the other hand, the convolutional layers accept inputs of arbitrary sizes. The convolutional layers use sliding ﬁlters, and their outputs have roughly the same aspect ratio as the inputs. These outputs are known as feature maps [1] - they involve not only the strength of the responses, but also their spatial positions. In Figure 2, we visualize some feature maps. They are generated by some ﬁlters of the conv 5 layer. Fig- ure 2(c) shows the strongest activated images of these ﬁlters in the ImageNet dataset. We see a ﬁlter can be activated by some semantic content. For example, the 55-th ﬁlter (Figure 2, bottom left) is most activated by a circle shape; the 66-th ﬁlter (Figure 2, top right) is most activated by a∧-shape; and the 118-th ﬁlter...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00038",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "ers are analogous to the feature maps in traditional",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00039",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "methods [27], [28]. In those methods, SIFT vectors [29] or image patches [28] are densely extracted and then encoded, e.g., by vector quantization [16], [15], [30], sparse coding [17], [18], or Fisher kernels [19]. These encoded features consist of the feature maps, and are then pooled by Bag-of-Words (BoW) [16] or",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "spatial pyramids [14], [15]. Analogously, the deep",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00041",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "convolutional features can be pooled in a similar way.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00042",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "2.2 The Spatial Pyramid Pooling Layer",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00043",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "The convolutional layers accept arbitrary input sizes, but they produce outputs of variable sizes. The classi-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "ﬁers (SVM/softmax) or fully-connected layers require",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00045",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "convolutional layers feature maps of conv5 (arbitrary size) fixed-length representation input image 16×256-d 4×256-d 256-d …... …... spatial pyramid pooling layer fully-connected layers (fc6, fc7)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00046",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "Figure 3: A network structure with a spatial pyramid",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00047",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "pooling layer . Here 256 is the ﬁlter number of the conv5 layer, and conv 5 is the last convolutional layer. ﬁxed-length vectors. Such vectors can be generated by the Bag-of-Words (BoW) approach [16] that pools the features together. Spatial pyramid pooling [14], [15] improves BoW in that it can maintain spatial information by pooling in local spatial bins. These spatial bins have sizes proportional to the image size, so the number of bins is ﬁxed regardless of the image size. This is in contrast to the sliding window pooling of the previous deep networks [3], where the number of sliding windows depends on the input size. To adopt the deep network for images of arbi- trary sizes, we replace the last pooling layer ( e.g., pool5, after the last convolutional layer) with a spatial pyramid pooling layer . Figure 3 illustrates our method. In each spatial bin, we pool the responses of each",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00048",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "ﬁlter (throughout this paper we use max pooling).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "The outputs of the spatial pyramid pooling are kM - dimensional vectors with the number of bins denoted as M (k is the number of ﬁlters in the last convo- lutional layer). The ﬁxed-dimensional vectors are the input to the fully-connected layer. With spatial pyramid pooling, the input image can",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00050",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "4 be of any sizes. This not only allows arbitrary aspect ratios, but also allows arbitrary scales. We can resize",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "the input image to any scale ( e.g., min(w,h )=180, 224,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00052",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "...) and apply the same deep network. When the input image is at different scales, the network (with the same ﬁlter sizes) will extract features at different scales. The scales play important roles in traditional methods, e.g., the SIFT vectors are often extracted at",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00053",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "multiple scales [29], [27] (determined by the sizes of",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "the patches and Gaussian ﬁlters). We will show that the scales are also important for the accuracy of deep networks. Interestingly, the coarsest pyramid level has a single bin that covers the entire image. This is in fact a “global pooling” operation, which is also investigated in several concurrent works. In [31], [32] a global average pooling is used to reduce the model size and also reduce overﬁtting; in [33], a global average pooling is used on the testing stage after all fc layers",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "to improve accuracy; in [34], a global max pooling is",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "used for weakly supervised object recognition. The global pooling operation corresponds to the tradi- tional Bag-of-Words method.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00057",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "2.3 Training the Network",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00058",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "Theoretically, the above network structure can be trained with standard back-propagation [1], regard- less of the input image size. But in practice the GPU implementations (such as cuda-convnet [3] and Caffe [35]) are preferably run on ﬁxed input images. Next we describe our training solution that takes advantage of these GPU implementations while still preserving the spatial pyramid pooling behaviors. Single-size training As in previous works, we ﬁrst consider a network tak- ing a ﬁxed-size input (224×224) cropped from images. The cropping is for the purpose of data augmentation. For an image with a given size, we can pre-compute the bin sizes needed for spatial pyramid pooling. Consider the feature maps after conv5 that have a size of a×a (e.g., 13×13). With a pyramid level of n×n bins, we implement this pooling level as a sliding",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00059",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "window pooling, where the window sizewin =⌈a/n⌉",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00060",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "and stride str = ⌊a/n⌋ with ⌈·⌉ and ⌊·⌋ denoting",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00061",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "ceiling and ﬂoor operations. With an l-level pyramid, we implement l such layers. The next fully-connected layer (fc 6) will concatenate the l outputs. Figure 4 shows an example conﬁguration of 3-level pyramid pooling (3×3, 2×2, 1×1) in the cuda-convnet style [3]. The main purpose of our single-size training is to enable the multi-level pooling behavior. Experiments show that this is one reason for the gain of accuracy. Multi-size training Our network with SPP is expected to be applied on images of any sizes. To address the issue of varying [fc6]",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00062",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "type=fc",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "outputs=4096",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00064",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "inputs=pool3x3,pool2x2,pool1x1",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00065",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "[pool1x1]",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00066",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "type=pool",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "pool=max",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00068",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "inputs=conv5",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "sizeX=13 stride=13 [pool3x3]",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00070",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "type=pool",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00071",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "pool=max",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00072",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "inputs=conv5",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00073",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "sizeX=5 stride=4 [pool2x2]",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00074",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "type=pool",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00075",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "pool=max",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00076",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "inputs=conv5",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00077",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "sizeX=7 stride=6",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00078",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "Figure 4: An example 3-level pyramid pooling in the",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00079",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "cuda-convnet style [3]. Here sizeX is the size of the pooling window. This conﬁguration is for a network whose feature map size of conv 5 is 13×13, so the pool3×3, pool 2×2, and pool 1×1 layers will have 3 ×3, 2×2, and 1×1 bins respectively. image sizes in training, we consider a set of pre- deﬁned sizes. We consider two sizes: 180×180 in addi- tion to 224×224. Rather than crop a smaller 180 ×180 region, we resize the aforementioned 224×224 region to 180×180. So the regions at both scales differ only in resolution but not in content/layout. For the net- work to accept 180×180 inputs, we implement another ﬁxed-size-input (180×180) network. The feature map",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00080",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "size after conv 5 isa×a = 10×10 in this case. Then we",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00081",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "still use win =⌈a/n⌉ and str =⌊a/n⌋ to implement",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00082",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "each pyramid pooling level. The output of the spatial pyramid pooling layer of this 180-network has the same ﬁxed length as the 224-network. As such, this 180-network has exactly the same parameters as the 224-network in each layer. In other words, during training we implement the varying-input-size SPP-net by two ﬁxed-size networks that share parameters. To reduce the overhead to switch from one network (e.g., 224) to the other ( e.g., 180), we train each full epoch on one network, and then switch to the other one (keeping all weights) for the next full epoch. This is iterated. In experiments, we ﬁnd the convergence rate of this multi-size training to be similar to the above single-size training. The main purpose of our multi-size training is to simulate the varying input sizes while still leveraging the existing well-optimized ﬁxed-size implementa- tions. Besides the above two-scale implementation, we have also tested a variant using s×s as input where s is randomly and uniformly sa...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00083",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "5 model conv1 conv2 conv3 conv4 conv5 conv6 conv7 ZF-5 96× 72, str 2 256× 52, str 2 384× 32 384× 32 256× 32 LRN, pool 32, str 2 LRN, pool 32, str 2 - - map size 55× 55 27× 27 13× 13 13× 13 13× 13 Convnet*-5 96× 112, str 4 256× 52 384× 32 384× 32 256× 32 LRN, LRN, pool 32, str 2 pool 32, 2 - - map size 55× 55 27× 27 13× 13 13× 13 13× 13 Overfeat-5/7 96× 72, str 2 256× 52 512× 32 512× 32 512× 32 512× 32 512× 32 pool 32, str 3, LRN pool 22, str 2 map size 36× 36 18× 18 18× 18 18× 18 18× 18 18× 18 18× 18",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00084",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "Table 1: Network architectures: ﬁlter number×ﬁlter size (e.g., 96× 72), ﬁlter stride (e.g., str 2), pooling window",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00085",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "size ( e.g., pool 32), and the output feature map size ( e.g., map size 55× 55). LRN represents Local Response Normalization. The padding is adjusted to produce the expected output feature map size.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00086",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "3 SPP- NET FOR IMAGE CLASSIFICATION",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00087",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "3.1 Experiments on ImageNet 2012 Classiﬁcation We train the networks on the 1000-category training set of ImageNet 2012. Our training algorithm follows the practices of previous work [3], [4], [36]. The im- ages are resized so that the smaller dimension is 256, and a 224×224 crop is picked from the center or the four corners from the entire image 1. The data are aug- mented by horizontal ﬂipping and color altering [3]. Dropout [3] is used on the two fully-connected layers. The learning rate starts from 0.01, and is divided by 10 (twice) when the error plateaus. Our implementation is based on the publicly available code of cuda-convnet [3] and Caffe [35]. All networks in this paper can be trained on a single GeForce GTX Titan GPU (6 GB memory) within two to four weeks.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00088",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "3.1.1 Baseline Network Architectures",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00089",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "The advantages of SPP are independent of the con- volutional network architectures used. We investigate four different network architectures in existing pub- lications [3], [4], [5] (or their modiﬁcations), and we show SPP improves the accuracy of all these architec- tures. These baseline architectures are in Table 1 and brieﬂy introduced below: • ZF-5: this architecture is based on Zeiler and Fer- gus’s (ZF) “fast” (smaller) model [4]. The number indicates ﬁve convolutional layers. • Convnet*-5: this is a modiﬁcation on Krizhevsky et al.’s network [3]. We put the two pooling layers after conv2 and conv3 (instead of after conv 1 and conv2). As a result, the feature maps after each layer have the same size as ZF-5. • Overfeat-5/7: this architecture is based on the Overfeat paper [5], with some modiﬁcations as in [6]. In contrast to ZF-5/Convnet*-5, this architec-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00090",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "ture produces a larger feature map (18×18 instead",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00091",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "of 13× 13) before the last pooling layer. A larger",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00092",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "ﬁlter number (512) is used in conv 3 and the fol- lowing convolutional layers. We also investigate 1. In [3], the four corners are picked from the corners of the central 256×256 crop. a deeper architecture with 7 convolutional layers, where conv 3 to conv 7 have the same structures. In the baseline models, the pooling layer after the last convolutional layer generates 6×6 feature maps, with",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00093",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "two 4096-d fc layers and a 1000-way softmax layer",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00094",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "following. Our replications of these baseline networks are in Table 2 (a). We train 70 epochs for ZF-5 and 90 epochs for the others. Our replication of ZF-5 is better than the one reported in [4]. This gain is because the corner crops are from the entire image, as is also reported in [36].",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00095",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "3.1.2 Multi-level Pooling Improves Accuracy",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00096",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "In Table 2 (b) we show the results using single- size training. The training and testing sizes are both 224×224. In these networks, the convolutional layers have the same structures as the corresponding base- line models, whereas the pooling layer after the ﬁnal convolutional layer is replaced with the SPP layer. For the results in Table 2, we use a 4-level pyramid. The pyramid is {6×6, 3×3, 2×2, 1×1} (totally 50 bins). For fair comparison, we still use the standard 10- view prediction with each view a 224 ×224 crop. Our results in Table 2 (b) show considerable improvement over the no-SPP baselines in Table 2 (a). Interestingly,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00097",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "the largest gain of top-1 error (1.65%) is given by the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00098",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "most accurate architecture. Since we are still using the same 10 cropped views as in (a), these gains are solely because of multi-level pooling. It is worth noticing that the gain of multi-level pooling is not simply due to more parameters; rather, it is because the multi-level pooling is robust to the variance in object deformations and spatial layout [15]. To show this, we train another ZF-5 network with a different 4-level pyramid: {4×4, 3×3, 2×2, 1×1} (totally 30 bins). This network has fewer parameters than its no-SPP counterpart, because its fc 6 layer has 30×256-d inputs instead of 36×256-d. The top-1/top- 5 errors of this network are 35.06/14.04. This result is similar to the 50-bin pyramid above (34.98/14.14), but considerably better than the no-SPP counterpart (35.99/14.76).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00099",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "6 top-1 error (%) ZF-5 Convnet*-5 Overfeat-5 Overfeat-7 (a) no SPP 35.99 34.93 34.13 32.01 (b) SPP single-size trained 34.98 (1.01) 34.38 (0.55) 32.87 (1.26) 30.36 (1.65) (c) SPP multi-size trained 34.60 (1.39) 33.94 (0.99) 32.26 (1.87) 29.68 (2.33) top-5 error (%) ZF-5 Convnet*-5 Overfeat-5 Overfeat-7 (a) no SPP 14.76 13.92 13.52 11.97 (b) SPP single-size trained 14.14 (0.62) 13.54 (0.38) 12.80 (0.72) 11.12 (0.85) (c) SPP multi-size trained 13.64 (1.12) 13.33 (0.59) 12.33 (1.19) 10.95 (1.02)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00100",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "Table 2: Error rates in the validation set of ImageNet 2012. All the results are obtained using standard 10-view",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00101",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "testing. In the brackets are the gains over the “no SPP” baselines. SPP on test view top-1 val ZF-5, single-size trained 1 crop 38.01 ZF-5, single-size trained 1 full 37.55 ZF-5, multi-size trained 1 crop 37.57 ZF-5, multi-size trained 1 full 37.07 Overfeat-7, single-size trained 1 crop 33.18 Overfeat-7, single-size trained 1 full 32.72 Overfeat-7, multi-size trained 1 crop 32.57 Overfeat-7, multi-size trained 1 full 31.25",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00102",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "Table 3: Error rates in the validation set of ImageNet",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00103",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "2012 using a single view. The images are resized so",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00104",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "min(w,h ) = 256 . The crop view is the central 224×224",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00105",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "of the image.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00106",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "3.1.3 Multi-size T raining Improves Accuracy",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00107",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "Table 2 (c) shows our results using multi-size training.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00108",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "The training sizes are 224 and 180, while the testing size is still 224. We still use the standard 10-view prediction. The top-1/top-5 errors of all architectures further drop. The top-1 error of SPP-net (Overfeat-7) drops to 29.68%, which is 2.33% better than its no- SPP counterpart and 0.68% better than its single-size trained counterpart. Besides using the two discrete sizes of 180 and 224, we have also evaluated using a random size uniformly sampled from [180, 224]. The top-1/5 error of SPP-net (Overfeat-7) is 30.06%/10.96%. The top- 1 error is slightly worse than the two-size version, possibly because the size of 224 (which is used for testing) is visited less. But the results are still better the single-size version. There are previous CNN solutions [5], [36] that deal with various scales/sizes, but they are mostly based on testing. In Overfeat [5] and Howard’s method [36], the single network is applied at multiple scales in the testing stage, and the scores are averaged. Howard...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00109",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "3.1.4 Full-image Representations Improve Accuracy",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00110",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "Next we investigate the accuracy of the full-image",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00111",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "views. We resize the image so that min(w,h )=256",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00112",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "while maintaining its aspect ratio. The SPP-net is applied on this full image to compute the scores of the full view. For fair comparison, we also evaluate the accuracy of the single view in the center 224 ×224 crop (which is used in the above evaluations). The comparisons of single-view testing accuracy are in",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00113",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "Table 3. Here we evaluate ZF-5/Overfeat-7. The top-1",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00114",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "error rates are all reduced by the full-view represen- tation. This shows the importance of maintaining the complete content. Even though our network is trained using square images only, it generalizes well to other aspect ratios. Comparing Table 2 and Table 3, we ﬁnd that the combination of multiple views is substantially better than the single full-image view. However, the full- image representations are still of good merits. First, we empirically ﬁnd that (discussed in the next sub- section) even for the combination of dozens of views, the additional two full-image views (with ﬂipping) can still boost the accuracy by about 0.2%. Second,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00115",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "the full-image view is methodologically consistent",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00116",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "with the traditional methods [15], [17], [19] where the encoded SIFT vectors of the entire image are pooled together. Third, in other applications such as image retrieval [37], an image representation, rather than a classiﬁcation score, is required for similarity ranking. A full-image representation can be preferred.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00117",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "3.1.5 Multi-view T esting on Feature Maps",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00118",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "Inspired by our detection algorithm (described in the next section), we further propose a multi-view testing method on the feature maps. Thanks to the ﬂexibility of SPP , we can easily extract the features from windows (views) of arbitrary sizes from the convolutional feature maps. On the testing stage, we resize an image so",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00119",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "min(w,h ) = s where s represents a predeﬁned scale",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00120",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "(like 256). Then we compute the convolutional fea- ture maps from the entire image. For the usage of",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00121",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "7 method test scales test views top-1 val top-5 val top-5 test Krizhevsky et al. [3] 1 10 40.7 18.2 Overfeat (fast) [5] 1 - 39.01 16.97 Overfeat (fast) [5] 6 - 38.12 16.27 Overfeat (big) [5] 4 - 35.74 14.18 Howard (base) [36] 3 162 37.0 15.8 Howard (high-res) [36] 3 162 36.8 16.2 Zeiler & Fergus (ZF) (fast) [4] 1 10 38.4 16.5 Zeiler & Fergus (ZF) (big) [4] 1 10 37.5 16.0 Chatﬁeld et al. [6] 1 10 - 13.1 ours (SPP O-7) 1 10 29.68 10.95 ours (SPP O-7) 6 96+2full 27.86 9.14 9.08",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00122",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "Table 4: Error rates in ImageNet 2012. All the results are based on a single network . The number of views in",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00123",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "Overfeat depends on the scales and strides, for which there are several hundreds at the ﬁnest scale. ﬂipped views, we also compute the feature maps of the ﬂipped image. Given any view (window) in the image, we map this window to the feature maps (the way of mapping is in Appendix), and then use SPP to pool the features from this window (see Figure 5). The pooled features are then fed into the fc layers",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00124",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "to compute the softmax score of this window. These",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00125",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "scores are averaged for the ﬁnal prediction. For the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00126",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "standard 10-view, we use s = 256 and the views",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00127",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "are 224×224 windows on the corners or center. Ex- periments show that the top-5 error of the 10-view prediction on feature maps is within 0.1% around the original 10-view prediction on image crops. We further apply this method to extract multiple views from multiple scales. We resize the image to six scales s ∈ {224, 256, 300, 360, 448, 560} and compute the feature maps on the entire image for each scale. We use 224× 224 as the view size for any scale, so these views have different relative sizes on the original image for different scales. We use 18 views for each scale: one at the center, four at the corners, and four on the middle of each side, with/without",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00128",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "ﬂipping (when s = 224 there are 6 different views).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00129",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "The combination of these 96 views reduces the top-5 error from 10.95% to 9.36%. Combining the two full- image views (with ﬂipping) further reduces the top-5 error to 9.14%. In the Overfeat paper [5], the views are also ex- tracted from the convolutional feature maps instead of image crops. However, their views cannot have ar- bitrary sizes; rather, the windows are those where the pooled features match the desired dimensionality. We empirically ﬁnd that these restricted windows are less beneﬁcial than our ﬂexibly located/sized windows.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00130",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "3.1.6 Summary and Results for ILSVRC 2014",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00131",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "In Table 4 we compare with previous state-of-the- art methods. Krizhevsky et al .’s [3] is the winning method in ILSVRC 2012; Overfeat [5], Howard’s [36], and Zeiler and Fergus’s [4] are the leading methods rank team top-5 test 1 GoogLeNet [32] 6.66 2 VGG [33] 7.32 3 ours 8.06 4 Howard 8.11 5 DeeperVision 9.50 6 NUS-BST 9.79 7 TTIC ECP 10.22",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00132",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "Table 5: The competition results of ILSVRC 2014 clas-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00133",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "siﬁcation [26]. The best entry of each team is listed. in ILSVRC 2013. We only consider single-network performance for manageable comparisons. Our best single network achieves 9.14% top-5 error on the validation set. This is exactly the single-model entry we submitted to ILSVRC 2014 [26]. The top-5 error is 9.08% on the testing set (ILSVRC 2014 has the same training/validation/testing data as ILSVRC 2012). After combining eleven models, our team’s re- sult (8.06%) is ranked #3 among all 38 teams attending ILSVRC 2014 (Table 5). Since the advantages of SPP- net should be in general independent of architectures, we expect that it will further improve the deeper and",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00134",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "larger convolutional architectures [33], [32].",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00135",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "3.2 Experiments on VOC 2007 Classiﬁcation Our method can generate a full-view image repre- sentation. With the above networks pre-trained on ImageNet, we extract these representations from the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00136",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "images in the target datasets and re-train SVM clas-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00137",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "siﬁers [38]. In the SVM training, we intentionally do not use any data augmentation (ﬂip/multi-view). We l2-normalize the features for SVM training. The classiﬁcation task in Pascal VOC 2007 [22] involves 9,963 images in 20 categories. 5,011 images are for training, and the rest are for testing. The performance is evaluated by mean Average Precision (mAP). Table 6 summarizes the results.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00138",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "8 (a) (b) (c) (d) (e) model no SPP (ZF-5) SPP (ZF-5) SPP (ZF-5) SPP (ZF-5) SPP (Overfeat-7) crop crop full full full size 224×224 224 ×224 224 ×- 392 ×- 364 ×- conv4 59.96 57.28 - - - conv5 66.34 65.43 - - - pool5/7 (6×6) 69.14 68.76 70.82 71.67 76.09 fc6/8 74.86 75.55 77.32 78.78 81.58 fc7/9 75.90 76.45 78.39 80.10 82.44",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00139",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "Table 6: Classiﬁcation mAP in Pascal VOC 2007. For SPP-net, the pool 5/7 layer uses the 6×6 pyramid level.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00140",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "(a) (b) (c) (d) model no SPP (ZF-5) SPP (ZF-5) SPP (ZF-5) SPP (Overfeat-7) crop crop full full size 224×224 224 ×224 224 ×- 224 ×- conv4 80.12 81.03 - - conv5 84.40 83.76 - - pool5/7 (6×6) 87.98 87.60 89.46 91.46 SPP pool 5/7 - 89.47 91.44 93.42 fc6/8 87.86 88.54 89.50 91.83 fc7/9 85.30 86.10 87.08 90.00",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00141",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "Table 7: Classiﬁcation accuracy in Caltech101. For SPP-net, the pool 5/7 layer uses the 6×6 pyramid level.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00142",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "We start from a baseline in Table 6 (a). The model is ZF-5 without SPP . To apply this model, we resize the image so that its smaller dimension is 224, and crop the center 224×224 region. The SVM is trained via the features of a layer. On this dataset, the deeper the layer is, the better the result is. In Table 6 (b), we re- place the no-SPP net with our SPP-net. As a ﬁrst-step comparison, we still apply the SPP-net on the center 224×224 crop. The results of the fc layers improve. This gain is mainly due to multi-level pooling.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00143",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "Table 6 (c) shows our results on full images, where",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00144",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "the images are resized so that the shorter side is 224. We ﬁnd that the results are considerably improved (78.39% vs. 76.45%). This is due to the full-image representation that maintains the complete content. Because the usage of our network does not depend on scale, we resize the images so that the smaller dimension is s and use the same network to extract",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00145",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "features. We ﬁnd that s = 392 gives the best results",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00146",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "(Table 6 (d)) based on the validation set. This is mainly because the objects occupy smaller regions in VOC",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00147",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "2007 but larger regions in ImageNet, so the relative",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00148",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "object scales are different between the two sets. These results indicate scale matters in the classiﬁcation tasks, and SPP-net can partially address this “scale mis- match” issue. In Table 6 (e) the network architecture is replaced with our best model (Overfeat-7, multi-size trained), and the mAP increases to 82.44%. Table 8 summarizes our results and the comparisons with the state-of-the- art methods. Among these methods, VQ [15], LCC [18], and FK [19] are all based on spatial pyramids matching, and [13], [4], [34], [6] are based on deep networks. In these results, Oquab et al.’s (77.7%) and Chatﬁeld et al .’s (82.42%) are obtained by network ﬁne-tuning and multi-view testing. Our result is com- parable with the state of the art, using only a single full-image representation and without ﬁne-tuning.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00149",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "3.3 Experiments on Caltech101",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00150",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "The Caltech101 dataset [21] contains 9,144 images in 102 categories (one background). We randomly sam- ple 30 images per category for training and up to 50 images per category for testing. We repeat 10 random splits and average the accuracy. Table 7 summarizes our results. There are some common observations in the Pascal VOC 2007 and Caltech101 results: SPP-net is better than the no-SPP net (Table 7 (b) vs. (a)), and the full- view representation is better than the crop ((c) vs. (b)). But the results in Caltech101 have some differences with Pascal VOC. The fully-connected layers are less accurate, and the SPP layers are better. This is possibly because the object categories in Caltech101 are less related to those in ImageNet, and the deeper layers are more category-specialized. Further, we ﬁnd that the scale 224 has the best performance among the scales we tested on this dataset. This is mainly because",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00151",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "the objects in Caltech101 also occupy large regions of",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00152",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "the images, as is the case of ImageNet. Besides cropping, we also evaluate warping the image to ﬁt the 224×224 size. This solution maintains the complete content, but introduces distortion. On the SPP (ZF-5) model, the accuracy is 89.91% using the SPP layer as features - lower than 91.44% which uses the same model on the undistorted full image.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00153",
+      "page": 9,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "9",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00154",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "method VOC 2007 Caltech101",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00155",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "VQ [15] † 56.07 74.41 ±1.0 LLC [18] † 57.66 76.95 ±0.4 FK [19] † 61.69 77.78 ±0.6 DeCAF [13] - 86.91 ±0.7 Zeiler & Fergus [4] 75.90‡ 86.5±0.5 Oquab et al. [34] 77.7 - Chatﬁeld et al. [6] 82.42 88.54±0.3 ours 82.44 93.42 ±0.5",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00156",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 8: Classiﬁcation results for Pascal VOC 2007",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00157",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "(mAP) and Caltech101 (accuracy). †numbers reported by [27]. ‡our implementation as in Table 6 (a).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00158",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 8 summarizes our results compared with the",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00159",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "state-of-the-art methods on Caltech101. Our result (93.42%) exceeds the previous record (88.54%) by a",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00160",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "substantial margin (4.88%).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00161",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "4 SPP- NET FOR OBJECT DETECTION",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00162",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Deep networks have been used for object detection. We brieﬂy review the recent state-of-the-art R-CNN method [7]. R-CNN ﬁrst extracts about 2,000 candi- date windows from each image via selective search [20]. Then the image region in each window is warped to a ﬁxed size (227×227). A pre-trained deep network is used to extract the feature of each window. A binary SVM classiﬁer is then trained on these features for detection. R-CNN generates results of compelling quality and substantially outperforms previous meth- ods. However, because R-CNN repeatedly applies the deep convolutional network to about 2,000 windows",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00163",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "per image, it is time-consuming. Feature extraction is",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00164",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "the major timing bottleneck in testing.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00165",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Our SPP-net can also be used for object detection. We extract the feature maps from the entire image only once (possibly at multiple scales). Then we ap- ply the spatial pyramid pooling on each candidate window of the feature maps to pool a ﬁxed-length representation of this window (see Figure 5). Because",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00166",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "the time-consuming convolutions are only applied",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00167",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "once, our method can run orders of magnitude faster. Our method extracts window-wise features from regions of the feature maps, while R-CNN extracts directly from image regions. In previous works, the Deformable Part Model (DPM) [23] extracts features from windows in HOG [24] feature maps, and the Selective Search (SS) method [20] extracts from win- dows in encoded SIFT feature maps. The Overfeat detection method [5] also extracts from windows of deep convolutional feature maps, but needs to pre- deﬁne the window size. On the contrary, our method enables feature extraction in arbitrary windows from the deep convolutional feature maps. spatial pyramid pooling layer feature maps of conv5 convolutional layers fixed-length representation input image window …... fully-connected layers (fc6, fc7)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00168",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Figure 5: Pooling features from arbitrary windows",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00169",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "on feature maps. The feature maps are computed from the entire image. The pooling is performed in candidate windows.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00170",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "4.1 Detection Algorithm",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00171",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "We use the “fast” mode of selective search [20] to generate about 2,000 candidate windows per image.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00172",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Then we resize the image such that min(w,h ) = s,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00173",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "and extract the feature maps from the entire image. We use the SPP-net model of ZF-5 (single-size trained) for the time being. In each candidate window, we use a 4-level spatial pyramid (1×1, 2×2, 3×3, 6×6, totally 50 bins) to pool the features. This generates a 12,800- d (256×50) representation for each window. These representations are provided to the fully-connected layers of the network. Then we train a binary linear SVM classiﬁer for each category on these features. Our implementation of the SVM training follows [20], [7]. We use the ground-truth windows to gen- erate the positive samples. The negative samples are those overlapping a positive window by at most 30% (measured by the intersection-over-union (IoU) ratio). Any negative sample is removed if it overlaps another negative sample by more than 70%. We apply the stan-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00174",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "dard hard negative mining [23] to train the SVM. This",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00175",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "step is iterated once. It takes less than 1 hour to train SVMs for all 20 categories. In testing, the classiﬁer is used to score the candidate windows. Then we use",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00176",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "non-maximum suppression [23] (threshold of 30%) on",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00177",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "the scored windows. Our method can be improved by multi-scale feature",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00178",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "extraction. We resize the image such that min(w,h ) =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00179",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "s ∈ S = {480, 576, 688, 864, 1200}, and compute the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00180",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "feature maps of conv 5 for each scale. One strategy of combining the features from these scales is to pool them channel-by-channel. But we empirically ﬁnd that another strategy provides better results. For each candidate window, we choose a single scale s ∈ S such that the scaled candidate window has a number of pixels closest to 224 ×224. Then we only use the feature maps extracted from this scale to compute",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00181",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "10 the feature of this window. If the pre-deﬁned scales are dense enough and the window is approximately square, our method is roughly equivalent to resizing the window to 224×224 and then extracting features from it. Nevertheless, our method only requires com- puting the feature maps once (at each scale) from the entire image, regardless of the number of candidate windows. We also ﬁne-tune our pre-trained network, follow- ing [7]. Since our features are pooled from the conv 5 feature maps from windows of any sizes, for sim- plicity we only ﬁne-tune the fully-connected layers. In this case, the data layer accepts the ﬁxed-length pooled features after conv 5, and the fc 6,7 layers and a new 21-way (one extra negative category) fc 8 layer follow. The fc8 weights are initialized with a Gaussian",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00182",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "distribution of σ=0.01. We ﬁx all the learning rates to",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00183",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "1e-4 and then adjust to 1e-5 for all three layers. During ﬁne-tuning, the positive samples are those overlap- ping with a ground-truth window by [0.5, 1], and",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00184",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "the negative samples by [0.1, 0.5). In each mini-batch,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00185",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "25% of the samples are positive. We train 250k mini-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00186",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "batches using the learning rate 1e-4, and then 50k",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00187",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "mini-batches using 1e-5. Because we only ﬁne-tune",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00188",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "the fc layers, the training is very fast and takes about 2 hours on the GPU (excluding pre-caching feature maps which takes about 1 hour). Also following [7], we use bounding box regression to post-process the prediction windows. The features used for regression are the pooled features from conv 5 (as a counterpart of the pool 5 features used in [7]). The windows used for the regression training are those overlapping with a ground-truth window by at least 50%.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00189",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "4.2 Detection Results",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00190",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "We evaluate our method on the detection task of the Pascal VOC 2007 dataset. Table 9 shows our results",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00191",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "on various layers, by using 1-scale ( s=688) or 5-scale.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00192",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Here the R-CNN results are as reported in [7] using the AlexNet [3] with 5 conv layers. Using the pool 5 layers (in our case the pooled features), our result (44.9%) is comparable with R-CNN’s result (44.2%). But using the non-ﬁne-tuned fc6 layers, our results are inferior. An explanation is that our fc layers are pre- trained using image regions, while in the detection case they are used on the feature map regions. The feature map regions can have strong activations near the window boundaries, while the image regions may not. This difference of usages can be addressed by ﬁne-tuning. Using the ﬁne-tuned fc layers (ftfc6,7), our results are comparable with or slightly better than the ﬁne-tuned results of R-CNN. After bounding box regression, our 5-scale result ( 59.2%) is 0.7% better than R-CNN (58.5%), and our 1-scale result (58.0%) is 0.5% worse. In Table 10 we further compare with R-CNN us- ing the same pre-trained model of SPPnet (ZF-5). In SPP (1-sc) SPP (5-sc) R-CNN (ZF-5) (ZF-5)...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00193",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 9: Detection results (mAP) on Pascal VOC 2007.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00194",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "“ft” and “bb” denote ﬁne-tuning and bounding box regression. SPP (1-sc) SPP (5-sc) R-CNN (ZF-5) (ZF-5) (ZF-5) ftfc7 54.5 55.2 55.1 ftfc7 bb 58.0 59.2 59.2 conv time (GPU) 0.053s 0.293s 14.37s fc time (GPU) 0.089s 0.089s 0.089s total time (GPU) 0.142s 0.382s 14.46s speedup (vs. RCNN) 102× 38× -",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00195",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 10: Detection results (mAP) on Pascal VOC 2007,",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00196",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "using the same pre-trained model of SPP (ZF-5). this case, our method and R-CNN have comparable averaged scores. The R-CNN result is boosted by this pre-trained model. This is because of the better architecture of ZF-5 than AlexNet, and also because of the multi-level pooling of SPPnet (if using the no- SPP ZF-5, the R-CNN result drops). Table 11 shows the results for each category.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00197",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 11 also includes additional methods. Selective",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00198",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Search (SS) [20] applies spatial pyramid matching on SIFT feature maps. DPM [23] and Regionlet [39] are based on HOG features [24]. The Regionlet method improves to 46.1% [8] by combining various fea- tures including conv 5. DetectorNet [40] trains a deep network that outputs pixel-wise object masks. This method only needs to apply the deep network once to the entire image, as is the case for our method. But this method has lower mAP (30.5%).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00199",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "4.3 Complexity and Running Time",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00200",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Despite having comparable accuracy, our method is much faster than R-CNN. The complexity of the con- volutional feature computation in R-CNN is O(n· 2272) with the window number n (∼2000). This com- plexity of our method is O(r·s2) at a scale s, where r is the aspect ratio. Assume r is about 4/3. In the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00201",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "single-scale version when s = 688, this complexity is",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00202",
+      "page": 11,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "11 method mAP areo bike bird boat bottle bus car cat chair cow table dog horse mbike person plant sheep sofa train tv DPM [23] 33.7 33.2 60.3 10.2 16.1 27.3 54.3 58.2 23.0 20.0 24.1 26.7 12.7 58.1 48.2 43.2 12.0 21.1 36.1 46.0 43.5 SS [20] 33.8 43.5 46.5 10.4 12.0 9.3 49.4 53.7 39.4 12.5 36.9 42.2 26.4 47.0 52.4 23.5 12.1 29.9 36.3 42.2 48.8 Regionlet [39] 41.7 54.2 52.0 20.3 24.0 20.1 55.5 68.7 42.6 19.2 44.2 49.1 26.6 57.0 54.5 43.4 16.4 36.6 37.7 59.4 52.3 DetNet [40] 30.5 29.2 35.2 19.4 16.7 3.7 53.2 50.2 27.2 10.2 34.8 30.2 28.2 46.6 41.7 26.2 10.3 32.8 26.8 39.8 47.0 RCNN ftfc 7 (A5) 54.2 64.2 69.7 50.0 41.9 32.0 62.6 71.0 60.7 32.7 58.5 46.5 56.1 60.6 66.8 54.2 31.5 52.8 48.9 57.9 64.7 RCNN ftfc 7 (ZF5) 55.1 64.8 68.4 47.0 39.5 30.9 59.8 70.5 65.3 33.5 62.5 50.3 59.5 61.6 67.9 54.1 33.4 57.3 52.9 60.2 62.9 SPP ftfc 7 (ZF5) 55.2 65.5 65.9 51.7 38.4 32.7 62.6 68.6 69.7 33.1 66.6 53.1 58.2 63.6 68.8 50.4 27.4 53.7 48.2 61.7 64.7 RCNN bb (A5) 58.5 68.1 72.8 56.8 43.0 36.8 66.3 74.2...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00203",
+      "page": 11,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 11: Comparisons of detection results on Pascal VOC 2007.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00204",
+      "page": 11,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "method mAP areo bike bird boat bottle bus car cat chair cow table dog horse mbike person plant sheep sofa train tv SPP-net (1) 59.2 68.6 69.7 57.1 41.2 40.5 66.3 71.3 72.5 34.4 67.3 61.7 63.1 71.0 69.8 57.6 29.7 59.0 50.2 65.2 68.0 SPP-net (2) 59.1 65.7 71.4 57.4 42.4 39.9 67.0 71.4 70.6 32.4 66.7 61.7 64.8 71.7 70.4 56.5 30.8 59.9 53.2 63.9 64.6 combination 60.9 68.5 71.7 58.7 41.9 42.5 67.7 72.1 73.8 34.7 67.0 63.4 66.0 72.5 71.3 58.9 32.8 60.9 56.1 67.9 68.8",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00205",
+      "page": 11,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 12: Detection results on VOC 2007 using model combination. The results of both models use “ftfc 7 bb”.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00206",
+      "page": 11,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "about 1/160 of R-CNN’s; in the 5-scale version, this complexity is about 1/24 of R-CNN’s. In Table 10, we provide a fair comparison on the running time of the feature computation using the same SPP (ZF-5) model . The implementation of R- CNN is from the code published by the authors imple- mented in Caffe [35]. We also implement our feature computation in Caffe. In Table 10 we evaluate the average time of 100 random VOC images using GPU. R-CNN takes 14.37s per image for convolutions, while our 1-scale version takes only 0.053s per image. So ours is 270× faster than R-CNN. Our 5-scale version takes 0.293s per image for convolutions, so is 49 × faster than R-CNN. Our convolutional feature compu- tation is so fast that the computational time of fc layers takes a considerable portion. Table 10 shows that the GPU time of computing the 4,096-d fc 7 features is 0.089s per image. Considering both convolutional and fully-connected features, our 1-scale version is 102× faster than R-CNN and is...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00207",
+      "page": 11,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "4.4 Model Combination for Detection",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00208",
+      "page": 11,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Model combination is an important strategy for boost- ing CNN-based classiﬁcation accuracy [3]. We pro- pose a simple combination method for detection. We pre-train another network in ImageNet, using the same structure but different random initializa- tions. Then we repeat the above detection algorithm.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00209",
+      "page": 11,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 12 (SPP-net (2)) shows the results of this net-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00210",
+      "page": 11,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "work. Its mAP is comparable with the ﬁrst network (59.1% vs. 59.2%), and outperforms the ﬁrst network in 11 categories. Given the two models, we ﬁrst use either model to score all candidate windows on the test image.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00211",
+      "page": 11,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Then we perform non-maximum suppression on the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00212",
+      "page": 11,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "union of the two sets of candidate windows (with their scores). A more conﬁdent window given by one method can suppress those less conﬁdent given by the other method. After combination, the mAP is boosted to 60.9% (Table 12). In 17 out of all 20 categories the combination performs better than either individual model. This indicates that the two models are complementary. We further ﬁnd that the complementarity is mainly because of the convolutional layers. We have tried to combine two randomly initialized ﬁne-tuned results of the same convolutional model, and found no gain.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00213",
+      "page": 12,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "12",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00214",
+      "page": 12,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "4.5 ILSVRC 2014 Detection",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00215",
+      "page": 12,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "The ILSVRC 2014 detection [26] task involves 200 categories. There are ∼450k/20k/40k images in the training/validation/testing sets. We focus on the task of the provided-data-only track (the 1000-category CLS training data is not allowed to use). There are three major differences between the detec- tion (DET) and classiﬁcation (CLS) training datasets, which greatly impacts the pre-training quality. First, the DET training data is merely 1/3 of the CLS training data. This seems to be a fundamental chal- lenge of the provided-data-only DET task. Second, the category number of DET is 1/5 of CLS. To overcome this problem, we harness the provided subcategory labels2 for pre-training. There are totally 499 non- overlapping subcategories ( i.e., the leaf nodes in the provided category hierarchy). So we pre-train a 499- category network on the DET training set. Third, the distributions of object scales are different between",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00216",
+      "page": 12,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "DET/CLS training sets. The dominant object scale in",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00217",
+      "page": 12,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "CLS is about 0.8 of the image length, but in DET is about 0.5. To address the scale difference, we resize",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00218",
+      "page": 12,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "each training image to min(w,h ) = 400 (instead of",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00219",
+      "page": 12,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "256), and randomly crop 224× 224 views for training. A crop is only used when it overlaps with a ground truth object by at least 50%. We verify the effect of pre-training on Pascal VOC 2007. For a CLS-pre-training baseline, we consider the pool 5 features (mAP 43.0% in Table 9). Replaced with a 200-category network pre-trained on DET, the mAP signiﬁcantly drops to 32.7%. A 499-category pre-trained network improves the result to 35.9%. Interestingly, even if the amount of training data do not increase, training a network of more cate- gories boosts the feature quality. Finally, training with",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00220",
+      "page": 12,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "min(w,h ) = 400 instead of 256 further improves the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00221",
+      "page": 12,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "mAP to 37.8%. Even so, we see that there is still a considerable gap to the CLS-pre-training result. This indicates the importance of big data to deep learning. For ILSVRC 2014, we train a 499-category Overfeat- 7 SPP-net. The remaining steps are similar to the VOC 2007 case. Following [7], we use the validation set to generate the positive/negative samples, with windows proposed by the selective search fast mode. The training set only contributes positive samples using the ground truth windows. We ﬁne-tune the fc layers and then train the SVMs using the samples in both validation and training sets. The bounding box regression is trained on the validation set. Our single model leads to 31.84% mAP in the ILSVRC 2014 testing set [26]. We combine six similar models using the strategy introduced in this paper. The mAP is 35.11% in the testing set [26]. This result ranks #2 in the provided-data-only track of ILSVRC 2014 (Table 13) [26]. The winning result is 37.21% from 2. Using the provid...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00222",
+      "page": 12,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 13: The competition results of ILSVRC 2014",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00223",
+      "page": 12,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "detection (provided-data-only track) [26]. The best entry of each team is listed. NUS, which uses contextual information. Our system still shows great advantages on speed for this dataset. It takes our single model 0.6 seconds (0.5 for conv, 0.1 for fc, excluding proposals) per test- ing image on a GPU extracting convolutional features from all 5 scales. Using the same model, it takes 32 seconds per image in the way of RCNN. For the 40k testing images, our method requires 8 GPU ·hours to compute convolutional features, while RCNN would require 15 GPU·days.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00224",
+      "page": 12,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "5 C ONCLUSION",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00225",
+      "page": 12,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "SPP is a ﬂexible solution for handling different scales, sizes, and aspect ratios. These issues are important in visual recognition, but received little consideration in the context of deep networks. We have suggested a so- lution to train a deep network with a spatial pyramid pooling layer. The resulting SPP-net shows outstand- ing accuracy in classiﬁcation/detection tasks and greatly accelerates DNN-based detection. Our studies also show that many time-proven techniques/insights in computer vision can still play important roles in deep-networks-based recognition. APPENDIX A In the appendix, we describe some implementation details: Mean Subtraction. The 224×224 cropped training/testing images are often pre-processed by subtracting the per-pixel mean [3]. When input images are in any sizes, the ﬁxed- size mean image is not directly applicable. In the ImageNet dataset, we warp the 224×224 mean image to the desired size and then subtract it. In Pascal VOC 2007 and Caltech101, we use the...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00226",
+      "page": 13,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "13 bo ttl e: 0. 24 person:1.20 sheep:1.52 cha ir:0.21 diningtable: 0.78 person:1.16 pers on: 1. 05 po tted pl an t:0 .2 1 chair: 4. 79 pott edplant :0.73 c ha ir : 0. 33 d ini ng ta bl e: 0.3 4 chair: 0. 89 bus :0.56 car:3.24 ca r: 3. 4 5 pers on: 1. 52 trai n:0.3 1 t rain: 1.62 pottedplant :0.33 pot t edplant :0.78 sofa:0.55 t v monitor: 1. 77 ae r o pla n e: 0.4 5 aeroplane:1.40 aeroplane: 1. 01 aeroplane:0.94 aeroplane:0. 93 aeroplane:0.91 aeroplane: 0. 79 aeroplane:0.57aeroplane: 0. 54 person:0.93 person:0.68 horse:1.73 pers on: 1. 91 boat :0.60 pers on: 3. 20 car:2.52 bus :2.01 car: 0. 93p er son :4 .1 6 person: 0. 79 pers on:0.32 hors e: 1.68 hors e: 0. 61 horse:1.29 p er son :1 .2 3 c hair:0.87 pers on: 1. 79 p er son :0 .9 1 s o fa :0 . 22 person:0.85 sofa:0.58 c ow: 2. 36 cow: 1. 88 co w :1 . 86 cow: 1. 82 cow:1.39cow:1. 31 ca t:0.5 2 pe rson :1.0 2 pe r son :0 .40 bicy cle: 2.85 bicy cle: 2.71 bicyc le:2.04 bicy cle: 0. 67 person:3.35 person: 2.39 pers on: 2. 11 pe rs on :0...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00227",
+      "page": 13,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Figure 6: Example detection results of “SPP-net ftfc 7 bb” on the Pascal VOC 2007 testing set (59.2% mAP).",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00228",
+      "page": 13,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "All windows with scores > 0 are shown. The predicted category/score are marked. The window color is associated with the predicted category. These images are manually selected because we ﬁnd them impressive. Visit our project website to see all 4,952 detection results in the testing set. if rounding is needed, we take the ﬂoor operation on the left/top boundary and ceiling on the right/bottom boundary. Mapping a Window to Feature Maps. In the detection algorithm (and multi-view testing on feature maps), a window is given in the image domain, and we use it to crop the convolutional fea- ture maps ( e.g., conv 5) which have been sub-sampled several times. So we need to align the window on the feature maps. In our implementation, we project the corner point of a window onto a pixel in the feature maps, such that this corner point in the image domain is closest to the center of the receptive ﬁeld of that feature map pixel. The mapping is complicated by the padding of all convolutional and...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00229",
+      "page": 13,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "ﬁeld in the image domain is centered at (x,y ) =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00230",
+      "page": 13,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "(Sx′,Sy′) where S is the product of all previous",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00231",
+      "page": 13,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "strides. In our models, S = 16 for ZF-5 on conv 5,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00232",
+      "page": 13,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "and S = 12 for Overfeat-5/7 on conv 5/7. Given a",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00233",
+      "page": 13,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "window in the image domain, we project the left (top)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00234",
+      "page": 13,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "boundary by: x′ =⌊x/S⌋ + 1 and the right (bottom)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00235",
+      "page": 13,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "boundary x′ =⌈x/S⌉− 1. If the padding is not ⌊p/2⌋,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00236",
+      "page": 13,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "we need to add a proper offset to x.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00237",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "14",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00238",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "REFERENCES",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00239",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[1] Y. LeCun, B. Boser, J. S. Denker, D. Henderson, R. E. Howard, W. Hubbard, and L. D. Jackel, “Backpropagation applied to handwritten zip code recognition,” Neural computation, 1989. [2] J. Deng, W. Dong, R. Socher, L.-J. Li, K. Li, and L. Fei-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00240",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Fei, “Imagenet: A large-scale hierarchical image database,” in",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00241",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "CVPR, 2009. [3] A. Krizhevsky, I. Sutskever, and G. Hinton, “Imagenet classi- ﬁcation with deep convolutional neural networks,” in NIPS, 2012. [4] M. D. Zeiler and R. Fergus, “Visualizing and understanding convolutional neural networks,” arXiv:1311.2901, 2013. [5] P . Sermanet, D. Eigen, X. Zhang, M. Mathieu, R. Fergus, and Y. LeCun, “Overfeat: Integrated recognition, localization and detection using convolutional networks,” arXiv:1312.6229, 2013. [6] A. V . K. Chatﬁeld, K. Simonyan and A. Zisserman, “Return of the devil in the details: Delving deep into convolutional nets,” in ArXiv:1405.3531, 2014. [7] R. Girshick, J. Donahue, T. Darrell, and J. Malik, “Rich feature hierarchies for accurate object detection and semantic segmen- tation,” in CVPR, 2014. [8] W. Y. Zou, X. Wang, M. Sun, and Y. Lin, “Generic ob- ject detection with dense neural patterns and regionlets,” in ArXiv:1404.4316, 2014. [9] A. S. Razavian, H. Azizpour, J. Sullivan, and S. Carlsson, “Cnn features off-the-shelf: A...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00242",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Discriminative classiﬁcation with sets of image features,” in",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00243",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "ICCV, 2005. [15] S. Lazebnik, C. Schmid, and J. Ponce, “Beyond bags of fea- tures: Spatial pyramid matching for recognizing natural scene categories,” in CVPR, 2006. [16] J. Sivic and A. Zisserman, “Video google: a text retrieval approach to object matching in videos,” in ICCV, 2003. [17] J. Yang, K. Yu, Y. Gong, and T. Huang, “Linear spatial pyramid matching using sparse coding for image classiﬁcation,” in CVPR, 2009. [18] J. Wang, J. Yang, K. Yu, F. Lv, T. Huang, and Y. Gong, “Locality- constrained linear coding for image classiﬁcation,” in CVPR, 2010. [19] F. Perronnin, J. S ´anchez, and T. Mensink, “Improving the ﬁsher",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00244",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "kernel for large-scale image classiﬁcation,” in ECCV, 2010.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00245",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[20] K. E. van de Sande, J. R. Uijlings, T. Gevers, and A. W. Smeul- ders, “Segmentation as selective search for object recognition,” in ICCV, 2011. [21] L. Fei-Fei, R. Fergus, and P . Perona, “Learning generative visual models from few training examples: An incremental bayesian approach tested on 101 object categories,” CVIU, 2007. [22] M. Everingham, L. Van Gool, C. K. I. Williams, J. Winn, and A. Zisserman, “The PASCAL Visual Object Classes Challenge 2007 (VOC2007) Results,” 2007. [23] P . F. Felzenszwalb, R. B. Girshick, D. McAllester, and D. Ra-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00246",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "manan, “Object detection with discriminatively trained part-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00247",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "based models,” P AMI, 2010. [24] N. Dalal and B. Triggs, “Histograms of oriented gradients for human detection,” in CVPR, 2005. [25] C. L. Zitnick and P . Doll ´ar, “Edge boxes: Locating object proposals from edges,” in ECCV, 2014. [26] O. Russakovsky, J. Deng, H. Su, J. Krause, S. Satheesh, S. Ma, Z. Huang, A. Karpathy, A. Khosla, M. Bernstein",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00248",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "et al. , “Imagenet large scale visual recognition challenge,”",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00249",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "arXiv:1409.0575, 2014. [27] K. Chatﬁeld, V . Lempitsky, A. Vedaldi, and A. Zisserman, “The devil is in the details: an evaluation of recent feature encoding",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00250",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "methods,” in BMVC, 2011.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00251",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "[28] A. Coates and A. Ng, “The importance of encoding versus training with sparse coding and vector quantization,” inICML, 2011. [29] D. G. Lowe, “Distinctive image features from scale-invariant keypoints,” IJCV, 2004. [30] J. C. van Gemert, J.-M. Geusebroek, C. J. Veenman, and A. W. Smeulders, “Kernel codebooks for scene categorization,” in ECCV, 2008. [31] M. Lin, Q. Chen, and S. Yan, “Network in network,” arXiv:1312.4400, 2013. [32] C. Szegedy, W. Liu, Y. Jia, P . Sermanet, S. Reed, D. Anguelov, D. Erhan, V . Vanhoucke, and A. Rabinovich, “Going deeper with convolutions,” arXiv:1409.4842, 2014. [33] K. Simonyan and A. Zisserman, “Very deep convolutional",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00252",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "networks for large-scale image recognition,” arXiv:1409.1556,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00253",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "2014. [34] M. Oquab, L. Bottou, I. Laptev, J. Sivic et al. , “Learning and transferring mid-level image representations using convolu- tional neural networks,” in CVPR, 2014. [35] Y. Jia, “Caffe: An open source convolutional architecture for fast feature embedding,” http://caffe.berkeleyvision.org/, 2013. [36] A. G. Howard, “Some improvements on deep convolutional neural network based image classiﬁcation,” ArXiv:1312.5402, 2013. [37] H. Jegou, F. Perronnin, M. Douze, J. Sanchez, P . Perez, and C. Schmid, “Aggregating local image descriptors into compact codes,” TP AMI, vol. 34, no. 9, pp. 1704–1716, 2012. [38] C.-C. Chang and C.-J. Lin, “Libsvm: a library for support vector machines,” ACM Transactions on Intelligent Systems and",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00254",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Technology (TIST), 2011.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00255",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "[39] X. Wang, M. Yang, S. Zhu, and Y. Lin, “Regionlets for generic object detection,” in ICCV, 2013. [40] C. Szegedy, A. Toshev, and D. Erhan, “Deep neural networks for object detection,” in NIPS, 2013. CHANGELOG arXiv v1. Initial technical report for ECCV 2014 paper. arXiv v2. Submitted version for TPAMI. Includes extra experiments of SPP on various architectures. Includes details for ILSVRC 2014. arXiv v3. Accepted version for TPAMI. Includes com- parisons with R-CNN using the same architecture. Includes detection experiments using EdgeBoxes. arXiv v4 . Revised “Mapping a Window to Feature Maps” in Appendix for easier implementation.",
+      "source_type": "paragraph"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "warnings": [
+      {
+        "code": "ok",
+        "message": "Grounding verification passed with current v1 checks.",
+        "target": null,
+        "severity": "info"
+      }
+    ],
+    "anchor_count": 255
+  }
+}

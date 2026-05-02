@@ -1,0 +1,903 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "如何为包含随机单元的连接主义网络设计简单有效的强化学习算法，使其能够沿着期望强化的梯度方向调整权重。",
+      "anchors": [
+        "anc_00001",
+        "anc_00003",
+        "anc_00006"
+      ]
+    },
+    "motivation": {
+      "summary": "现有强化学习算法在处理随机单元网络时缺乏理论保证，且梯度下降方法在监督学习中已证明有效，但需要将其推广到强化学习场景。",
+      "anchors": [
+        "anc_00001",
+        "anc_00008"
+      ]
+    },
+    "core_idea": {
+      "summary": "提出REINFORCE算法族，通过计算期望强化函数的梯度无偏估计来更新权重，确保权重调整方向与梯度方向一致。",
+      "anchors": [
+        "anc_00001",
+        "anc_00039",
+        "anc_00041",
+        "anc_00043"
+      ]
+    },
+    "method": {
+      "summary": "基于随机单元的输出概率分布，推导出梯度估计公式，并设计了多种具体算法变体（如AR-I、AR-P等）。",
+      "anchors": [
+        "anc_00012",
+        "anc_00013",
+        "anc_00039",
+        "anc_00064",
+        "anc_00065"
+      ]
+    },
+    "experiments": {
+      "summary": "论文主要通过理论分析和简单模拟实验验证算法性质，未提供大规模基准测试。",
+      "anchors": [
+        "anc_00153",
+        "anc_00156",
+        "anc_00160",
+        "anc_00162"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "REINFORCE算法提供的权重更新方向是期望强化梯度的无偏估计。",
+        "anchors": [
+          "anc_00043",
+          "anc_00046",
+          "anc_00048"
+        ]
+      },
+      {
+        "claim_id": "claim_2",
+        "claim": "算法适用于各种随机单元类型（如伯努利单元、高斯单元）。",
+        "anchors": [
+          "anc_00018",
+          "anc_00096"
+        ]
+      },
+      {
+        "claim_id": "claim_3",
+        "claim": "通过引入基线可以降低方差而不影响无偏性。",
+        "anchors": [
+          "anc_00039",
+          "anc_00183"
+        ]
+      },
+      {
+        "claim_id": "claim_4",
+        "claim": "算法可以与反向传播结合用于混合网络。",
+        "anchors": [
+          "anc_00118",
+          "anc_00119",
+          "anc_00132"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "理论分析未涉及收敛速度和渐近性质。",
+        "anchors": [
+          "anc_00153"
+        ]
+      },
+      {
+        "limitation": "实验验证有限，主要基于简单任务。",
+        "anchors": [
+          "anc_00153",
+          "anc_00156"
+        ]
+      },
+      {
+        "limitation": "算法可能收敛到局部最优而非全局最优。",
+        "anchors": [
+          "anc_00153",
+          "anc_00154"
+        ]
+      },
+      {
+        "limitation": "对于延迟强化任务需要额外机制。",
+        "anchors": [
+          "anc_00005"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "随机单元模型",
+        "label": "基础组件",
+        "summary": "定义网络中的随机单元，其输出由概率分布决定。",
+        "description": "每个单元i的输出yi由概率质量函数gi(ξ, wi, xi) = Pr{yi = ξ | wi, xi}决定，其中wi是权重向量，xi是输入向量。支持离散和连续输出。",
+        "type": "model_component",
+        "anchors": [
+          "anc_00012",
+          "anc_00013",
+          "anc_00014",
+          "anc_00015"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "伯努利-逻辑单元",
+        "label": "特殊单元类型",
+        "summary": "一种常用的随机单元，输出为0或1，概率由逻辑函数决定。",
+        "description": "对于伯努利逻辑单元，输出yi是伯努利随机变量，参数pi = f(si)，其中si = wi·xi，f是逻辑函数。概率质量函数为：Pr{yi=1|wi,xi}=pi，Pr{yi=0|wi,xi}=1-pi。",
+        "type": "model_component",
+        "anchors": [
+          "anc_00018",
+          "anc_00019",
+          "anc_00020",
+          "anc_00022",
+          "anc_00024"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "期望强化函数",
+        "label": "优化目标",
+        "summary": "定义网络性能的度量，是权重W的函数。",
+        "description": "E{r | W}表示在权重W下期望获得的强化信号r。假设环境输入和强化信号由平稳分布决定，该函数是确定性的。",
+        "type": "objective",
+        "anchors": [
+          "anc_00029",
+          "anc_00031",
+          "anc_00032",
+          "anc_00034"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "REINFORCE算法框架",
+        "label": "核心算法",
+        "summary": "一类基于梯度估计的权重更新算法。",
+        "description": "权重更新规则：Δwij = αij(r - bij)eij，其中αij是学习率，bij是基线，eij = ∂ln gi/∂wij是特征资格。该更新方向是梯度∇_W E{r|W}的无偏估计。",
+        "type": "algorithm",
+        "anchors": [
+          "anc_00039",
+          "anc_00041",
+          "anc_00043",
+          "anc_00046",
+          "anc_00048"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "基线引入",
+        "label": "方差缩减技术",
+        "summary": "通过引入基线bij来降低梯度估计的方差。",
+        "description": "基线bij可以是常数或自适应估计，不影响梯度估计的无偏性，但能显著降低方差。最优基线可最小化权重更新的方差。",
+        "type": "technique",
+        "anchors": [
+          "anc_00039",
+          "anc_00183",
+          "anc_00186"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "AR-I算法",
+        "label": "具体算法变体",
+        "summary": "针对伯努利逻辑单元的特定REINFORCE算法。",
+        "description": "设置αij = α，bij = 0，得到Δwij = α(r)(yi - pi)xj。这是最简单的REINFORCE形式。",
+        "type": "algorithm",
+        "anchors": [
+          "anc_00064",
+          "anc_00065",
+          "anc_00067",
+          "anc_00069"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "与反向传播结合",
+        "label": "混合网络方法",
+        "summary": "将REINFORCE与反向传播结合用于混合随机-确定性网络。",
+        "description": "对于包含确定性隐藏单元和随机输出单元的网络，可以使用反向传播计算确定性部分的梯度，然后应用REINFORCE到随机部分。",
+        "type": "extension",
+        "anchors": [
+          "anc_00118",
+          "anc_00119",
+          "anc_00121",
+          "anc_00123",
+          "anc_00125",
+          "anc_00127"
+        ]
+      },
+      {
+        "node_id": "node_008",
+        "title": "高斯单元扩展",
+        "label": "连续输出扩展",
+        "summary": "将REINFORCE扩展到输出为连续值的随机单元。",
+        "description": "对于输出服从高斯分布的单元，均值μ和标准差σ由网络确定性计算，然后从该分布采样输出。REINFORCE可以应用于这种单元。",
+        "type": "extension",
+        "anchors": [
+          "anc_00096",
+          "anc_00098",
+          "anc_00099",
+          "anc_00101",
+          "anc_00103",
+          "anc_00105"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "relation": "特例",
+        "description": "伯努利逻辑单元是随机单元的一个特例。",
+        "anchors": [
+          "anc_00018"
+        ]
+      },
+      {
+        "source": "node_001",
+        "target": "node_004",
+        "relation": "基础",
+        "description": "REINFORCE算法基于随机单元的概率模型推导。",
+        "anchors": [
+          "anc_00012",
+          "anc_00039"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "relation": "优化目标",
+        "description": "REINFORCE算法旨在最大化期望强化函数。",
+        "anchors": [
+          "anc_00029",
+          "anc_00043"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "relation": "包含",
+        "description": "基线是REINFORCE算法框架的一部分。",
+        "anchors": [
+          "anc_00039",
+          "anc_00183"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_006",
+        "relation": "特例",
+        "description": "AR-I是REINFORCE在伯努利逻辑单元上的特例。",
+        "anchors": [
+          "anc_00064",
+          "anc_00065"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_007",
+        "relation": "扩展",
+        "description": "REINFORCE可以与反向传播结合用于混合网络。",
+        "anchors": [
+          "anc_00118",
+          "anc_00119"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_008",
+        "relation": "扩展",
+        "description": "REINFORCE可以扩展到连续输出的随机单元。",
+        "anchors": [
+          "anc_00096",
+          "anc_00098"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00008"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00039",
+        "anc_00041",
+        "anc_00043"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "缺乏理论保证的随机权重调整。",
+        "after": "权重调整方向是梯度方向的无偏估计。",
+        "why_it_matters": "提供了理论保证，确保算法在期望上沿性能提升方向更新。",
+        "anchors": [
+          "anc_00043",
+          "anc_00046",
+          "anc_00048"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "梯度方法主要应用于监督学习。",
+        "after": "将梯度方法推广到强化学习，适用于随机单元网络。",
+        "why_it_matters": "扩展了梯度下降的应用范围，为强化学习提供了新的算法框架。",
+        "anchors": [
+          "anc_00008",
+          "anc_00041"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "方差较大的梯度估计。",
+        "after": "通过引入基线降低方差而不影响无偏性。",
+        "why_it_matters": "提高了算法的实用性和收敛速度。",
+        "anchors": [
+          "anc_00039",
+          "anc_00183"
+        ],
+        "delta_id": "delta_3"
+      },
+      {
+        "before": "仅适用于纯随机网络。",
+        "after": "可以与反向传播结合用于混合随机-确定性网络。",
+        "why_it_matters": "增加了算法的灵活性，适用于更广泛的网络结构。",
+        "anchors": [
+          "anc_00118",
+          "anc_00119",
+          "anc_00132"
+        ],
+        "delta_id": "delta_4"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\Delta w_{ij} = \\alpha_{ij} (r - b_{ij}) e_{ij}",
+        "variables": [
+          {
+            "\\Delta w_{ij}": "权重wij的更新量",
+            "\\alpha_{ij}": "学习率因子",
+            "r": "强化信号",
+            "b_{ij}": "强化基线",
+            "e_{ij}": "特征资格，e_{ij} = \\frac{\\partial \\ln g_i}{\\partial w_{ij}}",
+            "anchors": [
+              "anc_00039"
+            ],
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [],
+        "intuition": "权重更新量与强化信号和基线的差值成正比，比例系数为学习率和特征资格的乘积。特征资格反映了权重对输出概率的对数影响。",
+        "anchors": [
+          "anc_00039",
+          "anc_00041"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "E\\{\\Delta W | W\\} = \\nabla_W E\\{r | W\\}",
+        "variables": [
+          {
+            "E\\{\\Delta W | W\\}": "给定权重W下权重更新的期望",
+            "\\nabla_W E\\{r | W\\}": "期望强化函数对权重W的梯度",
+            "anchors": [
+              "anc_00043",
+              "anc_00046"
+            ],
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [],
+        "intuition": "REINFORCE算法的核心性质：权重更新的期望等于期望强化函数的梯度，因此是梯度方向的无偏估计。",
+        "anchors": [
+          "anc_00043",
+          "anc_00046"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "\\Delta w_{ij} = \\alpha (r) (y_i - p_i) x_j",
+        "variables": [
+          {
+            "\\alpha": "学习率",
+            "r": "强化信号",
+            "y_i": "单元i的输出（0或1）",
+            "p_i": "输出为1的概率",
+            "x_j": "输入j",
+            "anchors": [
+              "anc_00064",
+              "anc_00065"
+            ],
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [],
+        "intuition": "AR-I算法的具体形式，适用于伯努利逻辑单元。更新量与输出误差(y_i - p_i)和输入x_j的乘积成正比。",
+        "anchors": [
+          "anc_00064",
+          "anc_00065",
+          "anc_00067"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "latex": "g_i(\\xi, w_i, x_i) = \\Pr\\{y_i = \\xi | w_i, x_i\\}",
+        "variables": [
+          {
+            "g_i": "概率质量函数",
+            "\\xi": "输出值",
+            "w_i": "权重向量",
+            "x_i": "输入向量",
+            "y_i": "输出随机变量",
+            "anchors": [
+              "anc_00012",
+              "anc_00013"
+            ],
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [],
+        "intuition": "定义随机单元输出的概率分布，是REINFORCE算法推导的基础。",
+        "anchors": [
+          "anc_00012",
+          "anc_00013"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "理论证明REINFORCE算法提供梯度的无偏估计。",
+      "anchors": [
+        "anc_00043",
+        "anc_00046",
+        "anc_00048"
+      ]
+    },
+    "ablation": {
+      "description": "分析基线引入对方差的影响。",
+      "anchors": [
+        "anc_00183",
+        "anc_00186"
+      ]
+    },
+    "robustness": {
+      "description": "讨论算法在不同随机单元类型下的适用性。",
+      "anchors": [
+        "anc_00018",
+        "anc_00096"
+      ]
+    },
+    "scaling": {
+      "description": "未提供大规模实验，主要基于简单网络分析。",
+      "anchors": [
+        "anc_00153",
+        "anc_00156"
+      ]
+    },
+    "case_study": {
+      "description": "分析伯努利逻辑单元和高斯单元的具体算法形式。",
+      "anchors": [
+        "anc_00064",
+        "anc_00096"
+      ]
+    },
+    "human_eval": {
+      "description": "未涉及人类评估。",
+      "anchors": []
+    },
+    "benchmark": {
+      "description": "未使用标准基准测试，主要基于理论分析和简单模拟。",
+      "anchors": [
+        "anc_00153",
+        "anc_00156"
+      ]
+    },
+    "efficiency": {
+      "description": "讨论算法计算复杂度，与反向传播结合时效率较高。",
+      "anchors": [
+        "anc_00138"
+      ]
+    },
+    "experiments": [
+      {
+        "description": "理论证明REINFORCE算法提供梯度的无偏估计。",
+        "anchors": [
+          "anc_00043",
+          "anc_00046",
+          "anc_00048"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "main_result_1",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "理论证明REINFORCE算法提供梯度的无偏估计。",
+        "what_it_tries_to_prove": "理论证明REINFORCE算法提供梯度的无偏估计。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "分析基线引入对方差的影响。",
+        "anchors": [
+          "anc_00183",
+          "anc_00186"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "ablation",
+        "name": "ablation_2",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "分析基线引入对方差的影响。",
+        "what_it_tries_to_prove": "分析基线引入对方差的影响。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "讨论算法在不同随机单元类型下的适用性。",
+        "anchors": [
+          "anc_00018",
+          "anc_00096"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "robustness",
+        "name": "robustness_3",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "讨论算法在不同随机单元类型下的适用性。",
+        "what_it_tries_to_prove": "讨论算法在不同随机单元类型下的适用性。",
+        "evidence_strength": "medium"
+      },
+      {
+        "description": "分析伯努利逻辑单元和高斯单元的具体算法形式。",
+        "anchors": [
+          "anc_00064",
+          "anc_00096"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "case_study",
+        "name": "case_study_4",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "分析伯努利逻辑单元和高斯单元的具体算法形式。",
+        "what_it_tries_to_prove": "分析伯努利逻辑单元和高斯单元的具体算法形式。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "未使用标准基准测试，主要基于理论分析和简单模拟。",
+        "anchors": [
+          "anc_00153",
+          "anc_00156"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "benchmark",
+        "name": "benchmark_5",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "未使用标准基准测试，主要基于理论分析和简单模拟。",
+        "what_it_tries_to_prove": "未使用标准基准测试，主要基于理论分析和简单模拟。",
+        "evidence_strength": "weak"
+      },
+      {
+        "description": "讨论算法计算复杂度，与反向传播结合时效率较高。",
+        "anchors": [
+          "anc_00138"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "efficiency",
+        "name": "efficiency_6",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "讨论算法计算复杂度，与反向传播结合时效率较高。",
+        "what_it_tries_to_prove": "讨论算法计算复杂度，与反向传播结合时效率较高。",
+        "evidence_strength": "medium"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "REINFORCE算法提供期望强化梯度的无偏估计。",
+        "evidence_source_type": "理论证明",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00043",
+          "anc_00046",
+          "anc_00048"
+        ],
+        "risk_flags": [
+          "理论证明依赖于平稳环境假设"
+        ],
+        "claim_id": "claim_1",
+        "evidence": [
+          {
+            "evidence_id": "evidence_1",
+            "description": "论文通过数学推导证明了REINFORCE算法的权重更新期望等于期望强化函数的梯度。",
+            "anchors": [
+              "anc_00043",
+              "anc_00046",
+              "anc_00048"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "基线引入可以降低方差而不影响无偏性。",
+        "evidence_source_type": "理论分析",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00039",
+          "anc_00183"
+        ],
+        "risk_flags": [
+          "最优基线选择需要额外计算"
+        ],
+        "claim_id": "claim_2",
+        "evidence": [
+          {
+            "evidence_id": "evidence_2",
+            "description": "论文分析了基线的作用，证明了基线不影响梯度估计的无偏性，但可以降低方差。",
+            "anchors": [
+              "anc_00039",
+              "anc_00183"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "算法适用于各种随机单元类型。",
+        "evidence_source_type": "理论推导",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00018",
+          "anc_00096"
+        ],
+        "risk_flags": [
+          "实际性能可能因单元类型而异"
+        ],
+        "claim_id": "claim_3",
+        "evidence": [
+          {
+            "evidence_id": "evidence_3",
+            "description": "论文推导了REINFORCE算法在伯努利逻辑单元和高斯单元上的具体形式，展示了其适用性。",
+            "anchors": [
+              "anc_00018",
+              "anc_00096"
+            ],
+            "strength": "medium"
+          }
+        ]
+      },
+      {
+        "claim": "算法可以与反向传播结合用于混合网络。",
+        "evidence_source_type": "理论扩展",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00118",
+          "anc_00119",
+          "anc_00132"
+        ],
+        "risk_flags": [
+          "结合方式可能影响整体性能"
+        ],
+        "claim_id": "claim_4",
+        "evidence": [
+          {
+            "evidence_id": "evidence_4",
+            "description": "论文讨论了如何将REINFORCE与反向传播结合，用于包含确定性隐藏单元和随机输出单元的混合网络。",
+            "anchors": [
+              "anc_00118",
+              "anc_00119",
+              "anc_00132"
+            ],
+            "strength": "medium"
+          }
+        ]
+      },
+      {
+        "claim": "算法可能收敛到局部最优。",
+        "evidence_source_type": "理论分析",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00153",
+          "anc_00154"
+        ],
+        "risk_flags": [
+          "缺乏全局收敛保证"
+        ],
+        "claim_id": "claim_5",
+        "evidence": [
+          {
+            "evidence_id": "evidence_5",
+            "description": "论文指出，作为梯度跟随算法，REINFORCE可能收敛到局部最大值，但未提供全局收敛保证。",
+            "anchors": [
+              "anc_00153",
+              "anc_00154"
+            ],
+            "strength": "medium"
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "REINFORCE": "一类强化学习算法，通过估计期望强化函数的梯度来更新权重。",
+    "特征资格": "eij = ∂ln gi/∂wij，反映权重wij对输出概率对数的影响。",
+    "基线": "bij，用于降低梯度估计方差的参考值。",
+    "伯努利逻辑单元": "输出为0或1的随机单元，概率由逻辑函数决定。",
+    "期望强化函数": "E{r|W}，在权重W下期望获得的强化信号。",
+    "无偏估计": "估计量的期望等于被估计的参数值。",
+    "terms": [
+      {
+        "term": "REINFORCE",
+        "definition": "一类强化学习算法，通过估计期望强化函数的梯度来更新权重。",
+        "anchors": [
+          "anc_00041"
+        ]
+      },
+      {
+        "term": "特征资格",
+        "definition": "eij = ∂ln gi/∂wij，反映权重wij对输出概率对数的影响。",
+        "anchors": [
+          "anc_00039"
+        ]
+      },
+      {
+        "term": "基线",
+        "definition": "bij，用于降低梯度估计方差的参考值。",
+        "anchors": [
+          "anc_00039",
+          "anc_00183"
+        ]
+      },
+      {
+        "term": "伯努利逻辑单元",
+        "definition": "输出为0或1的随机单元，概率由逻辑函数决定。",
+        "anchors": [
+          "anc_00018",
+          "anc_00022",
+          "anc_00024"
+        ]
+      },
+      {
+        "term": "期望强化函数",
+        "definition": "E{r|W}，在权重W下期望获得的强化信号。",
+        "anchors": [
+          "anc_00029",
+          "anc_00031",
+          "anc_00034"
+        ]
+      },
+      {
+        "term": "无偏估计",
+        "definition": "估计量的期望等于被估计的参数值。",
+        "anchors": [
+          "anc_00043",
+          "anc_00046"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        "未指定具体数据集，主要基于理论分析"
+      ],
+      "required_models": [
+        "包含随机单元的连接主义网络"
+      ],
+      "required_compute": "低，主要基于理论推导和简单模拟",
+      "code_available": "否，论文未提供代码",
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "实现随机单元模型（如伯努利逻辑单元）",
+          "anchors": [
+            "anc_00012",
+            "anc_00013",
+            "anc_00018",
+            "anc_00019",
+            "anc_00020"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "实现REINFORCE算法框架",
+          "anchors": [
+            "anc_00039",
+            "anc_00041",
+            "anc_00043"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "实现基线计算方法",
+          "anchors": [
+            "anc_00039",
+            "anc_00183",
+            "anc_00186"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "在简单任务上验证梯度估计的无偏性",
+          "anchors": [
+            "anc_00043",
+            "anc_00046",
+            "anc_00048"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "测试不同基线对方差的影响",
+          "anchors": [
+            "anc_00183",
+            "anc_00186"
+          ]
+        }
+      ],
+      "missing_details": [
+        "具体实验任务和环境设置",
+        "学习率等超参数的推荐值",
+        "收敛判断标准"
+      ],
+      "risk_points": [
+        "理论证明依赖于平稳环境假设",
+        "算法可能收敛到局部最优",
+        "对于复杂任务可能需要大量样本"
+      ]
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-01T22:46:28+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_ml_045_simple_statistical_gradient_following_algorithms_2004",
+    "title": "Simple Statistical Gradient-Following Algorithms for Connectionist Reinforcement Learning",
+    "authors": [
+      "Ronald J. Williams"
+    ],
+    "venue": "Machine-mediated learning",
+    "year": 2004,
+    "arxiv_id": null,
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-01T22:45:24+00:00",
+    "paper_type": "Reinforcement Learning / Top-cited ML method paper",
+    "citation_count": 10071,
+    "influential_citation_count": 1169,
+    "semantic_scholar_id": "4c915c1eecb217c123a36dc6d3ce52d12c742614",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/4c915c1eecb217c123a36dc6d3ce52d12c742614",
+    "importance_rank": 45,
+    "selection_source": "semantic_scholar_top_cited_ml_open_pdf_2026_05_01",
+    "open_access_pdf_url": "https://link.springer.com/content/pdf/10.1023/A:1022672621406.pdf",
+    "fields_of_study": [],
+    "publication_types": []
+  }
+}

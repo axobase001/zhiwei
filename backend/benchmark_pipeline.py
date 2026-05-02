@@ -122,6 +122,8 @@ def main(argv: list[str]) -> int:
     selected = [p for p in specs if not args.paper or p["paper_id"] in set(args.paper)]
     provider = OpenAICompatibleProvider(LLM_BASE_URL, LLM_API_KEY, LLM_MODEL)
     summary = []
+    summary_stem = Path(args.spec_file).stem if args.spec_file else "benchmark"
+    summary_path = OUT_DIR / f"{summary_stem}_summary.json"
     for index, spec in enumerate(selected, start=1):
         print(f"[{index}/{len(selected)}] {spec['paper_id']} :: {spec['title']}", flush=True)
         try:
@@ -132,9 +134,9 @@ def main(argv: list[str]) -> int:
             item = {"paper_id": spec["paper_id"], "title": spec["title"], "status": "failed", "error": str(exc)}
             summary.append(item)
             print(f"  failed: {exc}", flush=True)
+        summary_path.write_text(json.dumps({"generated_at": now_iso(), "model": LLM_MODEL, "papers": summary}, ensure_ascii=False, indent=2), encoding="utf-8")
         time.sleep(args.sleep)
 
-    summary_path = OUT_DIR / "benchmark_summary.json"
     summary_path.write_text(json.dumps({"generated_at": now_iso(), "model": LLM_MODEL, "papers": summary}, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"summary: {summary_path}", flush=True)
     return 0 if all(item.get("status") == "ok" for item in summary) else 1
@@ -213,10 +215,20 @@ def run_one(spec: dict[str, Any], provider: OpenAICompatibleProvider, force: boo
         return report | {"status": "ok", "paper_id": spec["paper_id"], "title": spec["title"], "cached": True}
 
     pdf_path = PDF_DIR / f"{spec['paper_id']}.pdf"
-    if not skip_download or not pdf_path.exists():
-        download_pdf(spec["pdf_url"], pdf_path)
-
-    metadata, blocks = parse_pdf(pdf_path, spec["paper_id"])
+    download_error = ""
+    if skip_download and not pdf_path.exists():
+        metadata, blocks = metadata_fallback_document(spec, "PDF download skipped and no local PDF exists.")
+    else:
+        if not skip_download and (not pdf_path.exists() or force):
+            try:
+                download_pdf_candidates(pdf_url_candidates(spec), pdf_path)
+            except Exception as exc:
+                download_error = str(exc)
+        if pdf_path.exists():
+            metadata, blocks = parse_pdf(pdf_path, spec["paper_id"])
+            metadata["source_mode"] = "pdf"
+        else:
+            metadata, blocks = metadata_fallback_document(spec, download_error or "PDF is unavailable.")
     metadata.update(
         {
             "paper_id": spec["paper_id"],
@@ -231,6 +243,8 @@ def run_one(spec: dict[str, Any], provider: OpenAICompatibleProvider, force: boo
             "paper_type": spec["paper_type"],
         }
     )
+    if download_error:
+        metadata["pdf_download_error"] = download_error
     enrich_metadata(metadata, spec)
     anchors = anchors_from_blocks(blocks)
 
@@ -247,6 +261,7 @@ def run_one(spec: dict[str, Any], provider: OpenAICompatibleProvider, force: boo
             "Do not invent anchor_id values.",
             "If a variable or implementation detail is inferred rather than explicitly defined, set confidence to medium or low.",
             "Unknown details must be written as unknown or missing_details, not fabricated.",
+            "If paper_metadata.source_mode is metadata_abstract_fallback, only use the provided metadata and abstract. Mark unavailable formulas, tables, figures, experiments, and implementation details as unknown or missing_details rather than inventing them.",
         ],
         "document_blocks": [block_prompt_json(b) for b in selected_blocks],
         "required_modules": ["知微·构", "知微·析", "知微·证", "知微·辨", "知微·验", "知微·径"],
@@ -272,6 +287,41 @@ def run_one(spec: dict[str, Any], provider: OpenAICompatibleProvider, force: boo
     return report | {"status": "ok", "paper_id": spec["paper_id"], "title": spec["title"], "cached": False}
 
 
+def pdf_url_candidates(spec: dict[str, Any]) -> list[str]:
+    candidates = []
+    for key in ["pdf_url", "open_access_pdf_url"]:
+        value = spec.get(key)
+        if isinstance(value, str) and value:
+            candidates.append(value)
+    arxiv_id = spec.get("arxiv_id")
+    if arxiv_id:
+        candidates.extend(
+            [
+                f"https://arxiv.org/pdf/{arxiv_id}",
+                f"https://arxiv.org/pdf/{arxiv_id}.pdf",
+            ]
+        )
+    fallback_urls = spec.get("fallback_pdf_urls") or []
+    if isinstance(fallback_urls, list):
+        candidates.extend([item for item in fallback_urls if isinstance(item, str) and item])
+    deduped = []
+    for item in candidates:
+        if item not in deduped:
+            deduped.append(item)
+    return deduped
+
+
+def download_pdf_candidates(urls: list[str], path: Path) -> None:
+    errors = []
+    for url in urls:
+        try:
+            download_pdf(url, path)
+            return
+        except Exception as exc:
+            errors.append(f"{url}: {exc}")
+    raise RuntimeError("PDF download failed for all candidates: " + " | ".join(errors))
+
+
 def download_pdf(url: str, path: Path) -> None:
     req = urllib.request.Request(url, headers={"User-Agent": "zhiwei-benchmark/0.1"})
     try:
@@ -282,6 +332,55 @@ def download_pdf(url: str, path: Path) -> None:
     if not payload.startswith(b"%PDF"):
         raise RuntimeError(f"Downloaded payload is not a PDF: {url}")
     path.write_bytes(payload)
+
+
+def metadata_fallback_document(spec: dict[str, Any], reason: str) -> tuple[dict[str, Any], list[DocumentBlock]]:
+    """Build a grounded minimal document when the original PDF cannot be fetched."""
+    title = spec.get("title") or "unknown"
+    authors = spec.get("authors") if isinstance(spec.get("authors"), list) else []
+    abstract = spec.get("abstract") or "unknown"
+    metadata = {
+        "paper_id": spec["paper_id"],
+        "title": title,
+        "authors": authors,
+        "venue": spec.get("venue"),
+        "year": spec.get("year"),
+        "arxiv_id": spec.get("arxiv_id"),
+        "doi": spec.get("doi"),
+        "language": "en",
+        "source_mode": "metadata_abstract_fallback",
+        "pdf_download_error": reason,
+    }
+    fallback_note = (
+        "PDF download was unavailable for this benchmark run. "
+        "This fallback source contains only paper metadata and the abstract from the selection index. "
+        "Full-text formulas, tables, figures, ablations, and implementation details must be treated as unknown unless they appear here."
+    )
+    raw_blocks = [
+        ("title", title, "Metadata"),
+        ("paragraph", ", ".join(authors) if authors else "unknown authors", "Metadata"),
+        (
+            "paragraph",
+            f"Year: {spec.get('year') or 'unknown'}; venue: {spec.get('venue') or 'unknown'}; paper type: {spec.get('paper_type') or 'unknown'}.",
+            "Metadata",
+        ),
+        ("abstract", abstract, "Abstract"),
+        ("paragraph", fallback_note, "Source Availability"),
+    ]
+    blocks = []
+    for index, (block_type, content, section) in enumerate(raw_blocks, start=1):
+        blocks.append(
+            DocumentBlock(
+                block_id=f"blk_{index:05d}",
+                type=block_type,
+                content=compact(str(content), 3500),
+                page=1,
+                section=section,
+                bbox=None,
+                anchor_id=f"anc_{index:05d}",
+            )
+        )
+    return metadata, blocks
 
 
 def anchors_from_blocks(blocks: list[DocumentBlock]) -> list[dict[str, Any]]:

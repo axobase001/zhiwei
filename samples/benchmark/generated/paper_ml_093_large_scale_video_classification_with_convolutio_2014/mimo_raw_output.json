@@ -1,0 +1,739 @@
+{
+  "paper_skeleton": {
+    "problem": "大规模视频分类任务，现有视频分类基准数据集规模和多样性不足，且CNN在视频领域的应用面临计算挑战和时序信息融合方法不明确的问题。",
+    "motivation": "CNN在图像识别中取得巨大成功，但视频分类领域缺乏大规模数据集和有效的时序信息融合方法。作者希望通过大规模实验探索CNN在视频分类中的潜力，并解决训练效率问题。",
+    "core_idea": "通过收集大规模视频数据集（Sports-1M），系统评估多种CNN时序融合架构（单帧、早期融合、晚期融合、慢速融合），并提出多分辨率（上下文流+中央凹流）架构以加速训练，同时验证特征迁移能力。",
+    "method": "1. 构建Sports-1M数据集（100万YouTube视频，487类）。2. 设计并比较四种时序融合架构：单帧CNN、早期融合（第一层卷积扩展时间维度）、晚期融合（两个独立单帧网络后期融合）、慢速融合（多层逐步融合时间信息）。3. 提出多分辨率CNN架构，包含低分辨率上下文流和高分辨率中央凹流，以加速训练。4. 使用分布式随机梯度下降（Downpour SGD）进行优化。5. 在Sports-1M上训练，并在UCF-101上进行迁移学习实验。",
+    "experiments": "在Sports-1M测试集（20万视频）上评估所有架构，使用Hit@1和Hit@5指标。在UCF-101数据集上评估迁移学习效果，比较从头训练、微调顶层、微调顶层3层、微调所有层的性能。分析不同架构的训练速度。",
+    "claims": "1. CNN在大规模视频分类上显著优于传统特征基线方法。2. 慢速融合架构在时序融合中表现最佳。3. 单帧模型已表现出强大性能，表明局部运动线索可能并非至关重要。4. 多分辨率架构可在不损失精度的情况下将训练速度提升2-4倍。5. 在Sports-1M上学习的特征可以有效迁移到UCF-101等其他数据集。",
+    "limitations": "1. 运动感知网络在存在相机运动时可能表现不佳，CNN难以学习完全的相机运动不变性。2. 视频级预测仅采用简单的clip预测平均，未探索更复杂的方法。3. 未对视频中的文本、特效、剪辑、徽标等伪影进行显式过滤。4. 迁移学习实验中无法保证Sports-1M与UCF-101完全无重叠。"
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "Sports-1M数据集构建",
+        "label": "数据准备",
+        "summary": "收集并发布一个包含100万YouTube视频、487个体育类别的大规模视频分类数据集，用于训练和评估CNN模型。",
+        "description": "为解决视频分类缺乏大规模基准的问题，作者从YouTube收集了约100万段视频，涵盖487个体育类别，构建了Sports-1M数据集。数据集平均视频时长为5分36秒。训练时从每个视频中随机采样最多100个半秒片段。",
+        "type": "data_preparation",
+        "anchors": [
+          "anc_00010",
+          "anc_00047",
+          "anc_00048"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "单帧CNN基线模型",
+        "label": "基线架构",
+        "summary": "基于AlexNet架构的单帧CNN模型，作为视频分类的基线，仅处理单帧图像，不包含时序信息。",
+        "description": "采用与Krizhevsky等人[11]相同的CNN架构参数（k=2, n=5, α=10^-4, β=0.5），最后一层连接softmax分类器。该模型独立处理视频的每一帧，不融合时间信息。",
+        "type": "baseline_architecture",
+        "anchors": [
+          "anc_00029",
+          "anc_00030",
+          "anc_00031"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "早期融合架构",
+        "label": "时序融合",
+        "summary": "通过扩展第一层卷积滤波器的时间维度，在像素级别早期融合时序信息。",
+        "description": "将第一层卷积滤波器的尺寸扩展为11×11×3×T像素，其中T为时间范围（实验中T=10，约1/3秒）。这使得网络能够直接在像素级别检测局部运动方向和速度。",
+        "type": "architecture_variant",
+        "anchors": [
+          "anc_00031",
+          "anc_00032"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "晚期融合架构",
+        "label": "时序融合",
+        "summary": "使用两个独立的单帧CNN处理相隔一定时间的两帧，然后在第一个全连接层融合它们的输出。",
+        "description": "放置两个共享参数的单帧网络（处理相隔15帧的图像），在第一个全连接层进行融合。单个网络无法检测运动，但全连接层可以通过比较两个流的输出来计算全局运动特征。",
+        "type": "architecture_variant",
+        "anchors": [
+          "anc_00033"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "慢速融合架构",
+        "label": "时序融合",
+        "summary": "在多个卷积层逐步融合时间信息，平衡早期和晚期融合，是表现最佳的时序融合架构。",
+        "description": "第一层卷积滤波器扩展为时间维度T=4，步长为2，在10帧输入上产生4个时间响应。第二和第三层使用T=2、步长为2的滤波器。因此，第三卷积层可以访问所有10个输入帧的信息。",
+        "type": "architecture_variant",
+        "anchors": [
+          "anc_00034",
+          "anc_00035",
+          "anc_00036"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "多分辨率CNN架构",
+        "label": "加速优化",
+        "summary": "提出包含低分辨率上下文流和高分辨率中央凹流的双流架构，在保持精度的同时显著加速训练。",
+        "description": "输入帧被送入两个独立的处理流：上下文流处理低分辨率图像，中央凹流处理高分辨率中心裁剪。两个流都由卷积、归一化和池化层交替组成，最后汇聚到两个全连接层。由于输入尺寸减半，移除了最后一个池化层以确保两个流都终止于7×7×256的层。激活值被拼接后送入第一个全连接层。",
+        "type": "architecture_variant",
+        "anchors": [
+          "anc_00040",
+          "anc_00041",
+          "anc_00042"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "分布式训练优化",
+        "label": "训练策略",
+        "summary": "使用Downpour SGD在计算集群上进行分布式训练，并采用数据增强和预处理策略。",
+        "description": "使用Downpour SGD进行优化，模型副本数在10到50之间，每个模型进一步划分为4到32个分区。使用小批量大小为32，动量0.9，权重衰减0.0005。所有模型以1e-3的学习率初始化，并在验证误差停止改善时手动降低。数据增强包括裁剪中心区域、调整大小到200×200、随机采样170×170区域、随机水平翻转。",
+        "type": "training_strategy",
+        "anchors": [
+          "anc_00043",
+          "anc_00044",
+          "anc_00045"
+        ]
+      },
+      {
+        "node_id": "node_008",
+        "title": "Sports-1M评估与比较",
+        "label": "实验评估",
+        "summary": "在Sports-1M测试集上评估所有CNN架构，并与特征基线方法进行比较。",
+        "description": "在20万视频的测试集上评估，使用Hit@k指标（k=1,5）。结果表明，所有CNN架构都显著优于特征基线方法（55.3% vs 63.9%）。慢速融合模型表现最佳（60.9%），但单帧模型已表现出强大性能（59.3%）。多分辨率架构在保持精度的同时实现了2-4倍的训练加速。",
+        "type": "evaluation",
+        "anchors": [
+          "anc_00051",
+          "anc_00052",
+          "anc_00059",
+          "anc_00062"
+        ]
+      },
+      {
+        "node_id": "node_009",
+        "title": "UCF-101迁移学习实验",
+        "label": "迁移学习",
+        "summary": "将在Sports-1M上训练的慢速融合网络迁移到UCF-101数据集，验证特征的泛化能力。",
+        "description": "在UCF-101数据集上进行迁移学习实验，比较从头训练、微调顶层、微调顶层3层、微调所有层的性能。最佳性能通过微调顶层3层获得（65.4%），显著优于从头训练（41.3%）和仅微调顶层（64.1%）。特征迁移在体育类别上效果显著，但在非体育类别上也表现出色。",
+        "type": "transfer_learning",
+        "anchors": [
+          "anc_00068",
+          "anc_00069",
+          "anc_00070",
+          "anc_00072",
+          "anc_00074",
+          "anc_00076"
+        ]
+      },
+      {
+        "node_id": "node_010",
+        "title": "定性分析与讨论",
+        "label": "分析",
+        "summary": "分析不同架构的性能差异，探讨运动信息的作用和局限性。",
+        "description": "通过比较单帧网络和慢速融合网络的每类平均精度，发现运动感知网络在某些类别上受益于运动信息，但这种情况相对较少。相反，运动感知网络在存在相机运动时更容易表现不佳。作者假设CNN难以学习所有可能的相机平移和缩放角度和速度的完全不变性。",
+        "type": "analysis",
+        "anchors": [
+          "anc_00063",
+          "anc_00064",
+          "anc_00065",
+          "anc_00066"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "relation": "provides_data_for",
+        "description": "Sports-1M数据集用于训练和评估所有CNN架构，包括单帧基线模型。"
+      },
+      {
+        "source": "node_001",
+        "target": "node_003",
+        "relation": "provides_data_for",
+        "description": "Sports-1M数据集用于训练和评估早期融合架构。"
+      },
+      {
+        "source": "node_001",
+        "target": "node_004",
+        "relation": "provides_data_for",
+        "description": "Sports-1M数据集用于训练和评估晚期融合架构。"
+      },
+      {
+        "source": "node_001",
+        "target": "node_005",
+        "relation": "provides_data_for",
+        "description": "Sports-1M数据集用于训练和评估慢速融合架构。"
+      },
+      {
+        "source": "node_001",
+        "target": "node_006",
+        "relation": "provides_data_for",
+        "description": "Sports-1M数据集用于训练和评估多分辨率架构。"
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "relation": "is_extended_by",
+        "description": "早期融合架构通过扩展单帧CNN第一层卷积滤波器的时间维度得到。"
+      },
+      {
+        "source": "node_002",
+        "target": "node_004",
+        "relation": "is_modified_to_form",
+        "description": "晚期融合架构由两个共享参数的单帧CNN组成，在后期融合输出。"
+      },
+      {
+        "source": "node_002",
+        "target": "node_005",
+        "relation": "is_modified_to_form",
+        "description": "慢速融合架构在单帧CNN基础上，逐步在多层卷积中融合时间信息。"
+      },
+      {
+        "source": "node_002",
+        "target": "node_006",
+        "relation": "is_modified_to_form",
+        "description": "多分辨率架构包含两个处理不同分辨率输入的流，其中一个流类似于单帧CNN。"
+      },
+      {
+        "source": "node_003",
+        "target": "node_008",
+        "relation": "is_evaluated_in",
+        "description": "早期融合架构在Sports-1M测试集上进行评估。"
+      },
+      {
+        "source": "node_004",
+        "target": "node_008",
+        "relation": "is_evaluated_in",
+        "description": "晚期融合架构在Sports-1M测试集上进行评估。"
+      },
+      {
+        "source": "node_005",
+        "target": "node_008",
+        "relation": "is_evaluated_in",
+        "description": "慢速融合架构在Sports-1M测试集上进行评估。"
+      },
+      {
+        "source": "node_006",
+        "target": "node_008",
+        "relation": "is_evaluated_in",
+        "description": "多分辨率架构在Sports-1M测试集上进行评估。"
+      },
+      {
+        "source": "node_007",
+        "target": "node_002",
+        "relation": "optimizes_training_of",
+        "description": "分布式训练策略用于优化单帧CNN基线模型的训练。"
+      },
+      {
+        "source": "node_007",
+        "target": "node_003",
+        "relation": "optimizes_training_of",
+        "description": "分布式训练策略用于优化早期融合架构的训练。"
+      },
+      {
+        "source": "node_007",
+        "target": "node_004",
+        "relation": "optimizes_training_of",
+        "description": "分布式训练策略用于优化晚期融合架构的训练。"
+      },
+      {
+        "source": "node_007",
+        "target": "node_005",
+        "relation": "optimizes_training_of",
+        "description": "分布式训练策略用于优化慢速融合架构的训练。"
+      },
+      {
+        "source": "node_007",
+        "target": "node_006",
+        "relation": "optimizes_training_of",
+        "description": "分布式训练策略用于优化多分辨率架构的训练。"
+      },
+      {
+        "source": "node_005",
+        "target": "node_009",
+        "relation": "is_transferred_in",
+        "description": "在Sports-1M上训练的慢速融合网络被迁移到UCF-101数据集进行评估。"
+      },
+      {
+        "source": "node_008",
+        "target": "node_010",
+        "relation": "provides_results_for",
+        "description": "Sports-1M上的评估结果为定性分析提供了数据基础。"
+      },
+      {
+        "source": "node_009",
+        "target": "node_010",
+        "relation": "provides_results_for",
+        "description": "UCF-101上的迁移学习结果为分析特征泛化能力提供了证据。"
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "传统特征基线方法（Feature Histograms + Neural Net），以及单帧CNN模型。",
+    "new_method": "多种CNN时序融合架构（早期融合、晚期融合、慢速融合）和多分辨率CNN架构。",
+    "deltas": [
+      {
+        "before": "传统特征基线方法在Sports-1M测试集上达到55.3%的Hit@1准确率。",
+        "after": "最佳CNN架构（CNN平均）达到63.9%的Hit@1准确率，慢速融合模型达到60.9%。",
+        "why_it_matters": "证明了CNN在大规模视频分类任务上相比传统特征方法具有显著优势，能够学习更强大的特征表示。",
+        "anchors": [
+          "anc_00051",
+          "anc_00052"
+        ]
+      },
+      {
+        "before": "单帧CNN模型（59.3% Hit@1）仅处理静态图像，不包含时序信息。",
+        "after": "慢速融合模型（60.9% Hit@1）通过逐步融合时序信息，性能略有提升。",
+        "why_it_matters": "表明在Sports-1M数据集上，时序信息的融合带来的性能提升相对有限，单帧模型已能捕获大部分判别信息。这挑战了视频分类必须依赖复杂时序建模的假设。",
+        "anchors": [
+          "anc_00051",
+          "anc_00083"
+        ]
+      },
+      {
+        "before": "标准CNN架构训练速度慢，处理大规模视频数据需要数周时间。",
+        "after": "多分辨率CNN架构（上下文流+中央凹流）在保持精度的同时，将训练速度提升了2-4倍。",
+        "why_it_matters": "解决了大规模视频CNN训练的计算效率问题，使得更多实验和架构探索成为可能。",
+        "anchors": [
+          "anc_00037",
+          "anc_00039",
+          "anc_00062"
+        ]
+      },
+      {
+        "before": "在UCF-101数据集上从头训练CNN（41.3%准确率）。",
+        "after": "使用在Sports-1M上预训练的慢速融合网络进行迁移学习，微调顶层3层后达到65.4%准确率。",
+        "why_it_matters": "证明了在大规模视频数据集上学习的特征具有强大的泛化能力，可以有效迁移到其他视频分类任务，显著提升小数据集上的性能。",
+        "anchors": [
+          "anc_00068",
+          "anc_00069",
+          "anc_00070"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\text{Hit@k} = \\frac{\\text{# samples with ground truth in top-k predictions}}{\\text{total # samples}}",
+        "variables": [
+          {
+            "name": "k",
+            "description": "预测排名的截断值（如1或5）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00052"
+            ]
+          }
+        ],
+        "dependencies": [
+          "模型预测输出",
+          "真实标签"
+        ],
+        "intuition": "衡量模型预测准确性的指标，表示在前k个预测中包含正确标签的样本比例。Hit@1是严格的准确率，Hit@5更宽松。",
+        "anchors": [
+          "anc_00052"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "\\text{Video Hit@k} = \\text{Average}(\\text{Clip Hit@k over all clips in video})",
+        "variables": [
+          {
+            "name": "Clip Hit@k",
+            "description": "单个视频片段的Hit@k值",
+            "confidence": "high",
+            "anchors": [
+              "anc_00053"
+            ]
+          }
+        ],
+        "dependencies": [
+          "Clip Hit@k"
+        ],
+        "intuition": "通过平均视频内所有片段的预测结果来生成视频级别的预测，是一种简单但有效的聚合方法。",
+        "anchors": [
+          "anc_00053"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "\\text{Early Fusion Filter Size} = 11 \\times 11 \\times 3 \\times T",
+        "variables": [
+          {
+            "name": "T",
+            "description": "时间范围（帧数），实验中T=10",
+            "confidence": "high",
+            "anchors": [
+              "anc_00032"
+            ]
+          }
+        ],
+        "dependencies": [
+          "输入视频片段"
+        ],
+        "intuition": "早期融合架构中第一层卷积滤波器的尺寸，通过扩展时间维度T来直接在像素级别融合时序信息。",
+        "anchors": [
+          "anc_00031",
+          "anc_00032"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "latex": "\\text{Slow Fusion Temporal Extent} T_l \\text{ for layer } l",
+        "variables": [
+          {
+            "name": "T_1",
+            "description": "第一层时间范围，T=4",
+            "confidence": "high",
+            "anchors": [
+              "anc_00034"
+            ]
+          },
+          {
+            "name": "T_2, T_3",
+            "description": "第二、三层时间范围，T=2",
+            "confidence": "high",
+            "anchors": [
+              "anc_00036"
+            ]
+          }
+        ],
+        "dependencies": [
+          "输入视频片段（10帧）"
+        ],
+        "intuition": "慢速融合架构中各层卷积滤波器的时间维度，通过逐步减小时间范围并增加步长，使高层能够访问更长时间跨度的信息。",
+        "anchors": [
+          "anc_00034",
+          "anc_00035",
+          "anc_00036"
+        ]
+      },
+      {
+        "formula_id": "formula_005",
+        "latex": "\\text{Multiresolution Input Size} = \\text{Context: } 89 \\times 89, \\text{ Fovea: } 170 \\times 170 \\text{ (center crop)}",
+        "variables": [
+          {
+            "name": "Context Size",
+            "description": "上下文流输入尺寸（低分辨率）",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00041"
+            ]
+          },
+          {
+            "name": "Fovea Size",
+            "description": "中央凹流输入尺寸（高分辨率中心裁剪）",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00041"
+            ]
+          }
+        ],
+        "dependencies": [
+          "原始视频帧（200×200）"
+        ],
+        "intuition": "多分辨率架构的两个流分别处理不同分辨率的输入：低分辨率的上下文流和高分辨率的中央凹流，以平衡计算效率和细节捕获。",
+        "anchors": [
+          "anc_00040",
+          "anc_00041"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "experiment": "Sports-1M测试集评估",
+        "metric": "Hit@1, Hit@5",
+        "result": "CNN平均Hit@1: 63.9%, 慢速融合Hit@1: 60.9%, 单帧Hit@1: 59.3%, 特征基线Hit@1: 55.3%",
+        "anchors": [
+          "anc_00051",
+          "anc_00052"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "experiment": "不同时间融合架构比较",
+        "metric": "Hit@1",
+        "result": "单帧: 59.3%, 早期融合: 57.7%, 晚期融合: 59.3%, 慢速融合: 60.9%",
+        "anchors": [
+          "anc_00051"
+        ]
+      },
+      {
+        "experiment": "多分辨率架构组件分析",
+        "metric": "Hit@1",
+        "result": "单帧+多分辨率: 60.0%, 仅中央凹流: 49.9%, 仅上下文流: 56.0%",
+        "anchors": [
+          "anc_00051"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "experiment": "UCF-101迁移学习不同微调策略",
+        "metric": "3-fold Accuracy",
+        "result": "从头训练: 41.3%, 微调顶层: 64.1%, 微调顶层3层: 65.4%, 微调所有层: 62.2%",
+        "anchors": [
+          "anc_00068",
+          "anc_00069"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "experiment": "多分辨率架构训练速度提升",
+        "metric": "clips/second",
+        "result": "单帧模型: 5→20 clips/sec (4x加速), 慢速融合模型: 5→10 clips/sec (2x加速)",
+        "anchors": [
+          "anc_00062"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "experiment": "运动感知网络与单帧网络性能差异分析",
+        "metric": "每类平均精度差异",
+        "result": "运动感知网络在某些类别（如需要运动信息的类别）上表现更好，但在存在相机运动时可能表现更差。",
+        "anchors": [
+          "anc_00063",
+          "anc_00064",
+          "anc_00065",
+          "anc_00066"
+        ]
+      }
+    ],
+    "human_eval": [],
+    "benchmark": [
+      {
+        "dataset": "Sports-1M",
+        "task": "视频分类",
+        "scale": "100万视频，487类",
+        "anchors": [
+          "anc_00010"
+        ]
+      },
+      {
+        "dataset": "UCF-101",
+        "task": "活动识别",
+        "scale": "13,320视频，101类",
+        "anchors": [
+          "anc_00072"
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "metric": "训练时间",
+        "result": "所有模型训练约一个月",
+        "anchors": [
+          "anc_00049"
+        ]
+      },
+      {
+        "metric": "训练速度",
+        "result": "全帧网络约5 clips/sec，多分辨率网络约20 clips/sec（单副本）",
+        "anchors": [
+          "anc_00049"
+        ]
+      }
+    ]
+  },
+  "claim_evidence_map": [
+    {
+      "claim": "CNN在大规模视频分类上显著优于传统特征基线方法。",
+      "evidence_source_type": "实验结果",
+      "support_strength": "强",
+      "anchors": [
+        "anc_00051",
+        "anc_00052"
+      ],
+      "risk_flags": []
+    },
+    {
+      "claim": "慢速融合架构在时序融合中表现最佳。",
+      "evidence_source_type": "实验结果",
+      "support_strength": "中",
+      "anchors": [
+        "anc_00051"
+      ],
+      "risk_flags": [
+        "性能提升幅度相对较小（60.9% vs 59.3%）"
+      ]
+    },
+    {
+      "claim": "单帧模型已表现出强大性能，表明局部运动线索可能并非至关重要。",
+      "evidence_source_type": "实验结果与分析",
+      "support_strength": "中",
+      "anchors": [
+        "anc_00051",
+        "anc_00083"
+      ],
+      "risk_flags": [
+        "仅基于Sports-1M数据集，可能不适用于其他视频类型"
+      ]
+    },
+    {
+      "claim": "多分辨率架构可在不损失精度的情况下将训练速度提升2-4倍。",
+      "evidence_source_type": "实验结果",
+      "support_strength": "强",
+      "anchors": [
+        "anc_00051",
+        "anc_00062"
+      ],
+      "risk_flags": []
+    },
+    {
+      "claim": "在Sports-1M上学习的特征可以有效迁移到UCF-101等其他数据集。",
+      "evidence_source_type": "迁移学习实验",
+      "support_strength": "强",
+      "anchors": [
+        "anc_00068",
+        "anc_00069",
+        "anc_00070"
+      ],
+      "risk_flags": [
+        "无法保证Sports-1M与UCF-101完全无重叠"
+      ]
+    }
+  ],
+  "glossary": [
+    {
+      "term": "Sports-1M",
+      "definition": "作者收集的大规模视频分类数据集，包含约100万YouTube视频，涵盖487个体育类别。",
+      "anchors": [
+        "anc_00010"
+      ]
+    },
+    {
+      "term": "Hit@k",
+      "definition": "评估指标，表示在前k个预测中包含正确标签的样本比例。",
+      "anchors": [
+        "anc_00052"
+      ]
+    },
+    {
+      "term": "早期融合",
+      "definition": "一种时序融合方法，通过扩展第一层卷积滤波器的时间维度，在像素级别早期融合时序信息。",
+      "anchors": [
+        "anc_00031",
+        "anc_00032"
+      ]
+    },
+    {
+      "term": "晚期融合",
+      "definition": "一种时序融合方法，使用两个独立的单帧CNN处理相隔一定时间的两帧，然后在后期融合它们的输出。",
+      "anchors": [
+        "anc_00033"
+      ]
+    },
+    {
+      "term": "慢速融合",
+      "definition": "一种时序融合方法，在多个卷积层逐步融合时间信息，平衡早期和晚期融合。",
+      "anchors": [
+        "anc_00034",
+        "anc_00035",
+        "anc_00036"
+      ]
+    },
+    {
+      "term": "多分辨率CNN",
+      "definition": "一种CNN架构，包含两个处理不同分辨率输入的流：低分辨率上下文流和高分辨率中央凹流，以加速训练。",
+      "anchors": [
+        "anc_00040",
+        "anc_00041"
+      ]
+    },
+    {
+      "term": "Downpour SGD",
+      "definition": "一种分布式随机梯度下降算法，用于在计算集群上并行训练大规模神经网络。",
+      "anchors": [
+        "anc_00043"
+      ]
+    },
+    {
+      "term": "迁移学习",
+      "definition": "将在一个任务（如Sports-1M视频分类）上训练的模型应用于另一个相关任务（如UCF-101活动识别）的技术。",
+      "anchors": [
+        "anc_00070"
+      ]
+    }
+  ],
+  "reproduction_roadmap": {
+    "required_datasets": [
+      {
+        "name": "Sports-1M",
+        "description": "大规模视频分类数据集，约100万YouTube视频，487类体育活动。",
+        "availability": "论文中提及将发布，但具体下载链接未在提供文本中给出。",
+        "anchors": [
+          "anc_00010"
+        ]
+      },
+      {
+        "name": "UCF-101",
+        "description": "活动识别数据集，13,320个视频，101个类别。",
+        "availability": "公开可用的数据集。",
+        "anchors": [
+          "anc_00072"
+        ]
+      }
+    ],
+    "required_models": [
+      {
+        "name": "基于AlexNet的CNN变体",
+        "description": "单帧CNN、早期融合、晚期融合、慢速融合、多分辨率CNN等架构。",
+        "availability": "论文描述了架构细节，但未提供预训练模型或代码。",
+        "anchors": [
+          "anc_00029",
+          "anc_00030",
+          "anc_00031",
+          "anc_00033",
+          "anc_00034",
+          "anc_00040"
+        ]
+      }
+    ],
+    "required_compute": [
+      {
+        "type": "GPU集群",
+        "description": "训练使用10-50个模型副本，每个副本可能跨4-32个分区。训练时间约一个月。",
+        "anchors": [
+          "anc_00043",
+          "anc_00049"
+        ]
+      }
+    ],
+    "code_available": false,
+    "steps": [
+      "1. 收集或获取Sports-1M和UCF-101数据集。",
+      "2. 实现单帧CNN基线模型（基于AlexNet架构）。",
+      "3. 实现早期融合、晚期融合、慢速融合等时序融合变体。",
+      "4. 实现多分辨率CNN架构（上下文流+中央凹流）。",
+      "5. 实现分布式训练框架（如Downpour SGD）或使用现有分布式训练库。",
+      "6. 在Sports-1M上训练所有模型，使用数据增强和预处理策略。",
+      "7. 在Sports-1M测试集上评估所有模型，计算Hit@1和Hit@5。",
+      "8. 选择最佳模型（慢速融合）在UCF-101上进行迁移学习实验，比较不同微调策略。",
+      "9. 进行定性分析，比较不同架构的预测结果。"
+    ],
+    "missing_details": [
+      "Sports-1M数据集的具体下载链接或访问方式。",
+      "模型训练的详细超参数（如学习率衰减策略的具体时机）。",
+      "分布式训练的具体实现细节（如参数服务器配置）。",
+      "数据预处理中“裁剪到中心区域”的具体实现。",
+      "特征基线方法（Feature Histograms + Neural Net）的详细实现。"
+    ],
+    "risk_points": [
+      "Sports-1M数据集可能难以获取或需要大量存储空间（100万视频）。",
+      "训练大规模CNN需要巨大的计算资源（GPU集群，训练一个月）。",
+      "论文中的一些架构细节（如多分辨率架构中移除最后一个池化层）需要仔细实现。",
+      "迁移学习实验中，Sports-1M与UCF-101可能存在数据重叠，影响结果的可比性。"
+    ]
+  }
+}

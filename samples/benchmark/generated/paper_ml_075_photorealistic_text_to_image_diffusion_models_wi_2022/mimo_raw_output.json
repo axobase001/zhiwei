@@ -1,0 +1,708 @@
+{
+  "paper_skeleton": {
+    "problem": "现有文本到图像生成模型在文本理解深度和图像真实感方面存在局限，难以生成与复杂文本描述高度对齐的逼真图像。",
+    "motivation": "大型语言模型在纯文本语料上预训练，展现出强大的语言理解能力。本文探索将此类模型作为文本编码器，以提升文本到图像生成的质量和对齐度。",
+    "core_idea": "使用冻结的大型语言模型（如T5-XXL）作为文本编码器，结合扩散模型进行图像生成，并引入动态阈值采样技术以支持高引导权重，从而生成更逼真、与文本更对齐的图像。",
+    "method": "Imagen系统包含一个冻结的T5-XXL文本编码器、一个64×64基础扩散模型和两个超分辨率扩散模型。采用分类器无关引导和动态阈值采样。",
+    "experiments": "在COCO数据集上进行零样本评估，FID达到7.27；引入DrawBench基准进行更全面的评估；与DALL-E 2、GLIDE等模型进行人类评估对比。",
+    "claims": "1. 冻结的大型语言模型是文本到图像生成的有效文本编码器。2. 扩大文本编码器规模比扩大图像扩散模型规模更能提升生成质量。3. 动态阈值采样对高引导权重下的图像质量至关重要。4. Imagen在COCO上达到新的SOTA FID分数。",
+    "limitations": "训练数据存在局限性，可能包含社会偏见；生成逼真人物图像的能力有限；模型未公开发布，存在伦理风险。"
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "text_encoder",
+        "title": "冻结的大型语言模型文本编码器",
+        "label": "文本编码器",
+        "summary": "使用在纯文本语料上预训练的大型语言模型（如T5-XXL）将输入文本映射为嵌入序列，权重在训练过程中保持冻结。",
+        "description": "Imagen探索了BERT、T5和CLIP等预训练文本编码器，并发现T5-XXL（4.6B参数）在复杂提示下表现最佳。冻结权重使得嵌入可以离线计算，减少了训练时的计算和内存开销。",
+        "type": "encoder",
+        "anchors": [
+          "anc_00012",
+          "anc_00042",
+          "anc_00094"
+        ]
+      },
+      {
+        "node_id": "base_diffusion_model",
+        "title": "64×64基础扩散模型",
+        "label": "基础生成器",
+        "summary": "一个条件扩散模型，以文本嵌入序列为条件，生成64×64分辨率的图像。",
+        "description": "基于U-Net架构，通过交叉注意力机制对文本嵌入序列进行条件化。使用分类器无关引导进行训练和采样。",
+        "type": "generator",
+        "anchors": [
+          "anc_00012",
+          "anc_00063",
+          "anc_00076"
+        ]
+      },
+      {
+        "node_id": "super_resolution_models",
+        "title": "超分辨率扩散模型",
+        "label": "超分辨率模块",
+        "summary": "两个级联的扩散模型，分别将64×64图像上采样至256×256，再上采样至1024×1024。",
+        "description": "使用噪声条件增强技术，使超分辨率模型能够处理低分辨率模型产生的伪影，并在高引导权重下生成多样化的上采样结果。",
+        "type": "generator",
+        "anchors": [
+          "anc_00012",
+          "anc_00061",
+          "anc_00076"
+        ]
+      },
+      {
+        "node_id": "classifier_free_guidance",
+        "title": "分类器无关引导",
+        "label": "引导技术",
+        "summary": "一种训练和采样技术，通过联合训练条件和无条件目标，并在采样时调整预测，以提升样本质量。",
+        "description": "训练时随机丢弃条件c（如10%概率）。采样时，使用调整后的预测：˜ϵθ(zt, c) = wϵθ(zt, c) + (1−w)ϵθ(zt)，其中w是引导权重。",
+        "type": "technique",
+        "anchors": [
+          "anc_00049",
+          "anc_00050",
+          "anc_00051",
+          "anc_00052"
+        ]
+      },
+      {
+        "node_id": "dynamic_thresholding",
+        "title": "动态阈值采样",
+        "label": "采样技术",
+        "summary": "一种新的扩散采样技术，通过动态调整阈值来防止高引导权重下的像素饱和，从而生成更逼真的图像。",
+        "description": "在每个采样步骤，计算预测x0的某个百分位绝对像素值s，如果s>1，则将预测阈值化到[-s, s]范围并除以s。这主动防止了像素饱和。",
+        "type": "technique",
+        "anchors": [
+          "anc_00057",
+          "anc_00058",
+          "anc_00103"
+        ]
+      },
+      {
+        "node_id": "efficient_unet",
+        "title": "高效U-Net架构",
+        "label": "网络架构",
+        "summary": "一种U-Net架构变体，通过调整下采样和上采样块的顺序，提高了前向传播速度，且更节省内存。",
+        "description": "在典型的U-Net中，下采样操作在卷积之后，上采样操作在卷积之前。高效U-Net反转了这两个顺序，显著提高了速度，且未发现性能下降。",
+        "type": "architecture",
+        "anchors": [
+          "anc_00231",
+          "anc_00106"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "text_encoder",
+        "target": "base_diffusion_model",
+        "label": "提供文本条件",
+        "description": "冻结的文本编码器将文本转换为嵌入序列，作为基础扩散模型的条件输入。",
+        "anchors": [
+          "anc_00012",
+          "anc_00063"
+        ]
+      },
+      {
+        "source": "base_diffusion_model",
+        "target": "super_resolution_models",
+        "label": "提供低分辨率图像",
+        "description": "基础模型生成的64×64图像作为第一个超分辨率模型的输入。",
+        "anchors": [
+          "anc_00012",
+          "anc_00061"
+        ]
+      },
+      {
+        "source": "classifier_free_guidance",
+        "target": "base_diffusion_model",
+        "label": "应用于基础模型",
+        "description": "分类器无关引导技术用于训练和采样基础扩散模型。",
+        "anchors": [
+          "anc_00049",
+          "anc_00063"
+        ]
+      },
+      {
+        "source": "classifier_free_guidance",
+        "target": "super_resolution_models",
+        "label": "应用于超分辨率模型",
+        "description": "分类器无关引导技术也用于训练和采样超分辨率扩散模型。",
+        "anchors": [
+          "anc_00049",
+          "anc_00061"
+        ]
+      },
+      {
+        "source": "dynamic_thresholding",
+        "target": "base_diffusion_model",
+        "label": "用于基础模型采样",
+        "description": "动态阈值采样技术用于基础扩散模型的采样过程，以支持高引导权重。",
+        "anchors": [
+          "anc_00057",
+          "anc_00058"
+        ]
+      },
+      {
+        "source": "dynamic_thresholding",
+        "target": "super_resolution_models",
+        "label": "用于超分辨率模型采样",
+        "description": "动态阈值采样技术也用于超分辨率扩散模型的采样过程。",
+        "anchors": [
+          "anc_00057",
+          "anc_00058"
+        ]
+      },
+      {
+        "source": "efficient_unet",
+        "target": "base_diffusion_model",
+        "label": "作为基础模型架构",
+        "description": "高效U-Net被用作基础64×64扩散模型的网络架构。",
+        "anchors": [
+          "anc_00231",
+          "anc_00063"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "先前的文本到图像扩散模型（如GLIDE、DALL-E 2）通常使用在图像-文本数据上训练的文本编码器（如CLIP），或从头训练的文本编码器，并采用静态阈值或无阈值采样。",
+    "new_method": "Imagen使用冻结的大型纯文本语言模型（T5-XXL）作为文本编码器，并引入动态阈值采样技术以支持高引导权重。",
+    "deltas": [
+      {
+        "before": "使用在图像-文本数据上训练的文本编码器（如CLIP）或从头训练的文本编码器。",
+        "after": "使用在纯文本语料上预训练的冻结大型语言模型（T5-XXL）作为文本编码器。",
+        "why_it_matters": "大型语言模型在更丰富、更广泛的文本分布上训练，能更好地理解复杂和组合性的文本描述，从而显著提升图像-文本对齐度和样本保真度。",
+        "anchors": [
+          "anc_00034",
+          "anc_00038",
+          "anc_00042",
+          "anc_00094"
+        ]
+      },
+      {
+        "before": "采样时使用静态阈值（将预测裁剪到[-1,1]）或无阈值，高引导权重会导致图像过饱和和不自然。",
+        "after": "引入动态阈值采样：在每个采样步骤，根据预测x0的百分位绝对像素值动态调整阈值范围。",
+        "why_it_matters": "动态阈值主动防止像素饱和，使得在非常高的引导权重下也能生成逼真、细节丰富的图像，同时保持良好的文本对齐。",
+        "anchors": [
+          "anc_00055",
+          "anc_00057",
+          "anc_00058",
+          "anc_00103"
+        ]
+      },
+      {
+        "before": "扩大图像扩散模型（U-Net）的规模是提升生成质量的主要手段。",
+        "after": "发现扩大文本编码器的规模比扩大图像扩散模型的规模对提升生成质量更有效。",
+        "why_it_matters": "这一发现改变了资源分配策略，表明投资于更大的语言模型比投资于更大的图像生成模型能带来更大的收益。",
+        "anchors": [
+          "anc_00007",
+          "anc_00029",
+          "anc_00102"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "classifier_free_guidance_sampling",
+        "latex": "\\tilde{\\epsilon}_\\theta(z_t, c) = w \\epsilon_\\theta(z_t, c) + (1 - w) \\epsilon_\\theta(z_t)",
+        "variables": [
+          {
+            "name": "\\tilde{\\epsilon}_\\theta(z_t, c)",
+            "description": "调整后的噪声预测",
+            "confidence": "high",
+            "anchors": [
+              "anc_00050"
+            ]
+          },
+          {
+            "name": "w",
+            "description": "引导权重",
+            "confidence": "high",
+            "anchors": [
+              "anc_00050",
+              "anc_00052"
+            ]
+          },
+          {
+            "name": "\\epsilon_\\theta(z_t, c)",
+            "description": "条件噪声预测",
+            "confidence": "high",
+            "anchors": [
+              "anc_00050",
+              "anc_00051"
+            ]
+          },
+          {
+            "name": "\\epsilon_\\theta(z_t)",
+            "description": "无条件噪声预测",
+            "confidence": "high",
+            "anchors": [
+              "anc_00050",
+              "anc_00051"
+            ]
+          }
+        ],
+        "dependencies": [
+          "扩散模型训练",
+          "分类器无关引导训练"
+        ],
+        "intuition": "在采样时，通过调整条件预测和无条件预测的加权组合来控制生成图像与条件的对齐程度。权重w越大，生成图像与条件c的对齐度越高，但可能牺牲多样性和保真度。",
+        "anchors": [
+          "anc_00049",
+          "anc_00050",
+          "anc_00051",
+          "anc_00052"
+        ]
+      },
+      {
+        "formula_id": "dynamic_thresholding",
+        "latex": "\\text{如果 } s > 1, \\text{ 则 } \\hat{x}_0 \\leftarrow \\text{clip}(\\hat{x}_0, -s, s) / s",
+        "variables": [
+          {
+            "name": "s",
+            "description": "预测x0的某个百分位绝对像素值（例如，某个百分位数）",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00057"
+            ]
+          },
+          {
+            "name": "\\hat{x}_0",
+            "description": "模型在时间步t对干净图像x的预测",
+            "confidence": "high",
+            "anchors": [
+              "anc_00057"
+            ]
+          }
+        ],
+        "dependencies": [
+          "扩散模型采样",
+          "高引导权重"
+        ],
+        "intuition": "在每个采样步骤，动态计算一个阈值s。如果s>1，说明预测值超出了[-1,1]的范围，则将预测值裁剪到[-s,s]并缩放回[-1,1]。这防止了像素值饱和，允许使用更高的引导权重而不损失图像质量。",
+        "anchors": [
+          "anc_00057",
+          "anc_00058"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "experiment": "COCO零样本FID评估",
+        "result": "Imagen在COCO验证集上达到FID-30K 7.27，为新的SOTA。",
+        "metrics": [
+          "FID-30K"
+        ],
+        "anchors": [
+          "anc_00007",
+          "anc_00088"
+        ]
+      },
+      {
+        "experiment": "COCO人类评估（图像质量与对齐度）",
+        "result": "在图像质量上，Imagen获得39.5%的偏好率（原始图像为50%）；在图像-文本对齐度上，Imagen得分与原始图像相当（91.4% vs 91.9%）。",
+        "metrics": [
+          "人类偏好率"
+        ],
+        "anchors": [
+          "anc_00082",
+          "anc_00089"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "experiment": "文本编码器规模缩放",
+        "result": "扩大文本编码器规模（从T5-Small到T5-XXL）持续提升图像-文本对齐度和样本保真度。",
+        "metrics": [
+          "CLIP Score",
+          "FID"
+        ],
+        "anchors": [
+          "anc_00093",
+          "anc_00094",
+          "anc_00102"
+        ]
+      },
+      {
+        "experiment": "文本编码器 vs U-Net规模缩放",
+        "result": "扩大文本编码器规模比扩大U-Net规模对提升生成质量更有效。",
+        "metrics": [
+          "CLIP Score",
+          "FID"
+        ],
+        "anchors": [
+          "anc_00102"
+        ]
+      },
+      {
+        "experiment": "动态阈值 vs 静态阈值 vs 无阈值",
+        "result": "动态阈值在高引导权重下产生显著更好的真实感和文本对齐度。",
+        "metrics": [
+          "CLIP Score",
+          "FID",
+          "人类评估"
+        ],
+        "anchors": [
+          "anc_00103"
+        ]
+      },
+      {
+        "experiment": "文本条件化方法",
+        "result": "使用交叉注意力对文本嵌入序列进行条件化，显著优于简单的均值池化或注意力池化。",
+        "metrics": [
+          "样本保真度",
+          "图像-文本对齐度"
+        ],
+        "anchors": [
+          "anc_00106"
+        ]
+      },
+      {
+        "experiment": "噪声条件增强",
+        "result": "训练超分辨率模型时使用噪声条件增强，能提升CLIP和FID分数，并允许使用更强的文本条件。",
+        "metrics": [
+          "CLIP Score",
+          "FID"
+        ],
+        "anchors": [
+          "anc_00104"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "experiment": "DrawBench评估",
+        "result": "在DrawBench的11个类别上，人类评估者在图像保真度和图像-文本对齐度上都更偏好Imagen，而非DALL-E 2、GLIDE和VQ-GAN+CLIP。",
+        "metrics": [
+          "人类偏好率"
+        ],
+        "anchors": [
+          "anc_00091",
+          "anc_00097"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "experiment": "文本编码器规模缩放",
+        "result": "T5-XXL（4.6B参数）在复杂提示下表现最佳，优于CLIP文本编码器。",
+        "metrics": [
+          "人类评估"
+        ],
+        "anchors": [
+          "anc_00094",
+          "anc_00104"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "experiment": "DrawBench类别分析",
+        "result": "DrawBench包含组合性、基数、空间关系等11个类别，用于深入评估模型的不同语义属性。",
+        "metrics": [
+          "类别级人类评估"
+        ],
+        "anchors": [
+          "anc_00025",
+          "anc_00242"
+        ]
+      }
+    ],
+    "human_eval": [
+      {
+        "experiment": "COCO人类评估",
+        "result": "Imagen生成的图像在图像-文本对齐度上与COCO原始图像相当。",
+        "metrics": [
+          "人类偏好率"
+        ],
+        "anchors": [
+          "anc_00082",
+          "anc_00089"
+        ]
+      },
+      {
+        "experiment": "DrawBench人类评估",
+        "result": "人类评估者在图像保真度和对齐度上都更偏好Imagen而非其他模型。",
+        "metrics": [
+          "人类偏好率"
+        ],
+        "anchors": [
+          "anc_00091",
+          "anc_00097"
+        ]
+      }
+    ],
+    "benchmark": [
+      {
+        "experiment": "COCO FID-30K",
+        "result": "7.27",
+        "anchors": [
+          "anc_00007",
+          "anc_00088"
+        ]
+      },
+      {
+        "experiment": "DrawBench",
+        "result": "新引入的综合评估基准。",
+        "anchors": [
+          "anc_00025",
+          "anc_00070"
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "experiment": "高效U-Net",
+        "result": "高效U-Net实现使用更少内存，收敛更快，推理速度更快，且样本质量更好。",
+        "metrics": [
+          "内存使用",
+          "收敛速度",
+          "推理速度"
+        ],
+        "anchors": [
+          "anc_00231",
+          "anc_00106"
+        ]
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "冻结的大型语言模型（如T5-XXL）是文本到图像生成的有效文本编码器。",
+        "evidence_source_type": "实验（消融研究、人类评估）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00007",
+          "anc_00042",
+          "anc_00094",
+          "anc_00104"
+        ],
+        "risk_flags": [
+          "结论基于特定模型（T5）和数据集（COCO, DrawBench）"
+        ]
+      },
+      {
+        "claim": "扩大文本编码器规模比扩大图像扩散模型规模更能提升生成质量。",
+        "evidence_source_type": "实验（消融研究、帕累托曲线）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00007",
+          "anc_00029",
+          "anc_00102"
+        ],
+        "risk_flags": [
+          "结论可能依赖于特定的模型架构和训练设置"
+        ]
+      },
+      {
+        "claim": "动态阈值采样对在高引导权重下生成逼真图像至关重要。",
+        "evidence_source_type": "实验（消融研究、人类评估）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00057",
+          "anc_00058",
+          "anc_00103"
+        ],
+        "risk_flags": [
+          "阈值的具体百分位选择可能影响结果"
+        ]
+      },
+      {
+        "claim": "Imagen在COCO数据集上达到了新的SOTA FID分数（7.27）。",
+        "evidence_source_type": "基准测试结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00007",
+          "anc_00088"
+        ],
+        "risk_flags": [
+          "FID分数依赖于特定的评估协议（零样本，30K样本）"
+        ]
+      },
+      {
+        "claim": "人类评估者认为Imagen生成的图像在图像-文本对齐度上与COCO原始图像相当。",
+        "evidence_source_type": "人类评估",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00082",
+          "anc_00089"
+        ],
+        "risk_flags": [
+          "评估仅限于COCO验证集，且排除了含人物的图像"
+        ]
+      },
+      {
+        "claim": "Imagen在DrawBench上显著优于其他模型（DALL-E 2, GLIDE, VQ-GAN+CLIP）。",
+        "evidence_source_type": "人类评估",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00091",
+          "anc_00097"
+        ],
+        "risk_flags": [
+          "DrawBench是作者引入的新基准，其全面性和公正性有待社区验证"
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "扩散模型",
+        "definition": "一类通过迭代去噪过程从高斯噪声生成样本的生成模型。",
+        "anchors": [
+          "anc_00044",
+          "anc_00045"
+        ]
+      },
+      {
+        "term": "分类器无关引导",
+        "definition": "一种训练和采样技术，通过联合训练条件和无条件目标，并在采样时调整预测，以提升条件生成质量，无需额外的分类器。",
+        "anchors": [
+          "anc_00049",
+          "anc_00050"
+        ]
+      },
+      {
+        "term": "动态阈值",
+        "definition": "一种扩散采样技术，在每个采样步骤根据预测值的统计特性动态调整阈值范围，以防止高引导权重下的像素饱和。",
+        "anchors": [
+          "anc_00057",
+          "anc_00058"
+        ]
+      },
+      {
+        "term": "噪声条件增强",
+        "definition": "在训练超分辨率扩散模型时，向输入低分辨率图像添加噪声，并将噪声水平作为条件输入，以提高模型对输入伪影的鲁棒性。",
+        "anchors": [
+          "anc_00061"
+        ]
+      },
+      {
+        "term": "高效U-Net",
+        "definition": "一种U-Net架构变体，通过调整下采样和上采样块中操作的顺序，提高了前向传播速度并节省内存。",
+        "anchors": [
+          "anc_00231"
+        ]
+      },
+      {
+        "term": "DrawBench",
+        "definition": "作者引入的一个综合且具有挑战性的文本到图像模型评估基准，包含11个类别的文本提示，用于多维度评估。",
+        "anchors": [
+          "anc_00025",
+          "anc_00070",
+          "anc_00242"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "required_datasets": [
+      {
+        "name": "内部数据集",
+        "description": "约4.6亿图像-文本对。",
+        "anchors": [
+          "anc_00083"
+        ]
+      },
+      {
+        "name": "Laion数据集",
+        "description": "约4亿公开可用的图像-文本对。",
+        "anchors": [
+          "anc_00084"
+        ]
+      },
+      {
+        "name": "COCO验证集",
+        "description": "用于零样本FID评估和人类评估。",
+        "anchors": [
+          "anc_00065",
+          "anc_00087"
+        ]
+      },
+      {
+        "name": "DrawBench",
+        "description": "作者引入的评估基准。",
+        "anchors": [
+          "anc_00070",
+          "anc_00242"
+        ]
+      }
+    ],
+    "required_models": [
+      {
+        "name": "T5-XXL",
+        "description": "4.6B参数的预训练语言模型，用作文本编码器。",
+        "anchors": [
+          "anc_00012",
+          "anc_00094"
+        ]
+      },
+      {
+        "name": "基础64×64扩散模型",
+        "description": "约2B参数的U-Net模型。",
+        "anchors": [
+          "anc_00076"
+        ]
+      },
+      {
+        "name": "超分辨率扩散模型（64→256）",
+        "description": "约600M参数的模型。",
+        "anchors": [
+          "anc_00076"
+        ]
+      },
+      {
+        "name": "超分辨率扩散模型（256→1024）",
+        "description": "约400M参数的模型。",
+        "anchors": [
+          "anc_00076"
+        ]
+      }
+    ],
+    "compute_requirements": {
+      "description": "基础模型使用256个TPU-v4芯片训练，超分辨率模型各使用128个TPU-v4芯片训练。所有模型训练2.5M步，批大小2048。",
+      "anchors": [
+        "anc_00076"
+      ]
+    },
+    "code_available": {
+      "status": "未公开",
+      "details": "论文未提供代码。作者因训练数据的伦理问题决定不公开发布Imagen模型。",
+      "anchors": [
+        "anc_00126"
+      ]
+    },
+    "steps": [
+      "1. 准备训练数据：组合内部数据集和Laion数据集，并进行过滤。",
+      "2. 准备预训练的T5-XXL模型作为冻结的文本编码器。",
+      "3. 实现高效U-Net架构用于基础扩散模型和超分辨率模型。",
+      "4. 实现分类器无关引导训练和采样流程。",
+      "5. 实现动态阈值采样技术。",
+      "6. 实现噪声条件增强技术用于超分辨率模型训练。",
+      "7. 训练基础64×64模型（2B参数，256 TPU-v4，2.5M步）。",
+      "8. 训练64→256超分辨率模型（600M参数，128 TPU-v4，2.5M步）。",
+      "9. 训练256→1024超分辨率模型（400M参数，128 TPU-v4，2.5M步）。",
+      "10. 在COCO验证集上评估零样本FID-30K。",
+      "11. 使用DrawBench进行人类评估。"
+    ],
+    "missing_details": [
+      "内部数据集的具体构成和过滤细节。",
+      "训练超参数的完整列表（如学习率调度、优化器细节）。",
+      "动态阈值中具体使用的百分位数值。",
+      "噪声条件增强中添加噪声的具体分布和水平。",
+      "高效U-Net的完整架构细节（尽管有图示，但实现细节可能缺失）。"
+    ],
+    "risk_points": [
+      "训练数据包含社会偏见和不当内容，存在伦理风险。",
+      "模型未公开，无法直接复现。",
+      "需要巨大的计算资源（数百个TPU-v4芯片）。",
+      "依赖于未公开的内部数据集。",
+      "DrawBench是作者引入的新基准，其评估的客观性和全面性有待验证。"
+    ]
+  }
+}

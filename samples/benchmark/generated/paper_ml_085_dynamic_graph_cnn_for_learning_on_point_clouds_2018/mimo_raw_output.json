@@ -1,0 +1,671 @@
+{
+  "paper_skeleton": {
+    "problem": "点云数据缺乏拓扑信息，传统方法独立处理各点，无法有效捕捉局部几何结构，限制了表示能力。",
+    "motivation": "CNN在图像分析中取得巨大成功，但点云缺乏规则网格结构。需要设计能恢复拓扑信息、捕捉局部几何关系并保持置换不变性的模块。",
+    "core_idea": "提出EdgeConv模块，通过动态构建图并学习边特征来捕捉局部几何结构。EdgeConv在每一层动态更新图，结合局部邻域信息，通过堆叠学习全局形状属性。",
+    "method": "EdgeConv模块：1) 对每个点构建k近邻图；2) 计算边特征hΘ(xi, xj)；3) 通过对称聚合操作（如max）生成新点特征。图在每一层基于特征空间动态更新。",
+    "experiments": "在ModelNet40分类、ShapeNetPart部件分割、S3DIS语义分割三个基准上评估。与PointNet、PointNet++、PCNN等方法比较。",
+    "claims": "EdgeConv能有效捕捉局部几何结构；动态图更新能学习语义特征；模型在分类和分割任务上达到SOTA；模型复杂度和计算效率优于现有方法。",
+    "limitations": "当k过大时，欧氏距离无法近似测地距离，破坏局部几何；点云密度极低时性能下降；未探索快速数据结构优化计算效率。"
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "输入点云",
+        "label": "Input Point Cloud",
+        "summary": "输入为点云集合X = {x1, ..., xn} ⊆ RF，通常F=3表示3D坐标。",
+        "description": "点云是散乱点集合，缺乏拓扑信息。每个点包含坐标信息，可能包含法向量等附加特征。",
+        "type": "input",
+        "anchors": [
+          "anc_00048",
+          "anc_00049"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "动态图构建",
+        "label": "Dynamic Graph Construction",
+        "summary": "在每一层基于当前特征空间构建k近邻图G = (V, E)。",
+        "description": "图在每一层动态更新，基于特征空间中的最近邻关系。这是DGCNN与固定图方法的关键区别。",
+        "type": "process",
+        "anchors": [
+          "anc_00051",
+          "anc_00052",
+          "anc_00077",
+          "anc_00080"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "边特征计算",
+        "label": "Edge Feature Computation",
+        "summary": "对每条边(i,j)计算边特征ei j = hΘ(xi, xj)，其中hΘ是可学习函数。",
+        "description": "边特征描述点对之间的关系。hΘ可以是MLP，输入为xi和xj的拼接或差值。",
+        "type": "process",
+        "anchors": [
+          "anc_00054",
+          "anc_00069",
+          "anc_00071"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "对称聚合",
+        "label": "Symmetric Aggregation",
+        "summary": "对每个顶点，聚合其所有出边的边特征：x′i = □j:(i,j)∈E hΘ(xi, xj)。",
+        "description": "聚合操作□可以是求和或max，保证置换不变性。max pooling是常用选择。",
+        "type": "process",
+        "anchors": [
+          "anc_00056",
+          "anc_00057",
+          "anc_00086"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "EdgeConv层",
+        "label": "EdgeConv Layer",
+        "summary": "EdgeConv层整合图构建、边特征计算和聚合操作，输出新的点特征。",
+        "description": "EdgeConv可堆叠，深层能捕捉更全局的语义特征。特征空间中的邻近性反映语义相似性。",
+        "type": "module",
+        "anchors": [
+          "anc_00023",
+          "anc_00057"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "全局特征聚合",
+        "label": "Global Feature Aggregation",
+        "summary": "通过全局max/sum pooling将点特征聚合为全局形状特征。",
+        "description": "用于分类任务，将点云转换为固定长度的全局表示。",
+        "type": "process",
+        "anchors": [
+          "anc_00122"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "分类/分割头",
+        "label": "Classification/Segmentation Head",
+        "summary": "全连接层用于分类，逐点分类用于分割。",
+        "description": "分类：全局特征后接FC层；分割：拼接各层特征后逐点分类。",
+        "type": "output",
+        "anchors": [
+          "anc_00044",
+          "anc_00123"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "edge_001",
+        "source": "node_001",
+        "target": "node_002",
+        "label": "构建初始图",
+        "summary": "基于输入点云坐标构建初始k近邻图。",
+        "anchors": [
+          "anc_00051",
+          "anc_00052"
+        ]
+      },
+      {
+        "edge_id": "edge_002",
+        "source": "node_002",
+        "target": "node_003",
+        "label": "提供图结构",
+        "summary": "图结构定义边集合，用于计算边特征。",
+        "anchors": [
+          "anc_00054"
+        ]
+      },
+      {
+        "edge_id": "edge_003",
+        "source": "node_003",
+        "target": "node_004",
+        "label": "边特征输入聚合",
+        "summary": "计算出的边特征用于对称聚合操作。",
+        "anchors": [
+          "anc_00056",
+          "anc_00057"
+        ]
+      },
+      {
+        "edge_id": "edge_004",
+        "source": "node_004",
+        "target": "node_005",
+        "label": "生成新点特征",
+        "summary": "聚合结果作为EdgeConv层的输出，即新的点特征。",
+        "anchors": [
+          "anc_00057"
+        ]
+      },
+      {
+        "edge_id": "edge_005",
+        "source": "node_005",
+        "target": "node_002",
+        "label": "动态更新图",
+        "summary": "新特征用于在下一层重新构建图，实现动态更新。",
+        "anchors": [
+          "anc_00077",
+          "anc_00080"
+        ]
+      },
+      {
+        "edge_id": "edge_006",
+        "source": "node_005",
+        "target": "node_006",
+        "label": "特征堆叠",
+        "summary": "多层EdgeConv的输出特征可堆叠用于后续任务。",
+        "anchors": [
+          "anc_00121"
+        ]
+      },
+      {
+        "edge_id": "edge_007",
+        "source": "node_006",
+        "target": "node_007",
+        "label": "全局特征输入",
+        "summary": "全局特征输入分类头进行预测。",
+        "anchors": [
+          "anc_00122",
+          "anc_00123"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "PointNet/PointNet++：独立处理各点或使用固定图，边函数仅考虑xi或xj。",
+    "new_method": "DGCNN：动态构建图，边函数同时考虑xi和xj（或xi和xj-xi），捕捉点对关系。",
+    "deltas": [
+      {
+        "before": "PointNet: hΘ(xi, xj) = hΘ(xi)，仅考虑中心点。",
+        "after": "DGCNN: hΘ(xi, xj) = hΘ(xi, xj) 或 hΘ(xi, xj-xi)，考虑点对关系。",
+        "why_it_matters": "能捕捉局部几何结构，而不仅仅是全局特征。",
+        "anchors": [
+          "anc_00095",
+          "anc_00096",
+          "anc_00097",
+          "anc_00069"
+        ]
+      },
+      {
+        "before": "PointNet++: hΘ(xi, xj) = hΘ(xj)，仅考虑邻域点。",
+        "after": "DGCNN: 同时考虑中心点和邻域点，或相对位置。",
+        "why_it_matters": "更好地建模局部上下文，提升特征区分度。",
+        "anchors": [
+          "anc_00099",
+          "anc_00100"
+        ]
+      },
+      {
+        "before": "固定图：图在输入层构建后不变。",
+        "after": "动态图：每一层基于特征空间重新构建图。",
+        "why_it_matters": "深层特征空间能捕捉语义相似性，即使原始空间距离远。",
+        "anchors": [
+          "anc_00077",
+          "anc_00116"
+        ]
+      },
+      {
+        "before": "MoNet等：使用预定义图或固定图。",
+        "after": "DGCNN：图随训练动态变化。",
+        "why_it_matters": "首次实现图在层间和训练中动态更新，增强表示能力。",
+        "anchors": [
+          "anc_00116"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "x'_i = \\square_{j:(i,j)\\in E} h_\\Theta(x_i, x_j)",
+        "variables": [
+          {
+            "name": "x'_i",
+            "description": "第i个点的新特征",
+            "confidence": "high",
+            "anchors": [
+              "anc_00057"
+            ]
+          },
+          {
+            "name": "\\square",
+            "description": "对称聚合操作（如max或sum）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00056"
+            ]
+          },
+          {
+            "name": "h_\\Theta",
+            "description": "可学习的边特征函数，参数为Θ",
+            "confidence": "high",
+            "anchors": [
+              "anc_00054"
+            ]
+          },
+          {
+            "name": "E",
+            "description": "边集合，由k近邻图定义",
+            "confidence": "high",
+            "anchors": [
+              "anc_00052"
+            ]
+          }
+        ],
+        "dependencies": [
+          "node_002",
+          "node_003",
+          "node_004"
+        ],
+        "intuition": "EdgeConv的核心公式：通过聚合邻域点的边特征来更新点特征。聚合操作保证置换不变性。",
+        "anchors": [
+          "anc_00057"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "h_\\Theta(x_i, x_j) = \\bar{h}_\\Theta(x_i, x_j - x_i)",
+        "variables": [
+          {
+            "name": "\\bar{h}_\\Theta",
+            "description": "可学习函数，输入为中心点和相对向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00069"
+            ]
+          },
+          {
+            "name": "x_j - x_i",
+            "description": "邻域点相对于中心点的位置差",
+            "confidence": "high",
+            "anchors": [
+              "anc_00069"
+            ]
+          }
+        ],
+        "dependencies": [
+          "node_003"
+        ],
+        "intuition": "边函数的一种实现：显式使用相对位置信息，有助于捕捉局部几何。",
+        "anchors": [
+          "anc_00069"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "h_{\\Theta m}(x_i, x_j) = \\text{ReLU}(\\theta_m \\cdot (x_j - x_i) + \\phi_m \\cdot x_i)",
+        "variables": [
+          {
+            "name": "\\theta_m, \\phi_m",
+            "description": "可学习权重参数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00071",
+              "anc_00075"
+            ]
+          },
+          {
+            "name": "x_j - x_i",
+            "description": "相对位置向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00071"
+            ]
+          },
+          {
+            "name": "x_i",
+            "description": "中心点坐标",
+            "confidence": "high",
+            "anchors": [
+              "anc_00071"
+            ]
+          }
+        ],
+        "dependencies": [
+          "node_003"
+        ],
+        "intuition": "边函数的具体MLP实现：结合相对位置和绝对位置，通过ReLU激活。",
+        "anchors": [
+          "anc_00071"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "task": "ModelNet40分类",
+        "dataset": "ModelNet40",
+        "metric": "Overall Accuracy",
+        "result": "92.9%",
+        "comparison": "优于PointNet++ (90.7%) 和PCNN (92.3%)",
+        "anchors": [
+          "anc_00125",
+          "anc_00131"
+        ]
+      },
+      {
+        "task": "ShapeNetPart部件分割",
+        "dataset": "ShapeNetPart",
+        "metric": "mIoU",
+        "result": "85.1%",
+        "comparison": "优于PointNet (83.7%) 和PointNet++ (85.1%)",
+        "anchors": [
+          "anc_00166",
+          "anc_00167"
+        ]
+      },
+      {
+        "task": "S3DIS语义分割",
+        "dataset": "S3DIS",
+        "metric": "Mean IoU",
+        "result": "56.1%",
+        "comparison": "优于PointNet (47.6%) 和MS+CU (47.8%)",
+        "anchors": [
+          "anc_00172",
+          "anc_00173"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "component": "中心化 (CENT)",
+        "effect": "使用xi和xi-xj拼接提升0.5%准确率",
+        "anchors": [
+          "anc_00137",
+          "anc_00144"
+        ]
+      },
+      {
+        "component": "动态图 (DYN)",
+        "effect": "动态更新图提升0.7%准确率",
+        "anchors": [
+          "anc_00137",
+          "anc_00144"
+        ]
+      },
+      {
+        "component": "更多点 (MPOINTS)",
+        "effect": "使用2048点提升0.6%准确率",
+        "anchors": [
+          "anc_00137",
+          "anc_00144"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "test": "点云密度变化",
+        "method": "随机丢弃点，测试不同保留比例",
+        "finding": "保留512点以上性能稳定，低于512点性能下降",
+        "anchors": [
+          "anc_00141",
+          "anc_00143",
+          "anc_00149"
+        ]
+      },
+      {
+        "test": "部分数据",
+        "method": "从六个方向随机丢弃部分形状",
+        "finding": "模型对部分数据鲁棒，保留比例增加时IoU提升",
+        "anchors": [
+          "anc_00158",
+          "anc_00160",
+          "anc_00171"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "variable": "近邻数k",
+        "values": [
+          5,
+          10,
+          20,
+          40
+        ],
+        "finding": "k=20时性能最佳，k过大性能下降",
+        "anchors": [
+          "anc_00138",
+          "anc_00139",
+          "anc_00150",
+          "anc_00151"
+        ]
+      },
+      {
+        "variable": "点数",
+        "values": [
+          1024,
+          2048
+        ],
+        "finding": "更多点提升准确率",
+        "anchors": [
+          "anc_00125",
+          "anc_00137"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "description": "特征空间可视化：深层特征能捕捉语义相似结构（如机翼、机身）",
+        "anchors": [
+          "anc_00008",
+          "anc_00009",
+          "anc_00010",
+          "anc_00111"
+        ]
+      },
+      {
+        "description": "跨点云特征距离：不同点云中语义相似部分在特征空间中接近",
+        "anchors": [
+          "anc_00157",
+          "anc_00158",
+          "anc_00169",
+          "anc_00170"
+        ]
+      }
+    ],
+    "human_eval": null,
+    "benchmark": [
+      {
+        "name": "ModelNet40",
+        "type": "分类",
+        "anchors": [
+          "anc_00120",
+          "anc_00126"
+        ]
+      },
+      {
+        "name": "ShapeNetPart",
+        "type": "部件分割",
+        "anchors": [
+          "anc_00153",
+          "anc_00167"
+        ]
+      },
+      {
+        "name": "S3DIS",
+        "type": "语义分割",
+        "anchors": [
+          "anc_00162",
+          "anc_00173"
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "metric": "模型大小",
+        "result": "21 MB",
+        "comparison": "小于PCNN (94 MB)，大于PointNet (40 MB)",
+        "anchors": [
+          "anc_00131",
+          "anc_00132"
+        ]
+      },
+      {
+        "metric": "前向传播时间",
+        "result": "27.2 ms",
+        "comparison": "快于PointNet++ (163.2 ms) 和PCNN (117.0 ms)",
+        "anchors": [
+          "anc_00131",
+          "anc_00132"
+        ]
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim_id": "claim_001",
+        "claim": "EdgeConv能有效捕捉局部几何结构",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00023",
+          "anc_00033",
+          "anc_00125",
+          "anc_00166"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_002",
+        "claim": "动态图更新能学习语义特征",
+        "evidence_source_type": "实验结果与可视化",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00077",
+          "anc_00116",
+          "anc_00137",
+          "anc_00144",
+          "anc_00157",
+          "anc_00158"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_003",
+        "claim": "模型在分类和分割任务上达到SOTA",
+        "evidence_source_type": "基准测试结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00125",
+          "anc_00131",
+          "anc_00166",
+          "anc_00172"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_004",
+        "claim": "模型复杂度和计算效率优于现有方法",
+        "evidence_source_type": "复杂度分析",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00129",
+          "anc_00130",
+          "anc_00131",
+          "anc_00132"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_005",
+        "claim": "PointNet是DGCNN的特例（k=1）",
+        "evidence_source_type": "理论分析",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00095",
+          "anc_00096",
+          "anc_00097"
+        ],
+        "risk_flags": [
+          "理论推导，需验证假设"
+        ]
+      },
+      {
+        "claim_id": "claim_006",
+        "claim": "k过大时欧氏距离无法近似测地距离，破坏局部几何",
+        "evidence_source_type": "实验观察",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00138",
+          "anc_00139"
+        ],
+        "risk_flags": [
+          "基于特定数据集观察，需更多验证"
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "EdgeConv": "本文提出的核心模块，通过动态图和边特征学习点云局部几何结构。",
+    "DGCNN": "Dynamic Graph CNN，使用EdgeConv的动态图卷积网络。",
+    "置换不变性": "函数输出不依赖于输入顺序的性质，点云处理的基本要求。",
+    "k近邻图": "基于k个最近邻构建的图结构，用于定义局部邻域。",
+    "动态图": "在每一层基于特征空间重新构建的图，与固定图相对。",
+    "边特征": "描述图中两点之间关系的特征向量。",
+    "对称聚合": "对邻域特征进行与顺序无关的聚合操作，如max或sum。"
+  },
+  "reproduction_roadmap": {
+    "required_datasets": [
+      {
+        "name": "ModelNet40",
+        "description": "40类CAD模型分类数据集",
+        "anchors": [
+          "anc_00120"
+        ]
+      },
+      {
+        "name": "ShapeNetPart",
+        "description": "16类物体部件分割数据集",
+        "anchors": [
+          "anc_00153"
+        ]
+      },
+      {
+        "name": "S3DIS",
+        "description": "室内场景语义分割数据集",
+        "anchors": [
+          "anc_00162"
+        ]
+      }
+    ],
+    "required_models": [
+      {
+        "name": "DGCNN",
+        "description": "本文提出的动态图卷积网络",
+        "anchors": [
+          "anc_00023",
+          "anc_00077"
+        ]
+      }
+    ],
+    "compute_requirements": "unknown",
+    "code_available": "unknown",
+    "steps": [
+      "1. 数据准备：下载数据集，采样点云（1024/2048点），归一化。",
+      "2. 模型构建：实现EdgeConv层，包括动态图构建、边特征计算、对称聚合。",
+      "3. 网络架构：分类网络（多层EdgeConv+全局池化+FC），分割网络（特征拼接+逐点分类）。",
+      "4. 训练：SGD优化器，学习率0.1，学习率衰减，dropout，数据增强。",
+      "5. 评估：在测试集上计算准确率/mIoU，与基准方法比较。"
+    ],
+    "missing_details": [
+      "具体学习率衰减策略",
+      "数据增强的具体参数",
+      "batch size",
+      "训练epoch数",
+      "权重初始化方法"
+    ],
+    "risk_points": [
+      "动态图构建的计算开销可能较大",
+      "k值选择需要验证集调优",
+      "点云密度变化对性能影响"
+    ]
+  }
+}

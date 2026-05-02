@@ -1,0 +1,3152 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "现有辐射场方法在实现高视觉质量时需要昂贵的神经网络训练和渲染，而更快的快速方法不可避免地以速度换取质量。对于无界完整场景（而非孤立物体）和1080p分辨率渲染，当前没有方法能够实现实时显示速率。",
+      "anchors": [
+        "anc_00010"
+      ]
+    },
+    "motivation": {
+      "summary": "需要一种能够在保持竞争性训练时间的同时实现最先进视觉质量，并允许高质量实时（≥30 fps）1080p分辨率新视角合成的方法。",
+      "anchors": [
+        "anc_00010",
+        "anc_00011"
+      ]
+    },
+    "core_idea": {
+      "summary": "使用3D高斯作为灵活且富有表现力的场景表示，结合交错优化/密度控制和快速可见性感知渲染算法，以实现高质量实时渲染。",
+      "anchors": [
+        "anc_00012"
+      ]
+    },
+    "method": {
+      "summary": "从稀疏SfM点云初始化3D高斯，优化各向异性协方差，执行密度控制（克隆和分裂），并使用基于瓦片的排序渲染器进行快速光栅化。",
+      "anchors": [
+        "anc_00012",
+        "anc_00066",
+        "anc_00077",
+        "anc_00108"
+      ]
+    },
+    "experiments": {
+      "summary": "在多个真实世界和合成数据集上评估，包括Mip-NeRF360、Tanks&Temples、Deep Blending和Synthetic NeRF数据集，与Mip-NeRF360、InstantNGP、Plenoxels等方法比较。",
+      "anchors": [
+        "anc_00121",
+        "anc_00122",
+        "anc_00135"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "实现最先进视觉质量的同时保持竞争性训练时间。",
+        "anchors": [
+          "anc_00007",
+          "anc_00008",
+          "anc_00009",
+          "anc_00121",
+          "anc_00122",
+          "anc_00134",
+          "anc_00135",
+          "anc_00139",
+          "anc_00145",
+          "anc_00146"
+        ]
+      },
+      {
+        "claim_id": "claim_2",
+        "claim": "允许高质量实时（≥30 fps）1080p分辨率新视角合成。",
+        "anchors": [
+          "anc_00010",
+          "anc_00011",
+          "anc_00012",
+          "anc_00108",
+          "anc_00109",
+          "anc_00111",
+          "anc_00113",
+          "anc_00137",
+          "anc_00145",
+          "anc_00150"
+        ]
+      },
+      {
+        "claim_id": "claim_3",
+        "claim": "3D高斯表示保留了连续体积辐射场的优化属性，同时避免了不必要的计算。",
+        "anchors": [
+          "anc_00010",
+          "anc_00012",
+          "anc_00016",
+          "anc_00030",
+          "anc_00053",
+          "anc_00060",
+          "anc_00062",
+          "anc_00063"
+        ]
+      },
+      {
+        "claim_id": "claim_4",
+        "claim": "各向异性协方差优化能够准确表示场景几何。",
+        "anchors": [
+          "anc_00062",
+          "anc_00063",
+          "anc_00066",
+          "anc_00163",
+          "anc_00171"
+        ]
+      },
+      {
+        "claim_id": "claim_5",
+        "claim": "快速可见性感知渲染算法支持各向异性溅射，加速训练并实现实时渲染。",
+        "anchors": [
+          "anc_00108",
+          "anc_00109",
+          "anc_00111",
+          "anc_00113",
+          "anc_00137",
+          "anc_00145",
+          "anc_00150"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "在场景观察不佳的区域存在伪影。",
+        "anchors": [
+          "anc_00165"
+        ]
+      },
+      {
+        "limitation": "可能产生拉长的伪影或“斑点状”高斯。",
+        "anchors": [
+          "anc_00165"
+        ]
+      },
+      {
+        "limitation": "在视图相关外观区域可能出现弹出伪影。",
+        "anchors": [
+          "anc_00165",
+          "anc_00166"
+        ]
+      },
+      {
+        "limitation": "训练大型场景时峰值GPU内存消耗可能超过20GB。",
+        "anchors": [
+          "anc_00173",
+          "anc_00174"
+        ]
+      },
+      {
+        "limitation": "渲染训练场景需要足够的GPU内存存储完整模型和光栅化器。",
+        "anchors": [
+          "anc_00176",
+          "anc_00177"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "3D高斯场景表示",
+        "label": "场景表示",
+        "summary": "使用3D高斯作为场景的基本表示单元，每个高斯具有位置、协方差、不透明度和球谐系数。",
+        "description": "从SfM点云初始化3D高斯，每个高斯由位置μ、协方差矩阵Σ、不透明度α和球谐系数c定义。协方差矩阵分解为旋转矩阵R和缩放矩阵S：Σ = RSS^T R^T。这种表示保留了体积渲染的优化属性，同时允许快速光栅化。",
+        "type": "representation",
+        "anchors": [
+          "anc_00012",
+          "anc_00053",
+          "anc_00060",
+          "anc_00062",
+          "anc_00063",
+          "anc_00066",
+          "anc_00069"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "优化与密度控制",
+        "label": "优化过程",
+        "summary": "通过渲染和比较训练视图进行迭代优化，并执行密度控制以创建、销毁或移动几何。",
+        "description": "优化基于连续迭代渲染并与训练视图比较。密度控制策略包括：当高斯位置梯度大且尺寸小时克隆（复制），当高斯尺寸大时分裂（分割）。每N=3000次迭代将不透明度α重置为接近零以修剪不必要的高斯。",
+        "type": "optimization",
+        "anchors": [
+          "anc_00077",
+          "anc_00082",
+          "anc_00086",
+          "anc_00088",
+          "anc_00090",
+          "anc_00092",
+          "anc_00093",
+          "anc_00095"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "快速可见性感知渲染",
+        "label": "渲染算法",
+        "summary": "基于瓦片的排序渲染器，支持各向异性溅射，实现快速训练和实时渲染。",
+        "description": "将屏幕分割为16×16瓦片，剔除视锥体和瓦片外的高斯。为每个高斯实例分配结合视图空间深度和瓦片ID的键，然后排序。通过前向后遍历列表进行α混合，当像素达到目标饱和度时终止处理。",
+        "type": "rendering",
+        "anchors": [
+          "anc_00108",
+          "anc_00109",
+          "anc_00111",
+          "anc_00113"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "损失函数与梯度计算",
+        "label": "损失函数",
+        "summary": "使用L1损失和D-SSIM损失的组合进行优化，并显式推导所有参数的梯度。",
+        "description": "损失函数为L = (1-λ)L1 + λ L_D-SSIM，其中λ=0.2。为了优化，显式推导了位置、协方差（旋转和缩放）、不透明度和球谐系数的梯度，避免了自动微分的开销。",
+        "type": "loss",
+        "anchors": [
+          "anc_00082",
+          "anc_00217"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "初始化与优化",
+        "description": "3D高斯从SfM点云初始化，然后通过优化过程调整参数。",
+        "anchors": [
+          "anc_00012",
+          "anc_00077"
+        ]
+      },
+      {
+        "source": "node_001",
+        "target": "node_003",
+        "label": "渲染输入",
+        "description": "3D高斯作为渲染算法的输入，通过光栅化生成图像。",
+        "anchors": [
+          "anc_00012",
+          "anc_00108"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_004",
+        "label": "优化驱动",
+        "description": "优化过程使用损失函数计算梯度并更新高斯参数。",
+        "anchors": [
+          "anc_00077",
+          "anc_00082"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "渲染损失",
+        "description": "渲染结果用于计算损失，驱动优化过程。",
+        "anchors": [
+          "anc_00108",
+          "anc_00082"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00016",
+        "anc_00017",
+        "anc_00029",
+        "anc_00030"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00012",
+        "anc_00066",
+        "anc_00077",
+        "anc_00108"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "使用连续体积表示（如MLP、体素网格、哈希网格）进行辐射场渲染。",
+        "after": "使用离散3D高斯基元进行辐射场表示和渲染。",
+        "why_it_matters": "3D高斯保留了体积渲染的优化属性，同时允许基于溅射的快速光栅化，避免了不必要的空空间计算。",
+        "anchors": [
+          "anc_00010",
+          "anc_00012",
+          "anc_00016",
+          "anc_00030"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "训练时间长（如Mip-NeRF360需要48小时），渲染速度慢（如0.071 fps）。",
+        "after": "训练时间竞争性（6-51分钟），渲染实时（≥30 fps，最高135-300 fps）。",
+        "why_it_matters": "实现了高质量实时渲染，适用于实际应用。",
+        "anchors": [
+          "anc_00002",
+          "anc_00003",
+          "anc_00004",
+          "anc_00005",
+          "anc_00006",
+          "anc_00007",
+          "anc_00008",
+          "anc_00009"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "使用各向同性基元或有限的各向异性。",
+        "after": "优化完整的各向异性协方差矩阵，使用旋转和缩放参数。",
+        "why_it_matters": "各向异性高斯能够更准确地表示复杂几何，用更少的参数建模精细结构。",
+        "anchors": [
+          "anc_00062",
+          "anc_00063",
+          "anc_00066",
+          "anc_00163",
+          "anc_00171"
+        ],
+        "delta_id": "delta_3"
+      },
+      {
+        "before": "密度控制策略有限或需要空间压缩/变形。",
+        "after": "交错优化/密度控制，包括克隆、分裂和重置不透明度。",
+        "why_it_matters": "自适应控制高斯密度，能够创建、销毁或移动几何，优化场景表示。",
+        "anchors": [
+          "anc_00077",
+          "anc_00086",
+          "anc_00088",
+          "anc_00090",
+          "anc_00092",
+          "anc_00093",
+          "anc_00095"
+        ],
+        "delta_id": "delta_4"
+      },
+      {
+        "before": "使用体积光线行进或基于CNN的渲染，速度慢。",
+        "after": "使用基于瓦片的排序渲染器，支持各向异性溅射。",
+        "why_it_matters": "实现了快速训练和实时渲染，同时保持了视觉质量。",
+        "anchors": [
+          "anc_00108",
+          "anc_00109",
+          "anc_00111",
+          "anc_00113"
+        ],
+        "delta_id": "delta_5"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "formula": "C = \\sum_{i=1}^{N} T_i \\alpha_i c_i",
+        "variables": [
+          {
+            "name": "C",
+            "description": "像素颜色",
+            "confidence": "high",
+            "anchors": [
+              "anc_00039",
+              "anc_00040"
+            ]
+          },
+          {
+            "name": "T_i",
+            "description": "累积透射率",
+            "confidence": "high",
+            "anchors": [
+              "anc_00039",
+              "anc_00040"
+            ]
+          },
+          {
+            "name": "\\alpha_i",
+            "description": "不透明度",
+            "confidence": "high",
+            "anchors": [
+              "anc_00039",
+              "anc_00040"
+            ]
+          },
+          {
+            "name": "c_i",
+            "description": "颜色",
+            "confidence": "high",
+            "anchors": [
+              "anc_00039",
+              "anc_00040"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "通过沿光线对高斯进行α混合来计算像素颜色，类似于体积渲染。",
+        "anchors": [
+          "anc_00039",
+          "anc_00040"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "formula": "\\Sigma = R S S^T R^T",
+        "variables": [
+          {
+            "name": "\\Sigma",
+            "description": "3D高斯的协方差矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00066"
+            ]
+          },
+          {
+            "name": "R",
+            "description": "旋转矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00066"
+            ]
+          },
+          {
+            "name": "S",
+            "description": "缩放矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00066"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "将协方差矩阵分解为旋转和缩放，便于独立优化各向异性形状。",
+        "anchors": [
+          "anc_00066"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "formula": "\\mathcal{L} = (1-\\lambda) \\mathcal{L}_1 + \\lambda \\mathcal{L}_{\\text{D-SSIM}}",
+        "variables": [
+          {
+            "name": "\\mathcal{L}",
+            "description": "总损失",
+            "confidence": "high",
+            "anchors": [
+              "anc_00082"
+            ]
+          },
+          {
+            "name": "\\lambda",
+            "description": "权重参数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00082"
+            ]
+          },
+          {
+            "name": "\\mathcal{L}_1",
+            "description": "L1损失",
+            "confidence": "high",
+            "anchors": [
+              "anc_00082"
+            ]
+          },
+          {
+            "name": "\\mathcal{L}_{\\text{D-SSIM}}",
+            "description": "D-SSIM损失",
+            "confidence": "high",
+            "anchors": [
+              "anc_00082"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "结合L1损失和结构相似性损失进行优化，平衡像素级和感知质量。",
+        "anchors": [
+          "anc_00082"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "formula": "\\alpha_i = 1 - \\exp(-\\sigma_i \\delta_i)",
+        "variables": [
+          {
+            "name": "\\alpha_i",
+            "description": "不透明度",
+            "confidence": "high",
+            "anchors": [
+              "anc_00039"
+            ]
+          },
+          {
+            "name": "\\sigma_i",
+            "description": "密度",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00039"
+            ]
+          },
+          {
+            "name": "\\delta_i",
+            "description": "采样间隔",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00039"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "从密度计算不透明度，用于α混合。",
+        "anchors": [
+          "anc_00039"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "在Mip-NeRF360、Tanks&Temples、Deep Blending和Synthetic NeRF数据集上评估，与Mip-NeRF360、InstantNGP、Plenoxels等方法比较。",
+      "metrics": [
+        "PSNR",
+        "SSIM",
+        "LPIPS",
+        "训练时间",
+        "渲染FPS",
+        "内存"
+      ],
+      "results": "在Mip-NeRF360数据集上，PSNR达到25.65（30K迭代），训练时间35-45分钟，渲染速度135 fps。质量与Mip-NeRF360相当或更好，训练时间快100倍以上，渲染速度快2000倍以上。",
+      "anchors": [
+        "anc_00121",
+        "anc_00122",
+        "anc_00134",
+        "anc_00135",
+        "anc_00137",
+        "anc_00139",
+        "anc_00145",
+        "anc_00146"
+      ]
+    },
+    "ablation": {
+      "description": "消融研究测试SfM初始化、密度控制策略、各向异性协方差、无限深度复杂度和球谐系数的影响。",
+      "results": "SfM初始化显著提高质量；各向异性协方差比各向同性提高约0.7 dB PSNR；限制梯度计算会严重降低质量。",
+      "anchors": [
+        "anc_00143",
+        "anc_00144",
+        "anc_00154",
+        "anc_00156",
+        "anc_00158",
+        "anc_00159",
+        "anc_00160",
+        "anc_00161",
+        "anc_00162",
+        "anc_00163"
+      ]
+    },
+    "robustness": {
+      "description": "在多种场景类型（室内、室外、有界、无界）和捕获风格上测试。",
+      "results": "在所有测试场景中均实现高质量渲染，但在观察不佳的区域存在伪影。",
+      "anchors": [
+        "anc_00135",
+        "anc_00136",
+        "anc_00165",
+        "anc_00179",
+        "anc_00180",
+        "anc_00181",
+        "anc_00182"
+      ]
+    },
+    "scaling": {
+      "description": "训练时间随迭代次数增加而增加，但质量提升；渲染速度与场景复杂度相关。",
+      "results": "7K迭代（约5-8分钟）即可获得合理质量，30K迭代（约35-45分钟）达到最先进质量。渲染速度在合成场景中达到180-300 FPS。",
+      "anchors": [
+        "anc_00123",
+        "anc_00125",
+        "anc_00126",
+        "anc_00145",
+        "anc_00147",
+        "anc_00150"
+      ]
+    },
+    "case_study": {
+      "description": "在特定场景（如Bicycle、Garden、Stump、Counter、Room、Playroom、DrJohnson、Truck、Train）上展示视觉比较。",
+      "results": "在植被、墙壁等区域，本方法避免了Mip-NeRF360的模糊伪影；在远距离视图中保留更多细节。",
+      "anchors": [
+        "anc_00118",
+        "anc_00119",
+        "anc_00148"
+      ]
+    },
+    "human_eval": {
+      "description": "未明确提及人类评估，但通过视觉比较和定量指标评估质量。",
+      "results": "未知",
+      "anchors": []
+    },
+    "benchmark": {
+      "description": "使用标准基准数据集：Mip-NeRF360、Tanks&Temples、Deep Blending、Synthetic NeRF。",
+      "results": "在所有基准上均取得竞争性或最先进结果。",
+      "anchors": [
+        "anc_00121",
+        "anc_00122",
+        "anc_00128",
+        "anc_00135"
+      ]
+    },
+    "efficiency": {
+      "description": "训练时间、渲染速度和内存使用。",
+      "results": "训练时间6-51分钟，渲染速度≥30 fps（最高300 fps），模型大小3.8-9 MB，训练内存峰值超过20 GB（可优化）。",
+      "anchors": [
+        "anc_00002",
+        "anc_00003",
+        "anc_00004",
+        "anc_00005",
+        "anc_00006",
+        "anc_00145",
+        "anc_00150",
+        "anc_00152",
+        "anc_00173",
+        "anc_00174",
+        "anc_00176",
+        "anc_00177"
+      ]
+    },
+    "experiments": [
+      {
+        "description": "在Mip-NeRF360、Tanks&Temples、Deep Blending和Synthetic NeRF数据集上评估，与Mip-NeRF360、InstantNGP、Plenoxels等方法比较。",
+        "metrics": [
+          "PSNR",
+          "SSIM",
+          "LPIPS",
+          "训练时间",
+          "渲染FPS",
+          "内存"
+        ],
+        "results": "在Mip-NeRF360数据集上，PSNR达到25.65（30K迭代），训练时间35-45分钟，渲染速度135 fps。质量与Mip-NeRF360相当或更好，训练时间快100倍以上，渲染速度快2000倍以上。",
+        "anchors": [
+          "anc_00121",
+          "anc_00122",
+          "anc_00134",
+          "anc_00135",
+          "anc_00137",
+          "anc_00139",
+          "anc_00145",
+          "anc_00146"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "main_result_1",
+        "dataset": [
+          "Mip-NeRF360",
+          "Tanks&Temples",
+          "Deep Blending",
+          "Synthetic NeRF"
+        ],
+        "baseline": [
+          "Mip-NeRF360",
+          "InstantNGP",
+          "Plenoxels"
+        ],
+        "result_summary": "在Mip-NeRF360数据集上，PSNR达到25.65（30K迭代），训练时间35-45分钟，渲染速度135 fps。质量与Mip-NeRF360相当或更好，训练时间快100倍以上，渲染速度快2000倍以上。",
+        "what_it_tries_to_prove": "证明本方法在多个数据集上实现最先进视觉质量的同时保持竞争性训练时间和实时渲染速度。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "消融研究测试SfM初始化、密度控制策略、各向异性协方差、无限深度复杂度和球谐系数的影响。",
+        "results": "SfM初始化显著提高质量；各向异性协方差比各向同性提高约0.7 dB PSNR；限制梯度计算会严重降低质量。",
+        "anchors": [
+          "anc_00143",
+          "anc_00144",
+          "anc_00154",
+          "anc_00156",
+          "anc_00158",
+          "anc_00159",
+          "anc_00160",
+          "anc_00161",
+          "anc_00162",
+          "anc_00163"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "ablation",
+        "name": "ablation_2",
+        "dataset": [
+          "Mip-NeRF360"
+        ],
+        "baseline": [
+          "无SfM初始化",
+          "各向同性协方差",
+          "限制梯度计算"
+        ],
+        "metrics": [
+          "PSNR"
+        ],
+        "result_summary": "SfM初始化显著提高质量；各向异性协方差比各向同性提高约0.7 dB PSNR；限制梯度计算会严重降低质量。",
+        "what_it_tries_to_prove": "验证各个算法组件（SfM初始化、密度控制、各向异性协方差、梯度计算、球谐系数）对最终性能的贡献。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "在多种场景类型（室内、室外、有界、无界）和捕获风格上测试。",
+        "results": "在所有测试场景中均实现高质量渲染，但在观察不佳的区域存在伪影。",
+        "anchors": [
+          "anc_00135",
+          "anc_00136",
+          "anc_00165",
+          "anc_00179",
+          "anc_00180",
+          "anc_00181",
+          "anc_00182"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "robustness",
+        "name": "robustness_3",
+        "dataset": [
+          "Mip-NeRF360",
+          "Tanks&Temples",
+          "Deep Blending"
+        ],
+        "baseline": [],
+        "metrics": [
+          "视觉质量"
+        ],
+        "result_summary": "在所有测试场景中均实现高质量渲染，但在观察不佳的区域存在伪影。",
+        "what_it_tries_to_prove": "评估方法在不同场景类型和捕获风格下的鲁棒性和泛化能力。",
+        "evidence_strength": "medium"
+      },
+      {
+        "description": "训练时间随迭代次数增加而增加，但质量提升；渲染速度与场景复杂度相关。",
+        "results": "7K迭代（约5-8分钟）即可获得合理质量，30K迭代（约35-45分钟）达到最先进质量。渲染速度在合成场景中达到180-300 FPS。",
+        "anchors": [
+          "anc_00123",
+          "anc_00125",
+          "anc_00126",
+          "anc_00145",
+          "anc_00147",
+          "anc_00150"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "scaling",
+        "name": "scaling_4",
+        "dataset": [
+          "Mip-NeRF360",
+          "Synthetic NeRF"
+        ],
+        "baseline": [],
+        "metrics": [
+          "训练时间",
+          "渲染FPS",
+          "PSNR"
+        ],
+        "result_summary": "7K迭代（约5-8分钟）即可获得合理质量，30K迭代（约35-45分钟）达到最先进质量。渲染速度在合成场景中达到180-300 FPS。",
+        "what_it_tries_to_prove": "分析训练时间和渲染速度随迭代次数和场景复杂度的变化规律。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "在特定场景（如Bicycle、Garden、Stump、Counter、Room、Playroom、DrJohnson、Truck、Train）上展示视觉比较。",
+        "results": "在植被、墙壁等区域，本方法避免了Mip-NeRF360的模糊伪影；在远距离视图中保留更多细节。",
+        "anchors": [
+          "anc_00118",
+          "anc_00119",
+          "anc_00148"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "case_study",
+        "name": "case_study_5",
+        "dataset": [
+          "Mip-NeRF360",
+          "Deep Blending",
+          "Tanks&Temples"
+        ],
+        "baseline": [
+          "Mip-NeRF360",
+          "InstantNGP",
+          "Plenoxels"
+        ],
+        "metrics": [
+          "视觉质量"
+        ],
+        "result_summary": "在植被、墙壁等区域，本方法避免了Mip-NeRF360的模糊伪影；在远距离视图中保留更多细节。",
+        "what_it_tries_to_prove": "通过具体场景的视觉比较，展示本方法在细节保留和伪影避免方面的优势。",
+        "evidence_strength": "medium"
+      },
+      {
+        "description": "使用标准基准数据集：Mip-NeRF360、Tanks&Temples、Deep Blending、Synthetic NeRF。",
+        "results": "在所有基准上均取得竞争性或最先进结果。",
+        "anchors": [
+          "anc_00121",
+          "anc_00122",
+          "anc_00128",
+          "anc_00135"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "benchmark",
+        "name": "benchmark_6",
+        "dataset": [
+          "Mip-NeRF360",
+          "Tanks&Temples",
+          "Deep Blending",
+          "Synthetic NeRF"
+        ],
+        "baseline": [
+          "Mip-NeRF360",
+          "InstantNGP",
+          "Plenoxels"
+        ],
+        "metrics": [
+          "PSNR",
+          "SSIM",
+          "LPIPS"
+        ],
+        "result_summary": "在所有基准上均取得竞争性或最先进结果。",
+        "what_it_tries_to_prove": "在标准基准数据集上验证本方法的性能，确保结果的可比性和可信度。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "训练时间、渲染速度和内存使用。",
+        "results": "训练时间6-51分钟，渲染速度≥30 fps（最高300 fps），模型大小3.8-9 MB，训练内存峰值超过20 GB（可优化）。",
+        "anchors": [
+          "anc_00002",
+          "anc_00003",
+          "anc_00004",
+          "anc_00005",
+          "anc_00006",
+          "anc_00145",
+          "anc_00150",
+          "anc_00152",
+          "anc_00173",
+          "anc_00174",
+          "anc_00176",
+          "anc_00177"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "efficiency",
+        "name": "efficiency_7",
+        "dataset": [
+          "Mip-NeRF360",
+          "Tanks&Temples",
+          "Deep Blending",
+          "Synthetic NeRF"
+        ],
+        "baseline": [
+          "Mip-NeRF360",
+          "InstantNGP",
+          "Plenoxels"
+        ],
+        "metrics": [
+          "训练时间",
+          "渲染FPS",
+          "内存"
+        ],
+        "result_summary": "训练时间6-51分钟，渲染速度≥30 fps（最高300 fps），模型大小3.8-9 MB，训练内存峰值超过20 GB（可优化）。",
+        "what_it_tries_to_prove": "评估本方法在训练效率、渲染速度和内存消耗方面的性能。",
+        "evidence_strength": "strong"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "实现最先进视觉质量的同时保持竞争性训练时间。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00007",
+          "anc_00008",
+          "anc_00009",
+          "anc_00121",
+          "anc_00122",
+          "anc_00134",
+          "anc_00135",
+          "anc_00139",
+          "anc_00145",
+          "anc_00146"
+        ],
+        "risk_flags": [
+          "质量评估依赖于特定数据集和指标"
+        ],
+        "claim_id": "claim_1",
+        "evidence": [
+          {
+            "evidence_id": "evidence_1_1",
+            "description": "在Mip-NeRF360数据集上，PSNR达到25.65（30K迭代），训练时间35-45分钟，渲染速度135 fps。质量与Mip-NeRF360相当或更好，训练时间快100倍以上，渲染速度快2000倍以上。",
+            "anchors": [
+              "anc_00121",
+              "anc_00122",
+              "anc_00134",
+              "anc_00135",
+              "anc_00139",
+              "anc_00145",
+              "anc_00146"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_1_2",
+            "description": "图1显示，本方法在训练时间6分钟时PSNR为23.6，训练时间51分钟时PSNR为25.2，均优于或接近其他方法。",
+            "anchors": [
+              "anc_00002",
+              "anc_00003",
+              "anc_00004",
+              "anc_00005",
+              "anc_00006",
+              "anc_00007",
+              "anc_00008",
+              "anc_00009"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "允许高质量实时（≥30 fps）1080p分辨率新视角合成。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00010",
+          "anc_00011",
+          "anc_00012",
+          "anc_00108",
+          "anc_00109",
+          "anc_00111",
+          "anc_00113",
+          "anc_00137",
+          "anc_00145",
+          "anc_00150"
+        ],
+        "risk_flags": [
+          "渲染速度依赖于硬件和场景复杂度"
+        ],
+        "claim_id": "claim_2",
+        "evidence": [
+          {
+            "evidence_id": "evidence_2_1",
+            "description": "在Mip-NeRF360数据集上，渲染速度达到135 fps；在合成场景中，渲染速度达到180-300 FPS。",
+            "anchors": [
+              "anc_00137",
+              "anc_00145",
+              "anc_00150"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_2_2",
+            "description": "基于瓦片的排序渲染器支持各向异性溅射，实现快速训练和实时渲染。",
+            "anchors": [
+              "anc_00108",
+              "anc_00109",
+              "anc_00111",
+              "anc_00113"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "3D高斯表示保留了连续体积辐射场的优化属性，同时避免了不必要的计算。",
+        "evidence_source_type": "方法描述",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00010",
+          "anc_00012",
+          "anc_00016",
+          "anc_00030",
+          "anc_00053",
+          "anc_00060",
+          "anc_00062",
+          "anc_00063"
+        ],
+        "risk_flags": [
+          "优化属性的具体比较有限"
+        ],
+        "claim_id": "claim_3",
+        "evidence": [
+          {
+            "evidence_id": "evidence_3_1",
+            "description": "3D高斯从SfM点云初始化，保留了体积渲染的优化属性，同时允许基于溅射的快速光栅化，避免了不必要的空空间计算。",
+            "anchors": [
+              "anc_00010",
+              "anc_00012",
+              "anc_00016",
+              "anc_00030"
+            ],
+            "strength": "medium"
+          },
+          {
+            "evidence_id": "evidence_3_2",
+            "description": "协方差矩阵分解为旋转和缩放，便于独立优化各向异性形状。",
+            "anchors": [
+              "anc_00053",
+              "anc_00060",
+              "anc_00062",
+              "anc_00063"
+            ],
+            "strength": "medium"
+          }
+        ]
+      },
+      {
+        "claim": "各向异性协方差优化能够准确表示场景几何。",
+        "evidence_source_type": "消融研究",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00062",
+          "anc_00063",
+          "anc_00066",
+          "anc_00163",
+          "anc_00171"
+        ],
+        "risk_flags": [
+          "各向异性可能产生拉长伪影"
+        ],
+        "claim_id": "claim_4",
+        "evidence": [
+          {
+            "evidence_id": "evidence_4_1",
+            "description": "消融研究显示，各向异性协方差比各向同性提高约0.7 dB PSNR。",
+            "anchors": [
+              "anc_00163"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_4_2",
+            "description": "图10显示，使用各向异性高斯能够建模精细结构，而各向同性高斯则不能。",
+            "anchors": [
+              "anc_00171"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "快速可见性感知渲染算法支持各向异性溅射，加速训练并实现实时渲染。",
+        "evidence_source_type": "方法描述与实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00108",
+          "anc_00109",
+          "anc_00111",
+          "anc_00113",
+          "anc_00137",
+          "anc_00145",
+          "anc_00150"
+        ],
+        "risk_flags": [
+          "渲染算法的可见性处理可能产生弹出伪影"
+        ],
+        "claim_id": "claim_5",
+        "evidence": [
+          {
+            "evidence_id": "evidence_5_1",
+            "description": "基于瓦片的排序渲染器支持各向异性溅射，实现快速训练和实时渲染。",
+            "anchors": [
+              "anc_00108",
+              "anc_00109",
+              "anc_00111",
+              "anc_00113"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_5_2",
+            "description": "在Mip-NeRF360数据集上，渲染速度达到135 fps；在合成场景中，渲染速度达到180-300 FPS。",
+            "anchors": [
+              "anc_00137",
+              "anc_00145",
+              "anc_00150"
+            ],
+            "strength": "strong"
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "3D高斯": "三维空间中的高斯分布，用于表示场景几何和外观，具有位置、协方差、不透明度和颜色属性。",
+    "协方差矩阵": "描述3D高斯形状和方向的矩阵，分解为旋转和缩放分量。",
+    "球谐系数": "用于表示视角相关颜色的函数系数。",
+    "密度控制": "在优化过程中调整高斯数量的策略，包括克隆、分裂和重置不透明度。",
+    "溅射": "将3D高斯投影到2D图像平面的过程，用于渲染。",
+    "基于瓦片的渲染": "将屏幕分割为瓦片，并行处理高斯以提高渲染效率。",
+    "α混合": "沿光线累积颜色和不透明度以计算像素颜色的方法。",
+    "SfM点云": "从运动恢复结构（Structure-from-Motion）生成的稀疏3D点云，用作初始化。",
+    "各向异性": "高斯在不同方向上具有不同尺度，能够表示细长结构。",
+    "视锥体剔除": "剔除不在相机视锥体内的高斯以提高渲染效率。",
+    "terms": []
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        "Mip-NeRF360数据集",
+        "Tanks&Temples数据集",
+        "Deep Blending数据集",
+        "Synthetic NeRF数据集"
+      ],
+      "required_models": [
+        "3D高斯模型（自定义）",
+        "SfM点云（如COLMAP生成）"
+      ],
+      "required_compute": "高性能GPU（如A6000），训练需要数GB内存，渲染需要足够内存存储模型和光栅化器。",
+      "code_available": "论文提到代码将在发表后提供，但当前状态未知。",
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 使用COLMAP等工具从多视图图像生成SfM点云和相机参数。",
+          "anchors": [
+            "anc_00012"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 初始化3D高斯：从SfM点云创建高斯，设置初始协方差、不透明度和球谐系数。",
+          "anchors": [
+            "anc_00012",
+            "anc_00066"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 实现优化循环：渲染高斯，计算损失（L1 + D-SSIM），更新参数。",
+          "anchors": [
+            "anc_00077",
+            "anc_00082"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "4. 实现密度控制：根据位置梯度和尺寸执行克隆和分裂，定期重置不透明度。",
+          "anchors": [
+            "anc_00077",
+            "anc_00086",
+            "anc_00088",
+            "anc_00090",
+            "anc_00092",
+            "anc_00093",
+            "anc_00095"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "5. 实现快速渲染器：基于瓦片的排序和α混合，支持各向异性溅射。",
+          "anchors": [
+            "anc_00108",
+            "anc_00109",
+            "anc_00111",
+            "anc_00113"
+          ]
+        },
+        {
+          "step": "step_6",
+          "description": "6. 在多个数据集上训练和评估，调整超参数（如λ=0.2，N=3000，φ=1.6）。",
+          "anchors": [
+            "anc_00082",
+            "anc_00092",
+            "anc_00095"
+          ]
+        }
+      ],
+      "missing_details": [],
+      "risk_points": []
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-01T23:22:31+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_ml_076_3d_gaussian_splatting_for_real_time_radiance_fie_2023",
+    "title": "3D Gaussian Splatting for Real-Time Radiance Field Rendering",
+    "authors": [
+      "Bernhard Kerbl",
+      "Georgios Kopanas",
+      "Thomas Leimkuehler",
+      "G. Drettakis"
+    ],
+    "venue": "ACM Transactions on Graphics",
+    "year": 2023,
+    "arxiv_id": "2308.04079",
+    "doi": "10.1145/3592433",
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-01T23:21:04+00:00",
+    "paper_type": "Top-cited ML method paper",
+    "citation_count": 8110,
+    "influential_citation_count": 2296,
+    "semantic_scholar_id": "2cc1d857e86d5152ba7fe6a8355c2a0150cc280a",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/2cc1d857e86d5152ba7fe6a8355c2a0150cc280a",
+    "importance_rank": 76,
+    "selection_source": "semantic_scholar_top_cited_ml_open_pdf_2026_05_01",
+    "open_access_pdf_url": "https://dl.acm.org/doi/pdf/10.1145/3592433",
+    "fields_of_study": [
+      "Computer Science"
+    ],
+    "publication_types": [
+      "JournalArticle"
+    ],
+    "abstract": "Radiance Field methods have recently revolutionized novel-view synthesis of scenes captured with multiple photos or videos. However, achieving high visual quality still requires neural networks that are costly to train and render, while recent faster methods inevitably trade off speed for quality. For unbounded and complete scenes (rather than isolated objects) and 1080p resolution rendering, no current method can achieve real-time display rates. We introduce three key elements that allow us to achieve state-of-the-art visual quality while maintaining competitive training times and importantly allow high-quality real-time (≥ 30 fps) novel-view synthesis at 1080p resolution. First, starting from sparse points produced during camera calibration, we represent the scene with 3D Gaussians that preserve desirable properties of continuous volumetric radiance fields for scene optimization while avoiding unnecessary computation in empty space; Second, we perform interleaved optimization/density control of the 3D Gaussians, notably optimizing anisotropic covariance to achieve an accurate representation of the scene; Third, we develop a fast visibility-aware rendering algorithm that supports anisotropic splatting and both accelerates training and allows realtime rendering. We demonstrate state-of-the-art visual quality and real-time rendering on several established datasets."
+  },
+  "anchors": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "3D Gaussian Splatting for Real-Time Radiance Field Rendering BERNHARD KERBL∗, Inria, Université Côte d’Azur, France GEORGIOS KOPANAS∗, Inria, Université Côte d’Azur, France THOMAS LEIMKÜHLER, Max-Planck-Institut für Informatik, Germany GEORGE DRETTAKIS, Inria, Université Côte d’Azur, France Ground TruthInstantNGP (9.2 fps) Plenoxels (8.2 fps)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Train: 7min, PSNR: 22.1 Train: 26min, PSNR: 21.9",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Mip-NeRF360 (0.071 fps) Train: 48 h, PSNR: 24.3 Ours (135 fps)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Train: 6 min, PSNR: 23.6",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Ours (93 fps)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Train: 51min, PSNR: 25.2",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Fig. 1. Our method achieves real-time rendering of radiance fields with quality that equals the previous method with the best quality [Barron et al . 2022],",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "while only requiring optimization times competitive with the fastest previous methods [Fridovich-Keil and Yu et al. 2022; Müller et al. 2022]. Key to this performance is a novel 3D Gaussian scene representation coupled with a real-time differentiable renderer, which offers significant speedup to both scene optimization and novel view synthesis. Note that for comparable training times to InstantNGP [Müller et al. 2022], we achieve similar quality to theirs; while",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "this is the maximum quality they reach, by training for 51min we achieve state-of-the-art quality, even slightly better than Mip-NeRF360 [Barron et al. 2022].",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Radiance Field methods have recently revolutionized novel-view synthesis of scenes captured with multiple photos or videos. However, achieving high visual quality still requires neural networks that are costly to train and ren- der, while recent faster methods inevitably trade off speed for quality. For unbounded and complete scenes (rather than isolated objects) and 1080p resolution rendering, no current method can achieve real-time display rates. We introduce three key elements that allow us to achieve state-of-the-art visual quality while maintaining competitive training times and importantly",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "allow high-quality real-time (≥ 30 fps) novel-view synthesis at 1080p resolu-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "tion. First, starting from sparse points produced during camera calibration, we represent the scene with 3D Gaussians that preserve desirable proper- ties of continuous volumetric radiance fields for scene optimization while avoiding unnecessary computation in empty space; Second, we perform interleaved optimization/density control of the 3D Gaussians, notably opti- mizing anisotropic covariance to achieve an accurate representation of the scene; Third, we develop a fast visibility-aware rendering algorithm that supports anisotropic splatting and both accelerates training and allows real- time rendering. We demonstrate state-of-the-art visual quality and real-time rendering on several established datasets.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "CCS Concepts: •Computing methodologies → Rendering; Point-based",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "models; Rasterization; Machine learning approaches. ∗Both authors contributed equally to the paper. Authors’ addresses: Bernhard Kerbl, bernhard.kerbl@inria.fr, Inria, Université Côte d’Azur, France; Georgios Kopanas, georgios.kopanas@inria.fr, Inria, Université Côte d’Azur, France; Thomas Leimkühler, thomas.leimkuehler@mpi-inf.mpg.de, Max- Planck-Institut für Informatik, Germany; George Drettakis, george.drettakis@inria.fr, Inria, Université Côte d’Azur, France. Publication rights licensed to ACM. ACM acknowledges that this contribution was authored or co-authored by an employee, contractor or affiliate of a national govern- ment. As such, the Government retains a nonexclusive, royalty-free right to publish or reproduce this article, or to allow others to do so, for Government purposes only. © 2023 Copyright held by the owner/author(s). Publication rights licensed to ACM. 0730-0301/2023/8-ART1 $15.00 https://doi.org/10.1145/3592433 Additional Key Words and Phrases: novel view synthes...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 1,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "1 INTRODUCTION",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 1,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "Meshes and points are the most common 3D scene representations because they are explicit and are a good fit for fast GPU/CUDA-based rasterization. In contrast, recent Neural Radiance Field (NeRF) meth- ods build on continuous scene representations, typically optimizing a Multi-Layer Perceptron (MLP) using volumetric ray-marching for novel-view synthesis of captured scenes. Similarly, the most efficient radiance field solutions to date build on continuous representations by interpolating values stored in, e.g., voxel [Fridovich-Keil and Yu et al. 2022] or hash [Müller et al. 2022] grids or points [Xu et al. 2022]. While the continuous nature of these methods helps optimization, the stochastic sampling required for rendering is costly and can result in noise. We introduce a new approach that combines the best of both worlds: our 3D Gaussian representation allows optimization with state-of-the-art (SOTA) visual quality and competitive training times, while our tile-based splatting soluti...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 2,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "1:2 • Bernhard Kerbl, Georgios Kopanas, Thomas Leimkühler, and George Drettakis and Yu et al. 2022; Müller et al. 2022], but struggle to achieve the visual quality obtained by the current SOTA NeRF methods, i.e., Mip-NeRF360 [Barron et al. 2022], which requires up to 48 hours of training time. The fast – but lower-quality – radiance field methods can achieve interactive rendering times depending on the scene (10-15 frames per second), but fall short of real-time rendering at high resolution. Our solution builds on three main components. We first intro- duce 3D Gaussians as a flexible and expressive scene representation. We start with the same input as previous NeRF-like methods, i.e., cameras calibrated with Structure-from-Motion (SfM) [Snavely et al. 2006] and initialize the set of 3D Gaussians with the sparse point cloud produced for free as part of the SfM process. In contrast to most point-based solutions that require Multi-View Stereo (MVS) data [Aliev et al. 2020; Kopanas et al....",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "2 RELATED WORK",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "We first briefly overview traditional reconstruction, then discuss point-based rendering and radiance field work, discussing their similarity; radiance fields are a vast area, so we focus only on directly related work. For complete coverage of the field, please see the excellent recent surveys [Tewari et al. 2022; Xie et al. 2022].",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "2.1 Traditional Scene Reconstruction and Rendering",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "The first novel-view synthesis approaches were based on light fields, first densely sampled [Gortler et al. 1996; Levoy and Hanrahan 1996] then allowing unstructured capture [Buehler et al. 2001]. The advent of Structure-from-Motion (SfM) [Snavely et al . 2006] enabled an entire new domain where a collection of photos could be used to synthesize novel views. SfM estimates a sparse point cloud during camera calibration, that was initially used for simple visualization of 3D space. Subsequent multi-view stereo (MVS) produced im- pressive full 3D reconstruction algorithms over the years [Goesele et al. 2007], enabling the development of several view synthesis algorithms [Chaurasia et al. 2013; Eisemann et al. 2008; Hedman et al. 2018; Kopanas et al. 2021]. All these methods re-project and blend the input images into the novel view camera, and use the geometry to guide this re-projection. These methods produced ex- cellent results in many cases, but typically cannot completely re- cover f...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00022",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "avoid the overwhelming cost of storing all input images on the GPU,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "outperforming these methods on most fronts.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00024",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "2.2 Neural Rendering and Radiance Fields",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Deep learning techniques were adopted early for novel-view synthe- sis [Flynn et al. 2016; Zhou et al. 2016]; CNNs were used to estimate blending weights [Hedman et al. 2018], or for texture-space solutions [Riegler and Koltun 2020; Thies et al. 2019]. The use of MVS-based geometry is a major drawback of most of these methods; in addition, the use of CNNs for final rendering frequently results in temporal flickering. Volumetric representations for novel-view synthesis were ini- tiated by Soft3D [Penner and Zhang 2017]; deep-learning tech- niques coupled with volumetric ray-marching were subsequently proposed [Henzler et al. 2019; Sitzmann et al. 2019] building on a con- tinuous differentiable density field to represent geometry. Rendering",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "using volumetric ray-marching has a significant cost due to the large",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00027",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "number of samples required to query the volume. Neural Radiance Fields (NeRFs) [Mildenhall et al. 2020] introduced importance sam-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00028",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "pling and positional encoding to improve quality, but used a large",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 2,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Multi-Layer Perceptron negatively affecting speed. The success of NeRF has resulted in an explosion of follow-up methods that address quality and speed, often by introducing regularization strategies; the current state-of-the-art in image quality for novel-view synthesis is Mip-NeRF360 [Barron et al. 2022]. While the rendering quality is outstanding, training and rendering times remain extremely high; we are able to equal or in some cases surpass this quality while providing fast training and real-time rendering. The most recent methods have focused on faster training and/or rendering mostly by exploiting three design choices: the use of spa- tial data structures to store (neural) features that are subsequently interpolated during volumetric ray-marching, different encodings, ACM Trans. Graph., Vol. 42, No. 4, Article 1. Publication date: August 2023.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "3D Gaussian Splatting for Real-Time Radiance Field Rendering • 1:3 and MLP capacity. Such methods include different variants of space discretization [Chen et al. 2022b,a; Fridovich-Keil and Yu et al. 2022; Garbin et al. 2021; Hedman et al. 2021; Reiser et al. 2021; Takikawa et al. 2021; Wu et al . 2022; Yu et al. 2021], codebooks [Takikawa et al. 2022], and encodings such as hash tables [Müller et al. 2022], allowing the use of a smaller MLP or foregoing neural networks completely [Fridovich-Keil and Yu et al. 2022; Sun et al. 2022]. Most notable of these methods are InstantNGP [Müller et al. 2022] which uses a hash grid and an occupancy grid to accelerate compu- tation and a smaller MLP to represent density and appearance; and Plenoxels [Fridovich-Keil and Yu et al. 2022] that use a sparse voxel grid to interpolate a continuous density field, and are able to forgo neural networks altogether. Both rely on Spherical Harmonics: the former to represent directional effects directly, the l...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00031",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "image quality is limited in large part by the choice of the structured",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "grids used for acceleration, and rendering speed is hindered by the need to query many samples for a given ray-marching step. The un- structured, explicit GPU-friendly 3D Gaussians we use achieve faster rendering speed and better quality without neural components.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00033",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "2.3 Point-Based Rendering and Radiance Fields",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Point-based methods efficiently render disconnected and unstruc- tured geometry samples (i.e., point clouds) [Gross and Pfister 2011]. In its simplest form, point sample rendering [Grossman and Dally 1998] rasterizes an unstructured set of points with a fixed size, for which it may exploit natively supported point types of graphics APIs [Sainz and Pajarola 2004] or parallel software rasterization on the GPU [Laine and Karras 2011; Schütz et al. 2022]. While true to the underlying data, point sample rendering suffers from holes, causes",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00035",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "aliasing, and is strictly discontinuous. Seminal work on high-quality",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "point-based rendering addresses these issues by “splatting” point",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00037",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "primitives with an extent larger than a pixel, e.g., circular or elliptic",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00038",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "discs, ellipsoids, or surfels [Botsch et al. 2005; Pfister et al. 2000; Ren et al. 2002; Zwicker et al. 2001b]. There has been recent interest indifferentiable point-based render- ing techniques [Wiles et al. 2020; Yifan et al. 2019]. Points have been augmented with neural features and rendered using a CNN [Aliev et al. 2020; Rückert et al. 2022] resulting in fast or even real-time view synthesis; however they still depend on MVS for the initial geometry, and as such inherit its artifacts, most notably over- or under-reconstruction in hard cases such as featureless/shiny areas or thin structures. Point-based 𝛼-blending and NeRF-style volumetric rendering share essentially the same image formation model. Specifically, the color 𝐶 is given by volumetric rendering along a ray: 𝐶 = 𝑁∑︁ 𝑖=1",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00039",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "𝑇𝑖 (1 − exp(−𝜎𝑖𝛿𝑖 ))c𝑖 with 𝑇𝑖 = exp©­",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "« − 𝑖 −1∑︁ 𝑗=1 𝜎 𝑗 𝛿 𝑗 ª® ¬ , (1) where samples of density 𝜎, transmittance 𝑇 , and color c are taken along the ray with intervals 𝛿𝑖. This can be re-written as 𝐶 = 𝑁∑︁ 𝑖=1 𝑇𝑖𝛼𝑖 c𝑖, (2) with",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00041",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "𝛼𝑖 = (1 − exp(−𝜎𝑖𝛿𝑖 )) and 𝑇𝑖 =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00042",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "𝑖 −1Ö 𝑗=1 (1 − 𝛼𝑖 ). A typical neural point-based approach (e.g., [Kopanas et al . 2022, 2021]) computes the color𝐶 of a pixel by blending N ordered points overlapping the pixel: 𝐶 = ∑︁ 𝑖 ∈ N 𝑐𝑖𝛼𝑖 𝑖 −1Ö 𝑗=1 (1 − 𝛼 𝑗 ), (3) where c𝑖 is the color of each point and 𝛼𝑖 is given by evaluating a",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00043",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "2D Gaussian with covariance Σ [Yifan et al. 2019] multiplied with a",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "learned per-point opacity. From Eq. 2 and Eq. 3, we can clearly see that the image formation model is the same. However, the rendering algorithm is very differ- ent. NeRFs are a continuous representation implicitly representing empty/occupied space; expensive random sampling is required to find the samples in Eq. 2 with consequent noise and computational expense. In contrast, points are an unstructured, discrete represen- tation that is flexible enough to allow creation, destruction, and displacement of geometry similar to NeRF. This is achieved by opti- mizing opacity and positions, as shown by previous work [Kopanas",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00045",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "et al. 2021], while avoiding the shortcomings of a full volumetric",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00046",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "representation. Pulsar [Lassner and Zollhofer 2021] achieves fast sphere rasteri- zation which inspired our tile-based and sorting renderer. However, given the analysis above, we want to maintain (approximate) con- ventional 𝛼-blending on sorted splats to have the advantages of vol- umetric representations: Our rasterization respects visibility order in contrast to their order-independent method. In addition, we back- propagate gradients on all splats in a pixel and rasterize anisotropic splats. These elements all contribute to the high visual quality of our results (see Sec. 7.3). In addition, previous methods mentioned above also use CNNs for rendering, which results in temporal in- stability. Nonetheless, the rendering speed of Pulsar [Lassner and Zollhofer 2021] and ADOP [Rückert et al. 2022] served as motivation to develop our fast rendering solution. While focusing on specular effects, the diffuse point-based ren- dering track of Neural Point Catacaustics [Kopanas et al . 2022]...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00047",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "1:4 • Bernhard Kerbl, Georgios Kopanas, Thomas Leimkühler, and George Drettakis A recent approach [Xu et al . 2022] uses points to represent a radiance field with a radial basis function approach. They employ point pruning and densification techniques during optimization, but use volumetric ray-marching and cannot achieve real-time display rates. In the domain of human performance capture, 3D Gaussians have been used to represent captured human bodies [Rhodin et al. 2015; Stoll et al. 2011]; more recently they have been used with volumetric ray-marching for vision tasks [Wang et al. 2023]. Neural volumetric primitives have been proposed in a similar context [Lombardi et al. 2021]. While these methods inspired the choice of 3D Gaussians as our scene representation, they focus on the specific case of recon- structing and rendering a single isolated object (a human body or face), resulting in scenes with small depth complexity. In contrast, our optimization of anisotropic covariance, our...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00048",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "indoors and outdoors and with large depth complexity.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "3 OVERVIEW",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00050",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "The input to our method is a set of images of a static scene, together with the corresponding cameras calibrated by SfM [Schönberger and Frahm 2016] which produces a sparse point cloud as a side- effect. From these points we create a set of 3D Gaussians (Sec. 4), defined by a position (mean), covariance matrix and opacity 𝛼, that allows a very flexible optimization regime. This results in a reason- ably compact representation of the 3D scene, in part because highly anisotropic volumetric splats can be used to represent fine structures compactly. The directional appearance component (color) of the radiance field is represented via spherical harmonics (SH), following standard practice [Fridovich-Keil and Yu et al . 2022; Müller et al . 2022]. Our algorithm proceeds to create the radiance field represen- tation (Sec. 5) via a sequence of optimization steps of 3D Gaussian parameters, i.e., position, covariance, 𝛼 and SH coefficients inter- leaved with operations for adaptive control of th...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "4 DIFFERENTIABLE 3D GAUSSIAN SPLATTING",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00052",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Our goal is to optimize a scene representation that allows high- quality novel view synthesis, starting from a sparse set of (SfM) points without normals. To do this, we need a primitive that inherits the properties of differentiable volumetric representations, while at the same time being unstructured and explicit to allow very fast rendering. We choose 3D Gaussians, which are differentiable and can be easily projected to 2D splats allowing fast 𝛼-blending for rendering. Our representation has similarities to previous methods that use 2D points [Kopanas et al. 2021; Yifan et al. 2019] and assume each point is a small planar circle with a normal. Given the extreme sparsity of SfM points it is very hard to estimate normals. Similarly, optimizing very noisy normals from such an estimation would be very challenging. Instead, we model the geometry as a set of 3D Gaussians that do not require normals. Our Gaussians are defined",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00053",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "by a full 3D covariance matrix Σ defined in world space [Zwicker",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "et al. 2001a] centered at point (mean) 𝜇: 𝐺 (𝑥) = 𝑒 − 1 2 (𝑥 )𝑇 Σ−1 (𝑥 ) (4) . This Gaussian is multiplied by 𝛼 in our blending process. However, we need to project our 3D Gaussians to 2D for rendering. Zwicker et al. [2001a] demonstrate how to do this projection to image space. Given a viewing transformation 𝑊 the covariance",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "matrix Σ′ in camera coordinates is given as follows:",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Σ′ = 𝐽𝑊 Σ 𝑊 𝑇 𝐽𝑇 (5)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00057",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "where 𝐽 is the Jacobian of the affine approximation of the projective transformation. Zwicker et al. [2001a] also show that if we skip the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00058",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "third row and column of Σ′, we obtain a 2×2 variance matrix with",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00059",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "the same structure and properties as if we would start from planar points with normals, as in previous work [Kopanas et al. 2021]. An obvious approach would be to directly optimize the covariance",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00060",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "matrix Σ to obtain 3D Gaussians that represent the radiance field.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00061",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "However, covariance matrices have physical meaning only when they are positive semi-definite. For our optimization of all our pa- rameters, we use gradient descent that cannot be easily constrained to produce such valid matrices, and update steps and gradients can very easily create invalid covariance matrices. As a result, we opted for a more intuitive, yet equivalently ex-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00062",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "pressive representation for optimization. The covariance matrix Σ",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "of a 3D Gaussian is analogous to describing the configuration of an",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00064",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "ellipsoid. Given a scaling matrix 𝑆 and rotation matrix 𝑅, we can",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00065",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "find the corresponding Σ:",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00066",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Σ = 𝑅𝑆𝑆 𝑇 𝑅𝑇 (6) To allow independent optimization of both factors, we store them separately: a 3D vector 𝑠 for scaling and a quaternion 𝑞 to represent rotation. These can be trivially converted to their respective matrices and combined, making sure to normalize 𝑞 to obtain a valid unit quaternion. To avoid significant overhead due to automatic differentiation during training, we derive the gradients for all parameters explicitly. Details of the exact derivative computations are in appendix A. This representation of anisotropic covariance – suitable for op- timization – allows us to optimize 3D Gaussians to adapt to the geometry of different shapes in captured scenes, resulting in a fairly compact representation. Fig. 3 illustrates such cases.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "5 OPTIMIZATION WITH ADAPTIVE DENSITY",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00068",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "CONTROL OF 3D GAUSSIANS The core of our approach is the optimization step, which creates a dense set of 3D Gaussians accurately representing the scene for free-view synthesis. In addition to positions 𝑝, 𝛼, and covariance",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Σ, we also optimize SH coefficients representing color 𝑐 of each",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00070",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Gaussian to correctly capture the view-dependent appearance of the scene. The optimization of these parameters is interleaved with steps that control the density of the Gaussians to better represent the scene. ACM Trans. Graph., Vol. 42, No. 4, Article 1. Publication date: August 2023.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00071",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "3D Gaussian Splatting for Real-Time Radiance Field Rendering • 1:5 Diﬀerentiable Tile Rasterizer Adaptive Density Control Projection Initialization SfM Points 3D Gaussians Image Camera Gradient FlowOperation Flow",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00072",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Fig. 2. Optimization starts with the sparse SfM point cloud and creates a set of 3D Gaussians. We then optimize and adaptively control the density of this set",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00073",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "of Gaussians. During optimization we use our fast tile-based renderer, allowing competitive training times compared to SOTA fast radiance field methods. Once trained, our renderer allows real-time navigation for a wide variety of scenes. Original Shrunken Gaussians",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00074",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Fig. 3. We visualize the 3D Gaussians after optimization by shrinking them",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00075",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "60% (far right). This clearly shows the anisotropic shapes of the 3D Gaussians that compactly represent complex geometry after optimization. Left the actual rendered image.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00076",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "5.1 Optimization",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00077",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "The optimization is based on successive iterations of rendering and comparing the resulting image to the training views in the captured dataset. Inevitably, geometry may be incorrectly placed due to the ambiguities of 3D to 2D projection. Our optimization thus needs to be able to create geometry and also destroy or move geometry if it has been incorrectly positioned. The quality of the parameters of the covariances of the 3D Gaussians is critical for the compactness of",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00078",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "the representation since large homogeneous areas can be captured",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00079",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "with a small number of large anisotropic Gaussians.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00080",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "We use Stochastic Gradient Descent techniques for optimization, taking full advantage of standard GPU-accelerated frameworks, and the ability to add custom CUDA kernels for some operations, following recent best practice [Fridovich-Keil and Yu et al . 2022; Sun et al. 2022]. In particular, our fast rasterization (see Sec. 6) is critical in the efficiency of our optimization, since it is the main computational bottleneck of the optimization. We use a sigmoid activation function for 𝛼 to constrain it in the [0 − 1) range and obtain smooth gradients, and an exponential activation function for the scale of the covariance for similar reasons. We estimate the initial covariance matrix as an isotropic Gaussian with axes equal to the mean of the distance to the closest three points. We use a standard exponential decay scheduling technique similar to Plenoxels [Fridovich-Keil and Yu et al. 2022], but for positions only. The loss function is L1 combined with a D-SSIM term:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00081",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "L = (1 − 𝜆)L 1 + 𝜆LD-SSIM (7)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00082",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "We use𝜆 = 0.2 in all our tests. We provide details of the learning",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00083",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "schedule and other elements in Sec. 7.1.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00084",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "5.2 Adaptive Control of Gaussians",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00085",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "We start with the initial set of sparse points from SfM and then apply our method to adaptively control the number of Gaussians and their density over unit volume1, allowing us to go from an initial sparse set of Gaussians to a denser set that better represents the scene, and with correct parameters. After optimization warm-up (see Sec. 7.1), we densify every 100 iterations and remove any Gaussians that are essentially transparent, i.e., with 𝛼 less than a threshold 𝜖𝛼 . Our adaptive control of the Gaussians needs to populate empty areas. It focuses on regions with missing geometric features (“under-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00086",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "reconstruction”), but also in regions where Gaussians cover large",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00087",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "areas in the scene (which often correspond to “over-reconstruction”).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00088",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "We observe that both have large view-space positional gradients.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00089",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Intuitively, this is likely because they correspond to regions that are not yet well reconstructed, and the optimization tries to move the Gaussians to correct this. Since both cases are good candidates for densification, we den- sify Gaussians with an average magnitude of view-space position gradients above a threshold 𝜏pos, which we set to 0.0002 in our tests. We next present details of this process, illustrated in Fig. 4. For small Gaussians that are in under-reconstructed regions, we need to cover the new geometry that must be created. For this, it is preferable to clone the Gaussians, by simply creating a copy of the same size, and moving it in the direction of the positional gradient.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00090",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "On the other hand, large Gaussians in regions with high variance",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00091",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "need to be split into smaller Gaussians. We replace such Gaussians",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00092",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "by two new ones, and divide their scale by a factor of𝜙 = 1.6 which",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00093",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "we determined experimentally. We also initialize their position by",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00094",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "using the original 3D Gaussian as a PDF for sampling. In the first case we detect and treat the need for increasing both the total volume of the system and the number of Gaussians, while in the second case we conserve total volume but increase the num- ber of Gaussians. Similar to other volumetric representations, our optimization can get stuck with floaters close to the input cameras; in our case this may result in an unjustified increase in the Gaussian density. An effective way to moderate the increase in the number",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00095",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "of Gaussians is to set the 𝛼 value close to zero every 𝑁 = 3000",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00096",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "1Density of Gaussians should not be confused of course with density 𝜎 in the NeRF literature. ACM Trans. Graph., Vol. 42, No. 4, Article 1. Publication date: August 2023.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00097",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "1:6 • Bernhard Kerbl, Georgios Kopanas, Thomas Leimkühler, and George Drettakis Under- Reconstruction Clone Split Optimization Continues … … Optimization Continues Over- Reconstruction",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00098",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Fig. 4. Our adaptive Gaussian densification scheme. Top row (under-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00099",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "reconstruction): When small-scale geometry (black outline) is insufficiently covered, we clone the respective Gaussian. Bottom row (over-reconstruction):",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00100",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "If small-scale geometry is represented by one large splat, we split it in two.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00101",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "iterations. The optimization then increases the 𝛼 for the Gaussians where this is needed while allowing our culling approach to remove Gaussians with 𝛼 less than 𝜖𝛼 as described above. Gaussians may shrink or grow and considerably overlap with others, but we peri-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00102",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "odically remove Gaussians that are very large in worldspace and",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00103",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "those that have a big footprint in viewspace. This strategy results in overall good control over the total number of Gaussians. The Gaussians in our model remain primitives in Euclidean space at all times; unlike other methods [Barron et al. 2022; Fridovich-Keil and Yu et al. 2022], we do not require space compaction, warping or",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00104",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "projection strategies for distant or large Gaussians.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00105",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "6 FAST DIFFERENTIABLE RASTERIZER FOR GAUSSIANS",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00106",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Our goals are to have fast overall rendering and fast sorting to allow approximate 𝛼-blending – including for anisotropic splats – and to avoid hard limits on the number of splats that can receive gradients that exist in previous work [Lassner and Zollhofer 2021]. To achieve these goals, we design a tile-based rasterizer for Gauss- ian splats inspired by recent software rasterization approaches [Lass- ner and Zollhofer 2021] to pre-sort primitives for an entire image at a time, avoiding the expense of sorting per pixel that hindered previous 𝛼-blending solutions [Kopanas et al. 2022, 2021]. Our fast rasterizer allows efficient backpropagation over an arbitrary num- ber of blended Gaussians with low additional memory consump- tion, requiring only a constant overhead per pixel. Our rasterization pipeline is fully differentiable, and given the projection to 2D (Sec. 4) can rasterize anisotropic splats similar to previous 2D splatting",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00107",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "methods [Kopanas et al. 2021].",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00108",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Our method starts by splitting the screen into 16 ×16 tiles, and then proceeds to cull 3D Gaussians against the view frustum and each tile. Specifically, we only keep Gaussians with a 99% confi- dence interval intersecting the view frustum. Additionally, we use a guard band to trivially reject Gaussians at extreme positions (i.e., those with means close to the near plane and far outside the view frustum), since computing their projected 2D covariance would be unstable. We then instantiate each Gaussian according to the number of tiles they overlap and assign each instance a key that combines view space depth and tile ID. We then sort Gaussians based on these keys using a single fast GPU Radix sort [Merrill and Grimshaw 2010]. Note that there is no additional per-pixel or- dering of points, and blending is performed based on this initial sorting. As a consequence, our 𝛼-blending can be approximate in some configurations. However, these approximations become negli- gible as splats appro...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00109",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "by traversing the lists front-to-back, thus maximizing the gain in",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00110",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "parallelism both for data loading/sharing and processing. When we",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00111",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "reach a target saturation of 𝛼 in a pixel, the corresponding thread",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00112",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "stops. At regular intervals, threads in a tile are queried and the pro-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00113",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "cessing of the entire tile terminates when all pixels have saturated",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00114",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "(i.e., 𝛼 goes to 1). Details of sorting and a high-level overview of the overall rasterization approach are given in Appendix C. During rasterization, the saturation of 𝛼 is the only stopping cri- terion. In contrast to previous work, we do not limit the number of blended primitives that receive gradient updates. We enforce this property to allow our approach to handle scenes with an arbi- trary, varying depth complexity and accurately learn them, without having to resort to scene-specific hyperparameter tuning. During the backward pass, we must therefore recover the full sequence of blended points per-pixel in the forward pass. One solution would be to store arbitrarily long lists of blended points per-pixel in global memory [Kopanas et al. 2021]. To avoid the implied dynamic mem- ory management overhead, we instead choose to traverse the per- tile lists again; we can reuse the sorted array of Gaussians and tile ranges from the forward pass. To facilitate gradient computation, we now...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00115",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "7 IMPLEMENTATION, RESULTS AND EVALUATION",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00116",
+      "page": 6,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "We next discuss some details of implementation, present results and the evaluation of our algorithm compared to previous work and ablation studies. ACM Trans. Graph., Vol. 42, No. 4, Article 1. Publication date: August 2023.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00117",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "3D Gaussian Splatting for Real-Time Radiance Field Rendering • 1:7 Ground Truth Ours Mip-NeRF360 InstantNGP Plenoxels",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00118",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Fig. 5. We show comparisons of ours to previous methods and the corresponding ground truth images from held-out test views. The scenes are, from the top",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00119",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "down: Bicycle, Garden, Stump, Counter and Room from the Mip-NeRF360 dataset; Playroom, DrJohnson from the Deep Blending dataset [Hedman et al. 2018] and Truck and Train from Tanks&Temples. Non-obvious differences in quality highlighted by arrows/insets. ACM Trans. Graph., Vol. 42, No. 4, Article 1. Publication date: August 2023.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00120",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "1:8 • Bernhard Kerbl, Georgios Kopanas, Thomas Leimkühler, and George Drettakis",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00121",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 1. Quantitative evaluation of our method compared to previous work, computed over three datasets. Results marked with dagger † have been directly",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00122",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "adopted from the original paper, all others were obtained in our own experiments. Dataset Mip-NeRF360 Tanks&Temples Deep Blending Method|Metric𝑆𝑆𝐼 𝑀↑ 𝑃𝑆𝑁 𝑅↑ 𝐿𝑃𝐼 𝑃𝑆↓ Train FPS Mem 𝑆𝑆𝐼 𝑀↑ 𝑃𝑆𝑁 𝑅↑ 𝐿𝑃𝐼 𝑃𝑆↓ Train FPS Mem 𝑆𝑆𝐼 𝑀↑ 𝑃𝑆𝑁 𝑅↑ 𝐿𝑃𝐼 𝑃𝑆↓ Train FPS Mem Plenoxels 0.626 23.08 0.463 25m49s 6.79 2.1GB 0.719 21.08 0.379 25m5s 13.0 2.3GB 0.795 23.06 0.510 27m49s 11.2 2.7GB INGP-Base 0.671 25.30 0.371 5m37s 11.7 13MB 0.723 21.72 0.330 5m26s 17.1 13MB 0.797 23.62 0.423 6m31s 3.26 13MB INGP-Big 0.699 25.59 0.331 7m30s 9.43 48MB 0.745 21.92 0.305 6m59s 14.4 48MB 0.817 24.96 0.390 8m 2.79 48MB M-NeRF360 0.792† 27.69† 0.237† 48h 0.06 8.6MB 0.759 22.22 0.257 48h 0.14 8.6MB 0.901 29.40 0.245 48h 0.09 8.6MB Ours-7K 0.770 25.60 0.279 6m25s 160 523MB 0.767 21.20 0.280 6m55s 197 270MB 0.875 27.78 0.317 4m35s 172 386MB Ours-30K 0.815 27.21 0.214 41m33s 134 734MB 0.841 23.14 0.183 26m54s 154 411MB 0.903 29.41 0.243 36m2s 137 676MB 7K iterations 7K iterations 30K iterations 30K iterations",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00123",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Fig. 6. For some scenes (above) we can see that even at 7K iterations (∼5min",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00124",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "for this scene), our method has captured the train quite well. At 30K itera-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00125",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "tions (∼35min) the background artifacts have been reduced significantly. For",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00126",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "other scenes (below), the difference is barely visible; 7K iterations (∼8min)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00127",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "is already very high quality.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00128",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 2. PSNR scores for Synthetic NeRF, we start with 100K randomly",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00129",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "initialized points. Competing metrics extracted from respective papers. Mic Chair Ship Materials Lego Drums Ficus Hotdog Avg. Plenoxels 33.26 33.98 29.62 29.14 34.10 25.35 31.83 36.81 31.76 INGP-Base36.22 35.00 31.10 29.78 36.39 26.02 33.51 37.40 33.18 Mip-NeRF36.51 35.14 30.41 30.71 35.70 25.48 33.29 37.48 33.09 Point-NeRF35.95 35.40 30.97 29.61 35.04 26.06 36.13 37.30 33.30 Ours-30K 35.36 35.83 30.80 30.00 35.78 26.15 34.87 37.72 33.32",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00130",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "7.1 Implementation",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00131",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "We implemented our method in Python using the PyTorch frame- work and wrote custom CUDA kernels for rasterization that are extended versions of previous methods [Kopanas et al. 2021], and use the NVIDIA CUB sorting routines for the fast Radix sort [Mer- rill and Grimshaw 2010]. We also built an interactive viewer using the open-source SIBR [Bonopera et al. 2020], used for interactive viewing. We used this implementation to measure our achieved frame rates. The source code and all our data are available at: https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/ Optimization Details. For stability, we “warm-up” the computa- tion in lower resolution. Specifically, we start the optimization using 4 times smaller image resolution and we upsample twice after 250 and 500 iterations. SH coefficient optimization is sensitive to the lack of angular information. For typical “NeRF-like” captures where a central object is observed by photos taken in the entire hemisphere around it, the optimiza...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00132",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "missing (e.g., when capturing the corner of a scene, or performing",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00133",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "an “inside-out” [Hedman et al. 2016] capture) completely incorrect values for the zero-order component of the SH (i.e., the base or diffuse color) can be produced by the optimization. To overcome this problem we start by optimizing only the zero-order component, and then introduce one band of the SH after every 1000 iterations until all 4 bands of SH are represented.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00134",
+      "page": 8,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "7.2 Results and Evaluation",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00135",
+      "page": 8,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Results. We tested our algorithm on a total of 13 real scenes taken from previously published datasets and the synthetic Blender dataset [Mildenhall et al . 2020]. In particular, we tested our ap- proach on the full set of scenes presented in Mip-Nerf360 [Barron et al. 2022], which is the current state of the art in NeRF rendering quality, two scenes from the Tanks&Temples dataset [2017] and two scenes provided by Hedman et al. [Hedman et al . 2018]. The scenes we chose have very different capture styles, and cover both",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00136",
+      "page": 8,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "bounded indoor scenes and large unbounded outdoor environments.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00137",
+      "page": 8,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "We use the same hyperparameter configuration for all experiments in our evaluation. All results are reported running on an A6000 GPU, except for the Mip-NeRF360 method (see below). In supplemental, we show a rendered video path for a selection of scenes that contain views far from the input photos. Real-World Scenes. In terms of quality, the current state-of-the- art is Mip-Nerf360 [Barron et al . 2021]. We compare against this method as a quality benchmark. We also compare against two of the most recent fast NeRF methods: InstantNGP [Müller et al. 2022] and Plenoxels [Fridovich-Keil and Yu et al. 2022].",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00138",
+      "page": 8,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "We use a train/test split for datasets, using the methodology",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00139",
+      "page": 8,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "suggested by Mip-NeRF360, taking every 8th photo for test, for con- sistent and meaningful comparisons to generate the error metrics, using the standard PSNR, L-PIPS, and SSIM metrics used most fre- quently in the literature; please see Table 1. All numbers in the table are from our own runs of the author’s code for all previous meth- ods, except for those of Mip-NeRF360 on their dataset, in which we copied the numbers from the original publication to avoid confusion about the current SOTA. For the images in our figures, we used our own run of Mip-NeRF360: the numbers for these runs are in Appen- dix D. We also show the average training time, rendering speed, and memory used to store optimized parameters. We report results for a basic configuration of InstantNGP (Base) that run for 35K iterations",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00140",
+      "page": 8,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "as well as a slightly larger network suggested by the authors (Big),",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00141",
+      "page": 8,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "and two configurations, 7K and 30K iterations for ours. We show ACM Trans. Graph., Vol. 42, No. 4, Article 1. Publication date: August 2023.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00142",
+      "page": 9,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "3D Gaussian Splatting for Real-Time Radiance Field Rendering • 1:9",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00143",
+      "page": 9,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Table 3. PSNR Score for ablation runs. For this experiment, we manually downsampled high-resolution versions of each scene’s input images to the established",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00144",
+      "page": 9,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "rendering resolution of our other experiments. Doing so reduces random artifacts (e.g., due to JPEG compression in the pre-downscaled Mip-NeRF360 inputs). Truck-5K Garden-5K Bicycle-5K Truck-30K Garden-30K Bicycle-30K Average-5K Average-30K Limited-BW 14.66 22.07 20.77 13.84 22.88 20.87 19.16 19.19 Random Init 16.75 20.90 19.86 18.02 22.19 21.05 19.17 20.42 No-Split 18.31 23.98 22.21 20.59 26.11 25.02 21.50 23.90 No-SH 22.36 25.22 22.88 24.39 26.59 25.08 23.48 25.35 No-Clone 22.29 25.61 22.15 24.82 27.47 25.46 23.35 25.91 Isotropic 22.40 25.49 22.81 23.89 27.00 24.81 23.56 25.23 Full 22.71 25.82 23.18 24.81 27.70 25.65 23.90 26.05 the difference in visual quality for our two configurations in Fig. 6. In many cases, quality at 7K iterations is already quite good. The training times vary over datasets and we report them sepa- rately. Note that image resolutions also vary over datasets. In the project website, we provide all the renders of test views we used to compute the statistics for...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00145",
+      "page": 9,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "age training time was 48 hours 2, compared to our 35-45min, and",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00146",
+      "page": 9,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "their rendering time is 10s/frame. We achieve comparable quality to InstantNGP and Plenoxels after 5-10m of training, but additional training time allows us to achieve SOTA quality which is not the case for the other fast methods. For Tanks & Temples, we achieve similar quality as the basic InstantNGP at a similar training time",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00147",
+      "page": 9,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "(∼7min in our case).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00148",
+      "page": 9,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "We also show visual results of this comparison for a left-out test view for ours and the previous rendering methods selected for comparison in Fig. 5; the results of our method are for 30K iterations of training. We see that in some cases even Mip-NeRF360 has remaining artifacts that our method avoids (e.g., blurriness in vegetation – in Bicycle, Stump – or on the walls in Room). In the supplemental video and web page we provide comparisons of paths from a distance. Our method tends to preserve visual detail of well- covered regions even from far away, which is not always the case for previous methods. Synthetic Bounded Scenes. In addition to realistic scenes, we also evaluate our approach on the synthetic Blender dataset [Mildenhall et al. 2020]. The scenes in question provide an exhaustive set of views, are limited in size, and provide exact camera parameters. In such scenarios, we can achieve state-of-the-art results even with random initialization: we start training from 100K unif...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00149",
+      "page": 9,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Table 2 using a white background for compatibility. Examples can",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00150",
+      "page": 9,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "2We trained Mip-NeRF360 on a 4-GPU A100 node for 12 hours, equivalent to 48 hours on a single GPU. Note that A100’s are faster than A6000 GPUs. be seen in Fig. 10 (second image from the left) and in supplemental material. The trained synthetic scenes rendered at 180–300 FPS. Compactness. In comparison to previous explicit scene representa- tions, the anisotropic Gaussians used in our optimization are capable of modelling complex shapes with a lower number of parameters. We showcase this by evaluating our approach against the highly compact, point-based models obtained by [Zhang et al. 2022]. We start from their initial point cloud which is obtained by space carving with foreground masks and optimize until we break even with their",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00151",
+      "page": 9,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "reported PSNR scores. This usually happens within 2–4 minutes.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00152",
+      "page": 9,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "We surpass their reported metrics using approximately one-fourth of their point count, resulting in an average model size of 3.8 MB, as opposed to their 9 MB. We note that for this experiment, we only used two degrees of our spherical harmonics, similar to theirs.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00153",
+      "page": 9,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "7.3 Ablations",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00154",
+      "page": 9,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "We isolated the different contributions and algorithmic choices we made and constructed a set of experiments to measure their effect. Specifically we test the following aspects of our algorithm: initialization from SfM, our densification strategies, anisotropic covariance, the fact that we allow an unlimited number of splats to have gradients and use of spherical harmonics. The quantitative effect of each choice is summarized in Table 3. Initialization from SfM. We also assess the importance of initializ- ing the 3D Gaussians from the SfM point cloud. For this ablation, we uniformly sample a cube with a size equal to three times the extent of the input camera’s bounding box. We observe that our method performs relatively well, avoiding complete failure even without the SfM points. Instead, it degrades mainly in the background, see Fig. 7. Also in areas not well covered from training views, the random initialization method appears to have more floaters that cannot be removed by optimiz...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00155",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "1:10 • Bernhard Kerbl, Georgios Kopanas, Thomas Leimkühler, and George Drettakis SfM Random",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00156",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Fig. 7. Initialization with SfM points helps. Above: initialization with a",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00157",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "random point cloud. Below: initialization using SfM points. Full-5k No Clone-5k No Split-5k",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00158",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Fig. 8. Ablation of densification strategy for the two cases \"clone\" and",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00159",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "\"split\" (Sec. 5). Unlimited depth complexity of splats with gradients. We evaluate if skipping the gradient computation after the 𝑁 front-most points",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00160",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Fig. 9. If we limit the number of points that receive gradients, the effect on",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00161",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "visual quality is significant. Left: limit of 10 Gaussians that receive gradients. Right: our full method. will give us speed without sacrificing quality, as suggested in Pul-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00162",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "sar [Lassner and Zollhofer 2021]. In this test, we choose N=10, which",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00163",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "is two times higher than the default value in Pulsar, but it led to unstable optimization because of the severe approximation in the gradient computation. For the Truck scene, quality degraded by 11dB in PSNR (see Table 3, Limited-BW), and the visual outcome is shown in Fig. 9 for Garden. Anisotropic Covariance. An important algorithmic choice in our method is the optimization of the full covariance matrix for the 3D Gaussians. To demonstrate the effect of this choice, we perform an ablation where we remove anisotropy by optimizing a single scalar value that controls the radius of the 3D Gaussian on all three axes. The results of this optimization are presented visually in Fig. 10. We observe that the anisotropy significantly improves the quality of the 3D Gaussian’s ability to align with surfaces, which in turn allows for much higher rendering quality while maintaining the same number of points. Spherical Harmonics. Finally, the use of spherical harmonics im- proves our overall PSNR...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00164",
+      "page": 10,
+      "section": "Limitations",
+      "bbox": null,
+      "text_span": "7.4 Limitations",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00165",
+      "page": 10,
+      "section": "Limitations",
+      "bbox": null,
+      "text_span": "Our method is not without limitations. In regions where the scene is not well observed we have artifacts; in such regions, other meth- ods also struggle (e.g., Mip-NeRF360 in Fig. 11). Even though the anisotropic Gaussians have many advantages as described above, our method can create elongated artifacts or “splotchy” Gaussians (see Fig. 12); again previous methods also struggle in these cases. We also occasionally have popping artifacts when our optimiza-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00166",
+      "page": 10,
+      "section": "Limitations",
+      "bbox": null,
+      "text_span": "tion creates large Gaussians; this tends to happen in regions with",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00167",
+      "page": 10,
+      "section": "Limitations",
+      "bbox": null,
+      "text_span": "view-dependent appearance. One reason for these popping artifacts is the trivial rejection of Gaussians via a guard band in the rasterizer. A more principled culling approach would alleviate these artifacts. Another factor is our simple visibility algorithm, which can lead to Gaussians suddenly switching depth/blending order. This could be addressed by antialiasing, which we leave as future work. Also, we currently do not apply any regularization to our optimization; doing so would help with both the unseen region and popping artifacts. While we used the same hyperparameters for our full evaluation, early experiments show that reducing the position learning rate can",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00168",
+      "page": 10,
+      "section": "Limitations",
+      "bbox": null,
+      "text_span": "be necessary to converge in very large scenes (e.g., urban datasets).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00169",
+      "page": 10,
+      "section": "Limitations",
+      "bbox": null,
+      "text_span": "ACM Trans. Graph., Vol. 42, No. 4, Article 1. Publication date: August 2023.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00170",
+      "page": 11,
+      "section": "Limitations",
+      "bbox": null,
+      "text_span": "3D Gaussian Splatting for Real-Time Radiance Field Rendering • 1:11 Ground Truth Full Isotropic Ground Truth Full Isotropic Ground Truth Full Isotropic",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00171",
+      "page": 11,
+      "section": "Limitations",
+      "bbox": null,
+      "text_span": "Fig. 10. We train scenes with Gaussian anisotropy disabled and enabled. The use of anisotropic volumetric splats enables modelling of fine structures and has",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00172",
+      "page": 11,
+      "section": "Limitations",
+      "bbox": null,
+      "text_span": "a significant impact on visual quality. Note that for illustrative purposes, we restricted Ficus to use no more than 5k Gaussians in both configurations. Even though we are very compact compared to previous point- based approaches, our memory consumption is significantly higher",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00173",
+      "page": 11,
+      "section": "Limitations",
+      "bbox": null,
+      "text_span": "than NeRF-based solutions. During training of large scenes, peak",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00174",
+      "page": 11,
+      "section": "Limitations",
+      "bbox": null,
+      "text_span": "GPU memory consumption can exceed 20 GB in our unoptimized prototype. However, this figure could be significantly reduced by a",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00175",
+      "page": 11,
+      "section": "Limitations",
+      "bbox": null,
+      "text_span": "careful low-level implementation of the optimization logic (similar",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00176",
+      "page": 11,
+      "section": "Limitations",
+      "bbox": null,
+      "text_span": "to InstantNGP). Rendering the trained scene requires sufficient GPU memory to store the full model (several hundred megabytes for",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00177",
+      "page": 11,
+      "section": "Limitations",
+      "bbox": null,
+      "text_span": "large-scale scenes) and an additional 30–500 MB for the rasterizer,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00178",
+      "page": 11,
+      "section": "Limitations",
+      "bbox": null,
+      "text_span": "depending on scene size and image resolution. We note that there are many opportunities to further reduce memory consumption of our method. Compression techniques for point clouds is a well- studied field [De Queiroz and Chou 2016]; it would be interesting to see how such approaches could be adapted to our representation.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00179",
+      "page": 11,
+      "section": "Limitations",
+      "bbox": null,
+      "text_span": "Fig. 11. Comparison of failure artifacts: Mip-NeRF360 has “floaters” and",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00180",
+      "page": 11,
+      "section": "Limitations",
+      "bbox": null,
+      "text_span": "grainy appearance (left, foreground), while our method produces coarse, anisoptropic Gaussians resulting in low-detail visuals (right, background). Train scene.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00181",
+      "page": 11,
+      "section": "Limitations",
+      "bbox": null,
+      "text_span": "Fig. 12. In views that have little overlap with those seen during training,",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00182",
+      "page": 11,
+      "section": "Limitations",
+      "bbox": null,
+      "text_span": "our method may produce artifacts (right). Again, Mip-NeRF360 also has artifacts in these cases (left). DrJohnson scene.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00183",
+      "page": 11,
+      "section": "Discussion",
+      "bbox": null,
+      "text_span": "8 DISCUSSION AND CONCLUSIONS",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00184",
+      "page": 11,
+      "section": "Discussion",
+      "bbox": null,
+      "text_span": "We have presented the first approach that truly allows real-time, high-quality radiance field rendering, in a wide variety of scenes and capture styles, while requiring training times competitive with the fastest previous methods. Our choice of a 3D Gaussian primitive preserves properties of volumetric rendering for optimization while directly allowing fast splat-based rasterization. Our work demonstrates that – contrary to widely accepted opinion – a continuous representation isnot strictly necessary to allow fast and high-quality radiance field training. The majority (∼80%) of our training time is spent in Python code, since we built our solution in PyTorch to allow our method to be easily used by others. Only the rasterization routine is implemented as optimized CUDA kernels. We expect that porting the remaining optimization entirely to CUDA, as e.g., done in InstantNGP [Müller et al. 2022], could enable significant further speedup for applications where performance is essential. W...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00185",
+      "page": 12,
+      "section": "Discussion",
+      "bbox": null,
+      "text_span": "1:12 • Bernhard Kerbl, Georgios Kopanas, Thomas Leimkühler, and George Drettakis",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00186",
+      "page": 12,
+      "section": "References",
+      "bbox": null,
+      "text_span": "REFERENCES",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00187",
+      "page": 12,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Kara-Ali Aliev, Artem Sevastopolsky, Maria Kolos, Dmitry Ulyanov, and Victor Lem- pitsky. 2020. Neural Point-Based Graphics. In Computer Vision – ECCV 2020: 16th European Conference, Glasgow, UK, August 23–28, 2020, Proceedings, Part XXII . 696– 712. Jonathan T Barron, Ben Mildenhall, Matthew Tancik, Peter Hedman, Ricardo Martin- Brualla, and Pratul P Srinivasan. 2021. Mip-nerf: A multiscale representation for anti-aliasing neural radiance fields. In Proceedings of the IEEE/CVF International Conference on Computer Vision . 5855–5864. Jonathan T. Barron, Ben Mildenhall, Dor Verbin, Pratul P. Srinivasan, and Peter Hedman. 2022. Mip-NeRF 360: Unbounded Anti-Aliased Neural Radiance Fields.CVPR (2022). Sebastien Bonopera, Jerome Esnault, Siddhant Prakash, Simon Rodriguez, Theo Thonat, Mehdi Benadel, Gaurav Chaurasia, Julien Philip, and George Drettakis. 2020. sibr: A System for Image Based Rendering. https://gitlab.inria.fr/sibr/sibr_core Mario Botsch, Alexander Hornung, Matthias Zwicker,...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00188",
+      "page": 12,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Fridovich-Keil and Yu, Matthew Tancik, Qinhong Chen, Benjamin Recht, and Angjoo",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00189",
+      "page": 12,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Kanazawa. 2022. Plenoxels: Radiance Fields without Neural Networks. In CVPR. Stephan J. Garbin, Marek Kowalski, Matthew Johnson, Jamie Shotton, and Julien Valentin. 2021. FastNeRF: High-Fidelity Neural Rendering at 200FPS. In Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV) . 14346–14355. Michael Goesele, Noah Snavely, Brian Curless, Hugues Hoppe, and Steven M Seitz. 2007. Multi-view stereo for community photo collections. In ICCV. Steven J Gortler, Radek Grzeszczuk, Richard Szeliski, and Michael F Cohen. 1996. The lumigraph. In Proceedings of the 23rd annual conference on Computer graphics and interactive techniques. 43–54. Markus Gross and Hanspeter (Eds) Pfister. 2011. Point-based graphics. Elsevier. Jeff P. Grossman and William J. Dally. 1998. Point Sample Rendering. In Rendering Techniques. Peter Hedman, Julien Philip, True Price, Jan-Michael Frahm, George Drettakis, and Gabriel Brostow. 2018. Deep blending for free-viewpoint image-based rendering. A...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00190",
+      "page": 12,
+      "section": "References",
+      "bbox": null,
+      "text_span": "temples: Benchmarking large-scale scene reconstruction. ACM Transactions on",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00191",
+      "page": 12,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Graphics (ToG) 36, 4 (2017), 1–13. Georgios Kopanas, Thomas Leimkühler, Gilles Rainer, Clément Jambon, and George Drettakis. 2022. Neural Point Catacaustics for Novel-View Synthesis of Reflections. ACM Transactions on Graphics (SIGGRAPH Asia Conference Proceedings) 41, 6 (2022), 201. http://www-sop.inria.fr/reves/Basilic/2022/KLRJD22 Georgios Kopanas, Julien Philip, Thomas Leimkühler, and George Drettakis. 2021. Point- Based Neural Rendering with Per-View Optimization. Computer Graphics Forum 40, 4 (2021), 29–43. https://doi.org/10.1111/cgf.14339 Samuli Laine and Tero Karras. 2011. High-performance software rasterization on GPUs. In Proceedings of the ACM SIGGRAPH Symposium on High Performance Graphics . 79–88. Christoph Lassner and Michael Zollhofer. 2021. Pulsar: Efficient Sphere-Based Neural Rendering. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR). 1440–1449. Marc Levoy and Pat Hanrahan. 1996. Light field rendering. In Proceedings of th...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00192",
+      "page": 12,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Darius Rückert, Linus Franke, and Marc Stamminger. 2022. ADOP: Approximate",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00193",
+      "page": 12,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Differentiable One-Pixel Point Rendering. ACM Trans. Graph. 41, 4, Article 99 (jul 2022), 14 pages. https://doi.org/10.1145/3528223.3530122 Miguel Sainz and Renato Pajarola. 2004. Point-based rendering techniques. Computers and Graphics 28, 6 (2004), 869–879. https://doi.org/10.1016/j.cag.2004.08.014 Johannes Lutz Schönberger and Jan-Michael Frahm. 2016. Structure-from-Motion Revisited. In Conference on Computer Vision and Pattern Recognition (CVPR) . Markus Schütz, Bernhard Kerbl, and Michael Wimmer. 2022. Software Rasterization of 2 Billion Points in Real Time. Proc. ACM Comput. Graph. Interact. Tech. 5, 3, Article 24 (jul 2022), 17 pages. https://doi.org/10.1145/3543863 Vincent Sitzmann, Justus Thies, Felix Heide, Matthias Nießner, Gordon Wetzstein, and Michael Zollhofer. 2019. Deepvoxels: Learning persistent 3d feature embeddings. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 2437–2446. Noah Snavely, Steven M Seitz, and Richard Szeliski. 20...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00194",
+      "page": 12,
+      "section": "References",
+      "bbox": null,
+      "text_span": "openreview.net/forum?id=AdPJb9cud_Y",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00195",
+      "page": 12,
+      "section": "References",
+      "bbox": null,
+      "text_span": "ACM Trans. Graph., Vol. 42, No. 4, Article 1. Publication date: August 2023.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00196",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "3D Gaussian Splatting for Real-Time Radiance Field Rendering • 1:13 Olivia Wiles, Georgia Gkioxari, Richard Szeliski, and Justin Johnson. 2020. Synsin: End-to-end view synthesis from a single image. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 7467–7477.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00197",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Xiuchao Wu, Jiamin Xu, Zihan Zhu, Hujun Bao, Qixing Huang, James Tompkin, and",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00198",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Weiwei Xu. 2022. Scalable Neural Indoor Scene Rendering. ACM Transactions on Graphics (TOG) (2022). Yiheng Xie, Towaki Takikawa, Shunsuke Saito, Or Litany, Shiqin Yan, Numair Khan, Federico Tombari, James Tompkin, Vincent Sitzmann, and Srinath Sridhar. 2022. Neural fields in visual computing and beyond. In Computer Graphics Forum, Vol. 41. Wiley Online Library, 641–676. Qiangeng Xu, Zexiang Xu, Julien Philip, Sai Bi, Zhixin Shu, Kalyan Sunkavalli, and Ulrich Neumann. 2022. Point-nerf: Point-based neural radiance fields. InProceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 5438–5448. Wang Yifan, Felice Serena, Shihao Wu, Cengiz Öztireli, and Olga Sorkine-Hornung. 2019. Differentiable surface splatting for point-based geometry processing. ACM Transactions on Graphics (TOG) 38, 6 (2019), 1–14. Alex Yu, Ruilong Li, Matthew Tancik, Hao Li, Ren Ng, and Angjoo Kanazawa. 2021. PlenOctrees for Real-time Rendering of Neural Radiance Fields. In ICCV. Qiang Zhang,...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00199",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Recall that Σ/Σ′ are the world/view space covariance matrices of",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00200",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "the Gaussian, 𝑞 is the rotation, and 𝑠 the scaling, 𝑊 is the viewing transformation and 𝐽 the Jacobian of the affine approximation of the projective transformation. We can apply the chain rule to find the derivatives w.r.t. scaling and rotation: 𝑑Σ′ 𝑑𝑠 = 𝑑Σ′ 𝑑Σ 𝑑Σ 𝑑𝑠 (8) and 𝑑Σ′ 𝑑𝑞 = 𝑑Σ′ 𝑑Σ 𝑑Σ 𝑑𝑞 (9)",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00201",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Simplifying Eq. 5 using𝑈 = 𝐽𝑊 and Σ′ being the (symmetric) upper",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00202",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "left 2 × 2 matrix of 𝑈 Σ𝑈 𝑇 , denoting matrix elements with subscripts,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00203",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "we can find the partial derivatives 𝜕Σ′",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00204",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "𝜕Σ𝑖 𝑗 = \u0010 𝑈1,𝑖𝑈1,𝑗 𝑈1,𝑖𝑈2,𝑗 𝑈1,𝑗 𝑈2,𝑖 𝑈2,𝑖𝑈2,𝑗 \u0011 .",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00205",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Next, we seek the derivatives 𝑑 Σ",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00206",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "𝑑𝑠 and 𝑑 Σ",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00207",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "𝑑𝑞 . Since Σ = 𝑅𝑆𝑆 𝑇 𝑅𝑇 ,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00208",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "we can compute 𝑀 = 𝑅𝑆 and rewrite Σ = 𝑀𝑀 𝑇 . Thus, we can",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00209",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "write 𝑑 Σ",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00210",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "𝑑𝑠 = 𝑑 Σ 𝑑𝑀 𝑑𝑀",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00211",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "𝑑𝑠 and 𝑑 Σ",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00212",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "𝑑𝑞 = 𝑑 Σ 𝑑𝑀 𝑑𝑀 𝑑𝑞 . Since the covariance ma-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00213",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "trix Σ (and its gradient) is symmetric, the shared first part is com-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00214",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "pactly found by 𝑑 Σ",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00215",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "𝑑𝑀 = 2𝑀𝑇 . For scaling, we further have 𝜕𝑀𝑖,𝑗",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00216",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "𝜕𝑠𝑘 =\u001a 𝑅𝑖,𝑘 if j = k",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00217",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "0 otherwise \u001b . To derive gradients for rotation, we recall the conversion from a unit quaternion𝑞 with real part𝑞𝑟 and imaginary parts 𝑞𝑖, 𝑞𝑗 , 𝑞𝑘 to a rotation matrix 𝑅: 𝑅(𝑞) = 2 ©­­ « 1 2 − (𝑞2 𝑗 + 𝑞2 𝑘 ) ( 𝑞𝑖𝑞 𝑗 − 𝑞𝑟 𝑞𝑘 ) ( 𝑞𝑖𝑞𝑘 + 𝑞𝑟 𝑞 𝑗 ) (𝑞𝑖𝑞 𝑗 + 𝑞𝑟 𝑞𝑘 ) 1 2 − (𝑞2 𝑖 + 𝑞2 𝑘 ) ( 𝑞 𝑗𝑞𝑘 − 𝑞𝑟 𝑞𝑖 ) (𝑞𝑖𝑞𝑘 − 𝑞𝑟 𝑞 𝑗 ) ( 𝑞 𝑗𝑞𝑘 + 𝑞𝑟 𝑞𝑖 ) 1 2 − (𝑞2 𝑖 + 𝑞2 𝑗 ) ª®® ¬ (10) As a result, we find the following gradients for the components of𝑞: 𝜕𝑀 𝜕𝑞𝑟 = 2 \u0012 0 −𝑠𝑦𝑞𝑘 𝑠𝑧𝑞 𝑗 𝑠𝑥 𝑞𝑘 0 −𝑠𝑧𝑞𝑖 −𝑠𝑥 𝑞 𝑗 𝑠𝑦𝑞𝑖 0 \u0013 , 𝜕𝑀 𝜕𝑞𝑖 = 2 \u0012 0 𝑠𝑦𝑞 𝑗 𝑠𝑧𝑞𝑘 𝑠𝑥 𝑞 𝑗 −2𝑠𝑦𝑞𝑖 −𝑠𝑧𝑞𝑟 𝑠𝑥 𝑞𝑘 𝑠𝑦𝑞𝑟 −2𝑠𝑧𝑞𝑖 \u0013 𝜕𝑀 𝜕𝑞 𝑗 = 2 \u0012 −2𝑠𝑥 𝑞 𝑗 𝑠𝑦𝑞𝑖 𝑠𝑧𝑞𝑟 𝑠𝑥 𝑞𝑖 0 𝑠𝑧𝑞𝑘 −𝑠𝑥 𝑞𝑟 𝑠𝑦𝑞𝑘 −2𝑠𝑧𝑞 𝑗 \u0013 , 𝜕𝑀 𝜕𝑞𝑘 = 2 \u0012 −2𝑠𝑥 𝑞𝑘 −𝑠𝑦𝑞𝑟 𝑠𝑧𝑞𝑖 𝑠𝑥 𝑞𝑟 −2𝑠𝑦𝑞𝑘 𝑠𝑧𝑞 𝑗 𝑠𝑥 𝑞𝑖 𝑠𝑦𝑞 𝑗 0 \u0013 (11) Deriving gradients for quaternion normalization is straightforward. B OPTIMIZATION AND DENSIFICATION ALGORITHM Our optimization and densification algorithms are summarized in Algorithm 1. Algorithm 1 Optimization and Densification 𝑤 , ℎ: width and height of the training images 𝑀 ← SfM Points ⊲...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00218",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "𝑀, 𝑆, 𝐶, 𝐴 ← Adam(∇𝐿) ⊲ Backprop & Step",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00219",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "if IsRefinementIteration(𝑖) then",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00220",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "for all Gaussians (𝜇, Σ, 𝑐, 𝛼) in (𝑀, 𝑆, 𝐶, 𝐴) do",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00221",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "if 𝛼 < 𝜖 or IsTooLarge(𝜇, Σ) then ⊲ Pruning",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00222",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "RemoveGaussian() end if",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00223",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "if ∇𝑝𝐿 > 𝜏𝑝 then ⊲ Densification",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00224",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "if ∥𝑆 ∥ > 𝜏𝑆 then ⊲ Over-reconstruction",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00225",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "SplitGaussian(𝜇, Σ, 𝑐, 𝛼)",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00226",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "else ⊲ Under-reconstruction",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00227",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "CloneGaussian(𝜇, Σ, 𝑐, 𝛼)",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00228",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "end if end if end for end if 𝑖 ← 𝑖 + 1 end while C DETAILS OF THE RASTERIZER Sorting. Our design is based on the assumption of a high load of small splats, and we optimize for this by sorting splats once for each frame using radix sort at the beginning. We split the screen into 16x16 pixel tiles (or bins). We create a list of splats per tile by instantiating each splat in each 16×16 tile it overlaps. This results in a moderate increase in Gaussians to process which however is amortized by simpler control flow and high parallelism of optimized GPU Radix sort [Merrill and Grimshaw 2010]. We assign a key for each splats instance with up to 64 bits where the lower 32 bits encode its projected depth and the higher bits encode the index of the overlapped tile. The exact size of the index depends on how many tiles fit the current resolution. Depth ordering is thus directly resolved for all splats in parallel with a single radix sort. After ACM Trans. Graph., Vol. 42, No. 4, Article 1. Public...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00229",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "1:14 • Bernhard Kerbl, Georgios Kopanas, Thomas Leimkühler, and George Drettakis sorting, we can efficiently produce per-tile lists of Gaussians to process by identifying the start and end of ranges in the sorted array with the same tile ID. This is done in parallel, launching one thread per 64-bit array element to compare its higher 32 bits with its two neighbors. Compared to [Lassner and Zollhofer 2021],",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00230",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "our rasterization thus completely eliminates sequential primitive",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00231",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "processing steps and produces more compact per-tile lists to traverse during the forward pass. We show a high-level overview of the rasterization approach in Algorithm 2. Algorithm 2 GPU software rasterization of 3D Gaussians 𝑤 , ℎ: width and height of the image to rasterize 𝑀, 𝑆: Gaussian means and covariances in world space 𝐶, 𝐴: Gaussian colors and opacities 𝑉 : view configuration of current camera function Rasterize(𝑤 , ℎ, 𝑀, 𝑆, 𝐶, 𝐴, 𝑉 ) CullGaussian(𝑝, 𝑉 ) ⊲ Frustum Culling 𝑀 ′, 𝑆′ ← ScreenspaceGaussians(𝑀, 𝑆, 𝑉 ) ⊲ Transform 𝑇 ← CreateTiles(𝑤 , ℎ) 𝐿, 𝐾 ← DuplicateWithKeys(𝑀 ′, 𝑇 ) ⊲ Indices and Keys SortByKeys(𝐾, 𝐿) ⊲ Globally Sort 𝑅 ← IdentifyTileRanges(𝑇 , 𝐾) 𝐼 ← 0 ⊲ Init Canvas for all Tiles 𝑡 in 𝐼 do for all Pixels 𝑖 in 𝑡 do 𝑟 ← GetTileRange(𝑅, 𝑡) 𝐼 [𝑖] ← BlendInOrder(𝑖, 𝐿, 𝑟, 𝐾, 𝑀 ′, 𝑆 ′, 𝐶, 𝐴) end for end for return 𝐼 end function Numerical stability. During the backward pass, we reconstruct the intermediate opacity values needed for gradient computation by repeatedly div...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00232",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Table 4. SSIM scores for Mip-NeRF360 scenes. † copied from original paper.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00233",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "bicycle flowers garden stump treehillroom counter kitchen bonsaiPlenoxels 0.496 0.431 0.6063 0.523 0.5090.8417 0.759 0.648 0.814INGP-Base0.491 0.450 0.649 0.574 0.518 0.855 0.798 0.818 0.890INGP-Big 0.512 0.486 0.701 0.594 0.542 0.871 0.817 0.858 0.906Mip-NeRF360† 0.685 0.583 0.813 0.744 0.632 0.913 0.894 0.920 0.941Mip-NeRF3600.685 0.584 0.809 0.745 0.631 0.910 0.892 0.917 0.938Ours-7k 0.675 0.525 0.836 0.728 0.598 0.884 0.873 0.900 0.910Ours-30k 0.771 0.605 0.868 0.775 0.6380.914 0.905 0.9220.938",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00234",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Table 5. PSNR scores for Mip-NeRF360 scenes. † copied from original paper.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00235",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "bicycle flowers garden stump treehillroom counter kitchen bonsaiPlenoxels 21.912 20.097 23.4947 20.661 22.24827.594 23.624 23.420 24.669INGP-Base22.193 20.348 24.599 23.626 22.36429.269 26.439 28.548 30.337INGP-Big 22.171 20.652 25.069 23.466 22.37329.690 26.691 29.479 30.685Mip-NeRF360† 24.37 21.73 26.98 26.40 22.87 31.63 29.55 32.23 33.46Mip-NeRF36024.305 21.649 26.875 26.17522.92931.467 29.447 31.989 33.397Ours-7k 23.604 20.515 26.245 25.709 22.08528.139 26.705 28.546 28.850Ours-30k 25.24621.52027.410 26.55022.49030.632 28.700 30.317 31.980",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00236",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Table 6. LPIPS scores for Mip-NeRF360 scenes. † copied from original paper.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00237",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "bicycle flowers garden stump treehillroom counter kitchen bonsaiPlenoxels 0.506 0.521 0.3864 0.503 0.5400.4186 0.441 0.447 0.398INGP-Base0.487 0.481 0.312 0.450 0.489 0.301 0.342 0.254 0.227INGP-Big 0.446 0.441 0.257 0.421 0.450 0.261 0.306 0.195 0.205Mip-NeRF360† 0.301 0.344 0.170 0.261 0.339 0.211 0.204 0.127 0.176Mip-NeRF3600.305 0.346 0.171 0.265 0.347 0.213 0.207 0.128 0.179Ours-7k 0.318 0.417 0.153 0.287 0.404 0.272 0.254 0.161 0.244Ours-30k 0.205 0.336 0.103 0.210 0.3170.220 0.204 0.129 0.205",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00238",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Table 7. SSIM scores for Tanks&Temples and Deep Blending scenes.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00239",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Truck Train Dr Johnson Playroom Plenoxels 0.774 0.663 0.787 0.802 INGP-Base 0.779 0.666 0.839 0.754 INGP-Big 0.800 0.689 0.854 0.779 Mip-NeRF360 0.857 0.660 0.901 0.900 Ours-7k 0.840 0.694 0.853 0.896 Ours-30k 0.879 0.802 0.899 0.906",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00240",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Table 8. PSNR scores for Tanks&Temples and Deep Blending scenes.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00241",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Truck Train Dr Johnson Playroom Plenoxels 23.221 18.927 23.142 22.980 INGP-Base 23.260 20.170 27.750 19.483 INGP-Big 23.383 20.456 28.257 21.665 Mip-NeRF360 24.912 19.523 29.140 29.657 Ours-7k 23.506 18.892 26.306 29.245 Ours-30k 25.187 21.097 28.766 30.044",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00242",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Table 9. LPIPS scores for Tanks&Temples and Deep Blending scenes.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00243",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Truck Train Dr Johnson Playroom Plenoxels 0.335 0.422 0.521 0.499 INGP-Base 0.274 0.386 0.381 0.465 INGP-Big 0.249 0.360 0.352 0.428 Mip-NeRF360 0.159 0.354 0.237 0.252 Ours-7k 0.209 0.350 0.343 0.291 Ours-30k 0.148 0.218 0.244 0.241 ACM Trans. Graph., Vol. 42, No. 4, Article 1. Publication date: August 2023.",
+      "source_type": "reference"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "warnings": [
+      {
+        "code": "ok",
+        "message": "Grounding verification passed with current v1 checks.",
+        "target": null,
+        "severity": "info"
+      }
+    ],
+    "anchor_count": 243
+  }
+}

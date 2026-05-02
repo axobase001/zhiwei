@@ -1,0 +1,961 @@
+{
+  "paper_skeleton": {
+    "problem": "将Transformer从语言领域迁移到视觉领域面临挑战，包括视觉实体尺度变化大、图像分辨率高导致计算复杂度高（二次复杂度），且现有Transformer模型产生的特征图分辨率单一，不适合密集预测任务。",
+    "motivation": "CNN长期主导计算机视觉建模，但Transformer在NLP中取得巨大成功，有望成为视觉领域的通用骨干网络。需要解决视觉与语言模态间的差异，特别是尺度变化和计算效率问题。",
+    "core_idea": "提出Swin Transformer，一种基于移位窗口的层次化视觉Transformer。通过在非重叠的局部窗口内计算自注意力实现线性计算复杂度，并通过移位窗口机制实现跨窗口连接，构建层次化特征图以适应多种视觉任务。",
+    "method": "1. 将图像分割为4×4的patch，通过线性嵌入层投影到C维。2. 构建层次化结构：Stage 1保持分辨率，后续Stage通过patch merging层进行2倍下采样并增加通道数。3. 在每个Stage中应用Swin Transformer块，包含基于窗口的多头自注意力（W-MSA）和移位窗口自注意力（SW-MSA）。4. SW-MSA通过将窗口分区移位(⌊M/2⌋, ⌊M/2⌋)像素实现跨窗口连接。5. 使用相对位置偏置增强注意力计算。",
+    "experiments": "在ImageNet-1K图像分类、COCO目标检测和实例分割、ADE20K语义分割三个基准上进行实验。与CNN骨干（ResNet、ResNeXt、EfficientNet）和Transformer骨干（ViT、DeiT）进行比较。进行了消融研究，验证移位窗口和相对位置偏置的有效性。",
+    "claims": [
+      "Swin Transformer可作为计算机视觉的通用骨干网络。",
+      "移位窗口机制在保持线性计算复杂度的同时实现跨窗口连接，提升建模能力。",
+      "层次化特征图设计使模型适用于图像分类和密集预测任务。",
+      "相对位置偏置比绝对位置嵌入更有效。",
+      "Swin Transformer在COCO目标检测和ADE20K语义分割上显著超越先前最佳方法。"
+    ],
+    "limitations": "1. 推理速度受限于PyTorch内置函数的优化程度，未进行深入的内核优化。2. 模型在ImageNet-1K上从头训练时，性能提升不如在ImageNet-22K预训练后微调显著。3. 对于DeiT等单分辨率特征图模型，需要额外反卷积层构建层次化特征图，增加了复杂性。"
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "Patch Partition & Linear Embedding",
+        "label": "输入处理",
+        "summary": "将输入图像分割为4×4的patch，并通过线性嵌入层投影到C维特征空间。",
+        "description": "输入图像尺寸为H×W×3，被分割成H/4 × W/4个patch，每个patch的原始值特征维度为4×4×3=48。应用线性嵌入层将其投影到任意维度C。这是Stage 1的开始。",
+        "type": "input_processing",
+        "anchors": [
+          "anc_00024",
+          "anc_00025"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "Hierarchical Feature Map Construction",
+        "label": "层次化特征图构建",
+        "summary": "通过多个Stage逐步降低分辨率、增加通道数，构建层次化特征图。",
+        "description": "Stage 1保持H/4 × W/4分辨率。Stage 2通过patch merging层将2×2相邻patch特征拼接，应用线性层将4C维特征映射到2C维，分辨率降为H/8 × W/8。类似地构建Stage 3（H/16 × W/16）和Stage 4（H/32 × W/32）。这产生了与典型CNN（如VGG、ResNet）相同的多尺度特征图。",
+        "type": "architecture",
+        "anchors": [
+          "anc_00025",
+          "anc_00026",
+          "anc_00027",
+          "anc_00030"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "Swin Transformer Block",
+        "label": "核心变换模块",
+        "summary": "Swin Transformer的基本构建块，包含基于窗口的自注意力模块和MLP模块。",
+        "description": "每个Swin Transformer块由两个连续子块组成：第一个子块使用常规窗口分区的W-MSA，第二个子块使用移位窗口分区的SW-MSA。每个子块包含层归一化（LN）和残差连接。具体计算见公式(3)。",
+        "type": "core_module",
+        "anchors": [
+          "anc_00028",
+          "anc_00029",
+          "anc_00030",
+          "anc_00038",
+          "anc_00040",
+          "anc_00042",
+          "anc_00044",
+          "anc_00045"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "Window-based Multi-head Self-Attention (W-MSA)",
+        "label": "窗口自注意力",
+        "summary": "在非重叠的局部窗口内计算自注意力，实现线性计算复杂度。",
+        "description": "将特征图划分为多个不重叠的M×M窗口（默认M=7），在每个窗口内独立计算自注意力。计算复杂度为Ω(W-MSA) = 4hwC² + 2M²hwC，相对于patch数量hw是线性的。",
+        "type": "attention_mechanism",
+        "anchors": [
+          "anc_00031",
+          "anc_00032",
+          "anc_00033",
+          "anc_00034"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "Shifted Window Partitioning",
+        "label": "移位窗口机制",
+        "summary": "在连续的Swin Transformer块之间交替使用常规和移位窗口分区，以实现跨窗口连接。",
+        "description": "在层l使用常规窗口分区，在层l+1将窗口分区移位(⌊M/2⌋, ⌊M/2⌋)像素。移位后的窗口跨越前一层窗口的边界，从而建立跨窗口连接。这通过高效的批量计算实现，包括循环移位和掩码自注意力。",
+        "type": "key_innovation",
+        "anchors": [
+          "anc_00035",
+          "anc_00036",
+          "anc_00037",
+          "anc_00048",
+          "anc_00049",
+          "anc_00050"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "Relative Position Bias",
+        "label": "相对位置偏置",
+        "summary": "在自注意力计算中引入相对位置偏置矩阵，增强位置信息建模。",
+        "description": "注意力计算公式为Attention(Q,K,V) = SoftMax(QKᵀ/√d + B)V，其中B是相对位置偏置矩阵。偏置矩阵B的值从一个较小尺寸的参数矩阵B̂∈R^(2M-1)×(2M-1)中获取。实验表明相对位置偏置比绝对位置嵌入更有效。",
+        "type": "attention_enhancement",
+        "anchors": [
+          "anc_00051",
+          "anc_00052"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "Model Variants",
+        "label": "模型变体",
+        "summary": "定义了不同容量的Swin Transformer变体：Swin-T、Swin-S、Swin-B、Swin-L。",
+        "description": "所有变体默认窗口大小M=7，查询维度d=32，MLP扩展层α=4。具体超参数：Swin-T: C=96, 层数={2,2,6,2}；Swin-S: C=96, 层数={2,2,18,2}；Swin-B: C=128, 层数={2,2,18,2}；Swin-L: C=192, 层数={2,2,18,2}。",
+        "type": "model_config",
+        "anchors": [
+          "anc_00053",
+          "anc_00054",
+          "anc_00055",
+          "anc_00056",
+          "anc_00057",
+          "anc_00058",
+          "anc_00059",
+          "anc_00060"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "输入特征",
+        "description": "Patch Partition & Linear Embedding的输出作为层次化特征图构建的输入。"
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "多尺度特征",
+        "description": "每个Stage的特征图输入到对应的Swin Transformer块序列中。"
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "包含",
+        "description": "Swin Transformer块包含W-MSA模块。"
+      },
+      {
+        "source": "node_003",
+        "target": "node_005",
+        "label": "包含",
+        "description": "Swin Transformer块包含SW-MSA模块，该模块使用移位窗口分区。"
+      },
+      {
+        "source": "node_004",
+        "target": "node_006",
+        "label": "增强",
+        "description": "W-MSA和SW-MSA都使用相对位置偏置来增强注意力计算。"
+      },
+      {
+        "source": "node_005",
+        "target": "node_004",
+        "label": "变体",
+        "description": "SW-MSA是W-MSA的移位窗口变体，两者共享相同的注意力计算机制但窗口分区策略不同。"
+      },
+      {
+        "source": "node_007",
+        "target": "node_002",
+        "label": "配置",
+        "description": "模型变体定义了各Stage的通道数C和层数，决定了层次化特征图的具体结构。"
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "Vision Transformer (ViT) 和 DeiT",
+    "new_method": "Swin Transformer",
+    "deltas": [
+      {
+        "before": "ViT/DeiT使用全局自注意力，计算复杂度相对于patch数量hw是二次的（Ω(MSA) = 4hwC² + 2(hw)²C）。",
+        "after": "Swin Transformer使用基于窗口的自注意力（W-MSA），在M×M的局部窗口内计算，计算复杂度是线性的（Ω(W-MSA) = 4hwC² + 2M²hwC）。",
+        "why_it_matters": "使模型能够处理高分辨率图像，计算效率大幅提升，为密集预测任务奠定基础。",
+        "anchors": [
+          "anc_00031",
+          "anc_00032",
+          "anc_00033",
+          "anc_00034"
+        ]
+      },
+      {
+        "before": "ViT/DeiT产生单一低分辨率的特征图（例如16×16），不适合需要多尺度特征的密集预测任务（如目标检测、语义分割）。",
+        "after": "Swin Transformer通过patch merging层构建层次化特征图，产生与典型CNN相同的多尺度特征图（如H/4×W/4, H/8×W/8, H/16×W/16, H/32×W/32）。",
+        "why_it_matters": "使模型能够直接替换现有视觉任务中的CNN骨干网络，兼容FPN、U-Net等高级技术。",
+        "anchors": [
+          "anc_00010",
+          "anc_00011",
+          "anc_00013",
+          "anc_00014",
+          "anc_00025",
+          "anc_00026",
+          "anc_00027",
+          "anc_00030"
+        ]
+      },
+      {
+        "before": "基于局部窗口的自注意力缺乏跨窗口连接，限制了建模能力。",
+        "after": "提出移位窗口分区方案，在连续的Swin Transformer块之间交替使用常规和移位窗口，实现跨窗口连接。",
+        "why_it_matters": "在保持线性计算复杂度的同时，增强了模型的建模能力，显著提升了在分类、检测和分割任务上的性能。",
+        "anchors": [
+          "anc_00035",
+          "anc_00036",
+          "anc_00037",
+          "anc_00048",
+          "anc_00049",
+          "anc_00050",
+          "anc_00096",
+          "anc_00100"
+        ]
+      },
+      {
+        "before": "ViT使用绝对位置嵌入。",
+        "after": "Swin Transformer使用相对位置偏置，并在消融实验中证明其比绝对位置嵌入更有效。",
+        "why_it_matters": "相对位置偏置在图像分类、目标检测和语义分割任务上都带来了性能提升，而绝对位置嵌入在某些任务上甚至有害。",
+        "anchors": [
+          "anc_00051",
+          "anc_00052",
+          "anc_00096",
+          "anc_00100",
+          "anc_00102"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\Omega(\\text{MSA}) = 4hwC^2 + 2(hw)^2C",
+        "variables": [
+          {
+            "name": "h",
+            "description": "特征图高度（以patch为单位）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00031"
+            ]
+          },
+          {
+            "name": "w",
+            "description": "特征图宽度（以patch为单位）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00031"
+            ]
+          },
+          {
+            "name": "C",
+            "description": "特征维度",
+            "confidence": "high",
+            "anchors": [
+              "anc_00031"
+            ]
+          },
+          {
+            "name": "\\Omega(\\text{MSA})",
+            "description": "标准多头自注意力的计算复杂度",
+            "confidence": "high",
+            "anchors": [
+              "anc_00031"
+            ]
+          }
+        ],
+        "dependencies": [
+          "anc_00031"
+        ],
+        "intuition": "标准全局自注意力的计算复杂度相对于patch数量hw是二次的，因为需要计算所有patch对之间的注意力。",
+        "anchors": [
+          "anc_00031"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "\\Omega(\\text{W-MSA}) = 4hwC^2 + 2M^2hwC",
+        "variables": [
+          {
+            "name": "M",
+            "description": "窗口大小（默认为7）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00032",
+              "anc_00033"
+            ]
+          },
+          {
+            "name": "h",
+            "description": "特征图高度（以patch为单位）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00032"
+            ]
+          },
+          {
+            "name": "w",
+            "description": "特征图宽度（以patch为单位）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00032"
+            ]
+          },
+          {
+            "name": "C",
+            "description": "特征维度",
+            "confidence": "high",
+            "anchors": [
+              "anc_00032"
+            ]
+          },
+          {
+            "name": "\\Omega(\\text{W-MSA})",
+            "description": "基于窗口的多头自注意力的计算复杂度",
+            "confidence": "high",
+            "anchors": [
+              "anc_00032"
+            ]
+          }
+        ],
+        "dependencies": [
+          "anc_00032"
+        ],
+        "intuition": "基于窗口的自注意力将计算限制在M×M的局部窗口内，每个窗口的patch数量固定为M²，因此计算复杂度相对于总patch数量hw是线性的。",
+        "anchors": [
+          "anc_00032",
+          "anc_00033",
+          "anc_00034"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "\\hat{z}^l = \\text{W-MSA}(\\text{LN}(z^{l-1})) + z^{l-1}",
+        "variables": [
+          {
+            "name": "z^{l-1}",
+            "description": "第l-1个Swin Transformer块的输出特征",
+            "confidence": "high",
+            "anchors": [
+              "anc_00038",
+              "anc_00045"
+            ]
+          },
+          {
+            "name": "\\hat{z}^l",
+            "description": "第l个块中W-MSA模块的输出特征",
+            "confidence": "high",
+            "anchors": [
+              "anc_00038",
+              "anc_00045"
+            ]
+          },
+          {
+            "name": "\\text{W-MSA}",
+            "description": "基于窗口的多头自注意力操作",
+            "confidence": "high",
+            "anchors": [
+              "anc_00038"
+            ]
+          },
+          {
+            "name": "\\text{LN}",
+            "description": "层归一化",
+            "confidence": "high",
+            "anchors": [
+              "anc_00038"
+            ]
+          }
+        ],
+        "dependencies": [
+          "anc_00038",
+          "anc_00045"
+        ],
+        "intuition": "Swin Transformer块中第一个子块的计算：对输入进行层归一化后，应用基于窗口的自注意力，并加上残差连接。",
+        "anchors": [
+          "anc_00038",
+          "anc_00045"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "latex": "z^l = \\text{MLP}(\\text{LN}(\\hat{z}^l)) + \\hat{z}^l",
+        "variables": [
+          {
+            "name": "\\hat{z}^l",
+            "description": "第l个块中W-MSA模块的输出特征",
+            "confidence": "high",
+            "anchors": [
+              "anc_00040",
+              "anc_00045"
+            ]
+          },
+          {
+            "name": "z^l",
+            "description": "第l个Swin Transformer块的最终输出特征",
+            "confidence": "high",
+            "anchors": [
+              "anc_00040",
+              "anc_00045"
+            ]
+          },
+          {
+            "name": "\\text{MLP}",
+            "description": "多层感知机模块",
+            "confidence": "high",
+            "anchors": [
+              "anc_00040"
+            ]
+          }
+        ],
+        "dependencies": [
+          "anc_00040",
+          "anc_00045"
+        ],
+        "intuition": "Swin Transformer块中第一个子块的后续计算：对W-MSA的输出进行层归一化后，应用MLP，并加上残差连接。",
+        "anchors": [
+          "anc_00040",
+          "anc_00045"
+        ]
+      },
+      {
+        "formula_id": "formula_005",
+        "latex": "\\hat{z}^{l+1} = \\text{SW-MSA}(\\text{LN}(z^l)) + z^l",
+        "variables": [
+          {
+            "name": "z^l",
+            "description": "第l个Swin Transformer块的输出特征",
+            "confidence": "high",
+            "anchors": [
+              "anc_00042",
+              "anc_00045"
+            ]
+          },
+          {
+            "name": "\\hat{z}^{l+1}",
+            "description": "第l+1个块中SW-MSA模块的输出特征",
+            "confidence": "high",
+            "anchors": [
+              "anc_00042",
+              "anc_00045"
+            ]
+          },
+          {
+            "name": "\\text{SW-MSA}",
+            "description": "基于移位窗口的多头自注意力操作",
+            "confidence": "high",
+            "anchors": [
+              "anc_00042"
+            ]
+          }
+        ],
+        "dependencies": [
+          "anc_00042",
+          "anc_00045"
+        ],
+        "intuition": "Swin Transformer块中第二个子块的计算：对输入进行层归一化后，应用基于移位窗口的自注意力，并加上残差连接。",
+        "anchors": [
+          "anc_00042",
+          "anc_00045"
+        ]
+      },
+      {
+        "formula_id": "formula_006",
+        "latex": "z^{l+1} = \\text{MLP}(\\text{LN}(\\hat{z}^{l+1})) + \\hat{z}^{l+1}",
+        "variables": [
+          {
+            "name": "\\hat{z}^{l+1}",
+            "description": "第l+1个块中SW-MSA模块的输出特征",
+            "confidence": "high",
+            "anchors": [
+              "anc_00044",
+              "anc_00045"
+            ]
+          },
+          {
+            "name": "z^{l+1}",
+            "description": "第l+1个Swin Transformer块的最终输出特征",
+            "confidence": "high",
+            "anchors": [
+              "anc_00044",
+              "anc_00045"
+            ]
+          }
+        ],
+        "dependencies": [
+          "anc_00044",
+          "anc_00045"
+        ],
+        "intuition": "Swin Transformer块中第二个子块的后续计算：对SW-MSA的输出进行层归一化后，应用MLP，并加上残差连接。",
+        "anchors": [
+          "anc_00044",
+          "anc_00045"
+        ]
+      },
+      {
+        "formula_id": "formula_007",
+        "latex": "\\text{Attention}(Q,K,V) = \\text{SoftMax}(QK^T/\\sqrt{d} + B)V",
+        "variables": [
+          {
+            "name": "Q",
+            "description": "查询矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00051"
+            ]
+          },
+          {
+            "name": "K",
+            "description": "键矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00051"
+            ]
+          },
+          {
+            "name": "V",
+            "description": "值矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00051"
+            ]
+          },
+          {
+            "name": "d",
+            "description": "查询/键的维度",
+            "confidence": "high",
+            "anchors": [
+              "anc_00051"
+            ]
+          },
+          {
+            "name": "B",
+            "description": "相对位置偏置矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00051",
+              "anc_00052"
+            ]
+          },
+          {
+            "name": "M^2",
+            "description": "窗口内的patch数量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00051"
+            ]
+          }
+        ],
+        "dependencies": [
+          "anc_00051",
+          "anc_00052"
+        ],
+        "intuition": "带有相对位置偏置的缩放点积注意力机制。偏置矩阵B为每个注意力头引入了相对位置信息，增强了模型对空间关系的建模能力。",
+        "anchors": [
+          "anc_00051",
+          "anc_00052"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "task": "ImageNet-1K图像分类",
+        "metric": "Top-1 Accuracy",
+        "result": "Swin-L达到87.3%（ImageNet-22K预训练后微调）",
+        "comparison": "超越先前最佳方法（如ViT-L/16的85.2%）",
+        "anchors": [
+          "anc_00067",
+          "anc_00072"
+        ]
+      },
+      {
+        "task": "COCO目标检测与实例分割",
+        "metric": "Box AP / Mask AP",
+        "result": "Swin-L (HTC++) 在test-dev上达到58.7 box AP和51.1 mask AP",
+        "comparison": "超越先前最佳方法（如Copy-paste的56.0 box AP和47.4 mask AP），提升+2.7 box AP和+2.6 mask AP",
+        "anchors": [
+          "anc_00006",
+          "anc_00083"
+        ]
+      },
+      {
+        "task": "ADE20K语义分割",
+        "metric": "mIoU",
+        "result": "Swin-L (UperNet) 在val上达到53.5 mIoU",
+        "comparison": "超越先前最佳方法（如SETR的50.3 mIoU），提升+3.2 mIoU",
+        "anchors": [
+          "anc_00091",
+          "anc_00099"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "study": "移位窗口的有效性",
+        "findings": "在Swin-T上，移位窗口相比无移位窗口，在ImageNet-1K上提升+1.1% top-1，在COCO上提升+2.8 box AP / +2.2 mask AP，在ADE20K上提升+2.8 mIoU。",
+        "anchors": [
+          "anc_00096",
+          "anc_00100"
+        ]
+      },
+      {
+        "study": "位置编码方法",
+        "findings": "相对位置偏置（rel. pos.）在所有任务上表现最佳。绝对位置嵌入（abs. pos.）在ImageNet上略有提升（+0.4%），但在COCO和ADE20K上性能下降。",
+        "anchors": [
+          "anc_00096",
+          "anc_00100",
+          "anc_00102"
+        ]
+      },
+      {
+        "study": "不同自注意力计算方法",
+        "findings": "移位窗口在准确性和速度上优于滑动窗口和Performer。",
+        "anchors": [
+          "anc_00103",
+          "anc_00104"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "aspect": "输入分辨率",
+        "findings": "更大的输入分辨率带来更高的top-1准确率，但推理速度下降。例如Swin-T在224²输入下为81.3%，在384²输入下为82.2%。",
+        "anchors": [
+          "anc_00119",
+          "anc_00120",
+          "anc_00121"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "aspect": "模型容量",
+        "findings": "从Swin-T到Swin-L，模型参数和FLOPs增加，性能持续提升。例如在ImageNet-1K上，Swin-T为81.3%，Swin-S为83.0%，Swin-B为83.3%（224²输入）。",
+        "anchors": [
+          "anc_00070",
+          "anc_00072"
+        ]
+      },
+      {
+        "aspect": "预训练数据规模",
+        "findings": "在ImageNet-22K上预训练后微调，相比仅在ImageNet-1K上训练，Swin-B提升1.8%~1.9%。",
+        "anchors": [
+          "anc_00066"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "description": "将Swin Transformer应用于MLP-Mixer架构（Swin-Mixer），在ImageNet-1K上达到81.3% top-1，显著优于原始MLP-Mixer的76.4%。",
+        "anchors": [
+          "anc_00130",
+          "anc_00134"
+        ]
+      }
+    ],
+    "human_eval": null,
+    "benchmark": [
+      {
+        "name": "ImageNet-1K",
+        "task": "图像分类",
+        "anchors": [
+          "anc_00061",
+          "anc_00064",
+          "anc_00070",
+          "anc_00072"
+        ]
+      },
+      {
+        "name": "COCO",
+        "task": "目标检测与实例分割",
+        "anchors": [
+          "anc_00074",
+          "anc_00075",
+          "anc_00077",
+          "anc_00081",
+          "anc_00082",
+          "anc_00083"
+        ]
+      },
+      {
+        "name": "ADE20K",
+        "task": "语义分割",
+        "anchors": [
+          "anc_00089",
+          "anc_00090",
+          "anc_00091",
+          "anc_00092"
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "metric": "FLOPs",
+        "comparison": "Swin-T (4.5G) 与 DeiT-S (4.6G) 相当，但性能更高（81.3% vs 79.8%）。",
+        "anchors": [
+          "anc_00070"
+        ]
+      },
+      {
+        "metric": "吞吐量 (images/sec)",
+        "comparison": "Swin-T (755.2) 高于 DeiT-S (940.4)？注意：表格显示DeiT-S吞吐量更高，但Swin-T在更高分辨率下性能更好。需要仔细核对。",
+        "anchors": [
+          "anc_00070"
+        ],
+        "risk_flags": [
+          "表格数据可能需要更仔细的解读，吞吐量比较可能受实现优化影响。"
+        ]
+      },
+      {
+        "metric": "实际推理速度",
+        "comparison": "移位窗口方法比滑动窗口方法具有更低的延迟。",
+        "anchors": [
+          "anc_00101",
+          "anc_00102"
+        ]
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "Swin Transformer可作为计算机视觉的通用骨干网络。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00003",
+          "anc_00005",
+          "anc_00007",
+          "anc_00061",
+          "anc_00074",
+          "anc_00089"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "移位窗口机制在保持线性计算复杂度的同时实现跨窗口连接，提升建模能力。",
+        "evidence_source_type": "消融实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00035",
+          "anc_00037",
+          "anc_00096",
+          "anc_00100"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "层次化特征图设计使模型适用于图像分类和密集预测任务。",
+        "evidence_source_type": "架构设计与实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00010",
+          "anc_00011",
+          "anc_00013",
+          "anc_00014",
+          "anc_00025",
+          "anc_00026",
+          "anc_00027",
+          "anc_00030",
+          "anc_00061",
+          "anc_00074",
+          "anc_00089"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "相对位置偏置比绝对位置嵌入更有效。",
+        "evidence_source_type": "消融实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00051",
+          "anc_00052",
+          "anc_00096",
+          "anc_00100",
+          "anc_00102"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "Swin Transformer在COCO目标检测和ADE20K语义分割上显著超越先前最佳方法。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00006",
+          "anc_00083",
+          "anc_00091",
+          "anc_00099"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "移位窗口方法比滑动窗口方法具有更低的延迟。",
+        "evidence_source_type": "速度测试",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00016",
+          "anc_00101",
+          "anc_00102"
+        ],
+        "risk_flags": [
+          "速度比较可能受具体实现和硬件影响。"
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "Swin Transformer",
+        "definition": "本文提出的基于移位窗口的层次化视觉Transformer骨干网络。",
+        "anchors": [
+          "anc_00003",
+          "anc_00005"
+        ]
+      },
+      {
+        "term": "Shifted Window (SW-MSA)",
+        "definition": "一种自注意力计算方案，在连续层之间交替使用常规和移位窗口分区，以实现跨窗口连接。",
+        "anchors": [
+          "anc_00035",
+          "anc_00036",
+          "anc_00037",
+          "anc_00042"
+        ]
+      },
+      {
+        "term": "Window-based Multi-head Self-Attention (W-MSA)",
+        "definition": "在非重叠的局部M×M窗口内计算的多头自注意力，实现线性计算复杂度。",
+        "anchors": [
+          "anc_00031",
+          "anc_00032",
+          "anc_00033",
+          "anc_00034",
+          "anc_00038"
+        ]
+      },
+      {
+        "term": "Patch Merging",
+        "definition": "用于构建层次化特征图的下采样层，将2×2相邻patch特征拼接并线性投影，使分辨率减半、通道数加倍。",
+        "anchors": [
+          "anc_00025",
+          "anc_00026",
+          "anc_00027"
+        ]
+      },
+      {
+        "term": "Relative Position Bias",
+        "definition": "在自注意力计算中添加的偏置矩阵，编码查询和键之间的相对位置信息。",
+        "anchors": [
+          "anc_00051",
+          "anc_00052"
+        ]
+      },
+      {
+        "term": "Hierarchical Feature Maps",
+        "definition": "具有不同分辨率和通道数的多尺度特征图序列，类似于CNN骨干网络的输出。",
+        "anchors": [
+          "anc_00010",
+          "anc_00011",
+          "anc_00013",
+          "anc_00014",
+          "anc_00025",
+          "anc_00026",
+          "anc_00027",
+          "anc_00030"
+        ]
+      },
+      {
+        "term": "Stage",
+        "definition": "Swin Transformer架构中的一个阶段，包含patch merging（除第一阶段）和多个Swin Transformer块。",
+        "anchors": [
+          "anc_00025",
+          "anc_00026",
+          "anc_00027"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "required_datasets": [
+      {
+        "name": "ImageNet-1K",
+        "description": "用于图像分类预训练和评估。",
+        "anchors": [
+          "anc_00061",
+          "anc_00064"
+        ]
+      },
+      {
+        "name": "ImageNet-22K",
+        "description": "用于更大规模的预训练（可选）。",
+        "anchors": [
+          "anc_00063",
+          "anc_00064",
+          "anc_00065",
+          "anc_00066"
+        ]
+      },
+      {
+        "name": "COCO 2017",
+        "description": "用于目标检测和实例分割评估。",
+        "anchors": [
+          "anc_00074"
+        ]
+      },
+      {
+        "name": "ADE20K",
+        "description": "用于语义分割评估。",
+        "anchors": [
+          "anc_00089",
+          "anc_00098"
+        ]
+      }
+    ],
+    "required_models": [
+      {
+        "name": "Swin Transformer变体 (Swin-T, Swin-S, Swin-B, Swin-L)",
+        "description": "本文提出的核心模型。",
+        "anchors": [
+          "anc_00057",
+          "anc_00058",
+          "anc_00059",
+          "anc_00060"
+        ]
+      },
+      {
+        "name": "下游任务框架",
+        "description": "如Cascade Mask R-CNN, ATSS, RepPoints v2, Sparse RCNN (用于COCO)；UperNet (用于ADE20K)。",
+        "anchors": [
+          "anc_00074",
+          "anc_00089",
+          "anc_00098"
+        ]
+      }
+    ],
+    "compute_requirements": "未知具体GPU小时数，但论文提到使用V100 GPU进行吞吐量测量。训练Swin-L等大模型需要大量计算资源。",
+    "code_available": true,
+    "code_url": "https://github.com/microsoft/Swin-Transformer",
+    "steps": [
+      "1. 准备数据集：下载ImageNet-1K/22K, COCO, ADE20K。",
+      "2. 环境配置：根据GitHub仓库的README安装依赖（PyTorch, mmcv, mmdet, mmseg等）。",
+      "3. 模型训练：使用提供的配置文件在ImageNet-1K上训练Swin Transformer变体。可选在ImageNet-22K上预训练。",
+      "4. 下游任务微调：将训练好的Swin Transformer作为骨干网络，在COCO上使用检测框架（如Cascade Mask R-CNN）进行微调，在ADE20K上使用分割框架（如UperNet）进行微调。",
+      "5. 评估：在相应验证集/测试集上评估模型性能。"
+    ],
+    "missing_details": [
+      "具体的训练日志和中间检查点。",
+      "详细的超参数搜索过程。",
+      "不同硬件平台上的优化实现细节。",
+      "论文中提到的“built-in PyTorch functions that are not all well-optimized”的具体优化方案。"
+    ],
+    "risk_points": [
+      "复现性能可能受随机种子、数据预处理细节、硬件差异影响。",
+      "下游任务框架的版本和配置需要与论文一致，否则结果可能有差异。",
+      "ImageNet-22K预训练需要大量计算资源和存储空间。",
+      "论文中某些速度比较（如与DeiT的吞吐量）可能受实现优化程度影响，复现时需注意。"
+    ]
+  }
+}

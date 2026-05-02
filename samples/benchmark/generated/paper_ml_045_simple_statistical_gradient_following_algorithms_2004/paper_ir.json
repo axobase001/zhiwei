@@ -1,0 +1,2909 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "如何为包含随机单元的连接主义网络设计简单有效的强化学习算法，使其能够沿着期望强化的梯度方向调整权重。",
+      "anchors": [
+        "anc_00001",
+        "anc_00003",
+        "anc_00006"
+      ]
+    },
+    "motivation": {
+      "summary": "现有强化学习算法在处理随机单元网络时缺乏理论保证，且梯度下降方法在监督学习中已证明有效，但需要将其推广到强化学习场景。",
+      "anchors": [
+        "anc_00001",
+        "anc_00008"
+      ]
+    },
+    "core_idea": {
+      "summary": "提出REINFORCE算法族，通过计算期望强化函数的梯度无偏估计来更新权重，确保权重调整方向与梯度方向一致。",
+      "anchors": [
+        "anc_00001",
+        "anc_00039",
+        "anc_00041",
+        "anc_00043"
+      ]
+    },
+    "method": {
+      "summary": "基于随机单元的输出概率分布，推导出梯度估计公式，并设计了多种具体算法变体（如AR-I、AR-P等）。",
+      "anchors": [
+        "anc_00012",
+        "anc_00013",
+        "anc_00039",
+        "anc_00064",
+        "anc_00065"
+      ]
+    },
+    "experiments": {
+      "summary": "论文主要通过理论分析和简单模拟实验验证算法性质，未提供大规模基准测试。",
+      "anchors": [
+        "anc_00153",
+        "anc_00156",
+        "anc_00160",
+        "anc_00162"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "REINFORCE算法提供的权重更新方向是期望强化梯度的无偏估计。",
+        "anchors": [
+          "anc_00043",
+          "anc_00046",
+          "anc_00048"
+        ]
+      },
+      {
+        "claim_id": "claim_2",
+        "claim": "算法适用于各种随机单元类型（如伯努利单元、高斯单元）。",
+        "anchors": [
+          "anc_00018",
+          "anc_00096"
+        ]
+      },
+      {
+        "claim_id": "claim_3",
+        "claim": "通过引入基线可以降低方差而不影响无偏性。",
+        "anchors": [
+          "anc_00039",
+          "anc_00183"
+        ]
+      },
+      {
+        "claim_id": "claim_4",
+        "claim": "算法可以与反向传播结合用于混合网络。",
+        "anchors": [
+          "anc_00118",
+          "anc_00119",
+          "anc_00132"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "理论分析未涉及收敛速度和渐近性质。",
+        "anchors": [
+          "anc_00153"
+        ]
+      },
+      {
+        "limitation": "实验验证有限，主要基于简单任务。",
+        "anchors": [
+          "anc_00153",
+          "anc_00156"
+        ]
+      },
+      {
+        "limitation": "算法可能收敛到局部最优而非全局最优。",
+        "anchors": [
+          "anc_00153",
+          "anc_00154"
+        ]
+      },
+      {
+        "limitation": "对于延迟强化任务需要额外机制。",
+        "anchors": [
+          "anc_00005"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "随机单元模型",
+        "label": "基础组件",
+        "summary": "定义网络中的随机单元，其输出由概率分布决定。",
+        "description": "每个单元i的输出yi由概率质量函数gi(ξ, wi, xi) = Pr{yi = ξ | wi, xi}决定，其中wi是权重向量，xi是输入向量。支持离散和连续输出。",
+        "type": "model_component",
+        "anchors": [
+          "anc_00012",
+          "anc_00013",
+          "anc_00014",
+          "anc_00015"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "伯努利-逻辑单元",
+        "label": "特殊单元类型",
+        "summary": "一种常用的随机单元，输出为0或1，概率由逻辑函数决定。",
+        "description": "对于伯努利逻辑单元，输出yi是伯努利随机变量，参数pi = f(si)，其中si = wi·xi，f是逻辑函数。概率质量函数为：Pr{yi=1|wi,xi}=pi，Pr{yi=0|wi,xi}=1-pi。",
+        "type": "model_component",
+        "anchors": [
+          "anc_00018",
+          "anc_00019",
+          "anc_00020",
+          "anc_00022",
+          "anc_00024"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "期望强化函数",
+        "label": "优化目标",
+        "summary": "定义网络性能的度量，是权重W的函数。",
+        "description": "E{r | W}表示在权重W下期望获得的强化信号r。假设环境输入和强化信号由平稳分布决定，该函数是确定性的。",
+        "type": "objective",
+        "anchors": [
+          "anc_00029",
+          "anc_00031",
+          "anc_00032",
+          "anc_00034"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "REINFORCE算法框架",
+        "label": "核心算法",
+        "summary": "一类基于梯度估计的权重更新算法。",
+        "description": "权重更新规则：Δwij = αij(r - bij)eij，其中αij是学习率，bij是基线，eij = ∂ln gi/∂wij是特征资格。该更新方向是梯度∇_W E{r|W}的无偏估计。",
+        "type": "algorithm",
+        "anchors": [
+          "anc_00039",
+          "anc_00041",
+          "anc_00043",
+          "anc_00046",
+          "anc_00048"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "基线引入",
+        "label": "方差缩减技术",
+        "summary": "通过引入基线bij来降低梯度估计的方差。",
+        "description": "基线bij可以是常数或自适应估计，不影响梯度估计的无偏性，但能显著降低方差。最优基线可最小化权重更新的方差。",
+        "type": "technique",
+        "anchors": [
+          "anc_00039",
+          "anc_00183",
+          "anc_00186"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "AR-I算法",
+        "label": "具体算法变体",
+        "summary": "针对伯努利逻辑单元的特定REINFORCE算法。",
+        "description": "设置αij = α，bij = 0，得到Δwij = α(r)(yi - pi)xj。这是最简单的REINFORCE形式。",
+        "type": "algorithm",
+        "anchors": [
+          "anc_00064",
+          "anc_00065",
+          "anc_00067",
+          "anc_00069"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "与反向传播结合",
+        "label": "混合网络方法",
+        "summary": "将REINFORCE与反向传播结合用于混合随机-确定性网络。",
+        "description": "对于包含确定性隐藏单元和随机输出单元的网络，可以使用反向传播计算确定性部分的梯度，然后应用REINFORCE到随机部分。",
+        "type": "extension",
+        "anchors": [
+          "anc_00118",
+          "anc_00119",
+          "anc_00121",
+          "anc_00123",
+          "anc_00125",
+          "anc_00127"
+        ]
+      },
+      {
+        "node_id": "node_008",
+        "title": "高斯单元扩展",
+        "label": "连续输出扩展",
+        "summary": "将REINFORCE扩展到输出为连续值的随机单元。",
+        "description": "对于输出服从高斯分布的单元，均值μ和标准差σ由网络确定性计算，然后从该分布采样输出。REINFORCE可以应用于这种单元。",
+        "type": "extension",
+        "anchors": [
+          "anc_00096",
+          "anc_00098",
+          "anc_00099",
+          "anc_00101",
+          "anc_00103",
+          "anc_00105"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "relation": "特例",
+        "description": "伯努利逻辑单元是随机单元的一个特例。",
+        "anchors": [
+          "anc_00018"
+        ]
+      },
+      {
+        "source": "node_001",
+        "target": "node_004",
+        "relation": "基础",
+        "description": "REINFORCE算法基于随机单元的概率模型推导。",
+        "anchors": [
+          "anc_00012",
+          "anc_00039"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "relation": "优化目标",
+        "description": "REINFORCE算法旨在最大化期望强化函数。",
+        "anchors": [
+          "anc_00029",
+          "anc_00043"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "relation": "包含",
+        "description": "基线是REINFORCE算法框架的一部分。",
+        "anchors": [
+          "anc_00039",
+          "anc_00183"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_006",
+        "relation": "特例",
+        "description": "AR-I是REINFORCE在伯努利逻辑单元上的特例。",
+        "anchors": [
+          "anc_00064",
+          "anc_00065"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_007",
+        "relation": "扩展",
+        "description": "REINFORCE可以与反向传播结合用于混合网络。",
+        "anchors": [
+          "anc_00118",
+          "anc_00119"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_008",
+        "relation": "扩展",
+        "description": "REINFORCE可以扩展到连续输出的随机单元。",
+        "anchors": [
+          "anc_00096",
+          "anc_00098"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00008"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00039",
+        "anc_00041",
+        "anc_00043"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "缺乏理论保证的随机权重调整。",
+        "after": "权重调整方向是梯度方向的无偏估计。",
+        "why_it_matters": "提供了理论保证，确保算法在期望上沿性能提升方向更新。",
+        "anchors": [
+          "anc_00043",
+          "anc_00046",
+          "anc_00048"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "梯度方法主要应用于监督学习。",
+        "after": "将梯度方法推广到强化学习，适用于随机单元网络。",
+        "why_it_matters": "扩展了梯度下降的应用范围，为强化学习提供了新的算法框架。",
+        "anchors": [
+          "anc_00008",
+          "anc_00041"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "方差较大的梯度估计。",
+        "after": "通过引入基线降低方差而不影响无偏性。",
+        "why_it_matters": "提高了算法的实用性和收敛速度。",
+        "anchors": [
+          "anc_00039",
+          "anc_00183"
+        ],
+        "delta_id": "delta_3"
+      },
+      {
+        "before": "仅适用于纯随机网络。",
+        "after": "可以与反向传播结合用于混合随机-确定性网络。",
+        "why_it_matters": "增加了算法的灵活性，适用于更广泛的网络结构。",
+        "anchors": [
+          "anc_00118",
+          "anc_00119",
+          "anc_00132"
+        ],
+        "delta_id": "delta_4"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\Delta w_{ij} = \\alpha_{ij} (r - b_{ij}) e_{ij}",
+        "variables": [
+          {
+            "\\Delta w_{ij}": "权重wij的更新量",
+            "\\alpha_{ij}": "学习率因子",
+            "r": "强化信号",
+            "b_{ij}": "强化基线",
+            "e_{ij}": "特征资格，e_{ij} = \\frac{\\partial \\ln g_i}{\\partial w_{ij}}",
+            "anchors": [
+              "anc_00039"
+            ],
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [],
+        "intuition": "权重更新量与强化信号和基线的差值成正比，比例系数为学习率和特征资格的乘积。特征资格反映了权重对输出概率的对数影响。",
+        "anchors": [
+          "anc_00039",
+          "anc_00041"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "E\\{\\Delta W | W\\} = \\nabla_W E\\{r | W\\}",
+        "variables": [
+          {
+            "E\\{\\Delta W | W\\}": "给定权重W下权重更新的期望",
+            "\\nabla_W E\\{r | W\\}": "期望强化函数对权重W的梯度",
+            "anchors": [
+              "anc_00043",
+              "anc_00046"
+            ],
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [],
+        "intuition": "REINFORCE算法的核心性质：权重更新的期望等于期望强化函数的梯度，因此是梯度方向的无偏估计。",
+        "anchors": [
+          "anc_00043",
+          "anc_00046"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "\\Delta w_{ij} = \\alpha (r) (y_i - p_i) x_j",
+        "variables": [
+          {
+            "\\alpha": "学习率",
+            "r": "强化信号",
+            "y_i": "单元i的输出（0或1）",
+            "p_i": "输出为1的概率",
+            "x_j": "输入j",
+            "anchors": [
+              "anc_00064",
+              "anc_00065"
+            ],
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [],
+        "intuition": "AR-I算法的具体形式，适用于伯努利逻辑单元。更新量与输出误差(y_i - p_i)和输入x_j的乘积成正比。",
+        "anchors": [
+          "anc_00064",
+          "anc_00065",
+          "anc_00067"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "latex": "g_i(\\xi, w_i, x_i) = \\Pr\\{y_i = \\xi | w_i, x_i\\}",
+        "variables": [
+          {
+            "g_i": "概率质量函数",
+            "\\xi": "输出值",
+            "w_i": "权重向量",
+            "x_i": "输入向量",
+            "y_i": "输出随机变量",
+            "anchors": [
+              "anc_00012",
+              "anc_00013"
+            ],
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [],
+        "intuition": "定义随机单元输出的概率分布，是REINFORCE算法推导的基础。",
+        "anchors": [
+          "anc_00012",
+          "anc_00013"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "理论证明REINFORCE算法提供梯度的无偏估计。",
+      "anchors": [
+        "anc_00043",
+        "anc_00046",
+        "anc_00048"
+      ]
+    },
+    "ablation": {
+      "description": "分析基线引入对方差的影响。",
+      "anchors": [
+        "anc_00183",
+        "anc_00186"
+      ]
+    },
+    "robustness": {
+      "description": "讨论算法在不同随机单元类型下的适用性。",
+      "anchors": [
+        "anc_00018",
+        "anc_00096"
+      ]
+    },
+    "scaling": {
+      "description": "未提供大规模实验，主要基于简单网络分析。",
+      "anchors": [
+        "anc_00153",
+        "anc_00156"
+      ]
+    },
+    "case_study": {
+      "description": "分析伯努利逻辑单元和高斯单元的具体算法形式。",
+      "anchors": [
+        "anc_00064",
+        "anc_00096"
+      ]
+    },
+    "human_eval": {
+      "description": "未涉及人类评估。",
+      "anchors": []
+    },
+    "benchmark": {
+      "description": "未使用标准基准测试，主要基于理论分析和简单模拟。",
+      "anchors": [
+        "anc_00153",
+        "anc_00156"
+      ]
+    },
+    "efficiency": {
+      "description": "讨论算法计算复杂度，与反向传播结合时效率较高。",
+      "anchors": [
+        "anc_00138"
+      ]
+    },
+    "experiments": [
+      {
+        "description": "理论证明REINFORCE算法提供梯度的无偏估计。",
+        "anchors": [
+          "anc_00043",
+          "anc_00046",
+          "anc_00048"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "main_result_1",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "理论证明REINFORCE算法提供梯度的无偏估计。",
+        "what_it_tries_to_prove": "理论证明REINFORCE算法提供梯度的无偏估计。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "分析基线引入对方差的影响。",
+        "anchors": [
+          "anc_00183",
+          "anc_00186"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "ablation",
+        "name": "ablation_2",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "分析基线引入对方差的影响。",
+        "what_it_tries_to_prove": "分析基线引入对方差的影响。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "讨论算法在不同随机单元类型下的适用性。",
+        "anchors": [
+          "anc_00018",
+          "anc_00096"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "robustness",
+        "name": "robustness_3",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "讨论算法在不同随机单元类型下的适用性。",
+        "what_it_tries_to_prove": "讨论算法在不同随机单元类型下的适用性。",
+        "evidence_strength": "medium"
+      },
+      {
+        "description": "分析伯努利逻辑单元和高斯单元的具体算法形式。",
+        "anchors": [
+          "anc_00064",
+          "anc_00096"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "case_study",
+        "name": "case_study_4",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "分析伯努利逻辑单元和高斯单元的具体算法形式。",
+        "what_it_tries_to_prove": "分析伯努利逻辑单元和高斯单元的具体算法形式。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "未使用标准基准测试，主要基于理论分析和简单模拟。",
+        "anchors": [
+          "anc_00153",
+          "anc_00156"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "benchmark",
+        "name": "benchmark_5",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "未使用标准基准测试，主要基于理论分析和简单模拟。",
+        "what_it_tries_to_prove": "未使用标准基准测试，主要基于理论分析和简单模拟。",
+        "evidence_strength": "weak"
+      },
+      {
+        "description": "讨论算法计算复杂度，与反向传播结合时效率较高。",
+        "anchors": [
+          "anc_00138"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "efficiency",
+        "name": "efficiency_6",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "讨论算法计算复杂度，与反向传播结合时效率较高。",
+        "what_it_tries_to_prove": "讨论算法计算复杂度，与反向传播结合时效率较高。",
+        "evidence_strength": "medium"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "REINFORCE算法提供期望强化梯度的无偏估计。",
+        "evidence_source_type": "理论证明",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00043",
+          "anc_00046",
+          "anc_00048"
+        ],
+        "risk_flags": [
+          "理论证明依赖于平稳环境假设"
+        ],
+        "claim_id": "claim_1",
+        "evidence": [
+          {
+            "evidence_id": "evidence_1",
+            "description": "论文通过数学推导证明了REINFORCE算法的权重更新期望等于期望强化函数的梯度。",
+            "anchors": [
+              "anc_00043",
+              "anc_00046",
+              "anc_00048"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "基线引入可以降低方差而不影响无偏性。",
+        "evidence_source_type": "理论分析",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00039",
+          "anc_00183"
+        ],
+        "risk_flags": [
+          "最优基线选择需要额外计算"
+        ],
+        "claim_id": "claim_2",
+        "evidence": [
+          {
+            "evidence_id": "evidence_2",
+            "description": "论文分析了基线的作用，证明了基线不影响梯度估计的无偏性，但可以降低方差。",
+            "anchors": [
+              "anc_00039",
+              "anc_00183"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "算法适用于各种随机单元类型。",
+        "evidence_source_type": "理论推导",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00018",
+          "anc_00096"
+        ],
+        "risk_flags": [
+          "实际性能可能因单元类型而异"
+        ],
+        "claim_id": "claim_3",
+        "evidence": [
+          {
+            "evidence_id": "evidence_3",
+            "description": "论文推导了REINFORCE算法在伯努利逻辑单元和高斯单元上的具体形式，展示了其适用性。",
+            "anchors": [
+              "anc_00018",
+              "anc_00096"
+            ],
+            "strength": "medium"
+          }
+        ]
+      },
+      {
+        "claim": "算法可以与反向传播结合用于混合网络。",
+        "evidence_source_type": "理论扩展",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00118",
+          "anc_00119",
+          "anc_00132"
+        ],
+        "risk_flags": [
+          "结合方式可能影响整体性能"
+        ],
+        "claim_id": "claim_4",
+        "evidence": [
+          {
+            "evidence_id": "evidence_4",
+            "description": "论文讨论了如何将REINFORCE与反向传播结合，用于包含确定性隐藏单元和随机输出单元的混合网络。",
+            "anchors": [
+              "anc_00118",
+              "anc_00119",
+              "anc_00132"
+            ],
+            "strength": "medium"
+          }
+        ]
+      },
+      {
+        "claim": "算法可能收敛到局部最优。",
+        "evidence_source_type": "理论分析",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00153",
+          "anc_00154"
+        ],
+        "risk_flags": [
+          "缺乏全局收敛保证"
+        ],
+        "claim_id": "claim_5",
+        "evidence": [
+          {
+            "evidence_id": "evidence_5",
+            "description": "论文指出，作为梯度跟随算法，REINFORCE可能收敛到局部最大值，但未提供全局收敛保证。",
+            "anchors": [
+              "anc_00153",
+              "anc_00154"
+            ],
+            "strength": "medium"
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "REINFORCE": "一类强化学习算法，通过估计期望强化函数的梯度来更新权重。",
+    "特征资格": "eij = ∂ln gi/∂wij，反映权重wij对输出概率对数的影响。",
+    "基线": "bij，用于降低梯度估计方差的参考值。",
+    "伯努利逻辑单元": "输出为0或1的随机单元，概率由逻辑函数决定。",
+    "期望强化函数": "E{r|W}，在权重W下期望获得的强化信号。",
+    "无偏估计": "估计量的期望等于被估计的参数值。",
+    "terms": [
+      {
+        "term": "REINFORCE",
+        "definition": "一类强化学习算法，通过估计期望强化函数的梯度来更新权重。",
+        "anchors": [
+          "anc_00041"
+        ],
+        "appears_in": [
+          "anc_00041"
+        ]
+      },
+      {
+        "term": "特征资格",
+        "definition": "eij = ∂ln gi/∂wij，反映权重wij对输出概率对数的影响。",
+        "anchors": [
+          "anc_00039"
+        ],
+        "appears_in": [
+          "anc_00039"
+        ]
+      },
+      {
+        "term": "基线",
+        "definition": "bij，用于降低梯度估计方差的参考值。",
+        "anchors": [
+          "anc_00039",
+          "anc_00183"
+        ],
+        "appears_in": [
+          "anc_00039",
+          "anc_00183"
+        ]
+      },
+      {
+        "term": "伯努利逻辑单元",
+        "definition": "输出为0或1的随机单元，概率由逻辑函数决定。",
+        "anchors": [
+          "anc_00018",
+          "anc_00022",
+          "anc_00024"
+        ],
+        "appears_in": [
+          "anc_00018",
+          "anc_00022",
+          "anc_00024"
+        ]
+      },
+      {
+        "term": "期望强化函数",
+        "definition": "E{r|W}，在权重W下期望获得的强化信号。",
+        "anchors": [
+          "anc_00029",
+          "anc_00031",
+          "anc_00034"
+        ],
+        "appears_in": [
+          "anc_00029",
+          "anc_00031",
+          "anc_00034"
+        ]
+      },
+      {
+        "term": "无偏估计",
+        "definition": "估计量的期望等于被估计的参数值。",
+        "anchors": [
+          "anc_00043",
+          "anc_00046"
+        ],
+        "appears_in": [
+          "anc_00043",
+          "anc_00046"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        "未指定具体数据集，主要基于理论分析"
+      ],
+      "required_models": [
+        "包含随机单元的连接主义网络"
+      ],
+      "required_compute": "低，主要基于理论推导和简单模拟",
+      "code_available": "否，论文未提供代码",
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "实现随机单元模型（如伯努利逻辑单元）",
+          "anchors": [
+            "anc_00012",
+            "anc_00013",
+            "anc_00018",
+            "anc_00019",
+            "anc_00020"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "实现REINFORCE算法框架",
+          "anchors": [
+            "anc_00039",
+            "anc_00041",
+            "anc_00043"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "实现基线计算方法",
+          "anchors": [
+            "anc_00039",
+            "anc_00183",
+            "anc_00186"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "在简单任务上验证梯度估计的无偏性",
+          "anchors": [
+            "anc_00043",
+            "anc_00046",
+            "anc_00048"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "测试不同基线对方差的影响",
+          "anchors": [
+            "anc_00183",
+            "anc_00186"
+          ]
+        }
+      ],
+      "missing_details": [],
+      "risk_points": []
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-01T22:46:28+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_ml_045_simple_statistical_gradient_following_algorithms_2004",
+    "title": "Simple Statistical Gradient-Following Algorithms for Connectionist Reinforcement Learning",
+    "authors": [
+      "Ronald J. Williams"
+    ],
+    "venue": "Machine-mediated learning",
+    "year": 2004,
+    "arxiv_id": null,
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-01T22:45:24+00:00",
+    "paper_type": "Reinforcement Learning / Top-cited ML method paper",
+    "citation_count": 10071,
+    "influential_citation_count": 1169,
+    "semantic_scholar_id": "4c915c1eecb217c123a36dc6d3ce52d12c742614",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/4c915c1eecb217c123a36dc6d3ce52d12c742614",
+    "importance_rank": 45,
+    "selection_source": "semantic_scholar_top_cited_ml_open_pdf_2026_05_01",
+    "open_access_pdf_url": "https://link.springer.com/content/pdf/10.1023/A:1022672621406.pdf",
+    "fields_of_study": [],
+    "publication_types": []
+  },
+  "anchors": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Machine Learning, 8, 229-256 (1992) © 1992 Kluwer Academic Publishers, Boston. Manufactured in The Netherlands. Simple Statistical Gradient-Following Algorithms for Connectionist Reinforcement Learning RONALD J. WILLIAMS rjw@corwin.ccs.northeastern.edu College of Computer Science, 161 CN, Northeastern University, 360 Huntingdon Ave., Boston, MA 02115 Abstract. This article presents a general class of associative reinforcement learning algorithms for connectionist networks containing stochastic units. These algorithms, called REINFORCE algorithms, are shown to make weight adjustments in a direction that lies along the gradient of expected reinforcement in both immediate-reinforcement tasks and certain limited forms of delayed-reinforcement tasks, and they do this without explicitly computing gradient estimates or even storing information from which such estimates could be computed. Specific examples of such algorithms are presented, some of which bear a close relationship to certain ex...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "learning problems simply to keep the problems tractable, it is important to keep in mind",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "that eventual solutions to the most challenging problems will probably require integration of a broad range of applicable techniques. In this article we present analytical results concerning certain algorithms for tasks that are associative, meaning that the learner is required to perform an input-output mapping, and, with one limited exception, that involve immediate reinforcement, meaning that the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "reinforcement (i.e., payoff) provided to the learner is determined by the most recent input-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "output pair only. While delayed reinforcement tasks are obviously important and are receiving much-deserved attention lately, a widely used approach to developing algorithms for such tasks is to combine an immediate-reinforcement learner with an adaptive predictor or critic based on the use of temporal difference methods (Sutton, 1988). The actor-critic algorithms investigated by Barto, Sutton and Anderson (1983) and by Sutton (1984) are clearly of this form, as is the Q-learning algorithm of Watkins (1989; Barto, Sutton, & Watkins, 1990). 5",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "230 R.J. WILLIAMS A further assumption we make here is that the learner's search behavior, always a necessary component of any form of reinforcement learning algorithm, is provided by means of ran- domness in the input-output behavior of the learner. While this is a common way to achieve the desired exploratory behavior, it is worth noting that other strategies are sometimes available in certain cases, including systematic search or consistent selection of the ap- parent best alternative. This latter strategy works in situations where the goodness of alter-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "native actions is determined by estimates which are always overly optimistic and which",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "become more realistic with continued experience, as occurs for example in A* search (Nilsson, 1980). In addition, all results will be framed here in terms of connectionist networks, and the main focus is on algorithms that follow or estimate a relevant gradient. While such algorithms are known to have a number of limitations, there are a number of reasons why their study can be useful. First, as experience with backpropagation (leCun, 1985; Parker, 1985; Rumelhart, Hinton & Williams, 1986; Werbos, 1974) has shown, the gradient seems to provide a powerful and general heuristic basis for generating algorithms which are often simple to implement and surprisingly effective in many cases. Second, when more sophisticated algorithms are required, gradient computation can often serve as the core of such algorithms. Also, to the extent that certain existing algorithms resemble the algorithms arising from such a gradient analysis, our understanding of them may be enhanced. Another distinguishin...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "it will be useful to consider the case when there are deterministic units in the net as well.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "The network operates by receiving external input from the environment, propagating the 6",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "GRADIENT ALGORITHMS 231 corresponding activity through the net, and sending the activity produced at its output units to the environment for evaluation. The evaluation consists of the scalar reinforcement signal r, which we assume is broadcast to all units in the net. At this point each unit performs an appropriate modification of its weights, based on the particular learning algorithm in use, and the cycle begins again. The notation we use throughout is as follows: Let yi denote the output of the ith unit in the network, and let x' denote the pattern of input to that unit. This pattern of input x' is a vector whose individual elements (typically denoted Xj) are either the outputs of certain units in the network (those sending their output directly to the ith unit) or certain inputs from the environment (if that unit happens to be connected so that it receives input directly from the environment). Then output yi is drawn from a distribution depending on xi and the weights wij on input...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "In addition, for each i let gi(£, wi, xi) = Pr{yi = £ I wi, xi}, so that gi is the probability",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "mass function determining the value of yi as a function of the parameters of the unit and",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "its input. (For ease of exposition, we consistently use terminology and notation appropriate",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "for the case when the set of possible output values yi is discrete, but the results to be de- rived also apply to continuous-valued units when gi is taken to be the corresponding prob- ability density function.) Since the vector wi contains all network parameters on which the input-output behavior of the ith unit depends, we could just as well have defined gi",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "by gi(f, wi, xi) = Pr{yi = £|W, xi}.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "Note that many of the quantities we have named here, such as r, yi, and xi, actually de- pend on time, but it is generally convenient in the sequel to suppress explicit reference to this time dependence, with the understanding that when several such quantities appear in a single equation they represent the values for the same time step t. We assume that each new time step begins just before external input is presented to the network. In the context of immediate-reinforcement tasks we also call each time step's cycle of network- environment interaction a trial. To illustrate these definitions and also introduce a useful subclass, we define a stochastic semilinear unit to be one whose output yi is drawn from some given probability distribu- tion whose mass function has a single parameter pi, which is in turn computed as where fi is a differentiable squashing function and 7",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "232 R.J. WILLIAMS the inner product of wi and xi. This can be viewed as a semilinear unit, as widely used in connectionist networks, followed by a singly parameterized random number generator. A noteworthy special case of a stochastic semilinear unit is a Bernoulli semilinear unit, for which the output yi is a Bernoulli random variable with parameter pi, which means",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "that the only possible output values are 0 and 1, with Pr{yi = 0|wi, xi} = 1 - pi and",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "Pr{yi = 11 wi, xi} = pi. Thus, for a Bernoulli semilinear unit,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "where pi is computed via equations (1) and (2). This type of unit is common in networks using stochastic units; it appears, for example, in the Boltzmann machine (Hinton & Sej- nowski, 1986) and in the reinforcement learning networks explored by Barto and colleagues (Barto & Anderson, 1985; Barto & Jordan, 1987; Barto, Sutton, & Brouwer, 1981). While the name Bernoulli semilinear unit may thus appear to be simply a fancy new name for something quite familiar, use of this term is intended to emphasize its membership in a potentially much more general class.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00022",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "A particular form of squashing function commonly used is the logistic junction, given by",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "A stochastic semilinear unit using both the Bernoulli random number generator and the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00024",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "logistic squashing function will be called a Bernoulli-logistic unit.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "Now we observe that the class of Bernoulli semilinear units includes certain types of units whose computation is alternatively described in terms of a linear threshold computa- tion together with either additive input noise or a noisy threshold. This observation is useful because this latter formulation is the one used by Barto and colleagues (Barto, 1985; Barto & Anandan, 1985; Barto & Anderson, 1985; Barto, Sutton, & Anderson, 1983; Barto, Sutton, & Brouwer, 1981; Sutton, 1984) in their investigations. Specifically, they assume a unit computes it output yi by where n is drawn randomly from a given distribution ^. To see that such a unit may be viewed as a Bernoulli semilinear unit, let and observe that 8",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "GRADIENT ALGORITHMS 233 Thus, as long as ^ is differentiable, such a unit is a Bernoulli semilinear unit with squashing",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00027",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "function fi given by./;(•*,) = 1 - *(-si).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00028",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "3. The expected reinforcement performance criterion In order to consider gradient learning algorithms, it is necessary to have a performance measure to optimize. A very natural one for any immediate-reinforcement learning pro- blem, associative or not, is the expected value of the reinforcement signal, conditioned on a particular choice of parameters of the learning system. Thus, for a reinforcement- learning network, our performance measure is E {r | W}, where E denotes the expectation operator, r the reinforcement signal, and W the network's weight matrix. We need to use expected values here because of the potential randomness in any of the following: (1) the environment's choice of input to the network; (2) the network's choice of output correspon- ding to any particular input; and (3) the environment's choice of reinforcement value for",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "any particular input/output pair. Note that it only makes sense to discuss E {r \\ W} in-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "dependently of time if we assume that the first and third sources of randomness are deter-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00031",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "mined by stationary distributions, with the environment's choice of input pattern to the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "net also determined independently across time. In the absence of such assumptions, the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00033",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "expected value of r for any given time step may be a function of time as well as of the history of the system. Thus we tacitly assume throughout that these stationarity and in- dependence conditions hold.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "Note that, with these assumptions, E{r \\ W} is a well-defined, deterministic function",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00035",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "of W (but one which is unknown to the learning system). Thus, in this formulation, the objective of the reinforcement learning system is to search the space of all possible weight",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "matrices W for a point where E{r \\ W} is maximum.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00037",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "4. REINFORCE algorithms Consider a network facing an associative immediate-reinforcement learning task. Recall that weights are adjusted in this network following receipt of the reinforcement value r at each trial. Suppose that the learning algorithm for this network is such that at the end of each trial each parameter Wy in the network is incremented by an amount 9",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00038",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "234 R.J. WILLIAMS",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00039",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "where aij is a learning rate factor, bij is a reinforcement baseline, and eij = din gi/dwij",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "is called the characteristic eligibility of wij. Suppose further that the reinforcement baseline bij is conditionally independent of yi, given W and xi, and the rate factor ay is nonnegative and depends at most on wi and t. (Typically, ay will be taken to be a constant.) Any lear- ning algorithm having this particular form will be called a REINFORCE algorithm. The",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00041",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "name is an acronym for \"REward Increment = Nonnegative Factor x Offset Reinforce-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00042",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "ment X Characteristic Eligibility,\" which describes the form of the algorithm. What makes this class of algorithms interesting is the following mathematical result: Theorem 1. For any REINFORCE algorithm, the inner product of E{AW | W} and VWE{r | W} is nonnegative. Furthermore, if aij > 0 for all i and j, then this inner prod-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00043",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "uct is zero only when VwE{r W} = 0. Also, if aij = a is independent of i and j, then",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "E{AW | W} = a VwE{r W}.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00045",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "This results relates VwE{r W}, the gradient in weight space of the performance",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00046",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "measure E{r \\ W}, to E{AW | W}, the average update vector in weight space, for any",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00047",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "REINFORCE algorithm.1 Specifically, it says that for any such algorithm the average up- date vector in weight space lies in a direction for which this performance measure is in- creasing. The last sentence of the theorem is equivalent to the claim that for each weight",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00048",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "wij the quantity (r — bij) dln gj/dwij represents an unbiased estimate of dE{r \\ W}/dwij.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "A proof of this theorem is given in Appendix A. There are a number of interesting special cases of such algorithms, some of which coin- cide with algorithms already proposed and explored in the literature and some of which are novel. We begin by showing that some existing algorithms are REINFORCE algorithms, from which it follows immediately that Theorem 1 applies to them. Later we will consider some novel algorithms belonging to this class. Consider first a Bernoulli unit having no (nonreinforcement) input and suppose that the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00050",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "parameter to be adapted is pi = Pr{yi = I}. This is equivalent to a two-action stochastic",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "learning automaton (Narendra & Thathatchar, 1989) whose actions are labeled 0 and 1. The probability mass function gi is then given by from which it follows that the characteristic eligibility for the parameter pi is given by",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00052",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "assuming pi is not equal to 0 or 1.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00053",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "10",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "GRADIENT ALGORITHM S 235",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "A particular REINFORC E algorith m fo r such a unit can be obtained by choosing bi =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "0 fo r the reinforcement baseline an d by using as the rate facto r a i = p ipi(1 —p i ) , where",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00057",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "0 < p i < 1 . This give s ris e t o an algorith m havin g the for m using the result (5) above. The special case of this algorithm when the reinforcement signal is limited t o 0 an d 1 coincides wit h th e 2-action versio n o f the linear reward-inaction (LR-I) stochastic learning automaton (Narendra & Thathatchar, 1989). A \"network\" con- sisting of more than one such unit constitutes a team of such learning automata, each using its own individua l learning rate. Th e behavior of teams of LR_I automata has been investi- gated b y Narendra an d Wheeler (1983; Wheeler & Narendra , 1986). Now consider a Bernoulli semilinear unit. In this case, g i(yi, wi, x') is given by the right- hand sid e o f (4 ) above, wher e p i i s expressed i n term s o f w i an d x i usin g equations (1) and (2) . T o compute th e characteristi c eligibilit y fo r a particula r paramete r w ij ,we us e",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00058",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "the chain rule. Differentiating the equations (1 ) and (2) yields dp i/ds i =f i'(si) an d Bs i /dw i j",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00059",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "= x j. Notin g that dln g i/dp i (y i, w i, x i) i s given by the right-hand sid e o f (5) above, we",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00060",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "multiply thes e three quantitie s to fin d tha t the characteristic eligibilit y fo r the weight wij is given by",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00061",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "as long a s pi, is not equal t o 0 or 1 . In the special case whe n fi is the logistic function ,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00062",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "given by equation (3), p i is never equal to 0 or 1 and f i'(si) = p i(1 - p i), so the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "characteristic eligibilit y o f w ij i s simpl y",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00064",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "Now consider an arbitrary network of such Bernoulli-logistic units . Setting a ij = a and",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00065",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "bij = 0 for all i and j give s ris e to a REINFORCE algorith m havin g the for m",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00066",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "using the resul t (7 ) above. I t i s interesting t o compare thi s wit h th e associative reward- penalty (A R-P) algorith m (Barto, 1985; Barto & Anandan, 1985; Bart o & Anderson, 1985; Barto & Jordan , 1987), which , fo r r 6 [0 , 1] , uses th e learnin g rul e",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "where a i s a positive learnin g rate paramete r an d 0 < X < 1 . If X = 0 , thi s is called",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00068",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "the associative reward-inaction (A R-1) algorithm, an d we see that the learning rule reduces",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "to equation (8 ) i n this case. Thu s AR-I, whe n applied t o a networ k of Bernoulli-logistic",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00070",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "units, i s a REINFORC E algorithm . 11",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00071",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "236 R.J. WILLIAMS In all the examples considered so far, the reinforcement baseline is 0. However, the use of reinforcement comparison (Sutton, 1984) is also consistent with the REINFORCE for-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00072",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "mulation. For this strategy one maintains an adaptive estimate r of upcoming reinforce-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00073",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "ment based on past experience. As a particular example, for a network of Bernoulli-logistic",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00074",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "units one may use the learning rule which is then a REINFORCE algorithm as long as the computation of r is never based on the current value of yi (or the current value of r). One common approach to computing r is to use the exponential averaging scheme where 0 < y < 1. More sophisticated strategies are also consistent with the REINFORCE framework, including making r a function of the current input pattern xi to the unit. While the analytical results given here offer no basis for comparing various choices of reinforcement baseline in REINFORCE algorithms, it is generally believed that the use of reinforcement comparison leads to algorithms having superior performance in general. We discuss questions of REINFORCE algorithm performance at greater length below. 5. Episodic REINFORCE algorithms Now we consider how the REINFORCE class of algorithms can be extended to certain learning problems having a temporal credit-assignment component, as may occur when the network contains loops or the...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00075",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "= vt for all appropriate t. In particular, each weight wij in N gives rise to several weights",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00076",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "wtij, in N* all of whose values happen to be equal to each other and to the value of wij in N since it is assumed that wij is constant over the episode. The form of algorithm to be considered for this problem is as follows: At the conclusion of each episode, each parameter wij is incremented by 12",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00077",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "GRADIENT ALGORITHMS 237 where all notation is the same as that defined earlier, with eij(t) representing the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00078",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "characteristic eligibility for wij evaluated at the particular time t. By definition, eij(t) =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00079",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "e'ij, where this latter makes sense within the acyclic network N*. For example, in a com-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00080",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "pletely interconnected recurrent network of Bernoulli-logistic units that is updated synch-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00081",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "ronously, eij(t) = (yi(t) - Pi(t))xj(t - 1). All quantities are assumed to satisfy the same",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00082",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "conditions required for the REINFORCE algorithm, where, in particular, for each i and j, the reinforcement baseline by is independent of any of the output values yi (t) and the rate factor aij depends at most on wi and episode number. Call any algorithm of this form (and intended for such a learning problem) an episodic REINFORCE algorithm.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00083",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "For example, if the network consists of Bernoulli-logistic units an episodic REINFORCE",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00084",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "algorithm would prescribe weight changes according to the rule The following result is proved in Appendix A: Theorem 2. For any episodic REINFORCE algorithm, the inner product of E{AW | W}",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00085",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "and VwE{r \\ W} is nonnegative. Furthermore, if aij > 0 for all i and j, then this inner",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00086",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "product is zero only when VwE{r | W} = 0. Also, if aij = a is independent of i and",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00087",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "j, then E{AW | W} = aVE{r | W}.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00088",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "What is noteworthy about this algorithm is that it has a plausible on-line implementation using a single accumulator for each parameter Wij in the network. The purpose of this ac- cumulator is to form the eligibility sum, each term of which depends only on the operation of the network as it runs in real time and not on the reinforcement signal eventually received. A more general formulation of such an episodic learning task is also possible, where reinforcement is delivered to the network at each time step during the episode, not just",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00089",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "at the end. In this case the appropriate performance measure is E{£f=i r(t) \\ W}. One",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00090",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "way to create a statistical gradient-following algorithm for this case is to simply replace",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00091",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "r in (11) by £kt=1 r(t), but it is interesting to note that when r is causal, so that it depends",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00092",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "only on network inputs and outputs from earlier times, there is a potentially better way to perform the necessary credit assignment. Roughly, the idea is to treat this learning prob- lem over the k-time-step interval as k different but overlapping episodic learning problems, all starting at the beginning of the episode. We omit further discussion of the details of this approach. 6. REINFORCE with multiparameter distributions An interesting application of the REINFORCE framework is to the development of learn-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00093",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "ing algorithms for units that determine their scalar output stochastically from multiparameter",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00094",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "13",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00095",
+      "page": 10,
+      "section": null,
+      "bbox": null,
+      "text_span": "238 R.J. WILLIAMS distributions rather than the single-parameter distributions used by stochastic semilinear units, for example. One way such a unit may compute in this fashion is for it to first per-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00096",
+      "page": 10,
+      "section": null,
+      "bbox": null,
+      "text_span": "form a deterministic computation, based on its weights and input, to obtain the values of",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00097",
+      "page": 10,
+      "section": null,
+      "bbox": null,
+      "text_span": "all parameters controlling the random number generation process, and then draw its out- put randomly from the appropriate distribution. As a particular example, the normal distribu-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00098",
+      "page": 10,
+      "section": null,
+      "bbox": null,
+      "text_span": "tion has two parameters, the mean p and the standard deviation a. A unit determining its",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00099",
+      "page": 10,
+      "section": null,
+      "bbox": null,
+      "text_span": "output according to such a distribution would first compute values of n and a deterministically",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00100",
+      "page": 10,
+      "section": null,
+      "bbox": null,
+      "text_span": "and then draw its output from the normal distribution with mean equal to this value of p and standard deviation equal to this value of a. One potentially useful feature of such a Gaussian unit is that the mean and variance of its output are individually controllable as long as separate weights (or perhaps inputs) are",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00101",
+      "page": 10,
+      "section": null,
+      "bbox": null,
+      "text_span": "used to determine these two parameters. What makes this interesting is that control over",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00102",
+      "page": 10,
+      "section": null,
+      "bbox": null,
+      "text_span": "a is tantamount to control over the unit's exploratory behavior. In general, random units using multiparameter distributions have the potential to control their degree of exploratory behavior independently of where they choose to explore, unlike those using single-parameter distributions. Here we note that REINFORCE algorithms for any such unit are easily derived, using the particular case of a Gaussian unit as an example. Rather than commit to a particular",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00103",
+      "page": 10,
+      "section": null,
+      "bbox": null,
+      "text_span": "means of determining the mean and standard deviation of such a unit's output from its",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00104",
+      "page": 10,
+      "section": null,
+      "bbox": null,
+      "text_span": "input and its weights, we will simply treat this unit as if the mean and standard deviation themselves served as the adaptable parameters of the unit. Any more general functional dependence of these parameters on the actual adaptable parameters and input to the unit simply requires application of the chain rule. One particular approach to computation of these parameters, using separate weighted sums across a common set of input lines (and using a somewhat different learning rule), has been explored by Gullapalli (1990). To simplify notation, we focus on one single unit and omit the usual unit index subscript throughout. For such a unit the set of possible outputs is the set of real numbers and the density",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00105",
+      "page": 10,
+      "section": null,
+      "bbox": null,
+      "text_span": "function g determining the output y on any single trial is given by",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00106",
+      "page": 10,
+      "section": null,
+      "bbox": null,
+      "text_span": "The characteristic eligibility of / is then and the characteristic eligibility of a is A REINFORCE algorithm for this unit thus has the form 14",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00107",
+      "page": 11,
+      "section": null,
+      "bbox": null,
+      "text_span": "GRADIENT ALGORITHMS 239 and where a^, b^, oa,, and b0 are chosen appropriately. A reasonable algorithm is obtained by setting",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00108",
+      "page": 11,
+      "section": null,
+      "bbox": null,
+      "text_span": "where a is a suitably small positive constant,2 and letting b^ = ba be determined accor-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00109",
+      "page": 11,
+      "section": null,
+      "bbox": null,
+      "text_span": "ding to a reinforcement comparison scheme. It is interesting to note the resemblance between equation (12), giving the characteristic eligibility for the parameter x of the normal distribution, and equation (5), giving the characteristic eligibility for the parameter p of the Bernoulli distribution. Since p is the mean and p(1 - p) the variance of the corresponding Bernoulli random variable, both equations have the same form. In fact, the characteristic eligibility of the mean parameter has this form for an even wider variety of distributions, as stated in the following result: Proposition 1. Suppose that the probability mass or density function g has the form for some functions Q, D, and S, where p, 02, • • •, 6k are parameters such that n is the mean of the distribution. Then where o2 is the variance of the distribution. Mass or density functions having this form represent special cases of exponential families of distributions (Rohatgi, 1976). It is easily checked that a number of f...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00110",
+      "page": 12,
+      "section": null,
+      "bbox": null,
+      "text_span": "240 R.J. WILLIAMS",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00111",
+      "page": 12,
+      "section": null,
+      "bbox": null,
+      "text_span": "effect of connectivity between units is ignored; each unit in the network tries to determine",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00112",
+      "page": 12,
+      "section": null,
+      "bbox": null,
+      "text_span": "the effect of changes of its output on changes in reinforcement independently of its effect on even those units to which it is directly connected. In contrast, the backpropagation algorithm works by making use of the fact that entire chains of effects are predictable from knowledge of the effects of individual units on each other. While the backpropagation",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00113",
+      "page": 12,
+      "section": null,
+      "bbox": null,
+      "text_span": "algorithm is appropriate only for supervised learning in networks of deterministic units,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00114",
+      "page": 12,
+      "section": null,
+      "bbox": null,
+      "text_span": "it makes sense to also use the term backpropagation for the single component of this",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00115",
+      "page": 12,
+      "section": null,
+      "bbox": null,
+      "text_span": "algorithm that determines relevant partial derivatives by means of the backward pass. (In",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00116",
+      "page": 12,
+      "section": null,
+      "bbox": null,
+      "text_span": "this sense it is simply a computational implementation of the chain rule.) With this mean- ing of the term we can then consider how backpropagation might be integrated into the statistical gradient-following reinforcement learning algorithms investigated here, thereby giving rise to algorithms that can take advantage of relevant knowledge of network connec-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00117",
+      "page": 12,
+      "section": null,
+      "bbox": null,
+      "text_span": "tivity where appropriate. Here we examine two ways that backpropagation can be used.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00118",
+      "page": 12,
+      "section": null,
+      "bbox": null,
+      "text_span": "7.1. Networks using deterministic hidden units",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00119",
+      "page": 12,
+      "section": null,
+      "bbox": null,
+      "text_span": "Consider a feedforward network having stochastic output units and deterministic hidden",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00120",
+      "page": 12,
+      "section": null,
+      "bbox": null,
+      "text_span": "units. Use of such a network as a reinforcement learning system makes sense because hav- ing randomness limited to the output units still allows the necessary exploration to take place. Let x denote the vector of network input and let y denote the network output vector.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00121",
+      "page": 12,
+      "section": null,
+      "bbox": null,
+      "text_span": "We can the define g(£, W, x) = Pr{y = £ | W, x} to be the overall probability mass",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00122",
+      "page": 12,
+      "section": null,
+      "bbox": null,
+      "text_span": "function describing the input-output behavior of the entire network. Except for the fact that the output of the network is generally vector-valued rather than scalar-valued, the for-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00123",
+      "page": 12,
+      "section": null,
+      "bbox": null,
+      "text_span": "malism and arguments used to derive REINFORCE algorithms apply virtually unchanged",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00124",
+      "page": 12,
+      "section": null,
+      "bbox": null,
+      "text_span": "when this global rather than local perspective is taken. In particular, a simple extension",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00125",
+      "page": 12,
+      "section": null,
+      "bbox": null,
+      "text_span": "of the arguments used to prove Theorem 1 to the case of vector-valued output shows that,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00126",
+      "page": 12,
+      "section": null,
+      "bbox": null,
+      "text_span": "for any weight wij in the network, (r - bij) dln g/dwij represents an unbiased estimate of dE{r | W}/dwij. Let O denote the index set for output units. Because all the randomness is in the output units, and because the randomness is independent across these units, we have where, for each k, xk is the pattern appearing at the input to the kth unit as a result of",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00127",
+      "page": 12,
+      "section": null,
+      "bbox": null,
+      "text_span": "presentation of the pattern x to the network. Note that each xk depends deterministically",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00128",
+      "page": 12,
+      "section": null,
+      "bbox": null,
+      "text_span": "on x. Therefore, 16",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00129",
+      "page": 13,
+      "section": null,
+      "bbox": null,
+      "text_span": "GRADIENT ALGORITHMS 241 so that Clearly, this sum may be computed via backpropagation. For example, when the output units are Bernoulli semilinear units, we can use the parameters pk as intermediate variables and write the characteristic eligibility of any weight wij as and this is efficiently computed by \"injecting\"",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00130",
+      "page": 13,
+      "section": null,
+      "bbox": null,
+      "text_span": "just after the kth unit's squashing function, for each k, and then performing the standard",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00131",
+      "page": 13,
+      "section": null,
+      "bbox": null,
+      "text_span": "backward pass. Note that if wij is a weight attached to an output unit, this backpropaga- tion computation simply gives rise to the result (6) derived earlier. For that result we essen- tially backpropagated the characteristic eligibility of the Bernoulli parameter pi through the sub-units consisting of the \"squasher\" and the \"summer.\" While we have restricted attention here to networks having stochastic output units only, it is not hard to see that such a result can be further generalized to any network containing",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00132",
+      "page": 13,
+      "section": null,
+      "bbox": null,
+      "text_span": "an arbitrary mixture of stochastic and deterministic units. The overall algorithm in this",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00133",
+      "page": 13,
+      "section": null,
+      "bbox": null,
+      "text_span": "case consists of the use of the correlation-style REINFORCE computation at each stochastic unit, whether an output unit or not, with backpropagation used to compute (or, more pre- cisely, estimate) all other relevant partial derivatives. Furthermore, it is not difficult to prove an even more general compatibility between com- putation of unbiased estimates, not necessarily based on REINFORCE, and backpropaga-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00134",
+      "page": 13,
+      "section": null,
+      "bbox": null,
+      "text_span": "tion through deterministic functions. The result is, essentially, that when one set of variables",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00135",
+      "page": 13,
+      "section": null,
+      "bbox": null,
+      "text_span": "depends deterministically on a second set of variables, backpropagating unbiased estimates",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00136",
+      "page": 13,
+      "section": null,
+      "bbox": null,
+      "text_span": "of partial derivatives with respect to the first set of variables gives rise to unbiased estimates of partial derivatives with respect to the second set of variables. It is intuitively reasonable that this should be true, but we omit the rigorous mathematical details here since we make no use of the result. 17",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00137",
+      "page": 14,
+      "section": null,
+      "bbox": null,
+      "text_span": "242 R.J. WILLIAMS 7.2. Backpropagating through random number generators While the form of algorithm just described makes use of backpropagation within deter-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00138",
+      "page": 14,
+      "section": null,
+      "bbox": null,
+      "text_span": "ministic portions of the network, it still requires a correlation-style computation whenever",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00139",
+      "page": 14,
+      "section": null,
+      "bbox": null,
+      "text_span": "it is necessary to obtain partial derivative information on the input side of a random number generator. Suppose instead that it were possible to somehow \"backpropagate through a random number generator.\" To see what this might mean, consider a stochastic semilinear",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00140",
+      "page": 14,
+      "section": null,
+      "bbox": null,
+      "text_span": "unit and suppose that there is a function J having some deterministic dependence on the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00141",
+      "page": 14,
+      "section": null,
+      "bbox": null,
+      "text_span": "output yi. An example of this situation is when the unit is an output unit and J = E{r",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00142",
+      "page": 14,
+      "section": null,
+      "bbox": null,
+      "text_span": "| W}, with reinforcement depending on whether the network output is correct or not. What we would like, roughly, is to be able to compute dJ/dp, from knowledge of dJldyi. Because",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00143",
+      "page": 14,
+      "section": null,
+      "bbox": null,
+      "text_span": "of the randomness, however, we could not expect there to be a deterministic relationship",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00144",
+      "page": 14,
+      "section": null,
+      "bbox": null,
+      "text_span": "between these quantities. A more reasonable property to ask for is that dE{J \\ Pi}/dpi",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00145",
+      "page": 14,
+      "section": null,
+      "bbox": null,
+      "text_span": "be determined by E {dJ/dyi / pi},",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00146",
+      "page": 14,
+      "section": null,
+      "bbox": null,
+      "text_span": "Unfortunately, even this property fails to hold in general. For example, in a Bernoulli unit, it is straightforward to check that whenever J is a nonlinear function of yi there need be no particular relationship between these two quantities. However, if the output of the random number generator can be written as a differentiable function of its parameters,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00147",
+      "page": 14,
+      "section": null,
+      "bbox": null,
+      "text_span": "the approach just described for backpropagating through deterministic computation can",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00148",
+      "page": 14,
+      "section": null,
+      "bbox": null,
+      "text_span": "be applied. As an illustration, consider a normal random number generator, as used in a Gaussian unit. Its output y is randomly generated according to the parameters p and a. We may write where z is a standard normal deviate. From this we see that and Thus, for example, one may combine the use of backpropagation through Gaussian hidden units with REINFORCE in the output units. In this case the characteristic eligibility for the y in such a unit is set equal to that computed for the output value y while the characteristic eligibility for the a parameter is obtained by multiplying that for y by (y - n)/a. It is worth noting that these particular results in no way depend on the fact that n is the mean and a the standard deviation; the identical result applies whenever y represents a translation parameter and a a scaling parameter for the distribution. More generally, the same tech- nique can obviously be used whenever the output can be expressed as a function of the parameters together w...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00149",
+      "page": 15,
+      "section": null,
+      "bbox": null,
+      "text_span": "GRADIENT ALGORITHMS 243",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00150",
+      "page": 15,
+      "section": null,
+      "bbox": null,
+      "text_span": "Note that the argument given here is based on the results obtained above for the use",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00151",
+      "page": 15,
+      "section": null,
+      "bbox": null,
+      "text_span": "of backpropagation when computing the characteristic eligibility in a REINFORCE algorithm, so the conclusion is necessarily limited to this particular use of backpropaga- tion here. Nevertheless, because it is also true that backpropagation preserves the un-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00152",
+      "page": 15,
+      "section": null,
+      "bbox": null,
+      "text_span": "biasedness of gradient estimates in general, this form of argument can be applied to yield",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00153",
+      "page": 15,
+      "section": null,
+      "bbox": null,
+      "text_span": "statistical gradient-following algorithms that make use of backpropagation in a variety of other situations where a network of continuous-valued stochastic units is used. One such application is to supervised training of such networks. 8. Algorithm performance and other issues 8.1. Convergence properties A major limitation of the analysis performed here is that it does not immediately lead to prediction of the asymptotic properties of REINFORCE algorithms. If such an algorithm",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00154",
+      "page": 15,
+      "section": null,
+      "bbox": null,
+      "text_span": "does converge, one might expect it to converge to a local maximum, but there need be",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00155",
+      "page": 15,
+      "section": null,
+      "bbox": null,
+      "text_span": "no such convergence. While there is a clear need for an analytical characterization of the asymptotic behavior of REINFORCE algorithms, such results are not yet available, leav- ing simulation studies as our primary source of understanding of the behavior of these algorithms. Here we give an overview of some relevant simulation results, some of which",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00156",
+      "page": 15,
+      "section": null,
+      "bbox": null,
+      "text_span": "have been reported in the literature and some of which are currently only preliminary.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00157",
+      "page": 15,
+      "section": null,
+      "bbox": null,
+      "text_span": "Sutton (1984) studied the performance of a number of algorithms using single-Bernoulli- unit \"networks\" facing both nonassociative and associative immediate-reinforcement tasks. Among the algorithms investigated were LR-I and one based on equations (9) and (10), which is just REINFORCE using reinforcement comparison. In these studies, REINFORCE with reinforcement comparison was found to outperform all other algorithms investigated. Williams and Peng (1991) have also investigated a number of variants of REINFORCE in nonassociative function-optimization tasks, using networks of Bernoulli units. These studies have demonstrated that such algorithms tend to converge to local optima, as one",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00158",
+      "page": 15,
+      "section": null,
+      "bbox": null,
+      "text_span": "might expect of any gradient-following algorithm. Some of the variants examined incor-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00159",
+      "page": 15,
+      "section": null,
+      "bbox": null,
+      "text_span": "porated modifications designed to help defeat this often undesirable behavior. One par- ticularly interesting variant incorporated an entropy term in the reinforcement signal and helped enable certain network architectures to perform especially well on tasks where a certain amount of hierarchical organization during the search was desirable.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00160",
+      "page": 15,
+      "section": null,
+      "bbox": null,
+      "text_span": "Other preliminary studies have been carried out using networks of Bernoulli units and",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00161",
+      "page": 15,
+      "section": null,
+      "bbox": null,
+      "text_span": "using single Gaussian units. The Gaussian unit studies are described below. The network studies involved multilayer or recurrent networks facing supervised learning tasks but receiv- ing only reinforcement feedback. In the case of the recurrent networks, the objective was to learn a trajectory and episodic REINFORCE was used. One of the more noteworthy results of these studies was that it often required careful selection of the reinforcement func- tion to obtain solutions using REINFORCE. This is not surprising since it turns out that some of the more obvious reinforcement functions one might select for such problems tend",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00162",
+      "page": 15,
+      "section": null,
+      "bbox": null,
+      "text_span": "to have severe false maxima. In contrast, AR-P generally succeeds at finding solutions even",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00163",
+      "page": 15,
+      "section": null,
+      "bbox": null,
+      "text_span": "19",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00164",
+      "page": 16,
+      "section": null,
+      "bbox": null,
+      "text_span": "244 R.J. WILLIAMS when these simpler reinforcement functions are used. Like AR-P, REINFORCE is gen- erally very slow even when it succeeds. Episodic REINFORCE has been found to be especially slow, but this, too, is not surprising since it performs temporal credit-assignment by essentially spreading credit or blame uniformly over all past times. One REINFORCE algorithm whose asymptotic behavior is reasonably well understood analytically is 2-action LR-I, and simulation experience obtained to date with a number of other REINFORCE algorithms suggests that their range of possible limiting behaviors",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00165",
+      "page": 16,
+      "section": null,
+      "bbox": null,
+      "text_span": "may, in fact, be similar. The LR-I algorithm is known to converge to a single deterministic",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00166",
+      "page": 16,
+      "section": null,
+      "bbox": null,
+      "text_span": "choice of action with probability 1. What is noteworthy about this convergence is that, in spite of the fact that the expected motion is always in the direction of the best action, as follows from Theorem 1, there is always a nonzero probability of its converging to an inferior choice of action. A simpler example that exhibits the same kind of behavior is a biased random walk on the integers with absorbing barriers. Even though the motion is biased in a particular direction, there is always a nonzero probability of being absorbed at the other barrier. In general, a reasonable conjecture consistent with what is known analytically about simple REINFORCE algorithms like LR-I and what has been found in simulations of more sophisticated REINFORCE algorithms is the following: Depending on the choice of rein- forcement baseline used, any such algorithm is more or less likely to converge to a local",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00167",
+      "page": 16,
+      "section": null,
+      "bbox": null,
+      "text_span": "maximum of the expected reinforcement function, with some nonzero (but typically com-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00168",
+      "page": 16,
+      "section": null,
+      "bbox": null,
+      "text_span": "fortably small) probability of convergence to other points that lead to zero variance in net- work behavior. For further discussion of the role of the reinforcement baseline, see below. 8.2. Gaussian unit search behavior For the Gaussian unit studies mentioned above, the problems considered were nonassociative, involving optimization of a function of a single real variable y, and the adaptable parameters were taken to be y and a. From equations (13) and (14) it is clear that the reinforcement comparison version of REINFORCE for this unit behaves as follows: If a value y is sam- pled which leads to a higher function value than has been obtained in the recent past, then y moves toward y; similarly, y moves away from points giving lower function values. What is more interesting is how a is adapted. If the sampled point y gives rise to a higher func-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00169",
+      "page": 16,
+      "section": null,
+      "bbox": null,
+      "text_span": "tion value than has been obtained in the recent past, then a will decrease if | y - p \\ <",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00170",
+      "page": 16,
+      "section": null,
+      "bbox": null,
+      "text_span": "a but increase if \\y — p\\ > a. The change made to a corresponds to that required to",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00171",
+      "page": 16,
+      "section": null,
+      "bbox": null,
+      "text_span": "make the reoccurence of y more likely. There is corresponding behavior in the opposite direction if the sampled point leads to a lower value. In terms of a search, this amounts to narrowing the search around n if a better point is found suitably close to the mean or a worse point is found suitably far from the mean, while broadening the search around y if a worse point is found suitably close to the mean or a better point is found suitably far from the mean. Since the sampled points y are roughly twice as likely to lie within one standard deviation of the mean, it follows that whenever y sits at the top of a local hill (of sufficient breadth with respect to a), then a narrows down to allow convergence",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00172",
+      "page": 16,
+      "section": null,
+      "bbox": null,
+      "text_span": "to the local maximum. However it is also true that if the local maximum is very flat on",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00173",
+      "page": 16,
+      "section": null,
+      "bbox": null,
+      "text_span": "top, a will decrease to the point where sampling worse values becomes extremely unlikely 20",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00174",
+      "page": 17,
+      "section": null,
+      "bbox": null,
+      "text_span": "GRADIENT ALGORITHMS 245",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00175",
+      "page": 17,
+      "section": null,
+      "bbox": null,
+      "text_span": "and then stop changing. Simulation studies using both deterministic and noisy reinforce-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00176",
+      "page": 17,
+      "section": null,
+      "bbox": null,
+      "text_span": "ment confirm this behavior. They also demonstrate that if r is always nonnegative and rein-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00177",
+      "page": 17,
+      "section": null,
+      "bbox": null,
+      "text_span": "forcement comparison is not used (i.e., b = 0), REINFORCE may cause a to converge",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00178",
+      "page": 17,
+      "section": null,
+      "bbox": null,
+      "text_span": "to 0 before n has moved to the top of any hill. This can be viewed as a generalization of the potential convergence to suboptimal performance described earlier for LR_I. It is interesting to compare REINFORCE for such a unit with an alternative algorithm for the adaptation of n and a that has been proposed by Gullapalli (1990). In this approach, n is adapted in essentially the same manner as in REINFORCE but a is adapted in a quite different manner. With reinforcement values r assumed to lie between 0 and 1, a is taken to be proportional to 1 - r. This strategy makes sense if one takes the point of view that a is a parameter controlling the scale of the search being performed and the optimum value for the function is unknown. In those situations when it is known that unsatisfactory per- formance is being achieved it is reasonable to broaden this scale in order to take a coarse- grained view of the search space and identify a broad region in which the optimum has a reasonable chance of...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00179",
+      "page": 17,
+      "section": null,
+      "bbox": null,
+      "text_span": "and input with its output y affecting the reinforcement r deterministically. If r is always",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00180",
+      "page": 17,
+      "section": null,
+      "bbox": null,
+      "text_span": "positive, it is easy to see that one obtains a kind of biased random walk behavior when",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00181",
+      "page": 17,
+      "section": null,
+      "bbox": null,
+      "text_span": "b = 0, leading to nonzero probability of convergence to the inferior output value. In con-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00182",
+      "page": 17,
+      "section": null,
+      "bbox": null,
+      "text_span": "trast, the reinforcement comparison version will lead to values of b lying between the two possible values of r, which leads to motion always toward the better output value. However, this latter behavior will occur for any choice of b lying between the two possi- ble values for r, so additional considerations must be applied to distinguish among a wide variety of possible adaptive reinforcement baseline schemes. One possibility, considered briefly by Williams (1986) and recently investigated more fully by Dayan (1990), is to pick",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00183",
+      "page": 17,
+      "section": null,
+      "bbox": null,
+      "text_span": "a reinforcement baseline that minimizes the variance of the individual weight changes over",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00184",
+      "page": 17,
+      "section": null,
+      "bbox": null,
+      "text_span": "time. This turns out to yield not the mean reinforcement as in the usual reinforcement comparison approach, but another quantity that is more difficult to estimate effectively. Dayan's simulation results seem to suggest that use of such a reinforcement baseline offers 21",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00185",
+      "page": 18,
+      "section": null,
+      "bbox": null,
+      "text_span": "246 R.J. WILLIAMS a slight improvement in convergence speed over the use of mean reinforcement, but a more convincing advantage remains to be demonstrated. 8.4. Alternate forms for eligibility REINFORCE, with or without reinforcement comparison, prescribes weight changes pro- portional to the product of a reinforcement factor that depends only on the current and past reinforcement values and another factor we have called the characteristic eligibility. A straightforward way to obtain a number of variants of REINFORCE is to vary the form of either of these factors. Indeed, the simulation study performed by Sutton (1984) involved a variety of algorithms obtained by systematically varying both of these factors. One par- ticularly interesting variant having this form but not included in that earlier study has since",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00186",
+      "page": 18,
+      "section": null,
+      "bbox": null,
+      "text_span": "been examined by several investigators (Rich Sutton, personal communication, 1986; Phil",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00187",
+      "page": 18,
+      "section": null,
+      "bbox": null,
+      "text_span": "Madsen, personal communication, 1987; Williams & Peng, 1991) and found promising. These studies have been conducted only for nonassociative tasks, so this is the form of the algorithm we describe here. (Furthermore, because a principled basis for deriving algorithms of this particular form has not yet been developed, it is somewhat unclear ex- actly how it should be extended to the associative case.)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00188",
+      "page": 18,
+      "section": null,
+      "bbox": null,
+      "text_span": "We consider specifically the case of a Bernoulli-logistic unit having only a bias weight",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00189",
+      "page": 18,
+      "section": null,
+      "bbox": null,
+      "text_span": "w. Since the bias input is 1, a standard reinforcement-comparison version of REINFORCE prescribes weight increments of the form where r is computed according to the exponential averaging scheme where 0 < 7 < 1. An alternative algorithm is given by the rule where y is updated by using the same 7 as is used for updating r. This particular algorithm has been found generally to converge faster and more reliably than the corresponding REINFORCE algorithm. It is clear that the two algorithms bear some strong similarities. The variant is obtained by simply replacing p by y, and each of these can be viewed as reasonable a priori estimates of the output y. Furthermore, the corresponding strategy can be used to generate variants of REINFORCE in a number of other cases. For example, if the randomness in the unit uses any distribution to which Proposition 1 applies, then the REINFORCE algorithm for adjusting its mean parameter n will involve the factor y - n and we can simply replace 22",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00190",
+      "page": 19,
+      "section": null,
+      "bbox": null,
+      "text_span": "GRADIENT ALGORITHMS 247 this by y — y. Such an algorithm for adapting the mean of a Gaussian unit has been tested and found to behave very well.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00191",
+      "page": 19,
+      "section": null,
+      "bbox": null,
+      "text_span": "While some arguments can be given (Rich Sutton, personal communication, 1988) that",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00192",
+      "page": 19,
+      "section": null,
+      "bbox": null,
+      "text_span": "suggest potential advantages of the use of y - y in such algorithms, a more complete analysis has not yet been performed. Interestingly, one possible analytical justification for the use of such algorithms may be found in considerations like those discussed next. &5. Use of other local gradient estimates There are several senses in which it makes sense to call REINFORCE algorithms simple, as implied by the title of this paper. First, as is clear from examples given here, the algorithms themselves often have a very simple form. Also, they are simple to derive for essentially any form of random unit computation. But perhaps most significant of all is the fact that, in the sense given by Theorems 1 and 2, they climb an appropriate gradient without ex- plicitly computing any estimate of this gradient or even storing information from which such an estimate could be directly computed. Clearly, there are alternative ways to estimate such gradients and it would be useful to understand how var...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00193",
+      "page": 19,
+      "section": null,
+      "bbox": null,
+      "text_span": "minology. Barto, Sutton, and Watkins (1990), have introduced the term model-based to",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00194",
+      "page": 19,
+      "section": null,
+      "bbox": null,
+      "text_span": "describe what essentially correspond to indirect algorithms in the adaptive control field (Goodwin & Sin, 1984). These algorithms explicitly estimate relevant parameters underlying the system to be controlled and then use this learned model of the system to compute the control actions. The corresponding notion for an immediate-reinforcement learning system would be one that attempts to learn an explicit model of the reinforcement as a function of learning system input and output, and use this model to guide its parameter adjustments. If these parameter adjustments are to be made along the gradient of expected reinforce- ment, as in REINFORCE, then this model must actually yield estimates of this gradient. Such an algorithm, using backpropagation through a model, has been proposed and studied by Munro (1987). This form of model-based approach uses a global model of the reinforcement function and its derivatives, but a more local model-based approach is also possible. This would involve...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00195",
+      "page": 20,
+      "section": null,
+      "bbox": null,
+      "text_span": "248 R.J. WILLIAMS using the y - y form of eligibility described above may be related to such an approach but this has not been fully analyzed yet. 9. Conclusion The analyses presented here, together with a variety of simulation experiments performed by this author and others, suggest that REINFORCE algorithms are useful in their own right and, perhaps more importantly, may serve as a sound basis for developing other more effective reinforcement learning algorithms. One major advantage of the REINFORCE approach is that it represents a prescription for devising statistical gradient-following algorithms for reinforcement-learning networks of units that compute their random output in essentially any arbitrary fashion. Also, because it is a gradient-based approach, it in- tegrates well with other gradient computation techniques such as backpropagation. The main disadvantages are the lack of a general convergence theory applicable to this class of algorithms and, as with all gradient algori...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00196",
+      "page": 20,
+      "section": null,
+      "bbox": null,
+      "text_span": "the (i,j) coordinate of VwE {r \\ W} being BE{r \\ W}/dwij and the corresponding coordinate of E{AW | W}",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00197",
+      "page": 20,
+      "section": null,
+      "bbox": null,
+      "text_span": "being E {A wij | W}. 2. Strictly speaking, there is no choice of a for this algorithm guaranteeing that a will not become negative, unless the normal distribution has its tails truncated (which is necessarily the case in practice). Another ap-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00198",
+      "page": 20,
+      "section": null,
+      "bbox": null,
+      "text_span": "proach is to take X = In a as the adaptable parameter rather than a, which leads to an algorithm guaranteed",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00199",
+      "page": 20,
+      "section": null,
+      "bbox": null,
+      "text_span": "to keep a positive. Appendix A This appendix contains proofs of Theorems 1 and 2 on REINFORCE and episodic REIN- FORCE algorithms, respectively. In addition to the notation introduced in the text, we sym- bolize some sets of interest by letting Yi denote the set of possible output values yi of the ith unit, with Xi denoting the set of possible values of the input vector xi to this unit. Although it is not a critical assumption, we take Yi and Xi to be discrete sets throughout. Also, we let / denote the index set for elements of W, so that (i, j) € / if and only if Wij is a parameter in the system. 24",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00200",
+      "page": 21,
+      "section": null,
+      "bbox": null,
+      "text_span": "GRADIENT ALGORITHMS 249 It should b e remarked here that, i n the interest o f brevity, all the assertions proved in this appendix make use of a convention in which each unbound variable is implicitly assumed to be universally quantified over an appropriate se t of values. For example, whenever i and j appear, they are t o be considered arbitrary (subject only t o (i, j) € I) . A. Results for REINFORCE Algorithms Fact 1. Proof. Conditionin g o n th e possible values of the outpu t y i, w e may write Note that specification o f the value of yi causes wij to have no influence on the ultimate",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00201",
+      "page": 21,
+      "section": null,
+      "bbox": null,
+      "text_span": "value of r, which means tha t E{r \\ W, xi, y i = £ } doe s no t depend o n w ij. The result",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00202",
+      "page": 21,
+      "section": null,
+      "bbox": null,
+      "text_span": "then follows b y differentiating both sides of this last equation wit h respect t o Wij. • Fact 2. Proof. and the result follows by differentiating with respect to wij. . Lemma 1 . For any REINFORCE algorithm , Proof. Firs t note that the characteristic eligibility ca n be written 25",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00203",
+      "page": 22,
+      "section": null,
+      "bbox": null,
+      "text_span": "250 R.J. WILLIAM S",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00204",
+      "page": 22,
+      "section": null,
+      "bbox": null,
+      "text_span": "Although thi s fail s t o be defined whe n g i = 0 , it wil l still be th e case tha t Aw ij i s well-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00205",
+      "page": 22,
+      "section": null,
+      "bbox": null,
+      "text_span": "defined fo r an y REINFORC E algorith m a s lon g a s Y i i s discrete . Thi s i s becaus e",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00206",
+      "page": 22,
+      "section": null,
+      "bbox": null,
+      "text_span": "gi(£, w i, x i) = 0 means tha t the value £ has zero probabilit y of occurrence a s a value of",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00207",
+      "page": 22,
+      "section": null,
+      "bbox": null,
+      "text_span": "the outpu t y i. Then making use o f the fac t tha t o ij does no t depend o n the particular valu e of the outpu t y t. By Fact 1 , the first term o f this las t expression i s o ij (dE{ r | W, xi}/dw ij). Consider th e",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00208",
+      "page": 22,
+      "section": null,
+      "bbox": null,
+      "text_span": "remaining term . Sinc e E{bij \\ W, x i, y i = £ } = E{b ij | W, xi}, b y assumption, we have",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00209",
+      "page": 22,
+      "section": null,
+      "bbox": null,
+      "text_span": "by Fact 2, and the Lemma is proved. • Fact 3. Proof. Conditionin g o n th e possibl e inpu t patterns x i, w e ma y write 26",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00210",
+      "page": 23,
+      "section": null,
+      "bbox": null,
+      "text_span": "GRADIENT ALGORITHMS 251",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00211",
+      "page": 23,
+      "section": null,
+      "bbox": null,
+      "text_span": "Note that the weight wij lies downstream of all computation performed to determine xi.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00212",
+      "page": 23,
+      "section": null,
+      "bbox": null,
+      "text_span": "This means that Pr {xi = x W} does not depend on wij, so the result follows by dif-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00213",
+      "page": 23,
+      "section": null,
+      "bbox": null,
+      "text_span": "ferentiating both sides of this last equation by wij. • Lemma 2. For any REINFORCE algorithm, Proof. where the first equality is obtained by conditioning on the possible input patterns to the unit, the second equality follows from Lemma 1, the third equality follows from the assump- tion that aij does not depend on the input to the unit, and the last equality follows from Fact 3. • Establishing this last result, which is just like Lemma 1 except that the conditioning on input to unit i has been removed from both sides of the equation, is a key step. It relates two quantities that, unlike those of Lemma 1, would be quite messy to compute explicitly",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00214",
+      "page": 23,
+      "section": null,
+      "bbox": null,
+      "text_span": "in general because Pr {xi = x | W} can be quite complicated. From this lemma our main",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00215",
+      "page": 23,
+      "section": null,
+      "bbox": null,
+      "text_span": "result follows easily. Theorem 1. For any REINFORCE algorithm, E{AW | W}T VwE{r | W} > 0. Fur-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00216",
+      "page": 23,
+      "section": null,
+      "bbox": null,
+      "text_span": "thermore, if aij > 0 for all i and j, then equality holds if and only if Vw E {r \\ W} = 0.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00217",
+      "page": 23,
+      "section": null,
+      "bbox": null,
+      "text_span": "Proof. 27",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00218",
+      "page": 24,
+      "section": null,
+      "bbox": null,
+      "text_span": "252 R.J. WILLIAMS by Lemma 2, and the result is immediate. • A.2. Results for episodic REINFORCE algorithms Analysis of the episodic REINFORCE algorithm is based on the unfolding-in-time mapp- ing, which associates with the original net N its unfolded-in-time acyclic net N*. The key observation is that having N face its learning problem is equivalent to having N* face a corresponding associative learning problem. Let W* denote the weight matrix for N* with its individual components being denoted wtij. The weight wtij, in N* corresponds to the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00219",
+      "page": 24,
+      "section": null,
+      "bbox": null,
+      "text_span": "weight wij in N at the tth time step, so that wtij,- = wij for all i, j, and t. Because of the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00220",
+      "page": 24,
+      "section": null,
+      "bbox": null,
+      "text_span": "correspondence between these nets, it should be noted that specifying W is equivalent to specifying W*. Also, the correspondence between the learning problems is such that we can consider the reinforcement r to be the same for both problems. Fact 4. Proof. Using the chain rule, we have",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00221",
+      "page": 24,
+      "section": null,
+      "bbox": null,
+      "text_span": "since wtij, = wij for all t. •",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00222",
+      "page": 24,
+      "section": null,
+      "bbox": null,
+      "text_span": "Lemma 3. For any episodic REINFORCE algorithm,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00223",
+      "page": 24,
+      "section": null,
+      "bbox": null,
+      "text_span": "Proof. Let Awtij = aij(r- bij)etij, so that Awij = £kt=1 Awtij. Note that this represents a",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00224",
+      "page": 24,
+      "section": null,
+      "bbox": null,
+      "text_span": "REINFORCE algorithm in N* so it follows from Lemma 2 that But then 28",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00225",
+      "page": 25,
+      "section": null,
+      "bbox": null,
+      "text_span": "GRADIENT ALGORITHMS 253 where the last equality follows from Fact 4. • Theorem 2. For any episodic REINFORCE algorithm, £{AW | W}T VwE{r | W} > 0.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00226",
+      "page": 25,
+      "section": null,
+      "bbox": null,
+      "text_span": "Furthermore, if aij > 0 for all i and j, then equality holds if and only if VwE{r | W} = 0.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00227",
+      "page": 25,
+      "section": null,
+      "bbox": null,
+      "text_span": "Proof. by Lemma 3, and the result is immediate. • Note that the proof of Theorem 2 is identical to that for Theorem 1. This is because Theorem 1 uses Lemma 2 and Theorem 2 uses Lemma 3, and both lemmas have the same",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00228",
+      "page": 25,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "conclusion.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00229",
+      "page": 25,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "Appendix B This appendix is devoted to the proof of the following result: Proposition 1. Suppose that the probability mass or density function g has the form 29",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00230",
+      "page": 26,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "254 R.J. WILLIAMS for some functions Q, D, and 5, where n, 02, • • •, ®k are parameters such that n is the mean of the distribution. Then where a2 is the variance of the distribution. Proof. Here we consider the case of a probability mass function only, but a corresponding",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00231",
+      "page": 26,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "argument can be given for a density function.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00232",
+      "page": 26,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "Let Y denote the support of g. In general,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00233",
+      "page": 26,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "since Eyey g = 1. Combining this with the fact that n = Eyey y g, we also find that",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00234",
+      "page": 26,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "Now introduce the shorthand notation a = dQ/dn, and 3 = dD/dp. From the hypothesis",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00235",
+      "page": 26,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "of the proposition we have so that 30",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00236",
+      "page": 27,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "GRADIENT ALGORITHMS 255 Also, since Combining (15) with (17) and (16) with (18), we see that and",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00237",
+      "page": 27,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "from which it follows that a = 1/a2 and 0 = - n/o2. Therefore,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00238",
+      "page": 27,
+      "section": "References",
+      "bbox": null,
+      "text_span": "References",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00239",
+      "page": 27,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Barto, A.G. (1985). Learning by statistical cooperation of self-interested neuron-like computing elements. Human Neurobiology, 4, 229-256. Barto, A.G. & Anandan, P. (1985). Pattern recognizing stochastic learning automata. IEEE Transactions on Systems, Man, and Cybernetics, 15, 360-374. Barto, A.G. & Anderson, C.W. (1985). Structural learning in connectionist systems. Proceedings of the Seventh Annual Conference of the Cognitive Science Society, (pp. 43-53). Irvine, CA. Barto, A.G., Sutton, R.S., & Anderson, C.W. (1983). Neuronlike elements that can solve difficult learning con- trol problems. IEEE Transactions on Systems, Man, and Cybernetics, 13, 835-846. Barto, A.G., Sutton, R.S., & Brouwer, P.S. (1981). Associative search network: A reinforcement learning associative",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00240",
+      "page": 27,
+      "section": "References",
+      "bbox": null,
+      "text_span": "memory. Biological Cybernetics, 40, 201-211.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00241",
+      "page": 27,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Barto, A.G., & Jordan, M.I. (1987). Gradient following without back-propagation in layered networks. Proceedings of the First Annual International Conference on Neural Networks, Vol. II (pp. 629-636). San Diego, CA. Barto, A.G., Sutton, R.S., &Watkins, C.J.C.H. (1990). Learning and sequential decision making. In: M. Gabriel & J.W. Moore (Eds.), Learning and computational neuroscience: Foundations of adaptive networks. Cambridge, MA: MIT Press. 31",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00242",
+      "page": 28,
+      "section": "References",
+      "bbox": null,
+      "text_span": "256 R.J. WILLIAMS Dayan, P. (1990). Reinforcement comparison. In D.S. Touretzky, J.L. Elman, T.J. Sejnowski, & G.E. Hinton (Eds.), Proceedings of the 1990 Connectionist Models Summer School (pp. 45-51). San Mateo, CA: Morgan Kaufmann. Goodwin, G.C. & Sin, K.S. (1984). Adaptive filtering prediction and control. Englewood Cliffs, NJ: Prentice-Hall. Gullapalli, V. (1990). A stochastic reinforcement learning algorithm for learning real-valued functions. Neural Networks, 3, 671-692. Hinton, G.E. & Sejnowski, T.J. (1986). Learning and relearning in Boltzmann machines. In: D.E. Rumelhart & J.L. McClelland, (Eds.), Parallel distributed processing: Explorations in the microstructure of cognition. Vol. 1: Foundations. Cambridge, MA: MIT Press. Jordan, M.I. & Rumelhart, D.E. (1990). Forward models: supervised learning with a distal teacher. (Occasional",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00243",
+      "page": 28,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Paper - 40). Cambridge, MA: Massachusetts Institute of Technology, Center for Cognitive Science.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00244",
+      "page": 28,
+      "section": "References",
+      "bbox": null,
+      "text_span": "leCun, Y. (1985). Une procedure d'apprentissage pour resau a sequil assymetrique [A learning procedure for asymmetric threshold networks]. Proceedings of Cognitiva, 85, 599-604. Munro, P. (1987). A dual back-propagation scheme for scalar reward learning. Proceedings of the Ninth Annual Conference of the Cognitive Science Society (pp. 165-176). Seattle, WA. Narendra, K.S. & Thathatchar, M.A.L. (1989). Learning Automata: An introduction. Englewood Cliffs, NJ: Prentice Hall. Narendra, K.S. & Wheeler, R.M., Jr. (1983). An N-player sequential stochastic game with identical payoffs. IEEE Transactions on Systems, Man, and Cybernetics, 13, 1154-1158. Nilsson, NJ. (1980). Principles of artificial intelligence. Palo Alto, CA: Tioga.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00245",
+      "page": 28,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Parker, D.B. (1985). Learning-logic. (Technical Report TR-47). Cambridge, MA: Massachusetts Institute of Tech-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00246",
+      "page": 28,
+      "section": "References",
+      "bbox": null,
+      "text_span": "nology, Center for Computational Research in Economics and Management Science.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00247",
+      "page": 28,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Rohatgi, V.K. (1976) An introduction to probability theory and mathematical statistics. New York: Wiley. Rumelhart, D.E., Hinton, G.E., & Williams, R.J. (1986). Learning internal representations by error propaga- tion. In: D.E. Rumelhart & J.L. McClelland, (Eds.), Parallel distributed processing: Explorations in the micro- structure of cognition. Vol. 1: Foundations. Cambridge: MIT Press. Schmidhuber, J.H. & Huber, R. (1990). Learning to generate focus trajectories for attentive vision. (Technical Report FKI-128-90). Technische Universitat Munchen, Institut fur Informatik. Sutton, R.S. (1984). Temporal credit assignment in reinforcement learning. Ph.D. Dissertation, Dept. of Com- puter and Information Science, University of Massachusetts, Amherst, MA. Sutton, R.S. (1988). Learning to predict by the methods of temporal differences. Machine Learning, 3, 9-44. Thathatchar, M.A.L. & Sastry, P.S. (1985). A new approach to the design of reinforcement schemes for learning automata. IEEE Tran...",
+      "source_type": "reference"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "warnings": [
+      {
+        "code": "ok",
+        "message": "Grounding verification passed with current v1 checks.",
+        "target": null,
+        "severity": "info"
+      }
+    ],
+    "anchor_count": 247
+  }
+}

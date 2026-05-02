@@ -1,0 +1,2920 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "在社交网络中，节点分类任务面临数据稀疏和传统机器学习方法无法有效利用图结构信息的问题。传统关系分类方法依赖近似推理，容易产生级联错误，且难以扩展到大规模网络。",
+      "anchors": [
+        "anc_00024",
+        "anc_00025",
+        "anc_00026"
+      ]
+    },
+    "motivation": {
+      "summary": "社交网络中的链接关系违反了传统机器学习的独立同分布假设。现有方法要么需要全局视图，要么在标签稀疏时性能下降。需要一种能够学习节点潜在表示、编码社交关系、并适用于大规模在线学习的方法。",
+      "anchors": [
+        "anc_00015",
+        "anc_00016",
+        "anc_00017"
+      ]
+    },
+    "core_idea": {
+      "summary": "将语言建模和无监督特征学习（深度学习）从词序列推广到图结构。通过截断随机游走获取局部信息，将游走视为句子，利用Skip-gram模型学习节点的潜在向量表示。",
+      "anchors": [
+        "anc_00003",
+        "anc_00033",
+        "anc_00040",
+        "anc_00041"
+      ]
+    },
+    "method": {
+      "summary": "1. 对图中的每个节点执行γ次随机游走，生成长度为t的游走序列。2. 将随机游走视为句子，节点视为单词，使用Skip-gram模型（带分层Softmax）学习节点的d维潜在表示Φ。3. 优化目标是最大化给定中心节点时其上下文窗口内节点出现的概率。4. 使用异步随机梯度下降（ASGD）进行训练，支持在线学习和并行化。",
+      "anchors": [
+        "anc_00048",
+        "anc_00061",
+        "anc_00068",
+        "anc_00071",
+        "anc_00073",
+        "anc_00079",
+        "anc_00083",
+        "anc_00085",
+        "anc_00089",
+        "anc_00093",
+        "anc_00102",
+        "anc_00103"
+      ]
+    },
+    "experiments": {
+      "summary": "在BlogCatalog、Flickr和YouTube三个社交网络数据集上进行多标签分类任务评估。与SpectralClustering、Modularity、EdgeCluster、wvRN和Majority等基线方法比较。评估指标包括Macro-F1和Micro-F1。进行了参数敏感性分析（游走次数γ、窗口大小w、维度d）和并行化效率测试。",
+      "anchors": [
+        "anc_00124",
+        "anc_00125",
+        "anc_00126",
+        "anc_00127",
+        "anc_00130",
+        "anc_00131",
+        "anc_00134",
+        "anc_00135",
+        "anc_00137",
+        "anc_00139",
+        "anc_00141",
+        "anc_00142",
+        "anc_00143",
+        "anc_00144",
+        "anc_00147",
+        "anc_00148",
+        "anc_00151",
+        "anc_00152",
+        "anc_00181",
+        "anc_00182",
+        "anc_00184",
+        "anc_00186",
+        "anc_00189",
+        "anc_00191",
+        "anc_00193",
+        "anc_00194",
+        "anc_00196",
+        "anc_00198",
+        "anc_00200",
+        "anc_00201",
+        "anc_00203",
+        "anc_00204"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "DeepWalk能够学习编码社交关系的节点潜在表示。",
+        "anchors": [
+          "anc_00003",
+          "anc_00007",
+          "anc_00008",
+          "anc_00010",
+          "anc_00011",
+          "anc_00026"
+        ]
+      },
+      {
+        "claim_id": "claim_2",
+        "claim": "在标签数据稀疏时，DeepWalk的分类性能显著优于基线方法。",
+        "anchors": [
+          "anc_00141",
+          "anc_00142",
+          "anc_00143",
+          "anc_00144",
+          "anc_00147",
+          "anc_00148",
+          "anc_00151",
+          "anc_00152"
+        ]
+      },
+      {
+        "claim_id": "claim_3",
+        "claim": "DeepWalk是可扩展的在线学习算法，支持并行化。",
+        "anchors": [
+          "anc_00053",
+          "anc_00102",
+          "anc_00103",
+          "anc_00105",
+          "anc_00106",
+          "anc_00110",
+          "anc_00115"
+        ]
+      },
+      {
+        "claim_id": "claim_4",
+        "claim": "DeepWalk的表示可以用于多种分类任务，具有通用性。",
+        "anchors": [
+          "anc_00026",
+          "anc_00135"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "论文未明确讨论方法的局限性。潜在局限包括：随机游走策略可能无法捕获所有类型的图结构；对于非常稀疏的图，性能可能下降；分层Softmax的树结构构建可能影响效率；未探讨动态图的实时更新策略。",
+        "anchors": []
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "随机游走生成",
+        "label": "数据预处理",
+        "summary": "从图中的每个节点出发，执行γ次长度为t的截断随机游走，生成节点序列。",
+        "description": "对于图G=(V,E)中的每个节点v_i，生成γ条随机游走路径W_{v_i}，每条路径长度为t。游走过程中，下一步节点从当前节点的邻居中均匀随机选择。",
+        "type": "process",
+        "anchors": [
+          "anc_00068",
+          "anc_00061",
+          "anc_00048"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "语言建模类比",
+        "label": "核心思想",
+        "summary": "将随机游走序列类比为自然语言句子，节点类比为单词，从而应用语言建模技术。",
+        "description": "观察到社交网络中节点在随机游走中的出现频率与自然语言中单词的频率都遵循幂律分布。因此，将随机游走视为特殊语言中的句子，节点视为词汇。",
+        "type": "concept",
+        "anchors": [
+          "anc_00033",
+          "anc_00040",
+          "anc_00041"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "Skip-gram模型",
+        "label": "表示学习模型",
+        "summary": "使用Skip-gram语言模型学习节点的潜在向量表示，优化目标是最大化给定中心节点时其上下文节点出现的概率。",
+        "description": "给定一个中心节点v_i，Skip-gram模型试图最大化其上下文窗口（大小为w）内节点出现的概率。优化问题为最小化负对数似然：-log Pr({v_{i-w},...,v_{i-1},v_{i+1},...,v_{i+w}} | Φ(v_i))。",
+        "type": "model",
+        "anchors": [
+          "anc_00042",
+          "anc_00044",
+          "anc_00045",
+          "anc_00046",
+          "anc_00071",
+          "anc_00073"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "分层Softmax",
+        "label": "计算优化",
+        "summary": "使用分层Softmax近似计算softmax概率，降低计算复杂度。",
+        "description": "由于词汇量（节点数|V|）可能很大，直接计算softmax代价高昂。分层Softmax将概率计算分解为一系列二分类问题，构建一棵二叉树，每个节点对应一个二分类器。计算复杂度从O(|V|)降低到O(log|V|)。",
+        "type": "technique",
+        "anchors": [
+          "anc_00076",
+          "anc_00077",
+          "anc_00079",
+          "anc_00083",
+          "anc_00085",
+          "anc_00089"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "异步随机梯度下降",
+        "label": "优化算法",
+        "summary": "使用异步随机梯度下降（ASGD）进行模型训练，支持在线学习和并行化。",
+        "description": "模型参数{Φ, T}使用SGD优化。由于节点出现频率服从幂律分布，参数更新稀疏，因此可以使用ASGD进行并行训练，无需加锁，实现高效并行化。",
+        "type": "algorithm",
+        "anchors": [
+          "anc_00093",
+          "anc_00102",
+          "anc_00103"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "潜在表示输出",
+        "label": "输出",
+        "summary": "输出每个节点的d维潜在向量表示Φ(v)，可用于下游分类任务。",
+        "description": "最终得到一个|V|×d的矩阵Φ，其中每一行对应一个节点的d维潜在表示。该表示编码了节点的局部图结构信息，可以作为特征输入到任何标准分类器（如逻辑回归）。",
+        "type": "output",
+        "anchors": [
+          "anc_00042",
+          "anc_00026"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "提供输入",
+        "description": "随机游走生成的节点序列作为语言建模类比的输入数据。",
+        "anchors": [
+          "anc_00033",
+          "anc_00040",
+          "anc_00041"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "指导建模",
+        "description": "语言建模类比指导了Skip-gram模型的设计和应用。",
+        "anchors": [
+          "anc_00042",
+          "anc_00044",
+          "anc_00045",
+          "anc_00046",
+          "anc_00071",
+          "anc_00073"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "依赖优化",
+        "description": "Skip-gram模型使用分层Softmax来高效计算输出概率。",
+        "anchors": [
+          "anc_00076",
+          "anc_00077",
+          "anc_00079",
+          "anc_00083",
+          "anc_00085",
+          "anc_00089"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_005",
+        "label": "参数优化",
+        "description": "Skip-gram模型的参数通过异步随机梯度下降进行优化。",
+        "anchors": [
+          "anc_00093",
+          "anc_00102",
+          "anc_00103"
+        ]
+      },
+      {
+        "source": "node_005",
+        "target": "node_006",
+        "label": "生成输出",
+        "description": "优化过程最终学习到节点的潜在表示。",
+        "anchors": [
+          "anc_00042",
+          "anc_00026"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00130",
+        "anc_00131",
+        "anc_00134"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00003",
+        "anc_00026",
+        "anc_00042"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "传统方法依赖图的全局结构（如拉普拉斯矩阵、模度矩阵）或需要近似推理。",
+        "after": "DeepWalk仅使用局部随机游走信息，通过语言建模学习分布式表示。",
+        "why_it_matters": "避免了全局计算的高复杂度，适用于大规模图；学习到的表示是低维、稠密、连续的，便于下游机器学习模型使用；避免了迭代推理中的级联错误。",
+        "anchors": [
+          "anc_00025",
+          "anc_00026",
+          "anc_00207"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "现有方法通常是离线批处理算法。",
+        "after": "DeepWalk是在线学习算法，可以增量更新表示。",
+        "why_it_matters": "能够适应网络拓扑的变化，适用于动态网络场景。",
+        "anchors": [
+          "anc_00053",
+          "anc_00110"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "许多图表示方法难以并行化。",
+        "after": "DeepWalk使用异步随机梯度下降，更新稀疏，可以高效并行化。",
+        "why_it_matters": "显著提高了训练效率，能够扩展到非常大的网络。",
+        "anchors": [
+          "anc_00102",
+          "anc_00103",
+          "anc_00106"
+        ],
+        "delta_id": "delta_3"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\min_{\\Phi} -\\log \\Pr( \\{v_{i-w}, \\cdots, v_{i-1}, v_{i+1}, \\cdots, v_{i+w}\\} | \\Phi(v_i) )",
+        "variables": [
+          {
+            "name": "\\Phi",
+            "description": "节点到潜在向量的映射函数，由|V|×d的参数矩阵表示。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00042"
+            ]
+          },
+          {
+            "name": "v_i",
+            "description": "随机游走序列中的中心节点。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00044"
+            ]
+          },
+          {
+            "name": "w",
+            "description": "上下文窗口大小。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00044"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "核心优化目标：给定一个中心节点，最大化其上下文窗口内节点出现的概率。这迫使模型学习到的节点表示能够预测其局部图结构中的邻居节点。",
+        "anchors": [
+          "anc_00044",
+          "anc_00045",
+          "anc_00046"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "\\Pr(v_j | \\Phi(v_i)) = \\prod_{l=1}^{\\lceil \\log |V| \\rceil} \\Pr(b_l | \\Phi(v_j))",
+        "variables": [
+          {
+            "name": "b_l",
+            "description": "分层Softmax二叉树中从根节点到目标节点v_j路径上的第l个节点。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00085"
+            ]
+          },
+          {
+            "name": "\\Pr(b_l | \\Phi(v_j))",
+            "description": "由分配给节点b_l父节点的二元分类器建模的概率。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00089"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "分层Softmax将计算一个节点概率的复杂问题，分解为沿着二叉树路径的一系列二分类问题，大大降低了计算复杂度。",
+        "anchors": [
+          "anc_00083",
+          "anc_00085",
+          "anc_00089"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "在BlogCatalog、Flickr和YouTube数据集上的多标签分类任务结果。",
+      "metrics": [
+        "Macro-F1",
+        "Micro-F1"
+      ],
+      "key_findings": "DeepWalk在所有数据集上均优于基线方法，尤其在标签数据稀疏时优势明显。例如，在Flickr数据集上，仅使用3%标签数据时的Micro-F1就超过了其他方法使用10%标签数据时的性能。",
+      "anchors": [
+        "anc_00141",
+        "anc_00142",
+        "anc_00143",
+        "anc_00144",
+        "anc_00147",
+        "anc_00148",
+        "anc_00151",
+        "anc_00152"
+      ]
+    },
+    "ablation": {
+      "description": "参数敏感性分析，研究游走次数γ、窗口大小w、维度d和训练数据比例TR的影响。",
+      "key_findings": "γ增加初期效果显著，但超过10后收益递减。最优维度d依赖于训练数据量。窗口大小w=10表现良好。",
+      "anchors": [
+        "anc_00181",
+        "anc_00182",
+        "anc_00184",
+        "anc_00186",
+        "anc_00189",
+        "anc_00191",
+        "anc_00193",
+        "anc_00194",
+        "anc_00196",
+        "anc_00198",
+        "anc_00200",
+        "anc_00201",
+        "anc_00203",
+        "anc_00204"
+      ]
+    },
+    "robustness": {
+      "description": "在不同训练数据比例下的性能评估。",
+      "key_findings": "DeepWalk在标签数据非常稀疏（如1%-10%）时仍能保持高性能，展现出对标签稀疏性的鲁棒性。",
+      "anchors": [
+        "anc_00141",
+        "anc_00142",
+        "anc_00147",
+        "anc_00151"
+      ]
+    },
+    "scaling": {
+      "description": "并行化效率测试。",
+      "key_findings": "随着工作线程数增加到8，处理BlogCatalog和Flickr网络的速度一致提升，且预测性能没有损失。",
+      "anchors": [
+        "anc_00105",
+        "anc_00106",
+        "anc_00115"
+      ]
+    },
+    "case_study": {
+      "description": "在Zachary空手道网络上的可视化案例。",
+      "key_findings": "DeepWalk学习到的2维潜在表示与通过模块度最大化发现的社区结构高度对应。",
+      "anchors": [
+        "anc_00007",
+        "anc_00008",
+        "anc_00010",
+        "anc_00011"
+      ]
+    },
+    "human_eval": {
+      "description": "未提及人工评估。",
+      "key_findings": "无",
+      "anchors": []
+    },
+    "benchmark": {
+      "description": "使用的基准数据集：BlogCatalog, Flickr, YouTube。",
+      "key_findings": "这些是真实世界的社交网络，具有多标签分类任务。",
+      "anchors": [
+        "anc_00124",
+        "anc_00125",
+        "anc_00126",
+        "anc_00127"
+      ]
+    },
+    "efficiency": {
+      "description": "训练效率和可扩展性。",
+      "key_findings": "DeepWalk是在线、可并行化的算法，能够处理大规模图（如YouTube）。",
+      "anchors": [
+        "anc_00102",
+        "anc_00103",
+        "anc_00106",
+        "anc_00151"
+      ]
+    },
+    "experiments": [
+      {
+        "description": "在BlogCatalog、Flickr和YouTube数据集上的多标签分类任务结果。",
+        "metrics": [
+          "Macro-F1",
+          "Micro-F1"
+        ],
+        "key_findings": "DeepWalk在所有数据集上均优于基线方法，尤其在标签数据稀疏时优势明显。例如，在Flickr数据集上，仅使用3%标签数据时的Micro-F1就超过了其他方法使用10%标签数据时的性能。",
+        "anchors": [
+          "anc_00141",
+          "anc_00142",
+          "anc_00143",
+          "anc_00144",
+          "anc_00147",
+          "anc_00148",
+          "anc_00151",
+          "anc_00152"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "main_result_1",
+        "dataset": [
+          "BlogCatalog",
+          "Flickr",
+          "YouTube"
+        ],
+        "baseline": [
+          "SpectralClustering",
+          "Modularity",
+          "EdgeCluster",
+          "wvRN",
+          "Majority"
+        ],
+        "result_summary": "DeepWalk在所有数据集上均优于基线方法，尤其在标签数据稀疏时优势明显。例如，在Flickr数据集上，仅使用3%标签数据时的Micro-F1就超过了其他方法使用10%标签数据时的性能。",
+        "what_it_tries_to_prove": "DeepWalk在多标签分类任务上优于现有基线方法，特别是在标签数据稀疏时。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "参数敏感性分析，研究游走次数γ、窗口大小w、维度d和训练数据比例TR的影响。",
+        "key_findings": "γ增加初期效果显著，但超过10后收益递减。最优维度d依赖于训练数据量。窗口大小w=10表现良好。",
+        "anchors": [
+          "anc_00181",
+          "anc_00182",
+          "anc_00184",
+          "anc_00186",
+          "anc_00189",
+          "anc_00191",
+          "anc_00193",
+          "anc_00194",
+          "anc_00196",
+          "anc_00198",
+          "anc_00200",
+          "anc_00201",
+          "anc_00203",
+          "anc_00204"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "ablation",
+        "name": "ablation_2",
+        "dataset": [
+          "Flickr",
+          "BlogCatalog"
+        ],
+        "baseline": [],
+        "metrics": [
+          "Macro-F1",
+          "Micro-F1"
+        ],
+        "result_summary": "γ增加初期效果显著，但超过10后收益递减。最优维度d依赖于训练数据量。窗口大小w=10表现良好。",
+        "what_it_tries_to_prove": "DeepWalk对关键参数（γ, w, d）的敏感性，以及参数选择对性能的影响。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "在不同训练数据比例下的性能评估。",
+        "key_findings": "DeepWalk在标签数据非常稀疏（如1%-10%）时仍能保持高性能，展现出对标签稀疏性的鲁棒性。",
+        "anchors": [
+          "anc_00141",
+          "anc_00142",
+          "anc_00147",
+          "anc_00151"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "robustness",
+        "name": "robustness_3",
+        "dataset": [
+          "BlogCatalog",
+          "Flickr",
+          "YouTube"
+        ],
+        "baseline": [
+          "SpectralClustering",
+          "Modularity",
+          "EdgeCluster",
+          "wvRN",
+          "Majority"
+        ],
+        "metrics": [
+          "Macro-F1",
+          "Micro-F1"
+        ],
+        "result_summary": "DeepWalk在标签数据非常稀疏（如1%-10%）时仍能保持高性能，展现出对标签稀疏性的鲁棒性。",
+        "what_it_tries_to_prove": "DeepWalk在标签数据稀疏情况下的鲁棒性和优越性。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "并行化效率测试。",
+        "key_findings": "随着工作线程数增加到8，处理BlogCatalog和Flickr网络的速度一致提升，且预测性能没有损失。",
+        "anchors": [
+          "anc_00105",
+          "anc_00106",
+          "anc_00115"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "scaling",
+        "name": "scaling_4",
+        "dataset": [
+          "BlogCatalog",
+          "Flickr"
+        ],
+        "baseline": [],
+        "metrics": [
+          "训练时间",
+          "预测性能"
+        ],
+        "result_summary": "随着工作线程数增加到8，处理BlogCatalog和Flickr网络的速度一致提升，且预测性能没有损失。",
+        "what_it_tries_to_prove": "DeepWalk的并行化效率和可扩展性。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "在Zachary空手道网络上的可视化案例。",
+        "key_findings": "DeepWalk学习到的2维潜在表示与通过模块度最大化发现的社区结构高度对应。",
+        "anchors": [
+          "anc_00007",
+          "anc_00008",
+          "anc_00010",
+          "anc_00011"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "case_study",
+        "name": "case_study_5",
+        "dataset": [
+          "Zachary's Karate network"
+        ],
+        "baseline": [
+          "Modularity-based clustering"
+        ],
+        "metrics": [
+          "可视化"
+        ],
+        "result_summary": "DeepWalk学习到的2维潜在表示与通过模块度最大化发现的社区结构高度对应。",
+        "what_it_tries_to_prove": "DeepWalk学习到的表示能够编码图的社区结构。",
+        "evidence_strength": "moderate"
+      },
+      {
+        "description": "使用的基准数据集：BlogCatalog, Flickr, YouTube。",
+        "key_findings": "这些是真实世界的社交网络，具有多标签分类任务。",
+        "anchors": [
+          "anc_00124",
+          "anc_00125",
+          "anc_00126",
+          "anc_00127"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "benchmark",
+        "name": "benchmark_6",
+        "dataset": [
+          "BlogCatalog",
+          "Flickr",
+          "YouTube"
+        ],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "这些是真实世界的社交网络，具有多标签分类任务。",
+        "what_it_tries_to_prove": "实验使用了具有挑战性的真实世界数据集。",
+        "evidence_strength": "moderate"
+      },
+      {
+        "description": "训练效率和可扩展性。",
+        "key_findings": "DeepWalk是在线、可并行化的算法，能够处理大规模图（如YouTube）。",
+        "anchors": [
+          "anc_00102",
+          "anc_00103",
+          "anc_00106",
+          "anc_00151"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "efficiency",
+        "name": "efficiency_7",
+        "dataset": [
+          "YouTube"
+        ],
+        "baseline": [
+          "EdgeCluster"
+        ],
+        "metrics": [
+          "可扩展性"
+        ],
+        "result_summary": "DeepWalk是在线、可并行化的算法，能够处理大规模图（如YouTube）。",
+        "what_it_tries_to_prove": "DeepWalk的可扩展性和处理大规模图的能力。",
+        "evidence_strength": "strong"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "DeepWalk能够学习编码社交关系的节点潜在表示。",
+        "evidence_source_type": "实验结果（分类性能）和案例研究（可视化）。",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00143",
+          "anc_00147",
+          "anc_00152",
+          "anc_00007",
+          "anc_00008",
+          "anc_00010",
+          "anc_00011"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_1",
+        "evidence": [
+          {
+            "evidence_id": "evidence_1_1",
+            "description": "在BlogCatalog、Flickr和YouTube数据集上的多标签分类任务中，DeepWalk的表示作为特征输入到逻辑回归分类器，取得了优于基线方法的分类性能。",
+            "anchors": [
+              "anc_00143",
+              "anc_00147",
+              "anc_00152"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_1_2",
+            "description": "在Zachary空手道网络上的可视化案例显示，DeepWalk学习到的2维潜在表示与通过模块度最大化发现的社区结构高度对应。",
+            "anchors": [
+              "anc_00007",
+              "anc_00008",
+              "anc_00010",
+              "anc_00011"
+            ],
+            "strength": "moderate"
+          }
+        ]
+      },
+      {
+        "claim": "在标签数据稀疏时，DeepWalk的分类性能显著优于基线方法。",
+        "evidence_source_type": "在不同训练比例下的实验结果。",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00141",
+          "anc_00142",
+          "anc_00143",
+          "anc_00144",
+          "anc_00147",
+          "anc_00148",
+          "anc_00151",
+          "anc_00152"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_2",
+        "evidence": [
+          {
+            "evidence_id": "evidence_2_1",
+            "description": "在BlogCatalog数据集上，当训练比例TR从10%增加到90%时，DeepWalk在Macro-F1和Micro-F1上均优于基线方法，尤其在TR≤20%时优势明显。",
+            "anchors": [
+              "anc_00141",
+              "anc_00142",
+              "anc_00143",
+              "anc_00144"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_2_2",
+            "description": "在Flickr数据集上，当训练比例TR从1%增加到10%时，DeepWalk的Micro-F1性能在仅使用3%标签数据时就超过了其他方法使用10%标签数据时的性能。",
+            "anchors": [
+              "anc_00147",
+              "anc_00148"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_2_3",
+            "description": "在YouTube数据集上，当训练比例TR从1%增加到10%时，DeepWalk显著优于EdgeCluster基线，在TR=1%时Micro-F1提升14%。",
+            "anchors": [
+              "anc_00151",
+              "anc_00152"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "DeepWalk是可扩展的在线学习算法，支持并行化。",
+        "evidence_source_type": "并行化效率实验和算法设计描述。",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00102",
+          "anc_00103",
+          "anc_00105",
+          "anc_00106",
+          "anc_00115"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_3",
+        "evidence": [
+          {
+            "evidence_id": "evidence_3_1",
+            "description": "算法设计上，DeepWalk使用异步随机梯度下降（ASGD），由于参数更新稀疏，可以高效并行化。",
+            "anchors": [
+              "anc_00102",
+              "anc_00103"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_3_2",
+            "description": "并行化效率实验显示，随着工作线程数增加到8，处理BlogCatalog和Flickr网络的速度一致提升，且预测性能没有损失。",
+            "anchors": [
+              "anc_00105",
+              "anc_00106",
+              "anc_00115"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "DeepWalk的表示可以用于多种分类任务，具有通用性。",
+        "evidence_source_type": "方法描述和实验设置。",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00026",
+          "anc_00135"
+        ],
+        "risk_flags": [
+          "论文仅展示了多标签分类任务，未验证其他任务类型。"
+        ],
+        "claim_id": "claim_4",
+        "evidence": [
+          {
+            "evidence_id": "evidence_4_1",
+            "description": "论文指出，学习到的表示是低维、稠密、连续的，可以作为特征输入到任何标准分类器（如逻辑回归）。",
+            "anchors": [
+              "anc_00026"
+            ],
+            "strength": "moderate"
+          },
+          {
+            "evidence_id": "evidence_4_2",
+            "description": "实验中使用了one-vs-rest逻辑回归分类器进行多标签分类任务。",
+            "anchors": [
+              "anc_00135"
+            ],
+            "strength": "moderate"
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "DeepWalk",
+        "definition": "本文提出的图表示学习方法，通过随机游走和Skip-gram模型学习节点的潜在向量表示。",
+        "anchors": [
+          "anc_00003"
+        ],
+        "appears_in": [
+          "anc_00003"
+        ]
+      },
+      {
+        "term": "潜在表示",
+        "definition": "将图中的节点映射到低维连续向量空间中的向量，编码了节点的结构信息。",
+        "anchors": [
+          "anc_00003",
+          "anc_00026"
+        ],
+        "appears_in": [
+          "anc_00003",
+          "anc_00026"
+        ]
+      },
+      {
+        "term": "随机游走",
+        "definition": "从图中某个节点开始，随机选择邻居节点进行遍历的路径。",
+        "anchors": [
+          "anc_00003",
+          "anc_00068"
+        ],
+        "appears_in": [
+          "anc_00003",
+          "anc_00068"
+        ]
+      },
+      {
+        "term": "Skip-gram",
+        "definition": "一种语言模型，用于根据中心词预测其上下文词。在本文中用于根据中心节点预测其上下文节点。",
+        "anchors": [
+          "anc_00071",
+          "anc_00073"
+        ],
+        "appears_in": [
+          "anc_00071",
+          "anc_00073"
+        ]
+      },
+      {
+        "term": "分层Softmax",
+        "definition": "一种用于加速大规模softmax计算的技术，通过构建二叉树将多分类问题分解为一系列二分类问题。",
+        "anchors": [
+          "anc_00079",
+          "anc_00083"
+        ],
+        "appears_in": [
+          "anc_00079",
+          "anc_00083"
+        ]
+      },
+      {
+        "term": "异步随机梯度下降",
+        "definition": "一种并行优化算法，多个工作线程同时更新模型参数而无需加锁。",
+        "anchors": [
+          "anc_00093",
+          "anc_00102"
+        ],
+        "appears_in": [
+          "anc_00093",
+          "anc_00102"
+        ]
+      },
+      {
+        "term": "多标签分类",
+        "definition": "一个节点可以同时属于多个类别的分类任务。",
+        "anchors": [
+          "anc_00134"
+        ],
+        "appears_in": [
+          "anc_00134"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        "BlogCatalog",
+        "Flickr",
+        "YouTube"
+      ],
+      "required_models": [
+        "逻辑回归分类器（用于下游评估）"
+      ],
+      "required_compute": "多核CPU或GPU，用于并行训练。具体算力需求未知。",
+      "code_available": "论文提到代码和数据将在第一作者网站提供，但未给出具体链接。状态未知。",
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 获取或构建BlogCatalog、Flickr、YouTube社交网络图数据。",
+          "anchors": [
+            "anc_00124",
+            "anc_00125",
+            "anc_00126",
+            "anc_00127"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 实现随机游走生成算法：对每个节点生成γ条长度为t的游走。",
+          "anchors": [
+            "anc_00048",
+            "anc_00061",
+            "anc_00068"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 实现Skip-gram模型，使用分层Softmax作为输出层。",
+          "anchors": [
+            "anc_00071",
+            "anc_00073",
+            "anc_00079",
+            "anc_00083",
+            "anc_00085",
+            "anc_00089"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "4. 使用异步随机梯度下降（ASGD）在随机游走序列上训练模型，学习节点表示Φ。",
+          "anchors": [
+            "anc_00093",
+            "anc_00102",
+            "anc_00103"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "5. 将学习到的节点表示作为特征，输入到逻辑回归分类器进行多标签分类训练和评估。",
+          "anchors": [
+            "anc_00135"
+          ]
+        },
+        {
+          "step": "step_6",
+          "description": "6. 进行参数敏感性实验（γ, w, d, TR）。",
+          "anchors": [
+            "anc_00181",
+            "anc_00182",
+            "anc_00184",
+            "anc_00186",
+            "anc_00189",
+            "anc_00191",
+            "anc_00193",
+            "anc_00194",
+            "anc_00196",
+            "anc_00198",
+            "anc_00200",
+            "anc_00201",
+            "anc_00203",
+            "anc_00204"
+          ]
+        }
+      ],
+      "missing_details": [],
+      "risk_points": []
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-01T22:46:39+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_ml_042_deepwalk_online_learning_of_social_representatio_2014",
+    "title": "DeepWalk: online learning of social representations",
+    "authors": [
+      "Bryan Perozzi",
+      "Rami Al-Rfou",
+      "S. Skiena"
+    ],
+    "venue": "Knowledge Discovery and Data Mining",
+    "year": 2014,
+    "arxiv_id": "1403.6652",
+    "doi": "10.1145/2623330",
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-01T22:45:22+00:00",
+    "paper_type": "NLP / Top-cited ML method paper",
+    "citation_count": 10658,
+    "influential_citation_count": 1578,
+    "semantic_scholar_id": "fff114cbba4f3ba900f33da574283e3de7f26c83",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/fff114cbba4f3ba900f33da574283e3de7f26c83",
+    "importance_rank": 42,
+    "selection_source": "semantic_scholar_top_cited_ml_open_pdf_2026_05_01",
+    "open_access_pdf_url": "https://arxiv.org/pdf/1403.6652",
+    "fields_of_study": [
+      "Computer Science"
+    ],
+    "publication_types": [
+      "JournalArticle",
+      "Book",
+      "Conference"
+    ],
+    "abstract": "We present DeepWalk, a novel approach for learning latent representations of vertices in a network. These latent representations encode social relations in a continuous vector space, which is easily exploited by statistical models. DeepWalk generalizes recent advancements in language modeling and unsupervised feature learning (or deep learning) from sequences of words to graphs. DeepWalk uses local information obtained from truncated random walks to learn latent representations by treating walks as the equivalent of sentences. We demonstrate DeepWalk's latent representations on several multi-label network classification tasks for social networks such as BlogCatalog, Flickr, and YouTube. Our results show that DeepWalk outperforms challenging baselines which are allowed a global view of the network, especially in the presence of missing information. DeepWalk's representations can provide F1 scores up to 10% higher than competing methods when labeled data is sparse. In some experiments, DeepWalk's representations are able to outperform all baseline methods while using 60% less training data. DeepWalk is also scalable. It is an online learning algorithm which builds useful incremental results, and is trivially parallelizable. These qualities make it suitable for a broad class of real world applications such as network classification, and anomaly detection."
+  },
+  "anchors": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "DeepWalk: Online Learning of Social Representations Bryan Perozzi Stony Brook University Department of Computer Science Rami Al-Rfou Stony Brook University Department of Computer Science Steven Skiena Stony Brook University Department of Computer Science {bperozzi, ralrfou, skiena}@cs.stonybrook.edu",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ABSTRACT",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "We present DeepW alk, a novel approach for learning la- tent representations of vertices in a network. These latent representations encode social relations in a continuous vector space, which is easily exploited by statistical models. Deep- W alk generalizes recent advancements in language mod- eling and unsupervised feature learning (or deep learning ) from sequences of words to graphs. DeepW alk uses local information obtained from trun- cated random walks to learn latent representations by treat- ing walks as the equivalent of sentences. We demonstrate DeepW alk’s latent representations on several multi-label",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "network classiﬁcation tasks for social networks such as Blog-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Catalog, Flickr, and YouTube. Our results show that Deep-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "W alkoutperforms challenging baselines which are allowed a global view of the network, especially in the presence of missing information. DeepW alk’s representations can pro- vide F1 scores up to 10% higher than competing methods when labeled data is sparse. In some experiments, Deep- W alk’s representations are able to outperform all baseline methods while using 60% less training data. DeepW alkis also scalable. It is an online learning algo- rithm which builds useful incremental results, and is trivially parallelizable. These qualities make it suitable for a broad class of real world applications such as network classiﬁca- tion, and anomaly detection. Categories and Subject Descriptors H.2.8 [ Database Management ]: Database Applications - Data Mining; I.2.6 [ Artiﬁcial Intelligence ]: Learning; I.5.1 [Pattern Recognition]: Model - Statistical 1. INTRODUCTION The sparsity of a network representation is both a strength and a weakness. Sparsity enables the design of eﬃcient dis- crete...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 1: Our proposed method learns a latent space rep-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "resentation of social interactions in Rd. The learned rep- resentation encodes community structure so it can be eas- ily exploited by standard classiﬁcation methods. Here, our method is used on Zachary’s Karate network [44] to gen- erate a latent representation in R2. Note the correspon- dence between community structure in the input graph and the embedding. Vertex colors represent a modularity-based clustering of the input graph. ommendation [11], anomaly detection [5], and missing link prediction [22]) must be able to deal with this sparsity in order to survive. In this paper we introduce deep learning (unsupervised feature learning) [2] techniques, which have proven success- ful in natural language processing, into network analysis for the ﬁrst time. We develop an algorithm ( DeepW alk) that learns social representations of a graph’s vertices, by mod- eling a stream of short random walks. Social representa- tions are latent features of the vertices that capture neigh- borhood simil...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "guage [6], and even logical analogies [28].",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "DeepW alk takes a graph as input and produces a la- tent representation as an output. The result of applying our method to the well-studied Karate network is shown in Fig- ure 1. The graph, as typically presented by force-directed layouts, is shown in Figure 1a. Figure 1b shows the output of our method with 2 latent dimensions. Beyond the striking similarity, we note that linearly separable portions of (1b)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "correspond to clusters found through modularity maximiza-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tion in the input graph (1a) (shown as vertex colors). To demonstrate DeepW alk’s potential in real world sce- arXiv:1403.6652v2 [cs.SI] 27 Jun 2014",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "narios, we evaluate its performance on challenging multi-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "label network classiﬁcation problems in large heterogeneous",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "graphs. In the relational classiﬁcation problem, the links be- tween feature vectors violate the traditional i.i.d. assump- tion. Techniques to address this problem typically use ap- proximate inference techniques [31, 35] to leverage the de- pendency information to improve classiﬁcation results. We distance ourselves from these approaches by learning label- independent representations of the graph. Our representa- tion quality is not inﬂuenced by the choice of labeled ver- tices, so they can be shared among tasks. DeepW alkoutperforms other latent representation meth- ods for creating social dimensions [39, 41], especially when labeled nodes are scarce. Strong performance with our rep- resentations is possible with very simple linear classiﬁers",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(e.g. logistic regression). Our representations are general,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "and can be combined with any classiﬁcation method (in- cluding iterative inference methods). DeepW alkachieves all of that while being an online algorithm that is trivially parallelizable. Our contributions are as follows: • We introduce deep learning as a tool to analyze graphs, to build robust representations that are suitable for statistical modeling. DeepW alklearns structural reg- ularities present within short random walks. • We extensively evaluate our representations on multi- label classiﬁcation tasks on several social networks. We show signiﬁcantly increased classiﬁcation performance in the presence of label sparsity, getting improvements 5%-10% of MicroF1, on the sparsest problems we con- sider. In some cases, DeepW alk’s representations can outperform its competitors even when given 60% less training data. • We demonstrate the scalability of our algorithm by building representations of web-scale graphs, (such as YouTube) using a parallel implementation. Moreover,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "we describe the minimal changes necessary to build a",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "streaming version of our approach.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "The rest of the paper is arranged as follows. In Sections 2 and 3, we discuss the problem formulation of classiﬁcation in data networks, and how it relates to our work. In Section 4 we present DeepW alk, our approach for Social Repre- sentation Learning. We outline ours experiments in Section 5, and present their results in Section 6. We close with a discussion of related work in Section 7, and our conclusions. 2. PROBLEM DEFINITION We consider the problem of classifying members of a social",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "network into one or more categories. More formally, letG =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00022",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(V,E ), where V are the members of the network, and E be its edges, E ⊆ (V ×V ). Given a partially labeled social",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "network GL = (V,E,X,Y ), with attributes X ∈ R|V|×S",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00024",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "where S is the size of the feature space for each attribute vector, and Y ∈ R|V|×|Y|,Y is the set of labels. In a traditional machine learning classiﬁcation setting, we aim to learn a hypothesisH that maps elements ofX to the labels set Y. In our case, we can utilize the signiﬁcant in- formation about the dependence of the examples embedded in the structure of G to achieve superior performance. In the literature, this is known as the relational classiﬁ- cation (or the collective classiﬁcation problem [37]). Tradi- tional approaches to relational classiﬁcation pose the prob- lem as an inference in an undirected Markov network, and then use iterative approximate inference algorithms (such as the iterative classiﬁcation algorithm [31], Gibbs Sam- pling [14], or label relaxation [18]) to compute the posterior distribution of labels given the network structure. We propose a diﬀerent approach to capture the network",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "topology information. Instead of mixing the label space",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "as part of the feature space, we propose an unsupervised method which learns features that capture the graph struc- ture independent of the labels’ distribution. This separation between the structural representation and the labeling task avoids cascading errors, which can occur in iterative methods [33]. Moreover, the same representation can be used for multiple classiﬁcation problems concerning that network. Our goal is to learn XE∈ R|V|×d, where d is small num- ber of latent dimensions. These low-dimensional represen- tations are distributed; meaning each social phenomena is expressed by a subset of the dimensions and each dimension contributes to a subset of the social concepts expressed by the space. Using these structural features, we will augment the at- tributes space to help the classiﬁcation decision. These fea- tures are general, and can be used with any classiﬁcation algorithm (including iterative methods). However, we be- lieve that the greatest utility of these features i...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00027",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "100 101 102 103 104 105 106 Vertex visitation count 100 101 102 103 104 105 # of Vertices Frequency of Vertex Occurrence in Short Random Walks (a) YouTube Social Graph 100 101 102 103 104 105 106 107 Word mention count 100 101 102 103 104 105 106 # of Words Frequency of Word Occurrence in Wikipedia (b) Wikipedia Article Text",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00028",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 2: The power-law distribution of vertices appearing",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "in short random walks (2a) follows a power-law, much like the distribution of words in natural language (2b).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "3.1 Random Walks",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00031",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "We denote a random walk rooted at vertexvi asWvi. It is a stochastic process with random variablesW1 vi,W2 vi,..., W k vi such thatW k+1 vi is a vertex chosen at random from the neigh- bors of vertex vk. Random walks have been used as a sim- ilarity measure for a variety of problems in content recom- mendation [11] and community detection [1]. They are also the foundation of a class ofoutput sensitive algorithms which use them to compute local community structure information in time sublinear to the size of the input graph [38]. It is this connection to local structure that motivates us to use a stream of short random walks as our basic tool for ex- tracting information from a network. In addition to captur- ing community information, using random walks as the ba- sis for our algorithm gives us two other desirable properties. First, local exploration is easy to parallelize. Several random walkers (in diﬀerent threads, processes, or machines) can si- multaneously explore diﬀerent parts...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "3.2 Connection: Power laws",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00033",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Having chosen online random walks as our primitive for capturing graph structure, we now need a suitable method to capture this information. If the degree distribution of a connected graph follows a power law (is scale-free), we observe that the frequency which vertices appear in the short random walks will also follow a power-law distribution. Word frequency in natural language follows a similar dis- tribution, and techniques from language modeling account for this distributional behavior. To emphasize this similar- ity we show two diﬀerent power-law distributions in Figure 2. The ﬁrst comes from a series of short random walks on a scale-free graph, and the second comes from the text of 100,000 articles from the English Wikipedia. A core contribution of our work is the idea that techniques which have been used to model natural language (where the symbol frequency follows a power law distribution (or Zipf’s law)) can be re-purposed to model community structure in networks. We spend th...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "growing work in language modeling, and transforming it to",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00035",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "learn representations of vertices which satisfy our criteria.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "3.3 Language Modeling",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00037",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "The goal of language modeling is estimate the likelihood of a speciﬁc sequence of words appearing in a corpus. More formally, given a sequence of words W n",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00038",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1 = (w0,w 1,··· ,w n)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00039",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "wherewi∈V (V is the vocabulary), we would like to maxi-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "mize the Pr(wn|w0,w 1,··· ,w n−1) over all the training cor- pus. Recent work in representation learning has focused on us- ing probabilistic neural networks to build general representa- tions of words which extend the scope of language modeling beyond its original goals. In this work, we present a generalization of language mod- eling to explore the graph through a stream of short random walks. These walks can be thought of short sentences and",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00041",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "phrases in a special language. The direct analog is to es-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00042",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "timate the likelihood of observing vertex vi given all the previous vertices visited so far in the random walk. Pr ( vi| (v1,v 2,··· ,v i−1) ) Our goal is to learn a latent representation, not only a probability distribution of node co-occurrences, and so we introduce a mapping function Φ: v∈ V ↦→ R|V|×d. This mapping Φ represents the latent social representation asso- ciated with each vertex v in the graph. (In practice, we represent Φ by a |V|× d matrix of free parameters, which will serve later on as our XE.) The problem then, is to estimate the likelihood: Pr ( vi| ( Φ(v1), Φ(v2),··· , Φ(vi−1) )) (1) However as the walk length grows, computing this objec- tive function becomes unfeasible. A recent relaxation in language modeling [26, 27] turns the prediction problem on its head. First, instead of using the context to predict a missing word, it uses one word to predict the context. Secondly, the context is composed of the words appearing to right side of the given word as well as t...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00043",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "on the problem. Instead, the model is required to maximize",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the probability of any word appearing in the context without the knowledge of its oﬀset from the given word. In terms of vertex representation modeling, this yields the optimization problem: minimize Φ",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00045",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "− log Pr",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00046",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "( {vi−w,··· ,v i−1,v i+1,··· ,v i+w}| Φ(vi) ) (2) We ﬁnd these relaxations are particularly desirable for so- cial representation learning. First, the order independence assumption better captures a sense of ‘nearness’ that is pro- vided by random walks. Moreover, this relaxation is quite useful for speeding up the training time by building small models as one vertex is given at a time. Solving the optimization problem from Eq. 2 builds repre- sentations that capture the shared similarities in local graph structure between vertices. Vertices which have similar neigh- borhoods will acquire similar representations (encoding co- citation similarity), and allowing generalization on machine learning tasks. By combining both truncated random walks and neural language models we formulate a method which satisﬁes all",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00047",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Algorithm 1 DeepW alk(G, w, d, γ, t) Input: graph G(V,E ) window size w embedding size d walks per vertex γ walk length t Output: matrix of vertex representations Φ∈ R|V|×d 1: Initialization: Sample Φ from U|V|×d 2: Build a binary Tree T from V",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00048",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "3: for i = 0 to γ do",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4: O = Shuﬄe(V )",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00050",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "5: for eachvi∈O do",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "6: Wvi =RandomWalk (G,v i,t)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00052",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "7: SkipGram(Φ, Wvi, w) 8: end for 9: end for of our desired properties. This method generates represen- tations of social networks that are low-dimensional, and ex- ist in a continuous vector space. Its representations encode latent forms of community membership, and because the method outputs useful intermediate representations, it can",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00053",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "adapt to changing network topology.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4. METHOD In this section we discuss the main components of our algorithm. We also present several variants of our approach and discuss their merits.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4.1 Overview",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "As in any language modeling algorithm, the only required input is a corpus and a vocabularyV. DeepW alkconsiders a set of short truncated random walks its own corpus, and",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00057",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the graph vertices as its own vocabulary (V =V ). While it",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00058",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "is beneﬁcial to know the V and the frequency distribution of vertices in the random walks ahead of the training, it is not necessary for the algorithm to work as we will show in 4.2.2.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00059",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4.2 Algorithm: DeepW alk",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00060",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "The algorithm consists of two main components; ﬁrst a random walk generator and second an update procedure. The random walk generator takes a graph G and samples uniformly a random vertex vi as the root of the random walkWvi. A walk samples uniformly from the neighbors",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00061",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "of the last vertex visited until the maximum length ( t) is",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00062",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "reached. While we set the length of our random walks in the experiments to be ﬁxed, there is no restriction for the random walks to be of the same length. These walks could have restarts (i.e. a teleport probability of returning back",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "to their root), but our preliminary results did not show any",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00064",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "advantage of using restarts. In practice, our implementation speciﬁes a number of random walks γ of length t to start at each vertex. Lines 3-9 in Algorithm 1 shows the core of our approach. The outer loop speciﬁes the number of times, γ, which we should start random walks at each vertex. We think of each iteration as making a ‘pass’ over the data and sample one walk per node during this pass. At the start of each pass we generate a random ordering to traverse the vertices. This is not strictly required, but is well-known to speed up the convergence of stochastic gradient descent. Algorithm 2 SkipGram(Φ,Wvi, w) 1: for eachvj∈W vi do 2: for eachuk∈W vi[j−w :j +w] do",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00065",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "3: J(Φ) =− log Pr(uk| Φ(vj))",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00066",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4: Φ = Φ −α∗ ∂J",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "∂Φ 5: end for 6: end for In the inner loop, we iterate over all the vertices of the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00068",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "graph. For each vertexvi we generate a random walk|Wvi| =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "t, and then use it to update our representations (Line 7). We use the SkipGram algorithm [26] to update these represen- tations in accordance with our objective function in Eq. 2.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00070",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4.2.1 SkipGram",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00071",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "SkipGram is a language model that maximizes the co-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00072",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "occurrence probability among the words that appear within a window, w, in a sentence [26]. Algorithm 2 iterates over all possible collocations in ran- dom walk that appear within the window w (lines 1-2). For each, we map each vertex vj to its current representation vector Φ(vj)∈ Rd (See Figure 3b). Given the representa-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00073",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tion of vj, we would like to maximize the probability of its",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00074",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "neighbors in the walk (line 3). We can learn such posterior distribution using several choices of classiﬁers. For exam-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00075",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ple, modeling the previous problem using logistic regression",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00076",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "would result in a huge number of labels that is equal to |V| which could be in millions or billions. Such models require",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00077",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "large amount of computational resources that could span a",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00078",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "whole cluster of computers [3]. To speed the training time,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00079",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Hierarchical Softmax [29,30] can be used to approximate the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00080",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "probability distribution.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00081",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4.2.2 Hierarchical Softmax",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00082",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Given that uk∈ V , calculating Pr(uk| Φ(vj)) in line 3 is not feasible. Computing the partition function (normal- ization factor) is expensive. If we assign the vertices to the leaves of a binary tree, the prediction problem turns into",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00083",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "maximizing the probability of a speciﬁc path in the tree",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00084",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(See Figure 3c). If the path to vertex uk is identiﬁed by",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00085",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "a sequence of tree nodes ( b0,b 1,...,b ⌈log|V|⌉), (b0 = root,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00086",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "b⌈log|V|⌉ =uk) then",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00087",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Pr(uk| Φ(vj)) =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00088",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "⌈log|V|⌉∏",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00089",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "l=1 Pr(bl| Φ(vj)) Now, Pr(bl| Φ(vj)) could be modeled by a binary classiﬁer that is assigned to the parent of the node bl. This reduces the computational complexity of calculating Pr( uk| Φ(vj))",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00090",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "from O(|V|) to O(log|V|).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00091",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "We can speed up the training process further, by assigning shorter paths to the frequent vertices in the random walks. Huﬀman coding is used to reduce the access time of frequent elements in the tree.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00092",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4.2.3 Optimization",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00093",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "The model parameter set is{Φ,T} where the size of each is O(d|V|). Stochastic gradient descent (SGD) [4] is used to optimize these parameters (Line 4, Algorithm 2). The derivatives are estimated using the back-propagation algo- rithm. The learning rate α for SGD is initially set to 2.5% at the beginning of the training and then decreased linearly",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00094",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(a) Random walk generation. (b) Representation mapping.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00095",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(c) Hierarchical Softmax.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00096",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 3: Overview of DeepW alk. We slide a window of length 2 w + 1 over the random walk Wv4, mapping the central",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00097",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "vertex v1 to its representation Φ(v1). Hierarchical Softmax factors out Pr( v3| Φ(v1)) and Pr(v5| Φ(v1)) over sequences of",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00098",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "probability distributions corresponding to the paths starting at the root and ending at v3 and v5. The representation Φ is",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00099",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "updated to maximize the probability of v1 co-occurring with its context{v3,v 5}.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00100",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "with the number of vertices that are seen so far.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00101",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4.3 Parallelizability",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00102",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "As shown in Figure 2 the frequency distribution of vertices in random walks of social network and words in a language both follow a power law. This results in a long tail of infre- quent vertices, therefore, the updates that aﬀect Φ will be sparse in nature. This allows us to use asynchronous version of stochastic gradient descent (ASGD), in the multi-worker case. Given that our updates are sparse and we do not ac- quire a lock to access the model shared parameters, ASGD will achieve an optimal rate of convergence [36]. While we run experiments on one machine using multiple threads, it has been demonstrated that this technique is highly scal-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00103",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "able, and can be used in very large scale machine learn-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00104",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ing [8]. Figure 4 presents the eﬀects of parallelizing Deep-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00105",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "W alk. It shows the speed up in processing BlogCatalog",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00106",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "and Flickr networks is consistent as we increase the num- ber of workers to 8 (Figure 4a). It also shows that there is no loss of predictive performance relative to the running DeepW alkserially (Figure 4b).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00107",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4.4 Algorithm Variants",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00108",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Here we discuss some variants of our proposed method, which we believe may be of interest.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00109",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4.4.1 Streaming",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00110",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "One interesting variant of this method is a streaming ap-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00111",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "proach, which could be implemented without knowledge of the entire graph. In this variant small walks from the graph are passed directly to the representation learning code, and the model is updated directly. Some modiﬁcations to the learning process will also be necessary. First, using a de- caying learning rate will no longer be possible. Instead, we can initialize the learning rate α to a small constant value. This will take longer to learn, but may be worth it in some applications. Second, we cannot necessarily build a tree of parameters any more. If the cardinality of V is known (or",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00112",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "can be bounded), we can build the Hierarchical Softmax tree",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00113",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "for that maximum value. Vertices can be assigned to one of",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00114",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the remaining leaves when they are ﬁrst seen. If we have the ability to estimate the vertex frequency a priori, we can 20 21 22 23 # of Workers 2-3 2-2 2-1 20 Relative Time BlogCatalog Flickr (a) Running Time 20 21 22 23 # of Workers 0.02 0.01 0.00 0.01 0.02 Relative Change in Micro F1 BlogCatalog Flickr (b) Performance",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00115",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 4: Eﬀects of parallelizing DeepW alk",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00116",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "also still use Huﬀman coding to decrease frequent element access times.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00117",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4.4.2 Non-random walks",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00118",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Some graphs are created as a by-product of agents inter- acting with a sequence of elements (e.g. users’ navigation of pages on a website). When a graph is created by such a stream of non-random walks, we can use this process to feed the modeling phase directly. Graphs sampled in this way will not only capture information related to network structure, but also to the frequency at which paths are traversed. In our view, this variant also encompasses language mod- eling. Sentences can be viewed as purposed walks through an appropriately designed language network, and language models like SkipGram are designed to capture this behavior.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00119",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "This approach can be combined with the streaming vari-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00120",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ant (Section 4.4.1) to train features on a continually evolv- ing network without ever explicitly constructing the entire graph. Maintaining representations with this technique could enable web-scale classiﬁcation without the hassles of dealing with a web-scale graph. 5. EXPERIMENTAL DESIGN In this section we provide an overview of the datasets and methods which we will use in our experiments. Code and data to reproduce our results will be available at the ﬁrst author’s website.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00121",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "5.1 Datasets",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00122",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Name BlogCatalog Flickr YouTube",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00123",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "|V| 10,312 80,513 1,138,499 |E| 333,983 5,899,882 2,990,443 |Y| 39 195 47 Labels Interests Groups Groups",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00124",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 1: Graphs used in our experiments.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00125",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "An overview of the graphs we consider in our experiments is given in Figure 1.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00126",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "• BlogCatalog [39] is a network of social relationships",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00127",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "provided by blogger authors. The labels represent the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00128",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "topic categories provided by the authors. • Flickr [39] is a network of the contacts between users of the photo sharing website. The labels represent the interest groups of the users such as ‘ black and white photos’. • YouTube [40] is a social network between users of the popular video sharing website. The labels here represent groups of viewers that enjoy common video genres (e.g. anime and wrestling).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00129",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "5.2 Baseline Methods",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00130",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "To validate the performance of our approach we compare it against a number of baselines: • SpectralClustering [41]: This method generates a rep- resentation in Rd from the d-smallest eigenvectors of ˜L, the normalized graph Laplacian of G. Utilizing the eigenvectors of ˜L implicitly assumes that graph cuts will be useful for classiﬁcation. • Modularity [39]: This method generates a representa- tion in Rd from the top-d eigenvectors ofB, the Mod- ularity matrix of G. The eigenvectors of B encode information about modular graph partitions of G [34]. Using them as features assumes that modular graph partitions will be useful for classiﬁcation. • EdgeCluster [40]: This method uses k-means cluster- ing to cluster the adjacency matrix of G. Its has been shown to perform comparably to the Modularity method, with the added advantage of scaling to graphs",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00131",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "which are too large for spectral decomposition.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00132",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "• wvRN [24]: The weighted-vote Relational Neighbor is a relational classiﬁer. Given the neighborhood Ni of vertexvi, wvRN estimates Pr(yi|Ni) with the (appro- priately normalized) weighted mean of its neighbors",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00133",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(i.e Pr(yi|Ni) = 1",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00134",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Z ∑ vj∈Ni wij Pr(yj|N j)). It has shown surprisingly good performance in real networks, and has been advocated as a sensible relational classi- ﬁcation baseline [25]. • Majority: This na¨ıve method simply chooses the most frequent labels in the training set. 6. EXPERIMENTS In this section we present an experimental analysis of our method. We thoroughly evaluate it on a number of multi- label classiﬁcation tasks, and analyze its sensitivity across several parameters. 6.1 Multi-Label Classiﬁcation To facilitate the comparison between our method and the relevant baselines, we use the exact same datasets and exper- imental procedure as in [39, 40]. Speciﬁcally, we randomly sample a portion ( TR) of the labeled nodes, and use them as training data. The rest of the nodes are used as test. We repeat this process 10 times, and report the average per- formance in terms of both Macro- F1 and Micro-F1. When possible we report the original results [39,40] here directly.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00135",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "For all models we use a one-vs-rest logistic regression im-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00136",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "plemented by LibLinear [10] for classiﬁcation. We present",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00137",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "results for DeepW alkwith (γ = 80,w = 10,d = 128). The",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00138",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "results for (SpectralClustering, Modularity, EdgeCluster)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00139",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "use Tang and Liu’s preferred dimensionality, d = 500.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00140",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "6.1.1 BlogCatalog",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00141",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "In this experiment we increase the training ratio ( TR) on",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00142",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the BlogCatalog network from 10% to 90%. Our results",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00143",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "are presented in Table 2. Numbers in bold represent the highest performance in each column. DeepW alkperforms consistently better than EdgeCluster, Modularity, and wvRN. In fact, when trained with only 20% of the nodes labeled, DeepW alkperforms better than these approaches when they are given 90% of the data. The perfor- mance of SpectralClustering proves much more competitive, but DeepW alkstill outperforms when labeled data is sparse",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00144",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "on both Macro-F1 (TR≤ 20%) and Micro-F1 (TR≤ 60%).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00145",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "This strong performance when only small fractions of the graph are labeled is a core strength of our approach. In the following experiments, we investigate the performance of our representations on even more sparsely labeled graphs.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00146",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "6.1.2 Flickr",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00147",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "In this experiment we vary the training ratio (TR) on the Flickr network from 1% to 10%. This corresponds to hav- ing approximately 800 to 8,000 nodes labeled for classiﬁ- cation in the entire network. Table 3 presents our results, which are consistent with the previous experiment. Deep- W alkoutperforms all baselines by at least 3% with respect to Micro-F1. Additionally, its Micro- F1 performance when only 3% of the graph is labeled beats all other methods even when they have been given 10% of the data. In other words, DeepW alkcan outperform the baselines with 60% less training data. It also performs quite well in Macro- F1,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00148",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "initially performing close to SpectralClustering, but distanc-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00149",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ing itself to a 1% improvement.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00150",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "6.1.3 YouTube",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00151",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "The YouTube network is considerably larger than the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00152",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "previous ones we have experimented on, and its size pre- vents two of our baseline methods (SpectralClustering and Modularity) from running on it. It is much closer to a real world graph than those we have previously considered. The results of varying the training ratio (TR) from 1% to 10% are presented in Table 4. They show that DeepW alk signiﬁcantly outperforms the scalable baseline for creating graph representations, EdgeCluster. When 1% of the la- beled nodes are used for test, the Micro- F1 improves by 14%. The Macro- F1 shows a corresponding 10% increase. This lead narrows as the training data increases, but Deep- W alkends with a 3% lead in Micro- F1, and an impressive 5% improvement in Macro-F1. This experiment showcases the performance beneﬁts that",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00153",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "% Labeled Nodes 10% 20% 30% 40% 50% 60% 70% 80% 90% DeepW alk 36.00 38.20 39.60 40.30 41.00 41.30 41.50 41.50 42.00 SpectralClustering 31.06 34.95 37.27 38.93 39.97 40.99 41.66 42.42 42.62 EdgeCluster 27.94 30.76 31.85 32.99 34.12 35.00 34.63 35.99 36.29 Micro-F1(%) Modularity 27.35 30.74 31.77 32.97 34.09 36.13 36.08 37.23 38.18 wvRN 19.51 24.34 25.62 28.82 30.37 31.81 32.19 33.33 34.28 Majority 16.51 16.66 16.61 16.70 16.91 16.99 16.92 16.49 17.26 DeepW alk 21.30 23.80 25.30 26.30 27.30 27.60 27.90 28.20 28.90 SpectralClustering 19.14 23.57 25.97 27.46 28.31 29.46 30.13 31.38 31.78 EdgeCluster 16.16 19.16 20.48 22.00 23.00 23.64 23.82 24.61 24.92 Macro-F1(%) Modularity 17.36 20.00 20.80 21.85 22.65 23.41 23.89 24.20 24.97 wvRN 6.25 10.13 11.64 14.24 15.86 17.18 17.98 18.86 19.57 Majority 2.52 2.55 2.52 2.58 2.58 2.63 2.61 2.48 2.62",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00154",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 2: Multi-label classiﬁcation results in BlogCatalog",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00155",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "% Labeled Nodes 1% 2% 3% 4% 5% 6% 7% 8% 9% 10% DeepW alk 32.4 34.6 35.9 36.7 37.2 37.7 38.1 38.3 38.5 38.7 SpectralClustering 27.43 30.11 31.63 32.69 33.31 33.95 34.46 34.81 35.14 35.41 Micro-F1(%) EdgeCluster 25.75 28.53 29.14 30.31 30.85 31.53 31.75 31.76 32.19 32.84 Modularity 22.75 25.29 27.3 27.6 28.05 29.33 29.43 28.89 29.17 29.2 wvRN 17.7 14.43 15.72 20.97 19.83 19.42 19.22 21.25 22.51 22.73 Majority 16.34 16.31 16.34 16.46 16.65 16.44 16.38 16.62 16.67 16.71 DeepW alk 14.0 17.3 19.6 21.1 22.1 22.9 23.6 24.1 24.6 25.0 SpectralClustering 13.84 17.49 19.44 20.75 21.60 22.36 23.01 23.36 23.82 24.05 Macro-F1(%) EdgeCluster 10.52 14.10 15.91 16.72 18.01 18.54 19.54 20.18 20.78 20.85 Modularity 10.21 13.37 15.24 15.11 16.14 16.64 17.02 17.1 17.14 17.12 wvRN 1.53 2.46 2.91 3.47 4.95 5.56 5.82 6.59 8.00 7.26 Majority 0.45 0.44 0.45 0.46 0.47 0.44 0.45 0.47 0.47 0.47",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00156",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 3: Multi-label classiﬁcation results in Flickr",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00157",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "% Labeled Nodes 1% 2% 3% 4% 5% 6% 7% 8% 9% 10% DeepW alk 37.95 39.28 40.08 40.78 41.32 41.72 42.12 42.48 42.78 43.05 SpectralClustering — — — — — — — — — — Micro-F1(%) EdgeCluster 23.90 31.68 35.53 36.76 37.81 38.63 38.94 39.46 39.92 40.07 Modularity — — — — — — — — — — wvRN 26.79 29.18 33.1 32.88 35.76 37.38 38.21 37.75 38.68 39.42 Majority 24.90 24.84 25.25 25.23 25.22 25.33 25.31 25.34 25.38 25.38 DeepW alk 29.22 31.83 33.06 33.90 34.35 34.66 34.96 35.22 35.42 35.67 SpectralClustering — — — — — — — — — — Macro-F1(%) EdgeCluster 19.48 25.01 28.15 29.17 29.82 30.65 30.75 31.23 31.45 31.54 Modularity — — — — — — — — — — wvRN 13.15 15.78 19.66 20.9 23.31 25.43 27.08 26.48 28.33 28.89 Majority 6.12 5.86 6.21 6.1 6.07 6.19 6.17 6.16 6.18 6.19",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00158",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 4: Multi-label classiﬁcation results in YouTube",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00159",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "24 25 26 27 28 d 0.30 0.32 0.34 0.36 0.38 Micro F1 Training 0.01 0.02 0.05 0.09",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00160",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(a1) Flickr, γ = 30",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00161",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "24 25 26 27 28 d 0.25 0.30 0.35 Micro F1 γ 1 3 10 30 50",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00162",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "90 (a2) Flickr, TR = 0.05",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00163",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "24 25 26 27 28 d 0.32 0.34 0.36 0.38 0.40 0.42 Micro F1 Training 0.1 0.2 0.5 0.9",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00164",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(a3) BlogCatalog, γ = 30",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00165",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "24 25 26 27 28 d 0.15 0.20 0.25 0.30 0.35 0.40 0.45 Micro F1 γ 1 3 10 30 50",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00166",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "90 (a4) BlogCatalog, TR = 0.5",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00167",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(a) Stability over dimensions, d 20 21 22 23 24 25 26 27 γ 0.25 0.30 0.35 Micro F1 d 16 32 64 128 256",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00168",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(b1) Flickr, TR = 0.05",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00169",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "20 21 22 23 24 25 26 27 γ 0.25 0.30 0.35 0.40 Micro F1 Training 0.01 0.02 0.05",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00170",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "0.09 (b2) Flickr, d = 128",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00171",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "20 21 22 23 24 25 26 27 γ 0.15 0.20 0.25 0.30 0.35 0.40 0.45 Micro F1 d 16 32 64 128 256",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00172",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(b3) BlogCatalog, TR = 0.5",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00173",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "20 21 22 23 24 25 26 27 γ 0.15 0.20 0.25 0.30 0.35 0.40 0.45 Micro F1 Training 0.1 0.2 0.5",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00174",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "0.9 (b4) BlogCatalog, d = 128",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00175",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(a) Stability over number of walks, γ",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00176",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 5: Parameter Sensitivity Study",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00177",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "can occur from using social representation learning for multi-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00178",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "label classiﬁcation. DeepW alk, can scale to large graphs,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00179",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "and performs exceedingly well in such a sparsely labeled environment.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00180",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "6.2 Parameter Sensitivity",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00181",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "In order to evaluate how changes to the parameterization of DeepW alkeﬀect its performance on classiﬁcation tasks, we conducted experiments on two multi-label classiﬁcations",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00182",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tasks (Flickr, and BlogCatalog). For this test, we have",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00183",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ﬁxed the window size and the walk length to sensible val-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00184",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ues (w = 10,t = 40) which should emphasize local struc-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00185",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ture. We then vary the number of latent dimensions ( d), the number of walks started per vertex (γ), and the amount",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00186",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "of training data available (TR) to determine their impact on",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00187",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the network classiﬁcation performance.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00188",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "6.2.1 Effect of Dimensionality",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00189",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 5a shows the eﬀects of increasing the number of",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00190",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "latent dimensions available to our model.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00191",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figures 5a1 and 5a3 examine the eﬀects of varying the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00192",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "dimensionality and training rate. The performance is quite",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00193",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "consistent between both Flickr and BlogCatalog and",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00194",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "show that the optimal dimensionality for a model is depen- dent on the number of training examples. (Note that 1% of Flickr has approximately as many labeled examples as",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00195",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "10% of BlogCatalog).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00196",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figures 5a2 and 5a3 examine the eﬀects of varying the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00197",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "dimensionality and number of walks per vertex. The rel- ative performance between dimensions is relatively stable across diﬀerent values of γ. These charts have two inter- esting observations. The ﬁrst is that there is most of the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00198",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "beneﬁt is accomplished by starting γ = 30 walks per node",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00199",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "in both graphs. The second is that the relative diﬀerence between diﬀerent values ofγ is quite consistent between the two graphs. Flickr has an order of magnitude more edges",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00200",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "than BlogCatalog, and we ﬁnd this behavior interesting.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00201",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "These experiments show that our method can make use- ful models of various sizes. They also show that the per- formance of the model depends on the number of random walks it has seen, and the appropriate dimensionality of the model depends on the training examples available.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00202",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "6.2.2 Effect of sampling frequency",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00203",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 5a shows the eﬀects of increasing γ, the number of",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00204",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "random walks that we start from each vertex. The results are very consistent for diﬀerent dimensions (Fig. 5b1, Fig. 5b3) and the amount of training data (Fig. 5b2, Fig. 5b4). Initially, increasing γ has a big eﬀect in the results, but this eﬀect quickly slows ( γ > 10). These results demonstrate that we are able to learn meaningful latent representations for vertices after only a small number of random walks. 7. RELATED WORK The main diﬀerences between our proposed method and previous work can be summarized as follows: 1. We learn our latent social representations, instead of computing statistics related to centrality [12] or parti- tioning [41]. 2. We do not attempt to extend the classiﬁcation proce- dure itself (through collective inference [37] or graph kernels [20]). 3. We propose a scalable online method which uses only local information. Most methods require global infor- mation and are oﬄine [16,39–41]. 4. We apply unsupervised representation learning to graphs. In this sectio...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00205",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "7.1 Relational Learning",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00206",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Relational classiﬁcation (or collective classiﬁcation) meth- ods [14,24,31,35] use links between data items as part of the classiﬁcation process. Exact inference in the collective clas- siﬁcation problem is NP-hard, and solutions have focused on the use of approximate inference algorithm which may not be guaranteed to converge [37].",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00207",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "The most relevant relational classiﬁcation algorithms to our work incorporate community information by learning clusters [32], by adding edges between nearby nodes [13], by using PageRank [23], or by extending relational classiﬁca- tion to take additional features into account [43]. Our work takes a substantially diﬀerent approach. Instead of a new approximation inference algorithm, we propose a procedure which learns representations of network structure which can then be used by existing inference procedure (including it- erative ones). A number of techniques for generating features from graphs have also been proposed [12,16,39–41]. In contrast to these methods, we frame the feature creation procedure as a rep- resentation learning problem. Graph Kernels [42] have been proposed as a way to use relational data as part of the classiﬁcation process, but are quite slow unless approximated [19]. Our approach is com- plementary; instead of encoding the structure as part of a kernel functio...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00208",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "7.2 Unsupervised Feature Learning",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00209",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Distributed representations have been proposed to model structural relationship between concepts [17]. These repre- sentations are trained by the back-propagation and gradient descent. Computational costs and numerical instability led to these techniques to be abandoned for almost a decade.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00210",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Recently, distributed computing allowed for larger models to",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00211",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "be trained [3], and the growth of data for unsupervised learn- ing algorithms to emerge [9]. Distributed representations usually are trained through neural networks, these networks have made advancements in diverse ﬁelds such as computer vision [21], speech recognition [7], and natural language pro- cessing [6]. 8. CONCLUSIONS We propose DeepW alk, a novel approach for learning latent social representations of vertices. Using local infor- mation from truncated random walks as input, our method learns a representation which encodes structural regulari- ties. Experiments on a variety of diﬀerent graphs illustrate the eﬀectiveness of our approach on challenging multi-label classiﬁcation tasks. As an online algorithm, DeepW alkis also scalable. Our results show that we can create meaningful representations",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00212",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "for graphs too large to run spectral methods on. On such",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00213",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "large graphs, our method signiﬁcantly outperforms other",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00214",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "methods designed to operate for sparsity. We also show that our approach is parallelizable, allowing workers to up- date diﬀerent parts of the model concurrently. In addition to being eﬀective and scalable, our approach is also an appealing generalization of language modeling. This connection is mutually beneﬁcial. Advances in lan- guage modeling may continue to generate improved latent representations for networks. In our view, language mod- eling is actually sampling from an unobservable language graph. We believe that insights obtained from modeling ob- servable graphs may in turn yield improvements to modeling unobservable ones. Our future work in the area will focus on investigating this duality further, using our results to improve language modeling, and strengthening the theoretical justiﬁcations of the method. 9. REFERENCES [1] R. Andersen, F. Chung, and K. Lang. Local graph partitioning using pagerank vectors. In Foundations of Computer Science, 2006. FOCS’06. 47th Annual IEE...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00215",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "for large-vocabulary speech recognition. Audio,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00216",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Speech, and Language Processing, IEEE Transactions on, 20(1):30–42, 2012. [8] J. Dean, G. Corrado, R. Monga, K. Chen, M. Devin, Q. Le, M. Mao, M. Ranzato, A. Senior, P. Tucker,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00217",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "K. Yang, and A. Ng. Large scale distributed deep",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00218",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "networks. In P. Bartlett, F. Pereira, C. Burges, L. Bottou, and K. Weinberger, editors, Advances in Neural Information Processing Systems 25 , pages 1232–1240. 2012. [9] D. Erhan, Y. Bengio, A. Courville, P.-A. Manzagol, P. Vincent, and S. Bengio. Why does unsupervised pre-training help deep learning? The Journal of Machine Learning Research, 11:625–660, 2010. [10] R.-E. Fan, K.-W. Chang, C.-J. Hsieh, X.-R. Wang,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00219",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "and C.-J. Lin. LIBLINEAR: A library for large linear",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00220",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "classiﬁcation. Journal of Machine Learning Research , 9:1871–1874, 2008. [11] F. Fouss, A. Pirotte, J.-M. Renders, and M. Saerens. Random-walk computation of similarities between nodes of a graph with application to collaborative recommendation. Knowledge and Data Engineering, IEEE Transactions on, 19(3):355–369, 2007. [12] B. Gallagher and T. Eliassi-Rad. Leveraging label-independent features for classiﬁcation in sparsely labeled networks: An empirical study. In Advances in Social Network Mining and Analysis , pages 1–19. Springer, 2010. [13] B. Gallagher, H. Tong, T. Eliassi-Rad, and C. Faloutsos. Using ghost edges for classiﬁcation in sparsely labeled networks. In Proceedings of the 14th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining , KDD ’08, pages 256–264, New York, NY, USA, 2008. ACM. [14] S. Geman and D. Geman. Stochastic relaxation, gibbs distributions, and the bayesian restoration of images. Pattern Analysis and Machine Intelligence, IEEE Transact...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00221",
+      "page": 10,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "[15] L. Getoor and B. Taskar. Introduction to statistical relational learning. MIT press, 2007. [16] K. Henderson, B. Gallagher, L. Li, L. Akoglu, T. Eliassi-Rad, H. Tong, and C. Faloutsos. It’s who",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00222",
+      "page": 10,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "you know: Graph mining using recursive structural",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00223",
+      "page": 10,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "features. In Proceedings of the 17th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining, KDD ’11, pages 663–671, New York, NY, USA, 2011. ACM. [17] G. E. Hinton. Learning distributed representations of concepts. In Proceedings of the eighth annual conference of the cognitive science society , pages 1–12. Amherst, MA, 1986. [18] R. A. Hummel and S. W. Zucker. On the foundations of relaxation labeling processes. Pattern Analysis and Machine Intelligence, IEEE Transactions on , (3):267–287, 1983. [19] U. Kang, H. Tong, and J. Sun. Fast random walk graph kernel. In SDM, pages 828–838, 2012. [20] R. I. Kondor and J. Laﬀerty. Diﬀusion kernels on graphs and other discrete input spaces. In ICML, volume 2, pages 315–322, 2002. [21] A. Krizhevsky, I. Sutskever, and G. E. Hinton. Imagenet classiﬁcation with deep convolutional neural networks. In NIPS, volume 1, page 4, 2012. [22] D. Liben-Nowell and J. Kleinberg. The link-prediction problem for social networks. Journal of...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00224",
+      "page": 10,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "society for information science and technology ,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00225",
+      "page": 10,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "58(7):1019–1031, 2007. [23] F. Lin and W. Cohen. Semi-supervised classiﬁcation of network data using very few labels. In Advances in Social Networks Analysis and Mining (ASONAM), 2010 International Conference on , pages 192–199, Aug 2010. [24] S. A. Macskassy and F. Provost. A simple relational classiﬁer. In Proceedings of the Second Workshop on Multi-Relational Data Mining (MRDM-2003) at KDD-2003, pages 64–76, 2003. [25] S. A. Macskassy and F. Provost. Classiﬁcation in networked data: A toolkit and a univariate case study. The Journal of Machine Learning Research , 8:935–983, 2007. [26] T. Mikolov, K. Chen, G. Corrado, and J. Dean. Eﬃcient estimation of word representations in vector space. CoRR, abs/1301.3781, 2013. [27] T. Mikolov, I. Sutskever, K. Chen, G. S. Corrado, and J. Dean. Distributed representations of words and phrases and their compositionality. In Advances in Neural Information Processing Systems 26 , pages 3111–3119. 2013. [28] T. Mikolov, W.-t. Yih, and G. Zweig. Lin...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00226",
+      "page": 10,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "conference on Knowledge discovery and data mining ,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00227",
+      "page": 10,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "pages 464–472. ACM, 2013. [44] W. Zachary. An information ﬂow modelfor conﬂict",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00228",
+      "page": 10,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "and ﬁssion in small groups1. Journal of anthropological",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00229",
+      "page": 10,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "research, 33(4):452–473, 1977.",
+      "source_type": "paragraph"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "warnings": [
+      {
+        "code": "ok",
+        "message": "Grounding verification passed with current v1 checks.",
+        "target": null,
+        "severity": "info"
+      }
+    ],
+    "anchor_count": 229
+  }
+}
