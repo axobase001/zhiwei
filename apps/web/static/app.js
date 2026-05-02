@@ -1015,14 +1015,14 @@ function renderEvidence() {
   const claims = state.ir.claim_evidence_map?.claims || [];
   $("workspace").innerHTML = `<div class="claim-board">${claims
     .map((claim) => `<article class="claim-card ${state.selected?.id === claim.claim_id ? "selected" : ""}" data-kind="claim" data-id="${escapeHtml(claim.claim_id)}">
-      <div class="claim-strength ${escapeHtml(claim.overall_support || "medium")}">${escapeHtml(claim.overall_support || "unknown")}</div>
-      <h3>${escapeHtml(claim.claim)}</h3>
+      <div class="claim-strength ${escapeHtml(claimSupport(claim))}">${escapeHtml(claimSupport(claim))}</div>
+      <h3>${escapeHtml(claimText(claim))}</h3>
       <div class="meta-row">
-        <span class="tag">${escapeHtml(claim.claim_type || "claim")}</span>
+        <span class="tag">${escapeHtml(claim.claim_type || claim.evidence_source_type || "claim")}</span>
         ${(claim.risk_flags || []).map((flag) => `<span class="tag warn">${escapeHtml(flag)}</span>`).join("")}
       </div>
       <div class="evidence-stack">${(claim.evidence || [])
-        .map((ev) => `<div class="evidence-line"><span>${escapeHtml(ev.source_type)}</span><p>${escapeHtml(ev.summary || "")}</p></div>`)
+        .map((ev) => `<div class="evidence-line"><span>${escapeHtml(ev.source_type || ev.evidence_source_type || "evidence")}</span><p>${escapeHtml(evidenceText(ev))}</p></div>`)
         .join("")}</div>
     </article>`)
     .join("")}</div>`;
@@ -1496,8 +1496,118 @@ function exportGraphPng() {
   image.src = url;
 }
 
+function claimText(claim) {
+  return claim?.claim || claim?.claim_text || claim?.statement || claim?.summary || claim?.description || claim?.claim_id || "unknown claim";
+}
+
+function claimSupport(claim) {
+  return claim?.overall_support || claim?.support_strength || claim?.supports_claim || claim?.support || "unknown";
+}
+
+function evidenceText(evidence) {
+  return evidence?.summary || evidence?.description || evidence?.text || evidence?.result || evidence?.evidence || "";
+}
+
+function expTitle(exp) {
+  return exp?.name || exp?.task || exp?.variation || exp?.title || exp?.experiment_id || "experiment";
+}
+
+function expText(exp) {
+  return exp?.what_it_tries_to_prove || exp?.result_summary || exp?.result || exp?.findings || exp?.finding || exp?.comparison || exp?.description || "";
+}
+
+function firstFilled(...values) {
+  return values.find((value) => {
+    if (Array.isArray(value)) return value.length > 0;
+    if (value && typeof value === "object") return Object.keys(value).length > 0;
+    return value !== undefined && value !== null && String(value).trim() !== "";
+  });
+}
+
+function renderExperiments() {
+  const experiments = state.ir.experiment_matrix?.experiments || [];
+  if (!experiments.length) {
+    $("workspace").innerHTML = `<div class="empty-state"><strong>${state.lang === "en" ? "No experiment matrix" : "未抽取到实验矩阵"}</strong><span>${state.lang === "en" ? "This Paper IR has no experiment_matrix section." : "当前 Paper IR 中没有 experiment_matrix。"}</span></div>`;
+    return;
+  }
+  $("workspace").innerHTML = `<div class="experiment-grid">${experiments
+    .map((exp) => `<article class="experiment-card ${state.selected?.id === exp.experiment_id ? "selected" : ""}" data-kind="experiment" data-id="${escapeHtml(exp.experiment_id)}">
+      <div class="card-topline"><span>${escapeHtml(exp.type || "experiment")}</span><b>${escapeHtml(exp.evidence_strength || exp.support_strength || exp.support || "unclear")}</b></div>
+      <h3>${escapeHtml(expTitle(exp))}</h3>
+      <p>${escapeHtml(expText(exp))}</p>
+      <dl>
+        <dt>${state.lang === "en" ? "Datasets" : "数据集"}</dt><dd>${escapeHtml(list(firstFilled(exp.dataset, exp.datasets, exp.task)))}</dd>
+        <dt>${state.lang === "en" ? "Metrics" : "指标"}</dt><dd>${escapeHtml(list(firstFilled(exp.metrics, exp.metric)))}</dd>
+        <dt>Baseline</dt><dd>${escapeHtml(list(firstFilled(exp.baseline, exp.baselines, exp.comparison)))}</dd>
+      </dl>
+    </article>`)
+    .join("")}</div>`;
+  bindCards("experiment", (id) => experiments.find((item) => item.experiment_id === id));
+}
+
+function renderReproduction() {
+  const reproRoot = state.ir.reproduction_roadmap || {};
+  const repro = reproRoot.reproduction || reproRoot;
+  const steps = repro.steps || [];
+  $("workspace").innerHTML = `<div class="repro-layout">
+    <article class="repro-summary ${state.selected?.id === "summary" ? "selected" : ""}" data-kind="reproduction" data-id="summary">
+      <div class="card-topline"><span>${state.lang === "en" ? "Reproduction Overview" : "复现概览"}</span><b>${escapeHtml(repro.difficulty || "unknown")}</b></div>
+      <h3>${state.lang === "en" ? "From paper to replicated result table" : "从论文到复现实验表"}</h3>
+      <dl>
+        <dt>${state.lang === "en" ? "Datasets" : "数据集"}</dt><dd>${escapeHtml(list(repro.required_datasets))}</dd>
+        <dt>${state.lang === "en" ? "Models" : "模型"}</dt><dd>${escapeHtml(list(repro.required_models))}</dd>
+        <dt>${state.lang === "en" ? "Compute" : "算力"}</dt><dd>${escapeHtml(list(repro.required_compute))}</dd>
+        <dt>${state.lang === "en" ? "Code" : "代码"}</dt><dd>${escapeHtml(list(repro.code_available))}</dd>
+      </dl>
+    </article>
+    <div class="step-list">${steps
+      .map((step, index) => {
+        const title = step.step || step.step_id || `${state.lang === "en" ? "Step" : "步骤"} ${index + 1}`;
+        const description = step.description || step.step_description || step.detail || step.summary || "";
+        return `<article class="step-card ${state.selected?.id === String(index) ? "selected" : ""}" data-kind="repro-step" data-id="${index}">
+          <span>${String(index + 1).padStart(2, "0")}</span>
+          <div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(description)}</p></div>
+        </article>`;
+      })
+      .join("")}</div>
+    <div class="risk-list">${(repro.missing_details || [])
+      .map((item, index) => `<article class="risk-card" data-kind="missing" data-id="${index}">
+        <div class="card-topline"><span>missing detail</span><b>${state.lang === "en" ? "review" : "需要复核"}</b></div>
+        <h3>${escapeHtml(item.detail || item.name || "unknown")}</h3>
+        <p>${escapeHtml(item.why_it_matters || item.description || "")}</p>
+      </article>`)
+      .join("")}</div>
+  </div>`;
+  document.querySelectorAll("[data-kind]").forEach((card) => {
+    card.addEventListener("click", () => {
+      const kind = card.dataset.kind;
+      let raw = repro;
+      const id = card.dataset.id;
+      if (kind === "repro-step") raw = steps[Number(id)];
+      if (kind === "missing") raw = (repro.missing_details || [])[Number(id)];
+      state.selected = normalizeSelection(kind, id, raw);
+      renderWorkspace();
+      renderDetail();
+      if (raw?.anchors?.[0]) goToAnchor(raw.anchors[0], false);
+    });
+  });
+}
+
+function displayValue(value) {
+  if (value === undefined || value === null || value === "") return "";
+  if (Array.isArray(value)) return value.map(displayValue).filter(Boolean).join(", ");
+  if (typeof value === "object") {
+    const primary = value.name || value.title || value.resource || value.status || value.step || value.step_id || value.metric || value.dataset;
+    const secondary = value.specification || value.description || value.url;
+    if (primary && secondary) return `${primary}: ${secondary}`;
+    return primary || secondary || JSON.stringify(value);
+  }
+  return String(value);
+}
+
 function list(value) {
-  return Array.isArray(value) && value.length ? value.join(", ") : "unknown";
+  const rendered = displayValue(value);
+  return rendered || "unknown";
 }
 
 function escapeHtml(value) {
