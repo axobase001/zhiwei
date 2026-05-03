@@ -1,0 +1,2378 @@
+[
+  {
+    "anchor_id": "anc_00001",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "text_span": "KinectFusion: Real-Time Dense Surface Mapping and Tracking ∗ Richard A. Newcombe Imperial College London Shahram Izadi Microsoft Research Otmar Hilliges Microsoft Research David Molyneaux Microsoft Research Lancaster University David Kim Microsoft Research Newcastle University Andrew J. Davison Imperial College London Pushmeet Kohli Microsoft Research Jamie Shotton Microsoft Research Steve Hodges Microsoft Research Andrew Fitzgibbon Microsoft Research",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00002",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "text_span": "Figure 1: Example output from our system, generated in real-time with a handheld Kinect depth camera and no other sensing infrastructure.",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00003",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "text_span": "Normal maps (colour) and Phong-shaded renderings (greyscale) from our dense reconstruction system are shown. On the left for comparison is an example of the live, incomplete, and noisy data from the Kinect sensor (used as input to our system).",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00004",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "ABSTRACT",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00005",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "We present a system for accurate real-time mapping of complex and arbitrary indoor scenes in variable lighting conditions, using only a moving low-cost depth camera and commodity graphics hardware. We fuse all of the depth data streamed from a Kinect sensor into a single global implicit surface model of the observed scene in real-time. The current sensor pose is simultaneously obtained by tracking the live depth frame relative to the global model using a coarse-to-ﬁne iterative closest point (ICP) algorithm, which uses all of the observed depth data available. We demonstrate the advan- tages of tracking against the growing full surface model compared with frame-to-frame tracking, obtaining tracking and mapping re- sults in constant time within room sized scenes with limited drift and high accuracy. We also show both qualitative and quantitative results relating to various aspects of our tracking and mapping sys- tem. Modelling of natural scenes, in real-time with only commod- ity sens...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00006",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "1 I NTRODUCTION",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00007",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Real-time infrastructure-free tracking of a handheld camera whilst simultaneously mapping the physical scene in high-detail promises new possibilities for augmented and mixed reality applications. In computer vision, research on structure from motion (SFM) and multi-view stereo (MVS) has produced many compelling re- sults, in particular accurate camera tracking and sparse reconstruc- tions (e.g. [10]), and increasingly reconstruction of dense surfaces (e.g. [24]). However, much of this work was not motivated by real- time applications. Research on simultaneous localisation and mapping (SLAM) has focused more on real-time markerless tracking and live scene re- construction based on the input of a single commodity sensor—a monocular RGB camera. Such ‘monocular SLAM’ systems such as MonoSLAM [8] and the more accurate Parallel Tracking and Map- ping (PTAM) system [17] allow researchers to investigate ﬂexible infrastructure- and marker-free AR applications. But while these systems perform...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00008",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "of camera motion and suitable scene illumination.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00009",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "But while algorithms for estimating camera pose and extract- ing geometry from images have been evolving at pace, so have",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00010",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "the camera technologies themselves. New depth cameras based ei-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00011",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "ther on time-of-ﬂight (ToF) or structured light sensing offer dense measurements of depth in an integrated device. With the arrival of Microsoft’s Kinect, such sensing has suddenly reached wide consumer-level accessibility. The opportunities for SLAM and AR",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00012",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Figure 2: A larger scale reconstruction obtained in real-time.",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00013",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "with such sensors are obvious, but algorithms to date have not fully leveraged the ﬁdelity and speed of sensing that such devices offer. In this paper we present a detailed method with analysis of what we believe is the ﬁrst system which permits real-time, dense volu- metric reconstruction of complex room-sized scenes using a hand- held Kinect depth sensor. Users can simply pick up and move a Kinect device to generate a continuously updating, smooth, fully fused 3D surface reconstruction. Using only depth data, the system continuously tracks the 6 degrees-of-freedom (6DOF) pose of the sensor using all of the live data available from the Kinect sensor rather than an abstracted feature subset, and integrates depth mea- surements into a global dense volumetric model. A key novelty is that tracking, performed at 30Hz frame-rate, is always relative to the fully up-to-date fused dense model , and we demonstrate the advantages this offers. By using only depth data, our system can work in com...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00014",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "2 B ACKGROUND",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00015",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "2.1 The Kinect Sensor",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00016",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Kinect is a new and widely-available commodity sensor platform that incorporates a structured light based depth sensor. Using an on-board ASIC a 11-bit 640x480 depth map is generated at 30Hz. While the quality of this depth map is generally remarkable given the cost of the device, a number of challenges remain. In particular, the depth images contain numerous ‘holes’ where no structured- light depth reading was possible. This can be due to certain ma- terials or scene structures which do not reﬂect infra-red (IR) light, very thin structures or surfaces at glancing incidence angles. When moved fast the device will also experience motion blur (like any camera) and this can also lead to missing data. Our system takes the real-time stream of noisy depth maps from Kinect and performs real-time dense SLAM, producing a consistent 3D scene model incrementally while simultaneously tracking the sensor’s agile motion using all of the depth data in each frame. In the following sections we review...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00017",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "2.2 Drift-Free SLAM for AR",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00018",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Most SLAM algorithms must be capable of producing self-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00019",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "consistent scene maps and performing drift-free sensor tracking in",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00020",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "a sequential, real-time fashion. Early SFM algorithms capable of",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00021",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "dealing with a large number of images had either tracked camera",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00022",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "motion incrementally, accumulating drift [2], or required off-line optimisation [10] to close loops. The ﬁrst ‘monocular SLAM’ sys- tem capable of producing a globally consistent maps in real-time with a handheld camera was based on probabilistic ﬁltering of a joint state consisting of camera and scene feature position estimates",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00023",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "[8]. This system was targeted at small-scale workspaces compatible",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00024",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "with some AR applications, but was in fact limited to these due the",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00025",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "high computational cost of ﬁltering a large state vector containing",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00026",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "the many features that would be needed to map larger areas. Even",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00027",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "in small spaces, this issue meant that the tracking accuracy which could practically be achieved in real-time was relatively poor due to the sparse feature maps built. Later, it was discovered to be practically advantageous to aban- don the propagation of a full probabilistic state and instead to run two procedures in alternation or in parallel:tracking, estimating the pose of the sensor on the assumption that the current scene model is perfectly accurate; and mapping, improving and expanding the map using a form of global optimisation. This approach was pi- oneered by the PTAM system [17] which demonstrated quality real-time SLAM with a monocular camera in small workspaces. PTAM’s mapping component is nothing but bundle adjustment, the classical least-squares solution to camera and feature optimisation, but implemented judiciously over an automatically selected set of spatially-distributed keyframes and running repeatedly as often as computing resources will allow. PTAM’s highly engi...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00028",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "scene model live; but relied on camera pose estimates coming from",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00029",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "PTAM. [26] presented another system with many of the same ideas but further demonstrated near-real-time depth map creation.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00030",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "2.3 Dense Tracking and Mapping by Scan Alignment",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00031",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Alongside mapping and tracking work using passive cameras, a line of research has continued using active laser and depth imaging sen- sors in the ﬁelds of robotics and graphics. These methods have had",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00032",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "at their core the alignment of multiple scans by minimising distance",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00033",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "measures between all of the data in each rather than feature extrac- tion and matching.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00034",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Some of the ﬁrst useful algorithms for obtaining both full 6DOF scan alignment (robot pose) and surface reconstruction (environ- ment mapping) were developed in the graphics domain for the de- tailed reconstruction of individual objects. The most important class of algorithms have been based on the ICP concept introduced in [3] which poses data alignment as a nonlinear optimisation prob- lem in which correspondences between scans are approximated us- ing the closest pairs of points found between scans at the previ- ous iteration. Distance metrics have been investigated including the point-plane metric [5] which was shown to improve convergence rates and is the preferred algorithm when surface normal measure- ments are available. The process of obtaining the closest point cor- respondences is expensive; a drastic speed up introduced by the projective data association algorithm [4] is available for depth data obtained in projective image form where measurements are given as a function o...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00035",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "tailed space occupancy in large areas [12]. ICP is used to estimate",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00036",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "relative robot motion between consecutive poses, which together",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00037",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "with loop closure detection and correction can produce large scale",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00038",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "metrically consistent maps.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00039",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "2.4 Dense Scene Representations",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00040",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Dense depth measurements from active sensors, once aligned, can be used to produce fused representations of space which are bet- ter than simply overlapping scans. Occupancy mapping has been popular in robotics, and represents space using a grid of cells, within each of which a probability of occupancy is accumulated via Bayesian updates every time a new range scan provides an in- formative observation [9]. Such non-parametric environment mod- els provide vital free space information together with arbitrary genus surface representation with orientation information, impor- tant when physical interaction predictions are required (as is the case in robotics and augmented reality). A related non-parametric representation used in graphics is the signed distance function (SDF) introduced in [7] for the purpose of fusing partial depth scans while mitigating problems related to mesh-based reconstruction algorithms. The SDF represents surface interfaces as zeros, free space as positive values...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00041",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "extra computation, when depth maps are contaminated with heavy-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00042",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "tailed noise or outliers, the more recent work of [30] uses the more robust L1 norm on the truncated SDF data term together with a total variation regularisation to obtain globally optimal surface re- constructions. An advantage of the SDF over basic probabilistic occupancy grids is that the surface interface is readily extractable as the zero crossings of the function in contrast to seeking the modes of a prob- ability distribution in the occupancy grid. This was noted in [7] and has an important consequence in our work where we utilise the full currently reconstructed surface model to obtain a prediction for use in live sensor pose estimation. Given a SDF representation two main approaches to obtaining a view (rendering) of the sur- face exist, and have been extensively studied within the graphics community. One option is to extract the connected surfaces using a marching cubes type algorithm [18], followed by a standard raster- ising rendering pipeline. Alternatively the surface ca...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00043",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "is becoming increasingly important as the requirement for real-time",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00044",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "photo-realistic rendering increases [1].",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00045",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "2.5 Dense SLAM with Active Depth Sensing",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00046",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Rusinkiewicz et al. [23] combined a real-time frame-to-frame ICP implementation using the point-plane metric and projective data as- sociation together with a point based occupancy averaging and splat rendering of the aligned scans to demonstrate the ﬁrst live recon- struction results of small models. In their system a user manoeuvres an object by hand and sees a continuously-updated model as the ob- ject is scanned. The system was able to fuse depth images from the range ﬁnder for rendering purposes at rates up to 10Hz. The re- strictive non mobile range sensor prototype and lack of global pose optimisation to reduce drift prevented them from using the system",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00047",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "for reconstructing larger scenes. The ﬁnal models were optimised",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00048",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "off-line using [7]. They conclude that with substantial increases in computational power, it might be possible to instead perform live volumetric SDF fusion. More notably, they suggest the possibility of using such an accumulated global reconstruction for resolving ambiguities that occur with frame-to-frame ICP. With the advent of GPU hardware and our efﬁcient implementation thereon we are able to achieve both these goals in our system. The introduction of commercially available depth cameras has inspired other related real-time 3D reconstruction. For example, the work of Weise et al. [28] produces high quality scans using a ﬁxed ToF sensor and moving object, whereas Cui et al. [6] demon- strate a moving handheld ToF object scanner. These systems are motivated by small scale high quality scanning of objects. Whilst our system supports such reconstructions, the main focus of our",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00049",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "work is on reconstruction of larger scale scenes from higher speed",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00050",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "camera motions.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00051",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "More recently, SLAM work has focused on large scale recon-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00052",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "struction (mapping) including an impressive recent 3D version of the occupancy mapping approach, relying on 3D laser range-ﬁnder",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00053",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "data and using octrees to enable scaling to large volumes is the",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00054",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Octomap algorithm [29]. RGB-D approaches that combine depth representations are also beginning to appear with the advent of the affordable Microsoft Kinect RGB-D sensor. [14] estimated the live 3D motion of the sensor (1 – 2Hz update) by obtaining relative frame alignment via ICP alignment between depth scans initialised by RGB feature matching. Global consistency was achieved us- ing a pose graph optimisation by using loop closures detected us- ing RGB feature correspondences. This system, while impressive,",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00055",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "was targeted at large scale building mapping; the tracking front end",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00056",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "was not designed to provide real-time performance needed for use- ful augmented reality; and the dense modelling (based on a surface patch representation) provides a less reﬁned reconstruction than can be achieved by using a full global fusion approach.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00057",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "3 M ETHOD",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00058",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "We now describe the components that make up our system. Figure 3 provides an overview of our whole method in block form. It is comprised of the following four components: Surface measurement : A pre-processing stage, where a dense vertex map and normal map pyramid are generated from the raw depth measurements obtained from the Kinect device.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00059",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Rk Tg,k Rk Tg,k-1 Input Measurement Pose Estimation Update Reconstruction Surface Prediction Compute Surface Nertex and Normal Maps ICP of Predicted and Measured Surface Integrate Surface Measurement into Global TSDF Ray-cast TSDF to Compute Surface Prediction Tg,k-1 k Vk-1 S Nk-1 ^ ^ Vk Nk",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00060",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Figure 3: Overall system workﬂow.",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00061",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Surface reconstruction update : The global scene fusion pro-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00062",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "cess, where given the pose determined by tracking the depth data",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00063",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "from a new sensor frame, the surface measurement is integrated into the scene model maintained with a volumetric, truncated signed dis- tance function (TSDF) representation. Surface prediction : Unlike frame-to-frame pose estimation as performed in [15], we close the loop between mapping and local- isation by tracking the live depth frame against the globally fused model. This is performed by raycasting the signed distance func- tion into the estimated frame to provide a dense surface prediction against which the live depth map is aligned. Sensor pose estimation : Live sensor tracking is achieved using a multi-scale ICP alignment between the predicted surface and cur- rent sensor measurement. Our GPU based implementation uses all the available data at frame-rate.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00064",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "3.1 Preliminaries",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00065",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "We represent the live 6DOF camera pose estimated for a frame at time k by a rigid body transformation matrix:",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00066",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Tg,k =",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00067",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "[ Rg,k tg,k 0⊤ 1 ] ∈ SE3 , (1)",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00068",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "where the Euclidean group SE3 := {R,t | R ∈ SO3,t ∈ R3}. This",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00069",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "maps the camera coordinate frame at time k into the global frame g, such that a point pk ∈ R3 in the camera frame is transferred into",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00070",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "the global co-ordinate frame via pg = Tg,kpk.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00071",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "We will also use a single constant camera calibration matrix K that transforms points on the sensor plane into image pixels.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00072",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "The function q = π(p) performs perspective projection of p ∈",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00073",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "R3 = ( x, y, z)⊤ including dehomogenisation to obtain q ∈ R2 =",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00074",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "(x/z, y/z)⊤. We will also use a dot notation to denote homogeneous",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00075",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "vectors ˙u := (u⊤|1)⊤",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00076",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "3.2 Surface Measurement",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00077",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "At time k a measurement comprises a raw depth map R k which provides calibrated depth measurements R k(u) ∈ R at each image",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00078",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "pixel u = (u, v)⊤ in the image domain u ∈ U ⊂ R2 such that pk =",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00079",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Rk(u)K−1 ˙u is a metric point measurement in the sensor frame of reference k. We apply a bilateral ﬁlter [27] to the raw depth map to obtain a discontinuity preserved depth map with reduced noise Dk,",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00080",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Dk(u) = 1",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00081",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Wp ∑ q∈U Nσs (∥u − q∥2) Nσr (∥Rk(u) − Rk(q)∥2)Rk(q) , (2)",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00082",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "where Nσ (t) = exp(−t2σ −2) and Wp is a normalizing constant.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00083",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "We back-project the ﬁltered depth values into the sensor’s frame of reference to obtain a vertex map Vk,",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00084",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Vk(u) = Dk(u)K−1 ˙u . (3)",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00085",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Since each frame from the depth sensor is a surface measurement on a regular grid, we compute, using a cross product between neigh-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00086",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Figure 4: A slice through the truncated signed distance volume",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00087",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "showing the truncated function F > µ (white), the smooth distance",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00088",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "ﬁeld around the surface interface F = 0 and voxels that have not yet",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00089",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "had a valid measurement(grey) as detailed in eqn. 9. bouring map vertices, the corresponding normal vectors,",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00090",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Nk(u) = ν",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00091",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "[ (Vk(u + 1, v) − Vk(u, v)) × (Vk(u, v + 1) − Vk(u, v)) ] , (4)",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00092",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "where ν[x] = x/∥x∥2.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00093",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "We also deﬁne a vertex validity mask: Mk(u) ↦→ 1 for each pixel where a depth measurement transforms to a valid vertex; otherwise if a depth measurement is missing Mk(u) ↦→ 0. The bilateral ﬁltered version of the depth map greatly increases the quality of the normal maps produced, improving the data association required in tracking described in Section 3.5.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00094",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "We compute an L = 3 level multi-scale representation of the sur-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00095",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "face measurement in the form of a vertex and normal map pyramid. First a depth map pyramid Dl∈[1...L] is computed. Setting the bottom depth map pyramid level equal to the original bilateral ﬁltered depth map, the sub-sampled version D l+1 is computed from Dl by block averaging followed by sub-sampling to half the resolution. Depth values are used in the average only if they are within 3 σr of the central pixel to ensure smoothing does not occur over depth bound- aries. Subsequently each level in a vertex and normal map pyramid Vl∈[1...L], Nl∈[1...L] is computed with Equations 3 and 4 using the corresponding depth map level. We note that given the camera to global co-ordinate frame transform Tg,k associated with the surface measurement, the global frame vertex is Vg",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00096",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "k(u) = Tg,k ˙Vk(u) and",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00097",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "the equivalent mapping of normal vectors into the global frame is Ng",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00098",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "k(u) = Rg,kNk(u).",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00099",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "3.3 Mapping as Surface Reconstruction",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00100",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Each consecutive depth frame, with an associated live camera pose estimate, is fused incrementally into one single 3D reconstruction using the volumetric truncated signed distance function (TSDF) [7]. In a true signed distance function, the value corresponds to the signed distance to the closest zero crossing (the surface inter- face), taking on positive and increasing values moving from the visible surface into free space, and negative and decreasing values on the non-visible side. The result of averaging the SDF’s of multi- ple 3D point clouds (or surface measurements) that are aligned into a global frame is a global surface fusion. An example given in Figure 4 demonstrates how the TSDF al- lows us to represent arbitrary genus surfaces as zero crossings within the volume. We will denote the global TSDF that contains a fusion of the registered depth measurements from frames 1 . . .k as Sk(p) where p ∈ R3 is a global frame point in the 3D volume to be reconstructed. A discretization o...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00101",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "stored at each location of the TSDF: the current truncated signed distance value Fk(p) and a weight Wk(p), Sk(p) ↦→ [Fk(p),Wk(p)] . (5) A dense surface measurement (such as the raw depth map Rk) pro- vides two important constraints on the surface being reconstructed.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00102",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "First, assuming we can truncate the uncertainty of a depth mea-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00103",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "surement such that the true value lies within ±µ of the measured value, then for a distancer from the camera center along each depth map ray, r < (λRk(u) − µ) is a measurement of free space (here",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00104",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "λ = ∥K−1 ˙u∥2 scales the measurement along the pixel ray). Sec-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00105",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "ond, we assume that no surface information is obtained in the re- construction volume at r > (λRk(u) + µ) along the camera ray. Therefore the SDF need only represent the region of uncertainty",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00106",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "where the surface measurement exists |r − λRk(u)| ≤ µ. A TSDF",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00107",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "allows the asymmetry between free space, uncertain measurement and unknown areas to be represented. Points that are within visible space at distance greater than µ from the nearest surface interface",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00108",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "are truncated to a maximum distance µ. Non-visible points farther",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00109",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "than µ from the surface are not measured. Otherwise the SDF rep- resents the distance to the nearest surface point. Although efﬁcient algorithms exist for computing the true dis- crete SDF for a given set of point measurements (complexity is linear in the the number of voxels) [22], sophisticated implemen- tations are required to achieve top performance on GPU hardware, without which real-time computation is not possible for a reason- able size volume. Instead, we use a projective truncated signed distance function that is readily computed and trivially parallelis- able. For a raw depth map R k with a known pose Tg,k, its global frame projective TSDF [FRk ,WRk ] at a point p in the global frame g is computed as,",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00110",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "FRk (p) = Ψ",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00111",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "( λ −1∥(tg,k − p∥2 − Rk(x) ) , (6)",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00112",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "λ = ∥K−1 ˙x∥2 , (7)",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00113",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "x = ⌊ π ( KT−1 g,kp )⌋ , (8)",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00114",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Ψ(η) =",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00115",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "{ min ( 1, η µ )",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00116",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "sgn(η) iff η ≥ −µ",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00117",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "null otherwise (9) We use a nearest neighbour lookup ⌊.⌋ instead of interpolating the depth value, to prevent smearing of measurements at depth dis- continuities. 1/λ converts the ray distance top to a depth (we found no considerable difference in using SDF values computed using dis- tances along the ray or along the optical axis). Ψ performs the SDF truncation. The truncation function is scaled to ensure that a sur- face measurement (zero crossing in the SDF) is represented by at least one non truncated voxel value in the discretised volume ei- ther side of the surface. Also, the support is increased linearly with distance from the sensor center to support correct representation of noisier measurements. The associated weight WRk (p) is propor- tional to cos(θ )/Rk(x), where θ is the angle between the associated pixel ray direction and the surface normal measurement in the local frame. The projective TSDF measurement is only correct exactly at the",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00118",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "surface FRk (p) = 0 or if there is only a single point measurement",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00119",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "in isolation. When a surface is present the closest point along a ray could be another surface point not on the ray associated with the pixel in Equation 8. It has been shown that for points close to the surface, a correction can be applied by scaling the SDF by cos(θ ) [11]. However, we have found that approximation within the truncation region for 100s or more fused TSDFs from multiple viewpoints (as performed here) converges towards an SDF with a pseudo-Euclidean metric that does not hinder mapping and tracking performance. The global fusion of all depth maps in the volume is formed by the weighted average of all individual TSDFs computed for each depth map, which can be seen as de-noising the global TSDF from multiple noisy TSDF measurements. Under an L2 norm the de- noised (fused) surface results as the zero-crossings of the point-wise",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00120",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "SDF F minimising:",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00121",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "min",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00122",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "F∈F ∑",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00123",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "k ∥WRkFRk − F)∥2. (10) Given that the focus of our work is on real-time sensor tracking and surface reconstruction we must maintain interactive frame-rates. (For a 640x480 depth stream at 30fps the equivalent of over 9 million new point measurements are made per second). Storing a weight W k(p) with each value allows an important aspect of the",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00124",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "global minimum of the convexL2 de-noising metric to be exploited",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00125",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "for real-time fusion; that the solution can be obtained incrementally as more data terms are added using a simple weighted running av-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00126",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "erage [7], deﬁned point-wise{p|FRk (p) ̸= null }:",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00127",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Fk(p) = Wk−1(p)Fk−1(p) +WRk (p)FRk (p)",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00128",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Wk−1(p) +WRk (p) (11)",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00129",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Wk(p) = Wk−1(p) +WRk (p) (12)",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00130",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "No update on the global TSDF is performed for values resulting from unmeasurable regions speciﬁed in Equation 9. While W k(p) provides weighting of the TSDF proportional to the uncertainty of surface measurement, we have also found that in practice simply",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00131",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "letting WRk (p) = 1, resulting in a simple average, provides good re-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00132",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "sults. Moreover, by truncating the updated weight over some value Wη,",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00133",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Wk(p) ← min(Wk−1(p) +WRk (p),Wη ) , (13)",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00134",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "a moving average surface reconstruction can be obtained enabling reconstruction in scenes with dynamic object motion.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00135",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Although a large number of voxels can be visited that will not",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00136",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "project into the current image, the simplicity of the kernel means operation time is memory, not computation, bound and with current",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00137",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "GPU hardware over 65 gigavoxels/second ( ≈ 2ms per full volume",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00138",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "update for a 5123 voxel reconstruction) can be updated. We use 16 bits per component in S(p), although experimentally we have ver- iﬁed that as few as 6 bits are required for the SDF value. Finally, we note that the raw depth measurements are used for TSDF fusion rather than the bilateral ﬁltered version used in the tracking com- ponent, described later in section 3.5. The early ﬁltering removes desired high frequency structure and noise alike which would re- duce the ability to reconstruct ﬁner scale structures.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00139",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "3.4 Surface Prediction from Ray Casting the TSDF",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00140",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "With the most up-to-date reconstruction available comes the abil- ity to compute a dense surface prediction by rendering the surface",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00141",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "encoded in the zero level set F k = 0 into a virtual camera with the",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00142",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "current estimate Tg,k. The surface prediction is stored as a vertex and normal map ˆVk and ˆNk in frame of reference k and is used in the subsequent camera pose estimation step. As we have a dense surface reconstruction in the form of a global SDF, a per pixel raycast can be performed [21]. Each pixel’s cor-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00143",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "responding ray, Tg,kK−1 ˙u, is marched starting from the minimum",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00144",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "depth for the pixel and stopping when a zero crossing ( +ve to −ve for a visible surface) is found indicating the surface interface. Marching also stops if a −ve to +ve back face is found, or ulti- mately when exiting the working volume, both resulting in non sur- face measurement at the pixel u.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00145",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "For points on or very close to the surface interface F k(p) = 0 it",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00146",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "is assumed that the gradient of the TSDF at p is orthogonal to the zero level set, and so the surface normal for the associated pixel u",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00147",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Figure 5: Reconstructed of a scene showing raycasting of the TSDF",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00148",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "(left) without and (middle and right) with interpolation of the TSDF at the surface interface using eqn. 15.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00149",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Figure 6: Demonstration of the space skipping ray casting. (Left)",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00150",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "pixel iteration count are shown where for each pixel the ray is tra- versed in steps of at most one voxel (white equals 480 increments and black 60). (middle) ray marching steps are drastically reduced",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00151",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "by skipping empty space according to the minimum truncation µ",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00152",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "(white equals 70 iterations and black 10 ≈ 6× speedup). Marching",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00153",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "steps can be seen to increase around the surface interface where the signed distance function has not been truncated. (Right) Normal map at resulting surface intersection. along which p was found can be computed directly from Fk using a numerical derivative of the SDF:",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00154",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Rg,k ˆNk = ˆNg",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00155",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "k(u) = ν",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00156",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "[",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00157",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "∇F(p)",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00158",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "] , ∇F = [ ∂F ∂ x , ∂F ∂ y , ∂F ∂ z ]⊤ (14) Further, this derivative is scaled in each dimension to ensure cor- rect isotropy given potentially arbitrary voxel resolutions and re- construction dimensions. Since the rendering of the surface is restricted to provide phys-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00159",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "ically plausible measurement predictions, there is a minimum and",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00160",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "maximum rendering range the ray needs to traverse corresponding",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00161",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "to conservative minimum and maximum sensor range ( ≈ [0.4,8]",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00162",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "meters for the Kinect). This results in the desirable property of the proposed surface prediction requiring a bounded time per pixel computation for any size or complexity of scene with a ﬁxed volu- metric resolution.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00163",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Classically a min/max block acceleration structure [21] can be",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00164",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "used to speed up marching through empty space. However, due to continual updating of the TSDF (which would require a con-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00165",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "stant update to the min/max macro blocks) we found that simple",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00166",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "ray skipping provides a more useful acceleration. In ray skipping",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00167",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "we utilise the fact that near F(p) = 0 the fused volume holds a good",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00168",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "approximation to the true signed distance from p to the nearest sur- face interface. Using our known truncation distance we can march along the ray in steps with size < µ while values of F(p) have +ve truncated values, as we can assume a step µ must pass through at least one non-truncated +ve value before stepping over the surface zero crossing. The speed-up obtained is demonstrated in Figure 6 by measuring the number of steps required for each pixel to inter- sect the surface relative to standard marching. Higher quality intersections can be obtained by solving a ray/tri- linear cell intersection [21] that requires solving a cubic polyno- mial. As this is expensive we use a simple approximation. Given a ray has been found to intersect the SDF where F + t and F+ t+∆t are trilinearly interpolated SDF values either side of the zero crossing at points along the ray t and t + ∆t from its starting point, we ﬁnd parameter t∗ at which the intersection occurs more precisely:",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00169",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "t∗ = t − ∆tF+",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00170",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "t F+ t+∆t − F+ t . (15) The predicted vertex and normal maps are computed at the inter- polated location in the global frame. Figure 5 shows a typical recon- struction, the interpolation scheme described achieves high quality occlusion boundaries at a fraction of the cost of full interpolation.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00171",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "3.5 Sensor Pose Estimation",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00172",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Live camera localisation involves estimating the current camera pose Tw,k ∈ SE3 (Equation 1) for each new depth image. Many tracking algorithms use feature selection to improve speed by re- ducing the number of points for which data association need be performed. In this work, we take advantage of two factors to al- low us instead to make use of all of the data in a depth image for a dense iterated close point based pose estimation. First, by main- taining a high tracking frame-rate, we can assume small motion from one frame to the next. This allows us to use the fast projec- tive data association algorithm [4] to obtain correspondence and the point-plane metric [5] for pose optimisation. Second, modern GPU hardware enables a fully parrallelised processing pipeline, so that the data association and point-plane optimisation can use all of the available surface measurements. The point-plane error metric in combination with correspon- dences obtained using projective data association was...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00173",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "E(Tg,k) = ∑",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00174",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "u∈U",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00175",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Ωk(u)̸=null",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00176",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": " ( Tg,k ˙Vk(u) − ˆVg k−1 (ˆu) )⊤ ˆNg k−1 (ˆu)  2 , (16) where each global frame surface prediction is obtained using the previous ﬁxed pose estimate Tg,k−1. The projective data as- sociation algorithm produces the set of vertex correspondences",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00177",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "{Vk(u), ˆVk−1(ˆu)|Ω(u) ̸= null} by computing the perspectively pro-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00178",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "jected point, ˆu = π(K˜Tk−1,k ˙Vk(u)) using an estimate for the frame-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00179",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "frame transform˜Tz",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00180",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "k−1,k = T−1",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00181",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "g,k−1˜Tz g,k and testing the predicted and measured vertex and normal for compatibility. A threshold on the distance of vertices and difference in normal values sufﬁces to re- ject grossly incorrect correspondences, also illustrated in Figure 7:",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00182",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Ω(u) ̸= null iff",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00183",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "  ",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00184",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Mk(u) = 1, and",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00185",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "∥˜Tz g,k ˙Vk(u) − ˆVg",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00186",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "k−1 (ˆu) ∥2 ≤ εd, and",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00187",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "⟨˜Rz g,kNk(u), ˆNg",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00188",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "k−1 (ˆu)⟩ ≤ εθ .",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00189",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "(17)",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00190",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "where εd and εθ are threshold parameters of our system. ˜Tz=0",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00191",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "g,k is initialised with the previous frame pose Tg,k. An iterative solution, ˜Tz",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00192",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "g,k for z > 0 is obtained by minimising",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00193",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "the energy of a linearised version of (16) around the previous es- timate˜Tz−1 g,k . Using the small angle assumption for an incremental transform: ˜Tz inc = [ ˜Rz⏐⏐˜tz ] =   1 α −γ tx −α 1 β ty γ −β 1 tz   , (18)",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00194",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Figure 7: Example of point-plane outliers as person steps into par-",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00195",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "tially reconstructed scene (left). Outliers from compatibility checks (Equation 17) using a surface measurement with (center) and with-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00196",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "out (right) bilateral ﬁltering applied to the raw depth map. Ω(u) = null",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00197",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "are light grey with unpredicted/unmeasured points shown in white. an updated transform is simply˜Tz",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00198",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "g,k =˜Tz",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00199",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "inc˜Tz−1 g,k . Writing the update ˜Tz inc as a parameter vector,",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00200",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "x = (β , γ, α,tx,ty,tz)⊤ ∈ R6 (19)",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00201",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "and updating the current global frame vertex estimates for all pixels",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00202",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "{u|Ω(u) ̸= null},˜Vg",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00203",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "k(u) =˜Tz−1",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00204",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "g,k ˙Vk(u), we minimise the linearised",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00205",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "error function using the incremental point transfer: ˜Tz",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00206",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "g,k ˙Vk(u) =˜Rz˜Vg",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00207",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "k(u) +˜tz = G(u)x +˜Vg",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00208",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "k(u) , (20) where the 3×6 matrix G is formed with the skew-symmetric matrix form of˜Vg k(u):",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00209",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "G(u) =",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00210",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "[[ ˜Vg k(u) ] × ⏐⏐ I3×3 ] . (21) An iteration is obtained by solving: min",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00211",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "x∈R6 ∑",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00212",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Ωk(u)̸=null",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00213",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "∥E∥2 2 (22)",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00214",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "E = ˆNg",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00215",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "k−1(ˆu)⊤ ( G(u)x +˜Vg k(u) − ˆVg k−1(ˆu) ) (23) By computing the derivative of the objective function with respect to the parameter vector x and setting to zero, a 6 × 6 symmetric linear system is generated for each vertex-normal element corre- spondence: ∑",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00216",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Ωk(u)̸=null",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00217",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "( A⊤A )",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00218",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "x = ∑A⊤b, (24)",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00219",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "A⊤ = G⊤(u) ˆNg",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00220",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "k−1(ˆu), (25)",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00221",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "b = ˆNg",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00222",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "k−1(ˆu)⊤ ( ˆVg k−1(ˆu) −˜Vg k(u) ) .(26) In our GPU implementation each summand of the normal sys- tem is computed in parallel. The symmetry of the system enables operations and memory to be saved and the ﬁnal sum is obtained using a parallel tree-based reduction [13], to obtain the upper tri- angular component of the symmetric system. The solution vector x is efﬁciently computed using a Cholesky decomposition on the host (CPU) and coerced back into anSE3 transform which we com- pose onto the previous pose estimate, obtaining ˜Tz g,k. The data as-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00223",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "sociation and pose minimisation is embedded into a coarse to ﬁne",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00224",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "framework using the bottom 3 levels of a vertex and normal map",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00225",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "pyramid. We iterate for a maximum ofzmax = [4,5,10] iterations in",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00226",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "levels [3,2,1] respectively, starting with the coarsest level 3. After",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00227",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "all iterations are completed we ﬁx the ﬁnal camera poseTg,k ←˜Tzmax",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00228",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "g,k Stability and validity check for transformation update Ide- ally we would only like to perform a surface update if we are sure that tracking has not failed or is highly erroneous. As inter-frame sensor motion increases the assumptions made in both linearisation of the point-plane error metric and the projective data association can be broken. Also, if the currently observable surface geometry does not provide point-plane pairs that constrain the full 6DOF of the linear system then an arbitrary solution within the remaining free DOFs can be obtained. Both outcomes will lead to a reduced quality reconstruction and tracking failure. We therefore perform a check on the null space of the normal system to ensure it is ade- quately constrained. We also perform a simple threshold check on the magnitude of incremental transform parameters x, to ensure the small angle assumption was not drastically broken. If either test fails, the system is placed into re-localisation mode. Relocalisation...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00229",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "user instructed to align the incoming depth frame with what is dis-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00230",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "played. While running the pose optimisation, if the stability and validity checks are passed tracking and mapping are resumed.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00231",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "4 E XPERIMENTS",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00232",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "We have conducted a number of experiments to investigate the per- formance of our system. These and other aspects, such as the sys- tem’s ability to keep track during very rapid motion, are illustrated extensively in our submitted video.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00233",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "4.1 Metrically Consistent Reconstruction",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00234",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Our tracking and mapping system provides a constant time algo- rithm for a given area of reconstruction, and we are interested in investigating its ability to form metrically consistent models from trajectories containing local loop closures without requiring explicit global joint-estimation. We are also interested in the ability of the system to scale gracefully with different processing and memory resources. To investigate these properties we conducted the following ex- periment. The Kinect sensor was placed in a ﬁxed location observ- ing a tabletop scene mounted on a turntable. The turntable was then spun through a full rotation as depth data was captured over",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00235",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "≈ 19 seconds, resulting in N = 560 frames. For the purposes of",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00236",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "our system, if the reconstruction volume is set to span solely the region of the rotating scene, the resulting depth image sequence ob- tained is obviously equivalent to the Kinect having been moved on a precise circular track around a static table, and this allows us to easily evaluate the quality of tracking. All parameters of the system are kept constant using a reconstruction resolution of 256 3 voxels unless stated otherwise. The N frames of depth data captured were then processed in each of the following ways: 1. Frames 1 . . .N were fused together within the TSDF using sensor pose estimates obtained with our frame-to-frame only ICP implementation. 2. Frames 1 . . .L, L < N were fed through our standard tracking",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00237",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "and mapping pipeline forming an incomplete loop closure.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00238",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Here, sensor pose estimates are obtained by the full frame-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00239",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "model ICP method.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00240",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "3. Frames 1 . . .N were fed through our standard tracking and mapping pipeline resulting in a complete loop closure around the table. Again, sensor pose estimates are obtained by frame-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00241",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "model ICP.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00242",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "4. Frames 1 . . .N were fed not just once but repeatedly forM = 4",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00243",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "loops to the standard tracking and mapping pipeline. This was possible because the sensor motion was such that frame 1 and frame N were captured from almost the same place.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00244",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "(a) Frame to frame tracking (b) Partial loop (c) Full loop (d) M times duplicated loop",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00245",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Figure 8: Circular motion experiment to highlight the SLAM characteristics of our system as the sensor orbits a table. For each column, the top",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00246",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "row shows a wide view showing the estimated sensor trajectory (every 4th of N frames is shown), and the bottom row a closer view highlighting reconstruction quality with normal mapping. (a) Frame-to-frame tracking, where the pose of each new frame is estimated by registration against just the last frame. Rapid accumulation of errors results in the non-circular trajectory and poor reconstruction is apparent (though see later",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00247",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Figure 11 where frame-skipping is shown to improve this). (b),(c),(d) show our full frame-to-model tracking approach. In (b) processing is halted",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00248",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "with the loop two-thirds complete. (c) shows loop closure, where the last frame processed is a duplication of the ﬁrst frame and should have an identical ground truth location. We highlight these two frames, and they are seen almost overlapping (red and black) alongside excellent trajectory and scene reconstruction quality. Some small artefacts in the reconstruction induced by loop closure can be seen (the diagonal slash",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00249",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "across the books in the bottom-right). In (d) we have taken the same data from (c) and fed it repeatedly (M = 4 times) to the algorithm to",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00250",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "investigate the convergence properties of our system. We now see even better alignment between the loop closing frames, and reconstruction artefacts reduced. Note that this can be compared with the reconstruction from the same number of MN different frames of the same scene obtained from hand-held sensor motion in Figure 9. 5. Finally, for comparison, a new longer dataset of MN frames was processed, where a user moved the sensor over the scene without precise repetition.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00251",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Our main motivation in performing experiments(2 . . .4) is to in-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00252",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "vestigate the convergence properties of the tracking and mapping scheme, as no explicit joint optimisation is performed. The result- ing sensor trajectories and reconstructions are given and explained in Figure 8. In all experiments, we display with increased size the sensor pose estimate for frame 1 — but also in experiment 3, where only a single loop is performed, we continue tracking through frame N and render a comparison sensor pose for the 1st frame of the next loop. As shown in the close-up view in Figure 10, this allows us to inspect the drift that has occurred as loops proceed. The ground truth poses for both of these poses are equal. While the turntable experiments demonstrate interesting conver- gence of the system without an explicit global optimisation, the real power in integrating every frame of data is the ability to rapidly assimilate as many measurements of the surfaces as are possible, (experiment 5). Figure 9 shows the surface reconstruction where",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00253",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "NM = 560 × 4 different frames were acquired from a free moving",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00254",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Kinect sensor. While the same algorithmic parameters were used, including reconstruction volume, the increased view points result in a reconstruction quality superior to the turntable sequence. A natural extension to a scan matching (frame-to-frame) ICP based SLAM system is to drop keyframes and perform tracking relative to the keyframe. Using such anchor scans reduces drift. This is clearly demonstrated in Figure 11 where we sub-sample the N frames to use every 8 th frame only. While the drift is drasti- cally reduced in comparison to Figure 8(a) the frame-model track- ing approach presents a drift free result. Our frame-model match- ing approach mitigates a number of hard problems that arise in a",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00255",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Figure 9: Agile sensor motion based reconstruction of the same",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00256",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "scene, with the same reconstruction volume butMN different images. Here we see better reconstruction quality due to each depth map of- fering independent data and a greater range of viewpoints.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00257",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "fully ﬂedged keyframing system including deciding where to drop",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00258",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "keyframes, and how to detect which keyframe(s) to track from. An important aspect of a useful system is its ability to scale with available GPU memory and processing resources. Figure 12 shows the reconstruction result where the theN frames are sub-sampled in time to use every 6th frame, and 64 times less GPU memory is used by reducing the reconstruction resolution to 643.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00259",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "(a) M=1 (b) M=2 (c) M=4",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00260",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Figure 10: Close up view of loop closing frames in circular experiment",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00261",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "as the data from a single loop is repeatedly fed to our system. We see (a) initially good alignment after one pass improving through (b) two passes to ﬁnally (c) the frames are extremely closely registered after four passes. (a) Frame to frame tracking (b) Frame to model tracking",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00262",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Figure 11: (a) Frame to frame vs. (b) frame to model tracking, both",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00263",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "using every 8t h frame. There is a drastic reduction in drift compared to Figure 8(a) where all frames are used. But the frame-model track- ing results in drift-free operation without explicit global optimisation.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00264",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "4.2 Processing Time",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00265",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Figure 13 shows results from an experiment where timings were",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00266",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "taken of the main system components and the reconstruction voxel resolution was increased in steps. We note the constant time opera- tion of tracking and mapping for a given voxel resolution.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00267",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "4.3 Observations and Failure Modes",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00268",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Our system is robust to a wide range of practical conditions in terms of scene structure and camera motion. Most evidently, by using only depth data it is completely robust to indoor lighting scenar- ios. Our video demonstrates a good variety of agile motion tracking successfully through even rapid motion. The main failure case in",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00269",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "standard indoor scenes is when the sensor is faced by a large planar",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00270",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "scene which ﬁlls most of its ﬁeld of view. A planar scene leaves three of the sensor’s 6DOF motion unconstrained in the linear sys- tems null space, resulting in tracking drifting or failure.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00271",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "5 G EOMETRY AWARE AR",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00272",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "The dense accurate models obtained in real-time open up many new possibilities for augmented reality, human-computer-interaction, robotics and beyond. For example, the ability to reason about changes in the scene, utilising outliers from ICP data association (see Figure 7), allows for new object segmentation methods; these segmented objects can be tracked independently using other in- stances of ICP allowing piece-wise rigid tracking techniques; and physics can be simulated in real-time on acquired models directly",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00273",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Figure 12: A reconstruction result using 1",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00274",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "64 the memory ( 643 vox- els) of the previous ﬁgures, and using only every 6th sensor frame, demonstrating graceful degradation with drastic reductions in mem- ory and processing resources. Time (ms) Voxel Resolution 64 128 192 320 448 384256 512 33 3 3 3 3 3 3",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00275",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Figure 13: Real-time cumulative timing results of system compo-",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00276",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "nents, evaluated over a range of resolutions (from 643 to 5123 vox-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00277",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "els) as the sensor reconstructs inside a volume of 3m3. Timings",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00278",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "are shown (from bottom to top of the plot) for: pre-processing raw data, multi-scale data-associations; multi-scale pose optimisations; raycasting the surface prediction and ﬁnally surface measurement integration. from the TSDF volumetric representation (see Figure 14). For AR, the dense model also provides an ability to handle truer occlusion boundaries between real and virtual for rendering. In [16] we dis- cuss all these possibilities in detail.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00279",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Figure 14: Thousands of particles interact live with surfaces as they",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00280",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "are reconstructed. Notice how ﬁne-grained occlusions are handled between the real and virtual. Simulation works on the TSDF volu- metric representation, and runs on the GPU alongside tracking and mapping, all in real-time.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00281",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "6 C ONCLUSIONS",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00282",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "The availability of commodity depth sensors such as Kinect has the potential to revolutionise the ﬁelds of robotics and human-computer interaction. In this work we have taken a step towards bringing the ability to reconstruct and interact with a 3D environment to the masses. The key concepts in our real-time tracking and mapping system are (1) always up-to-date surface representation fusing all registered data from previous scans using the truncated signed dis- tance function; (2) accurate and robust tracking of the camera pose",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00283",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "by aligning all depth points with the complete scene model; and (3) fully parallel algorithms for both tracking and mapping, taking full advantage of commodity GPGPU processing hardware. Most im- portantly, each of the components has a trivially parallelisable struc- ture and scales naturally with processing and memory resources. There are several ways in which the system could be extended. The current system works well for mapping medium sized room",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00284",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "with volumes of ≤ 7m3. However, the reconstruction of large-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00285",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "scale models such as the interior of a whole building would raise a number of additional challenges. Firstly, the current dense vol- umetric representation would require too much memory and more",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00286",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "importantly, very large exploratory sequences would lead to recon-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00287",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "structions with inevitable drift which would be apparent in the form of misalignments upon trajectory loop closures. These are classic problems in SLAM with good solutions for sparse representations, but will require new thinking for dense modelling. A clear possi- bility is to use KinectFusion within a sub-mapping framework. Ad- dressing memory issues further, it would be possible to exploit spar- sity in the TSDF using an adaptive grid representation. As shown in",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00288",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Figure 4, there is only a relatively thin crust of non truncated values",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00289",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "near the surface, and techniques based on octrees [32] could exploit the compressibility of such a function. Another important challenge is to efﬁciently perform automatic relocalisation when the tracking",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00290",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "has failed in such large models.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00291",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "A further interesting direction is to perform automatic semantic segmentation over the volumetric representation that would enable adaptation of reconstruction quality for speciﬁc objects or tasks.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00292",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "text_span": "REFERENCES",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00293",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "text_span": "[1] NVIDIA OptiX 2 Ray Tracing Engine http://developer.nvidia.com/optix. 2.4 [2] P. A. Beardsley, A. Zisserman, and D. W. Murray. Sequential updating of projective and afﬁne structure from motion. International Journal of Computer Vision (IJCV), 23(3):235–259, 1997. 2.2 [3] P. Besl and N. McKay. A method for registration of 3D shapes. IEEE Transactions on Pattern Analysis and Machine Intelligence (PAMI) , 14(2):239–256, 1992. 2.3 [4] G. Blais and M. D. Levine. Registering multiview range data to create 3D computer objects. IEEE Transactions on Pattern Analysis and Machine Intelligence (PAMI), 17(8):820–824, 1995. 2.3, 3.5 [5] Y . Chen and G. Medioni. Object modeling by registration of multiple range images. Image and Vision Computing (IVC) , 10(3):145–155, 1992. 2.3, 3.5 [6] Y . Cui, S. Schuon, D. Chan, and S. Thrun. 3D shape scanning with a time-of-ﬂight camera. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2010. 2.5 [7] B. Curless and M. Le...",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00294",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "text_span": "[12] J.-S. Gutmann and K. Konolige. Incremental mapping of large cyclic",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00295",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "text_span": "environments. In International Symposium on Computational Intelli- gence in Robotics and Automation (CIRA) , 1999. 2.3 [13] M. Harris, S. Sengupta, and J. D. Owens. Parallel preﬁx sum (scan) with CUDA. In H. Nguyen, editor, GPU Gems 3 , chapter 39, pages 851–876. Addison Wesley, August 2007. 3.5 [14] P. Henry, M. Krainin, E. Herbst, X. Ren, and D. Fox. RGB-D map- ping: Using depth cameras for dense 3D modeling of indoor environ- ments. In Proceedings of the International Symposium on Experimen- tal Robotics (ISER), 2010. 1, 2.5 [15] C. Hern ´andez, G. V ogiatzis, and R. Cipolla. Probabilistic visibility for multi-view stereo. In Proceedings of the IEEE Conference on Com- puter Vision and Pattern Recognition (CVPR), 2007. 2.4 [16] S. Izadi, D. Kim, O. Hilliges, D. Molyneaux, R. A. Newcombe, P. Kohli, S. Shotton, J. Hodges, D. Freeman, A. J. Davison, and A. Fitzgibbon. KinectFusion: Real-time 3D reconstruction and inter- action using a moving depth camera. In Symposium on User Interface",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00296",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Software and Technology (UIST), 2011. 5",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00297",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "text_span": "[17] G. Klein and D. W. Murray. Parallel tracking and mapping for small AR workspaces. In Proceedings of the International Symposium on Mixed and Augmented Reality (ISMAR) , 2007. 1, 2.2 [18] W. E. Lorensen and H. E. Cline. Marching cubes: A high resolution 3D surface construction algorithm. In ACM Transactions on Graphics (SIGGRAPH), 1987. 2.4 [19] R. A. Newcombe and A. J. Davison. Live dense reconstruction with a single moving camera. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2010. 1, 2.2 [20] R. A. Newcombe, S. J. Lovegrove, and A. J. Davison. DTAM: Dense tracking and mapping in real-time. InProceedings of the International Conference on Computer Vision (ICCV), 2011. 1 [21] S. Parker, P. Shirley, Y . Livnat, C. Hansen, and P. Sloan. Interactive ray tracing for isosurface rendering. In Proceedings of Visualization, 1998. 2.4, 3.4, 3.4 [22] C. Rasch and T. Satzger. Remarks on the O(N) implementation of the fast marching method. IMA Journ...",
+    "source_type": "reference"
+  }
+]

@@ -1,0 +1,654 @@
+{
+  "paper_skeleton": {
+    "problem": "视频识别中，如何有效捕捉视频信号中不同速度的时空信息（空间语义与快速运动）。",
+    "motivation": "传统方法（如3D卷积、双流网络）在处理视频时，通常对时间维度进行对称处理或依赖手工设计的光流，计算成本高且未能充分利用不同时间分辨率的信息。受灵长类视觉系统中视网膜神经节细胞（P细胞和M细胞）的启发，提出一种双路径架构，以不同帧率处理视频，分别专注于空间语义和快速运动。",
+    "core_idea": "设计一个SlowFast网络，包含一个低帧率的Slow路径（用于捕获空间语义）和一个高帧率的Fast路径（用于捕获精细时间分辨率的运动）。Fast路径通过减少通道容量变得轻量级，但仍能学习有用的时间信息。两个路径通过横向连接融合。",
+    "method": "Slow路径以较大时间步长τ（如16）处理视频帧，捕获空间语义；Fast路径以较小时间步长τ/α（α>1，如8）处理相同视频，保持高时间分辨率，但通道数减少为Slow路径的β倍（β<1，如1/8）。两个路径的特征通过横向连接（如时间步长卷积）融合，最终将全局平均池化后的特征拼接用于分类。",
+    "experiments": "在Kinetics-400、Kinetics-600、Charades和AVA数据集上进行评估。包括动作分类和动作检测任务。进行了详细的消融实验，验证SlowFast设计的有效性。",
+    "claims": [
+      "SlowFast网络通过双路径设计，能有效捕捉视频中不同速度的时空信息。",
+      "Fast路径轻量级但能显著提升性能，其计算成本仅占总计算量的约20%。",
+      "SlowFast概念在多个视频识别基准上达到了最先进的精度。",
+      "该设计受生物视觉系统启发，具有生物学合理性。"
+    ],
+    "limitations": "论文未明确讨论模型在极端运动速度或复杂场景下的局限性。Fast路径的轻量级设计可能限制其对复杂空间细节的建模能力。"
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "Slow路径",
+        "label": "SlowPathway",
+        "summary": "以低帧率处理视频，专注于捕获空间语义和静态特征。",
+        "description": "Slow路径是一个标准的卷积模型（如ResNet），以较大的时间步长τ（例如16）从原始视频片段中采样帧。它处理T帧，原始片段长度为T×τ帧。该路径主要关注空间域和语义信息，可以使用更复杂的网络结构。",
+        "type": "pathway",
+        "anchors": [
+          "anc_00023",
+          "anc_00024",
+          "anc_00025"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "Fast路径",
+        "label": "FastPathway",
+        "summary": "以高帧率处理视频，专注于捕获快速运动和时间细节，且设计轻量级。",
+        "description": "Fast路径是另一个卷积模型，以较小的时间步长τ/α（α>1，例如8）处理相同的原始视频片段，保持高时间分辨率。其关键特性包括：1) 高帧率；2) 在整个网络层次中保持高时间分辨率特征（无时间下采样）；3) 低通道容量（通道数为Slow路径的β倍，β<1，例如1/8），使其计算高效。该路径通常占总计算量的约20%。",
+        "type": "pathway",
+        "anchors": [
+          "anc_00025",
+          "anc_00026",
+          "anc_00027",
+          "anc_00028",
+          "anc_00029",
+          "anc_00030",
+          "anc_00031"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "横向连接",
+        "label": "LateralConnections",
+        "summary": "将Fast路径的特征融合到Slow路径中，以匹配特征尺寸并实现信息交互。",
+        "description": "横向连接用于融合Fast路径和Slow路径的特征。由于两个路径的特征尺寸不同（Slow: {T, S², C}; Fast: {αT, S², βC}），需要进行变换。论文实验了多种变换方法，例如使用时间步长卷积（如5×1核，步长=α）将Fast特征下采样并增加通道数，然后通过求和或拼接融合到Slow路径中。",
+        "type": "connection",
+        "anchors": [
+          "anc_00038",
+          "anc_00052",
+          "anc_00053",
+          "anc_00054"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "SlowFast网络整体",
+        "label": "SlowFastNetwork",
+        "summary": "由Slow路径、Fast路径和横向连接组成的双路径视频识别架构。",
+        "description": "SlowFast网络是一个单流架构，但以两种不同的帧率运行。Slow路径和Fast路径并行处理相同的原始视频片段，通过横向连接融合特征。最后，对每个路径的输出进行全局平均池化，将两个池化后的特征向量拼接，输入到全连接分类器层进行预测。",
+        "type": "architecture",
+        "anchors": [
+          "anc_00020",
+          "anc_00023",
+          "anc_00038"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "实例化（基于ResNet）",
+        "label": "Instantiation_ResNet",
+        "summary": "基于ResNet-50/101骨干网络的具体SlowFast网络实例化。",
+        "description": "论文以ResNet-50为例进行了实例化（见表1）。Slow路径：T=4帧，τ=16，使用非退化时间卷积（时间核大小>1）仅在res4和res5中，之前层本质上是2D卷积。Fast路径：α=8，β=1/8，具有更高的时间分辨率（绿色）和更低的通道容量（橙色），每个块中都有非退化时间卷积，且无时间下采样层。横向连接使用时间步长卷积进行融合。",
+        "type": "instantiation",
+        "anchors": [
+          "anc_00034",
+          "anc_00036",
+          "anc_00037",
+          "anc_00039",
+          "anc_00041",
+          "anc_00044",
+          "anc_00050",
+          "anc_00051"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_004",
+        "label": "构成",
+        "description": "Slow路径是SlowFast网络的一个组成部分。"
+      },
+      {
+        "source": "node_002",
+        "target": "node_004",
+        "label": "构成",
+        "description": "Fast路径是SlowFast网络的另一个组成部分。"
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "提供特征",
+        "description": "Fast路径的特征通过横向连接进行变换和融合。"
+      },
+      {
+        "source": "node_003",
+        "target": "node_001",
+        "label": "融合特征",
+        "description": "横向连接将变换后的Fast路径特征融合到Slow路径中。"
+      },
+      {
+        "source": "node_001",
+        "target": "node_005",
+        "label": "实例化",
+        "description": "Slow路径在ResNet实例化中具体实现。"
+      },
+      {
+        "source": "node_002",
+        "target": "node_005",
+        "label": "实例化",
+        "description": "Fast路径在ResNet实例化中具体实现。"
+      },
+      {
+        "source": "node_003",
+        "target": "node_005",
+        "label": "实例化",
+        "description": "横向连接在ResNet实例化中具体实现。"
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "传统的3D卷积网络（如C3D、I3D）或双流网络（使用光流）。这些方法通常以对称方式处理时间维度，或依赖手工设计的光流，计算成本高。",
+    "new_method": "SlowFast网络，包含一个低帧率的Slow路径和一个高帧率的轻量级Fast路径，通过横向连接融合。",
+    "deltas": [
+      {
+        "before": "单一时间分辨率处理整个视频。",
+        "after": "双路径设计，以不同帧率（α倍）处理视频，分别专注于空间语义和快速运动。",
+        "why_it_matters": "允许模型同时高效地捕获静态语义和动态运动信息，提高了视频表示的丰富性和效率。",
+        "anchors": [
+          "anc_00005",
+          "anc_00009",
+          "anc_00025",
+          "anc_00026",
+          "anc_00027"
+        ]
+      },
+      {
+        "before": "Fast路径（或类似的时间分支）通常具有与Slow路径相似的通道容量，计算成本高。",
+        "after": "Fast路径被设计为轻量级，通道容量减少为Slow路径的β倍（β<1，如1/8），计算成本仅占约20%。",
+        "why_it_matters": "显著降低了模型的总计算量，同时保持了高时间分辨率，实现了精度和效率的良好权衡。",
+        "anchors": [
+          "anc_00029",
+          "anc_00030",
+          "anc_00031"
+        ]
+      },
+      {
+        "before": "双流网络需要计算和存储光流，且通常不是端到端联合训练。",
+        "after": "SlowFast网络直接从原始视频像素学习，无需光流，且是端到端训练的。",
+        "why_it_matters": "简化了训练流程，避免了光流计算的开销，并允许模型学习更优的时空表示。",
+        "anchors": [
+          "anc_00019",
+          "anc_00020"
+        ]
+      },
+      {
+        "before": "在Slow路径中，早期层使用时间卷积可能有害（当时间步长大时）。",
+        "after": "在Slow路径的实例化中，仅在后期层（res4, res5）使用非退化时间卷积，早期层本质上是2D卷积。",
+        "why_it_matters": "基于实验观察，当时间步长大时，早期层的时间相关性弱，使用2D卷积更有效，提高了性能。",
+        "anchors": [
+          "anc_00044",
+          "anc_00045",
+          "anc_00046",
+          "anc_00047",
+          "anc_00049"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\text{Slow路径输入帧数} = T, \\quad \\text{原始片段长度} = T \\times \\tau",
+        "variables": [
+          {
+            "name": "T",
+            "description": "Slow路径采样的帧数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00025"
+            ]
+          },
+          {
+            "name": "\\tau",
+            "description": "Slow路径的时间步长（例如16）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00024",
+              "anc_00025"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "定义了Slow路径处理视频片段的基本参数。Slow路径以较低的帧率（每τ帧采样一帧）处理视频，专注于空间语义。",
+        "anchors": [
+          "anc_00025"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "\\text{Fast路径时间步长} = \\tau / \\alpha, \\quad \\alpha > 1",
+        "variables": [
+          {
+            "name": "\\alpha",
+            "description": "Fast路径与Slow路径的帧率比（例如8）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00026",
+              "anc_00027"
+            ]
+          },
+          {
+            "name": "\\tau",
+            "description": "Slow路径的时间步长",
+            "confidence": "high",
+            "anchors": [
+              "anc_00024",
+              "anc_00025"
+            ]
+          }
+        ],
+        "dependencies": [
+          "formula_001"
+        ],
+        "intuition": "Fast路径以更高的帧率（时间步长更小）处理相同的原始视频片段，以捕获精细的时间运动信息。",
+        "anchors": [
+          "anc_00025",
+          "anc_00026",
+          "anc_00027"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "\\text{Fast路径通道数} = \\beta \\times C, \\quad \\beta < 1",
+        "variables": [
+          {
+            "name": "\\beta",
+            "description": "Fast路径与Slow路径的通道容量比（例如1/8）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00029",
+              "anc_00030"
+            ]
+          },
+          {
+            "name": "C",
+            "description": "Slow路径的通道数",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00029"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "Fast路径被设计为轻量级，通过大幅减少通道数来降低计算成本，同时专注于时间信息建模。",
+        "anchors": [
+          "anc_00029",
+          "anc_00030",
+          "anc_00031"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "latex": "\\text{横向连接变换}: \\text{Fast特征} \\{\\alpha T, S^2, \\beta C\\} \\xrightarrow{\\text{时间步长卷积}} \\text{Slow特征} \\{T, S^2, 2\\beta C\\}",
+        "variables": [
+          {
+            "name": "\\alpha T",
+            "description": "Fast路径特征的时间维度",
+            "confidence": "high",
+            "anchors": [
+              "anc_00052"
+            ]
+          },
+          {
+            "name": "S^2",
+            "description": "空间尺寸",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00052"
+            ]
+          },
+          {
+            "name": "\\beta C",
+            "description": "Fast路径特征的通道数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00052"
+            ]
+          },
+          {
+            "name": "T",
+            "description": "Slow路径特征的时间维度",
+            "confidence": "high",
+            "anchors": [
+              "anc_00052"
+            ]
+          },
+          {
+            "name": "2\\beta C",
+            "description": "变换后输出的通道数",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00053"
+            ]
+          }
+        ],
+        "dependencies": [
+          "formula_001",
+          "formula_002",
+          "formula_003"
+        ],
+        "intuition": "横向连接通过时间步长卷积（如5×1核，步长=α）对Fast路径特征进行下采样并调整通道数，使其尺寸与Slow路径特征匹配，以便融合。",
+        "anchors": [
+          "anc_00052",
+          "anc_00053",
+          "anc_00054"
+        ]
+      },
+      {
+        "formula_id": "formula_005",
+        "latex": "\\text{最终分类特征} = \\text{Concat}(\\text{GlobalAvgPool}(\\text{Slow输出}), \\text{GlobalAvgPool}(\\text{Fast输出}))",
+        "variables": [],
+        "dependencies": [
+          "formula_004"
+        ],
+        "intuition": "两个路径的输出分别进行全局平均池化，然后拼接起来作为最终特征输入到分类器。",
+        "anchors": [
+          "anc_00038"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "dataset": "Kinetics-400",
+        "metric": "Top-1 Accuracy",
+        "value": "77.9% (SlowFast 8×8, R101)",
+        "baseline_comparison": "显著优于先前方法（如I3D 72.1%， Nonlocal R101 77.7%）",
+        "anchors": [
+          "anc_00059",
+          "anc_00060"
+        ]
+      },
+      {
+        "dataset": "Kinetics-600",
+        "metric": "Top-1 Accuracy",
+        "value": "81.8%",
+        "baseline_comparison": "优于竞赛冠军方法（79.0%）",
+        "anchors": [
+          "anc_00065",
+          "anc_00066"
+        ]
+      },
+      {
+        "dataset": "Charades",
+        "metric": "mAP",
+        "value": "45.2 (SlowFast, +NL, Kinetics-600预训练)",
+        "baseline_comparison": "显著优于先前最佳（STRG 39.7）",
+        "anchors": [
+          "anc_00067",
+          "anc_00068",
+          "anc_00070",
+          "anc_00071"
+        ]
+      },
+      {
+        "dataset": "AVA v2.1",
+        "metric": "mAP (val)",
+        "value": "28.2 (单裁剪)",
+        "baseline_comparison": "达到新的最先进水平",
+        "anchors": [
+          "anc_00106",
+          "anc_00108",
+          "anc_00112"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "experiment": "Slow vs. SlowFast (改变采样率T×τ)",
+        "finding": "SlowFast在所有变体上都比对应的Slow-only路径表现更好，且以更低的成本提供更高的精度。",
+        "anchors": [
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064",
+          "anc_00072"
+        ]
+      },
+      {
+        "experiment": "Fast路径通道容量β的消融",
+        "finding": "β在1/6到1/8之间表现最佳。即使β=1/32，SlowFast模型也能优于Slow-only基线。",
+        "anchors": [
+          "anc_00086",
+          "anc_00087",
+          "anc_00089",
+          "anc_00090"
+        ]
+      },
+      {
+        "experiment": "Fast路径空间输入的消融（半分辨率、灰度）",
+        "finding": "使用半分辨率或灰度输入的Fast路径变体仍然具有竞争力，且优于Slow-only基线。灰度版本几乎与RGB版本一样好，但减少约5%的FLOPs。",
+        "anchors": [
+          "anc_00093",
+          "anc_00094",
+          "anc_00096",
+          "anc_00097"
+        ]
+      },
+      {
+        "experiment": "从头训练 vs. ImageNet预训练",
+        "finding": "使用论文的大规模SGD配方从头训练，可以达到与ImageNet预训练相当的结果。",
+        "anchors": [
+          "anc_00092",
+          "anc_00098",
+          "anc_00099",
+          "anc_00100"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "aspect": "不同骨干网络（R50, R101, NL）",
+        "finding": "SlowFast概念在不同骨干网络上均有效。",
+        "anchors": [
+          "anc_00059",
+          "anc_00061"
+        ]
+      },
+      {
+        "aspect": "不同数据集（Kinetics, Charades, AVA）",
+        "finding": "SlowFast在多个视频识别基准上均取得了最先进的结果。",
+        "anchors": [
+          "anc_00054",
+          "anc_00059",
+          "anc_00065",
+          "anc_00067",
+          "anc_00101"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "dimension": "模型容量（GFLOPs）",
+        "finding": "SlowFast在精度-计算权衡上优于Slow-only路径（图2）。",
+        "anchors": [
+          "anc_00058",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "description": "AVA数据集上的逐类别AP分析（图3）",
+        "finding": "SlowFast在大多数动态动作类别（如“拍手”、“吃”、“跳”）上相比Slow-only基线有巨大提升，但在少数静态类别上略有下降。",
+        "anchors": [
+          "anc_00114",
+          "anc_00116",
+          "anc_00121",
+          "anc_00123",
+          "anc_00125",
+          "anc_00126"
+        ]
+      }
+    ],
+    "human_eval": "未提及",
+    "benchmark": [
+      "Kinetics-400",
+      "Kinetics-600",
+      "Charades",
+      "AVA v2.1",
+      "AVA v2.2"
+    ],
+    "efficiency": [
+      {
+        "metric": "单视图GFLOPs",
+        "value": "SlowFast 4×16, R50: 36.1 GFLOPs",
+        "comparison": "低于许多先前方法（如I3D 108 GFLOPs, Nonlocal R50 282 GFLOPs）",
+        "anchors": [
+          "anc_00056",
+          "anc_00059"
+        ]
+      },
+      {
+        "metric": "Fast路径计算占比",
+        "value": "约20%",
+        "anchors": [
+          "anc_00031"
+        ]
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "SlowFast网络通过双路径设计，能有效捕捉视频中不同速度的时空信息。",
+        "evidence_source_type": "实验结果（消融实验、主结果）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00005",
+          "anc_00009",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064",
+          "anc_00072",
+          "anc_00086",
+          "anc_00096"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "Fast路径轻量级但能显著提升性能，其计算成本仅占总计算量的约20%。",
+        "evidence_source_type": "模型设计描述、实验数据",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00029",
+          "anc_00030",
+          "anc_00031",
+          "anc_00059",
+          "anc_00061"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "SlowFast概念在多个视频识别基准上达到了最先进的精度。",
+        "evidence_source_type": "实验结果（主结果表格）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00059",
+          "anc_00060",
+          "anc_00065",
+          "anc_00066",
+          "anc_00067",
+          "anc_00068",
+          "anc_00070",
+          "anc_00071",
+          "anc_00106",
+          "anc_00108",
+          "anc_00112"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "该设计受生物视觉系统（视网膜P细胞和M细胞）启发，具有生物学合理性。",
+        "evidence_source_type": "论文论述",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00011",
+          "anc_00012",
+          "anc_00013",
+          "anc_00014",
+          "anc_00015",
+          "anc_00016",
+          "anc_00017",
+          "anc_00018"
+        ],
+        "risk_flags": [
+          "类比可能过于简化"
+        ]
+      },
+      {
+        "claim": "在Slow路径中，仅在后期层使用时间卷积是有效的。",
+        "evidence_source_type": "实验观察",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00044",
+          "anc_00045",
+          "anc_00046",
+          "anc_00047",
+          "anc_00049"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "SlowFast网络无需光流，是端到端训练的。",
+        "evidence_source_type": "方法描述",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00019",
+          "anc_00020"
+        ],
+        "risk_flags": []
+      }
+    ]
+  },
+  "glossary": {
+    "Slow路径": "SlowFast网络中以低帧率（大时间步长τ）处理视频的路径，专注于捕获空间语义和静态特征。",
+    "Fast路径": "SlowFast网络中以高帧率（小时间步长τ/α）处理视频的路径，专注于捕获快速运动和时间细节，且设计为轻量级（通道数少）。",
+    "横向连接": "用于融合Fast路径和Slow路径特征的连接，通常涉及时间步长卷积等变换以匹配特征尺寸。",
+    "时间步长τ": "Slow路径从原始视频中采样帧的间隔。例如τ=16表示每16帧采样一帧。",
+    "帧率比α": "Fast路径与Slow路径的帧率比值。α>1，例如α=8表示Fast路径的时间分辨率是Slow路径的8倍。",
+    "通道比β": "Fast路径与Slow路径的通道容量比值。β<1，例如β=1/8表示Fast路径的通道数是Slow路径的1/8。",
+    "非退化时间卷积": "时间核大小大于1的卷积操作，能够捕捉时间维度上的变化。与之相对的是时间核大小为1的卷积，本质上是2D卷积。",
+    "P细胞（Parvocellular）": "灵长类视网膜神经节细胞的一种，约占80%，对精细空间细节和颜色敏感，但时间分辨率较低。",
+    "M细胞（Magnocellular）": "灵长类视网膜神经节细胞的一种，约占15-20%，对快速时间变化敏感，但对空间细节或颜色不敏感。论文中Fast路径的设计受其启发。"
+  },
+  "reproduction_roadmap": {
+    "required_datasets": [
+      "Kinetics-400",
+      "Kinetics-600",
+      "Charades",
+      "AVA v2.1",
+      "AVA v2.2"
+    ],
+    "required_models": [
+      "ResNet-50",
+      "ResNet-101",
+      "可选：加入非局部（NL）块"
+    ],
+    "required_compute": "大规模分布式训练（论文使用128个GPU进行Kinetics训练）。单个模型训练可能需要数天。",
+    "code_available": "是，代码已开源：https://github.com/facebookresearch/SlowFast",
+    "steps": [
+      "1. 准备数据集：下载并预处理Kinetics、Charades、AVA数据集。",
+      "2. 搭建SlowFast网络架构：根据论文描述（特别是表1）实现Slow路径、Fast路径和横向连接。",
+      "3. 实现训练配方：使用同步SGD，批量大小1024（8 clips/GPU × 128 GPUs），半周期余弦学习率调度，权重衰减10^-4，动量0.9，Dropout 0.5。",
+      "4. 训练模型：从头训练（不使用ImageNet预训练）。对于Kinetics-400，训练约196个epoch（当T>4时）。",
+      "5. 评估模型：使用30个时空视图（10个时间裁剪 × 3个空间裁剪）进行推理，报告Top-1/Top-5准确率或mAP。",
+      "6. 进行消融实验：改变α、β、采样率等参数，验证设计选择。"
+    ],
+    "missing_details": [
+      "横向连接的具体实现细节（如时间步长卷积的精确配置）在论文中描述较简略，需参考代码。",
+      "训练中学习率η的具体初始值未在提供的文本中明确给出（可能在代码中）。",
+      "对于Charades和AVA的微调细节（如迭代次数、学习率调整）描述较概括。"
+    ],
+    "risk_points": [
+      "计算资源要求高：复现完整实验需要大规模GPU集群。",
+      "数据预处理：视频数据的解码、采样策略需要仔细实现以匹配论文设置。",
+      "训练稳定性：从头训练大规模视频模型可能对超参数敏感。"
+    ]
+  }
+}

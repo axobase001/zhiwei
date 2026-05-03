@@ -1,0 +1,3665 @@
+[
+  {
+    "block_id": "blk_00001",
+    "type": "title",
+    "content": "Taming Transformers for High-Resolution Image Synthesis",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "anchor_id": "anc_00001"
+  },
+  {
+    "block_id": "blk_00002",
+    "type": "paragraph",
+    "content": "Patrick Esser* Robin Rombach* Bj¨orn Ommer Heidelberg Collaboratory for Image Processing, IWR, Heidelberg University, Germany *Both authors contributed equally to this work",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "anchor_id": "anc_00002"
+  },
+  {
+    "block_id": "blk_00003",
+    "type": "caption",
+    "content": "Figure 1. Our approach enables transformers to synthesize high-resolution images like this one, which contains 1280x460 pixels.",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "anchor_id": "anc_00003"
+  },
+  {
+    "block_id": "blk_00004",
+    "type": "section_heading",
+    "content": "Abstract",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00004"
+  },
+  {
+    "block_id": "blk_00005",
+    "type": "paragraph",
+    "content": "Designed to learn long-range interactions on sequential data, transformers continue to show state-of-the-art results on a wide variety of tasks. In contrast to CNNs, they contain no inductive bias that prioritizes local interactions. This makes them expressive, but also computationally infeasi- ble for long sequences, such as high-resolution images. We demonstrate how combining the effectiveness of the induc- tive bias of CNNs with the expressivity of transformers en- ables them to model and thereby synthesize high-resolution images. We show how to (i) use CNNs to learn a context- rich vocabulary of image constituents, and in turn (ii) utilize transformers to efﬁciently model their composition within high-resolution images. Our approach is readily applied to conditional synthesis tasks, where both non-spatial in- formation, such as object classes, and spatial information, such as segmentations, can control the generated image. In particular, we present the ﬁrst results on semantically- guided synthesis of megapixel images with transformers and obtain the state of the art among autoregressive models on class-conditional ImageNet. Code and pretrained models can be found at https://git.io/JnyvK. 1. Introduction Transformers are on the rise—they are now the de-facto standard architecture for language tasks [74, 57, 58, 5] and are increasingly adapted in other areas such as audio",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00005"
+  },
+  {
+    "block_id": "blk_00006",
+    "type": "formula",
+    "content": "[12] and vision [8, 16]. In contrast to the predominant vi-",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00006"
+  },
+  {
+    "block_id": "blk_00007",
+    "type": "paragraph",
+    "content": "sion architecture, convolutional neural networks (CNNs), the transformer architecture contains no built-in inductive prior on the locality of interactions and is therefore free to learn complex relationships among its inputs. However, this generality also implies that it has to learn all relation- ships, whereas CNNs have been designed to exploit prior knowledge about strong local correlations within images. Thus, the increased expressivity of transformers comes with quadratically increasing computational costs, because all pairwise interactions are taken into account. The result- ing energy and time requirements of state-of-the-art trans- former models thus pose fundamental problems for scaling them to high-resolution images with millions of pixels. Observations that transformers tend to learn convolu- tional structures [16] thus beg the question: Do we have to re-learn everything we know about the local structure and regularity of images from scratch each time we train a vision model, or can we efﬁciently encode inductive im- age biases while still retaining the ﬂexibility of transform- ers? We hypothesize that low-level image structure is well described by a local connectivity, i.e. a convolutional ar- chitecture, whereas this structural assumption ceases to be effective on higher semantic levels. Moreover, CNNs not only exhibit a strong locality bias, but also a bias towards spatial invariance through the use of shared weights across 1 arXiv:2012.09841v3 [cs.CV] 23 Jun 2021",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00007"
+  },
+  {
+    "block_id": "blk_00008",
+    "type": "paragraph",
+    "content": "all positions. This makes them ineffective if a more holistic understanding of the input is required. Our key insight to obtain an effective and expressive model is that, taken together, convolutional and transformer architectures can model the compositional nature of our vi- sual world [51] : We use a convolutional approach to efﬁ- ciently learn a codebook of context-rich visual parts and, subsequently, learn a model of their global compositions. The long-range interactions within these compositions re- quire an expressive transformer architecture to model distri- butions over their consituent visual parts. Furthermore, we utilize an adversarial approach to ensure that the dictionary of local parts captures perceptually important local struc- ture to alleviate the need for modeling low-level statistics with the transformer architecture. Allowing transformers to concentrate on their unique strength—modeling long-range relations—enables them to generate high-resolution images as in Fig. 1, a feat which previously has been out of reach. Our formulationgives control over the generated images by means of conditioning information regarding desired object classes or spatial layouts. Finally, experiments demonstrate that our approach retains the advantages of transformers by",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00008"
+  },
+  {
+    "block_id": "blk_00009",
+    "type": "formula",
+    "content": "outperforming previous codebook-based state-of-the-art ap-",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00009"
+  },
+  {
+    "block_id": "blk_00010",
+    "type": "paragraph",
+    "content": "proaches based on convolutional architectures. 2. Related Work The Transformer Family The deﬁning characteristic of the transformer architecture [74] is that it models interac- tions between its inputs solely through attention [2, 36, 52] which enables them to faithfully handle interactions be- tween inputs regardless of their relative position to one an- other. Originally applied to language tasks, inputs to the transformer were given by tokens, but other signals, such as those obtained from audio [41] or images [8], can be used. Each layer of the transformer then consists of an attention mechanism, which allows for interaction between inputs at different positions, followed by a position-wise fully con- nected network, which is applied to all positions indepen- dently. More speciﬁcally, the (self-)attention mechanism can be described by mapping an intermediate representa- tion with three position-wise linear layers into three repre- sentations, queryQ∈ RN×dk, keyK∈ RN×dk and value V ∈ RN×dv, to compute the output as",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00010"
+  },
+  {
+    "block_id": "blk_00011",
+    "type": "formula",
+    "content": "Attn(Q,K,V ) = softmax",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00011"
+  },
+  {
+    "block_id": "blk_00012",
+    "type": "paragraph",
+    "content": "(QK t √dk ) V ∈ RN×dv. (1)",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00012"
+  },
+  {
+    "block_id": "blk_00013",
+    "type": "formula",
+    "content": "When performing autoregressive maximum-likelihood",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00013"
+  },
+  {
+    "block_id": "blk_00014",
+    "type": "paragraph",
+    "content": "learning, non-causal entries of QK t, i.e. all entries be- low its diagonal, are set to −∞ and the ﬁnal output of the transformer is given after a linear, point-wise transforma-",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00014"
+  },
+  {
+    "block_id": "blk_00015",
+    "type": "formula",
+    "content": "tion to predict logits of the next sequence element. Since",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00015"
+  },
+  {
+    "block_id": "blk_00016",
+    "type": "paragraph",
+    "content": "the attention mechanism relies on the computation of inner products between all pairs of elements in the sequence, its computational complexity increases quadratically with the sequence length. While the ability to consider interactions between all elements is the reason transformers efﬁciently learn long-range interactions, it is also the reason transform- ers quickly become infeasible, especially on images, where the sequence length itself scales quadratically with the res- olution. Different approaches have been proposed to reduce the computational requirements to make transformers fea- sible for longer sequences. [55] and [76] restrict the recep- tive ﬁelds of the attention modules, which reduces the ex- pressivity and, especially for high-resolution images, intro- duces assumptions on the independence of pixels. [12] and [26] retain the full receptive ﬁeld but can reduce costs for a sequence of lengthn only fromn2 ton√n, which makes resolutions beyond 64 pixels still prohibitively expensive. Convolutional Approaches The two-dimensional struc- ture of images suggests that local interactions are particu- larly important. CNNs exploit this structure by restricting interactions between input variables to a local neighborhood deﬁned by the kernel size of the convolutional kernel. Ap- plying a kernel thus results in costs that scale linearly with the overall sequence length (the number of pixels in the case of images) and quadratically in the kernel size, which, in modern CNN architectures, is often ﬁxed to a small constant such as 3× 3. This inductive bias towards local interactions thus leads to efﬁcient computations, but the wide range of specialized layers which are introduced into CNNs to han- dle different synthesis tasks [53, 80, 68, 85, 84] suggest that this bias is often too restrictive. Convolutional architectures have been used for autore- gressive modeling of images [70, 71, 10] but, for low- resolution images, previous works [55, 12, 26] demon- strated that transformers consistently outperform their con- volutional counterparts. Our approach allows us to ef- ﬁciently model high-resolution images with transformers while retaining their advantages over state-of-the-art con- volutional approaches. Two-Stage Approaches Closest to ours are two-stage ap- proaches which ﬁrst learn an encoding of data and after- wards learn, in a second stage, a probabilistic model of this encoding. [13] demonstrated both theoretical and empirical evidence on the advantages of ﬁrst learning a data repre- sentation with a Variational Autoencoder (V AE) [38, 62], and then again learning its distribution with a V AE. [18, 78] demonstrate similar gains when using an unconditional nor- malizing ﬂow for the second stage, and [63, 64] when using a conditional normalizing ﬂow. To improve training efﬁ- ciency of Generative Adversarial Networks (GANs), [43] learns a GAN [20] on representations of an autoencoder and [21] on low-resolution wavelet coefﬁcients which are then 2",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00016"
+  },
+  {
+    "block_id": "blk_00017",
+    "type": "caption",
+    "content": "Figure 2. Our approach uses a convolutional VQGAN to learn a codebook of context-rich visual parts, whose composition is subsequently",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00017"
+  },
+  {
+    "block_id": "blk_00018",
+    "type": "paragraph",
+    "content": "modeled with an autoregressive transformer architecture. A discrete codebook provides the interface between these architectures and a",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00018"
+  },
+  {
+    "block_id": "blk_00019",
+    "type": "formula",
+    "content": "patch-based discriminator enables strong compression while retaining high perceptual quality. This method introduces the efﬁciency of",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00019"
+  },
+  {
+    "block_id": "blk_00020",
+    "type": "paragraph",
+    "content": "convolutional approaches to transformer based high resolution image synthesis. decoded to images with a learned generator. [72] presents the Vector Quantised Variational Autoen- coder (VQV AE), an approach to learn discrete represen- tations of images, and models their distribution autore- gressively with a convolutional architecture. [61] extends this approach to use a hierarchy of learned representations. However, these methods still rely on convolutional density estimation, which makes it difﬁcult to capture long-range interactions in high-resolution images. [8] models images autoregressively with transformers in order to evaluate the suitability of generative pretraining to learn image repre- sentations for downstream tasks. Since input resolutions of 32× 32 pixels are still quite computationally expensive [8], a VQV AE is used to encode images up to a resolution of 192× 192. In an effort to keep the learned discrete repre- sentation as spatially invariant as possible with respect to the pixels, a shallow VQV AE with small receptive ﬁeld is employed. In contrast, we demonstrate that a powerful ﬁrst stage, which captures as much context as possible in the learned representation, is critical to enable efﬁcient high- resolution image synthesis with transformers. 3. Approach Our goal is to exploit the highly promising learning ca- pabilities of transformer models [74] and introduce them to high-resolution image synthesis up to the megapixel range. Previous work [55, 8] which applied transformers to image generation demonstrated promising results for images up to a size of 64× 64 pixels but, due to the quadratically in- creasing cost in sequence length, cannot simply be scaled to higher resolutions. High-resolution image synthesis requires a model that understands the global composition of images, enabling it to generate locally realistic as well as globally consistent pat- terns. Therefore, instead of representing an image with pix- els, we represent it as a composition of perceptually rich im- age constituents from a codebook. By learning an effective code, as described in Sec. 3.1, we can signiﬁcantly reduce the description length of compositions, which allows us to efﬁciently model their global interrelations within images with a transformer architecture as described in Sec. 3.2. This approach, summarized in Fig. 2, is able to generate realistic and consistent high resolution images both in an unconditional and a conditional setting. 3.1. Learning an Effective Codebook of Image Con- stituents for Use in Transformers To utilize the highly expressive transformer architecture for image synthesis, we need to express the constituents of an image in the form of asequence. Instead of building on indi- vidual pixels, complexity necessitates an approach that uses a discrete codebook of learned representations, such that any image x∈ RH×W×3 can be represented by a spatial collection of codebook entrieszq∈ Rh×w×nz, wherenz is the dimensionality of codes. An equivalent representation is a sequence of h·w indices which specify the respective entries in the learned codebook. To effectively learn such a discrete spatial codebook, we propose to directly incor- porate the inductive biases of CNNs and incorporate ideas from neural discrete representation learning [72]. First, we learn a convolutional model consisting of an encoderE and a decoder G, such that taken together, they learn to repre- sent images with codes from a learned, discrete codebook",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00020"
+  },
+  {
+    "block_id": "blk_00021",
+    "type": "formula",
+    "content": "Z ={zk}K",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00021"
+  },
+  {
+    "block_id": "blk_00022",
+    "type": "formula",
+    "content": "k=1⊂ Rnz (see Fig. 2 for an overview). More",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00022"
+  },
+  {
+    "block_id": "blk_00023",
+    "type": "paragraph",
+    "content": "3",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00023"
+  },
+  {
+    "block_id": "blk_00024",
+    "type": "formula",
+    "content": "precisely, we approximate a given image x by ˆx = G(zq).",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00024"
+  },
+  {
+    "block_id": "blk_00025",
+    "type": "formula",
+    "content": "We obtain zq using the encoding ˆz = E(x)∈ Rh×w×nz",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00025"
+  },
+  {
+    "block_id": "blk_00026",
+    "type": "paragraph",
+    "content": "and a subsequent element-wise quantization q(·) of each spatial code ˆzij∈ Rnz onto its closest codebook entryzk:",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00026"
+  },
+  {
+    "block_id": "blk_00027",
+    "type": "formula",
+    "content": "zq = q(ˆz) :=",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00027"
+  },
+  {
+    "block_id": "blk_00028",
+    "type": "paragraph",
+    "content": "(",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00028"
+  },
+  {
+    "block_id": "blk_00029",
+    "type": "formula",
+    "content": "arg min",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00029"
+  },
+  {
+    "block_id": "blk_00030",
+    "type": "paragraph",
+    "content": "zk∈Z ∥ˆzij−zk∥ ) ∈ Rh×w×nz. (2)",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00030"
+  },
+  {
+    "block_id": "blk_00031",
+    "type": "formula",
+    "content": "The reconstruction ˆx≈x is then given by",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00031"
+  },
+  {
+    "block_id": "blk_00032",
+    "type": "formula",
+    "content": "ˆx =G(zq) = G (q(E(x))). (3)",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00032"
+  },
+  {
+    "block_id": "blk_00033",
+    "type": "paragraph",
+    "content": "Backpropagation through the non-differentiable quantiza- tion operation in Eq. (3) is achieved by a straight-through gradient estimator, which simply copies the gradients from the decoder to the encoder [3], such that the model and codebook can be trained end-to-end via the loss function",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00033"
+  },
+  {
+    "block_id": "blk_00034",
+    "type": "formula",
+    "content": "LVQ(E,G,Z) =∥x− ˆx∥2 +∥sg[E(x)]−zq∥2",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00034"
+  },
+  {
+    "block_id": "blk_00035",
+    "type": "paragraph",
+    "content": "2 +∥sg[zq]−E(x)∥2 2. (4)",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00035"
+  },
+  {
+    "block_id": "blk_00036",
+    "type": "formula",
+    "content": "Here,Lrec =∥x− ˆx∥2 is a reconstruction loss, sg[·] denotes",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00036"
+  },
+  {
+    "block_id": "blk_00037",
+    "type": "paragraph",
+    "content": "the stop-gradient operation, and∥sg[zq]−E(x)∥2 2 is the so- called “commitment loss” [72]. Learning a Perceptually Rich Codebook Using trans- formers to represent images as a distribution over latent im- age constituents requires us to push the limits of compres- sion and learn a rich codebook. To do so, we propose VQ- GAN, a variant of the original VQV AE, and use a discrimi- nator and perceptual loss [40, 30, 39, 17, 47] to keep good perceptual quality at increased compression rate. Note that this is in contrast to previous works which applied pixel- based [71, 61] and transformer-based autoregressive mod- els [8] on top of only a shallow quantization model. More speciﬁcally, we replace theL2 loss used in [72] forLrec by a perceptual loss and introduce an adversarial training pro-",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00037"
+  },
+  {
+    "block_id": "blk_00038",
+    "type": "formula",
+    "content": "cedure with a patch-based discriminatorD [28] that aims to",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00038"
+  },
+  {
+    "block_id": "blk_00039",
+    "type": "paragraph",
+    "content": "differentiate between real and reconstructed images:",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00039"
+  },
+  {
+    "block_id": "blk_00040",
+    "type": "formula",
+    "content": "LGAN({E,G,Z},D ) = [log D(x) + log(1−D(ˆx))] (5)",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00040"
+  },
+  {
+    "block_id": "blk_00041",
+    "type": "paragraph",
+    "content": "The complete objective for ﬁnding the optimal compression",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00041"
+  },
+  {
+    "block_id": "blk_00042",
+    "type": "section_heading",
+    "content": "modelQ∗ ={E∗,G∗,Z∗} then reads",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00042"
+  },
+  {
+    "block_id": "blk_00043",
+    "type": "formula",
+    "content": "Q∗ = arg min",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00043"
+  },
+  {
+    "block_id": "blk_00044",
+    "type": "formula",
+    "content": "E,G,Z max D Ex∼p(x) [ LVQ(E,G,Z) +λLGAN({E,G,Z},D ) ] , (6) where we compute the adaptive weightλ according to",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00044"
+  },
+  {
+    "block_id": "blk_00045",
+    "type": "formula",
+    "content": "λ = ∇GL [Lrec]",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00045"
+  },
+  {
+    "block_id": "blk_00046",
+    "type": "formula",
+    "content": "∇GL [LGAN] +δ (7)",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00046"
+  },
+  {
+    "block_id": "blk_00047",
+    "type": "formula",
+    "content": "whereLrec is the perceptual reconstruction loss [81],∇GL [·]",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00047"
+  },
+  {
+    "block_id": "blk_00048",
+    "type": "paragraph",
+    "content": "denotes the gradient of its input w.r.t. the last layer L of",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00048"
+  },
+  {
+    "block_id": "blk_00049",
+    "type": "formula",
+    "content": "the decoder, and δ = 10−6 is used for numerical stability.",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00049"
+  },
+  {
+    "block_id": "blk_00050",
+    "type": "paragraph",
+    "content": "To aggregate context from everywhere, we apply a single attention layer on the lowest resolution. This training pro- cedure signiﬁcantly reduces the sequence length when un- rolling the latent code and thereby enables the application of powerful transformer models. 3.2. Learning the Composition of Images with Transformers Latent Transformers With E and G available, we can now represent images in terms of the codebook-indices of their encodings. More precisely, the quantized encoding of",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00050"
+  },
+  {
+    "block_id": "blk_00051",
+    "type": "formula",
+    "content": "an image x is given by zq = q(E(x))∈ Rh×w×nz and",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00051"
+  },
+  {
+    "block_id": "blk_00052",
+    "type": "paragraph",
+    "content": "is equivalent to a sequence s∈{ 0,..., |Z|−1}h×w of in- dices from the codebook, which is obtained by replacing each code by its index in the codebookZ:",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00052"
+  },
+  {
+    "block_id": "blk_00053",
+    "type": "formula",
+    "content": "sij =k such that (zq)ij =zk. (8)",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00053"
+  },
+  {
+    "block_id": "blk_00054",
+    "type": "paragraph",
+    "content": "By mapping indices of a sequence s back to their corre-",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00054"
+  },
+  {
+    "block_id": "blk_00055",
+    "type": "formula",
+    "content": "sponding codebook entries, zq =",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00055"
+  },
+  {
+    "block_id": "blk_00056",
+    "type": "paragraph",
+    "content": "( zsij ) is readily recov-",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00056"
+  },
+  {
+    "block_id": "blk_00057",
+    "type": "formula",
+    "content": "ered and decoded to an image ˆx =G(zq).",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00057"
+  },
+  {
+    "block_id": "blk_00058",
+    "type": "paragraph",
+    "content": "Thus, after choosing some ordering of the indices in s, image-generation can be formulated as autoregressive next-index prediction: Given indices s<i, the transformer learns to predict the distribution of possible next indices, i.e. p(si|s<i) to compute the likelihood of the full repre-",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00058"
+  },
+  {
+    "block_id": "blk_00059",
+    "type": "formula",
+    "content": "sentation asp(s) =∏",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00059"
+  },
+  {
+    "block_id": "blk_00060",
+    "type": "paragraph",
+    "content": "ip(si|s<i). This allows us to directly",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00060"
+  },
+  {
+    "block_id": "blk_00061",
+    "type": "formula",
+    "content": "maximize the log-likelihood of the data representations:",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00061"
+  },
+  {
+    "block_id": "blk_00062",
+    "type": "formula",
+    "content": "LTransformer = Ex∼p(x) [− logp(s)]. (9)",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00062"
+  },
+  {
+    "block_id": "blk_00063",
+    "type": "paragraph",
+    "content": "Conditioned Synthesis In many image synthesis tasks a user demands control over the generation process by provid- ing additional information from which an example shall be synthesized. This information, which we will call c, could be a single label describing the overall image class or even another image itself. The task is then to learn the likelihood of the sequence given this informationc:",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00063"
+  },
+  {
+    "block_id": "blk_00064",
+    "type": "formula",
+    "content": "p(s|c) =",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00064"
+  },
+  {
+    "block_id": "blk_00065",
+    "type": "paragraph",
+    "content": "∏ i p(si|s<i,c ). (10) If the conditioning informationc has spatial extent, we ﬁrst learn another VQGAN to obtain again an index-based rep- resentationr∈{ 0,..., |Zc|−1}hc×wc with the newly ob- tained codebookZc Due to the autoregressive structure of the transformer, we can then simply prepend r to s and",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00065"
+  },
+  {
+    "block_id": "blk_00066",
+    "type": "formula",
+    "content": "restrict the computation of the negative log-likelihood to",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00066"
+  },
+  {
+    "block_id": "blk_00067",
+    "type": "paragraph",
+    "content": "entriesp(si|s<i,r ). This “decoder-only” strategy has also been successfully used for text-summarization tasks [44]. Generating High-Resolution Images The attention mechanism of the transformer puts limits on the sequence 4",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00067"
+  },
+  {
+    "block_id": "blk_00068",
+    "type": "caption",
+    "content": "Figure 3. Sliding attention window.",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00068"
+  },
+  {
+    "block_id": "blk_00069",
+    "type": "paragraph",
+    "content": "lengthh·w of its inputss. While we can adapt the number of downsampling blocks m of our VQGAN to reduce",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00069"
+  },
+  {
+    "block_id": "blk_00070",
+    "type": "formula",
+    "content": "images of size H×W toh = H/2m×w = W/2m, we",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00070"
+  },
+  {
+    "block_id": "blk_00071",
+    "type": "paragraph",
+    "content": "observe degradation of the reconstruction quality beyond a critical value of m, which depends on the considered dataset. To generate images in the megapixel regime, we therefore have to work patch-wise and crop images to",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00071"
+  },
+  {
+    "block_id": "blk_00072",
+    "type": "formula",
+    "content": "restrict the length of s to a maximally feasible size during",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00072"
+  },
+  {
+    "block_id": "blk_00073",
+    "type": "paragraph",
+    "content": "training. To sample images, we then use the transformer in a sliding-window manner as illustrated in Fig. 3. Our VQGAN ensures that the available context is still sufﬁcient to faithfully model images, as long as either the statistics of the dataset are approximately spatially invariant or spatial conditioning information is available. In practice, this is not a restrictive requirement, because when it is violated, i.e. unconditional image synthesis on aligned data, we can simply condition on image coordinates, similar to [42]. 4. Experiments This section evaluates the ability of our approach to re- tain the advantages of transformers over their convolutional counterparts (Sec. 4.1) while integrating the effectiveness of convolutional architectures to enable high-resolution im- age synthesis (Sec. 4.2). Furthermore, in Sec. 4.3, we in- vestigate how codebook quality affects our approach. We close the analysis by providing a quantitative comparison to a wide range of existing approches for generative im- age synthesis in Sec. 4.4. Based on initial experiments, we",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00073"
+  },
+  {
+    "block_id": "blk_00074",
+    "type": "formula",
+    "content": "usually set|Z|= 1024 and train all subsequent transformer",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00074"
+  },
+  {
+    "block_id": "blk_00075",
+    "type": "paragraph",
+    "content": "models to predict sequences of length 16· 16, as this is the",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00075"
+  },
+  {
+    "block_id": "blk_00076",
+    "type": "formula",
+    "content": "maximum feasible length to train a GPT2-medium architec-",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00076"
+  },
+  {
+    "block_id": "blk_00077",
+    "type": "paragraph",
+    "content": "ture (307 M parameters) [58] on a GPU with 12GB VRAM. More details on architectures and hyperparameters can be found in the appendix (Tab. 7 and Tab. 8). 4.1. Attention Is All You Need in the Latent Space Transformers show state-of-the-art results on a wide va- riety of tasks, including autoregressive image modeling. However, evaluations of previous works were limited to transformers working directly on (low-resolution) pixels [55, 12, 26], or to deliberately shallow pixel encodings [8]. This raises the question if our approach retains the advan- tages of transformers over convolutional approaches. To answer this question, we use a variety of conditional and unconditional tasks and compare the performance be- tween our transformer-based approach and a convolutional",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00077"
+  },
+  {
+    "block_id": "blk_00078",
+    "type": "formula",
+    "content": "approach. For each task, we train a VQGAN withm = 4",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00078"
+  },
+  {
+    "block_id": "blk_00079",
+    "type": "paragraph",
+    "content": "downsampling blocks, and, if needed, another one for the Negative Log-Likelihood (NLL) Data / # params Transformer P-SNAIL steps Transformer P-SNAIL time PixelSNAIL ﬁxed time RIN / 85M 4.78 4.84 4.96 LSUN-CT / 310M 4.63 4.69 4.89 IN / 310M 4.78 4.83 4.96 D-RIN / 180 M 4.70 4.78 4.88 S-FLCKR / 310 M 4.49 4.57 4.64",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00079"
+  },
+  {
+    "block_id": "blk_00080",
+    "type": "caption",
+    "content": "Table 1. Comparing Transformer and PixelSNAIL architectures",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00080"
+  },
+  {
+    "block_id": "blk_00081",
+    "type": "paragraph",
+    "content": "across different datasets and model sizes. For all settings, trans- formers outperform the state-of-the-art model from the PixelCNN family, PixelSNAIL in terms of NLL. This holds both when com- paring NLL at ﬁxed times (PixelSNAIL trains roughly 2 times faster) and when trained for a ﬁxed number of steps. See Sec. 4.1 for the abbreviations. conditioning information, and then train both a transformer and a PixelSNAIL [10] model on the same representations, as the latter has been used in previous state-of-the-art two- stage approaches [61]. For a thorough comparison, we vary the model capacities between 85M and 310M parameters and adjust the number of layers in each model to match one another. We observe that PixelSNAIL trains roughly twice as fast as the transformer and thus, for a fair comparison,",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00081"
+  },
+  {
+    "block_id": "blk_00082",
+    "type": "formula",
+    "content": "report the negative log-likelihood both for the same amount",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00082"
+  },
+  {
+    "block_id": "blk_00083",
+    "type": "paragraph",
+    "content": "of training time (P-SNAIL time) and for the same amount of training steps (P-SNAIL steps). Results Tab. 1 reports results for unconditional image modeling on ImageNet (IN) [14], Restricted ImageNet (RIN) [65], consisting of a subset of animal classes from ImageNet, LSUN Churches and Towers (LSUN-CT) [79], and for conditional image modeling of RIN conditioned on depth maps obtained with the approach of [60] (D-RIN) and of landscape images collected from Flickr conditioned on semantic layouts (S-FLCKR) obtained with the approach of [7]. Note that for the semantic layouts, we train the ﬁrst-stage using a cross-entropy reconstruction loss due to their discrete nature. The results shows that the transformer consistently outperforms PixelSNAIL across all tasks when trained for the same amount of time and the gap increases even further when trained for the same number of steps. These results demonstrate that gains of transformers carry over to our proposed two-stage setting. 4.2. A Uniﬁed Model for Image Synthesis Tasks The versatility and generality of the transformer architec- ture makes it a promising candidate for image synthesis. In the conditional case, additional information c such as class labels or segmentation maps are used and the goal is to learn the distribution of images as described in Eq. (10). Using the same setting as in Sec. 4.1 (i.e. image size 256× 256, latent size 16× 16), we perform various conditional image synthesis experiments: 5",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00083"
+  },
+  {
+    "block_id": "blk_00084",
+    "type": "paragraph",
+    "content": "conditioning samples",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00084"
+  },
+  {
+    "block_id": "blk_00085",
+    "type": "caption",
+    "content": "Figure 4. Transformers within our setting unify a wide range of",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00085"
+  },
+  {
+    "block_id": "blk_00086",
+    "type": "paragraph",
+    "content": "image synthesis tasks. We show 256× 256 synthesis results across different conditioning inputs and datasets, all obtained with the same approach to exploit inductive biases of effective CNN based VQGAN architectures in combination with the expressiv- ity of transformer architectures. Top row: Completions from un- conditional training on ImageNet. 2nd row: Depth-to-Image on RIN. 3rd row: Semantically guided synthesis on ADE20K. 4th row: Pose-guided person generation on DeepFashion. Bottom row: Class-conditional samples on RIN. (i): Semantic image synthesis , where we condition on semantic segmentation masks of ADE20K [83], a web- scraped landscapes dataset (S-FLCKR) and COCO-Stuff [6]. Results are depicted in Figure 4, 5 and Fig. 6. (ii): Structure-to-image, where we use either depth or edge information to synthesize images from both RIN and IN (see Sec. 4.1). The resulting depth-to-image and edge-to- image translations are visualized in Fig. 4 and Fig. 6. (iii): Pose-guided synthesis: Instead of using the semanti- cally rich information of either segmentation or depth maps,",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00086"
+  },
+  {
+    "block_id": "blk_00087",
+    "type": "caption",
+    "content": "Fig. 4 shows that the same approach as for the previous ex-",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00087"
+  },
+  {
+    "block_id": "blk_00088",
+    "type": "paragraph",
+    "content": "periments can be used to build a shape-conditional genera- tive model on the DeepFashion [45] dataset. (iv): Stochastic superresolution, where low-resolution im- ages serve as the conditioning information and are thereby upsampled. We train our model for an upsampling factor of 8 on ImageNet and show results in Fig. 6. (v): Class-conditional image synthesis: Here, the condi- tioning information c is a single index describing the class label of interest. Results for the RIN and IN dataset are demonstrated in Fig. 4 and Fig. 8, respectively.",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00088"
+  },
+  {
+    "block_id": "blk_00089",
+    "type": "formula",
+    "content": "All of these examples make use of the same methodology.",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00089"
+  },
+  {
+    "block_id": "blk_00090",
+    "type": "paragraph",
+    "content": "Instead of requiring task speciﬁc architectures or modules, the ﬂexibility of the transformer allows us to learn appropri- ate interactions for each task, while the VQGAN — which can be reused across different tasks — leads to short se- quence lengths. In combination, the presented approach can be understood as an efﬁcient, general purpose mechanism for conditional image synthesis. Note that additional results for each experiment can be found in the appendix, Sec. D. High-Resolution Synthesis The sliding window ap- proach introduced in Sec. 3.2 enables image synthesis be- yond a resolution of 256× 256 pixels. We evaluate this approach on unconditional image generation on LSUN-CT and FacesHQ (see Sec. 4.3) and conditional synthesis on D- RIN, COCO-Stuff and S-FLCKR, where we show results in Fig. 1, 6 and the supplementary (Fig. 29-39). Note that this approach can in principle be used to generate images of arbitrary ratio and size, given that the image statistics of the dataset of interest are approximately spatially invari- ant or spatial information is available. Impressive results can be achieved by applying this method to image genera- tion from semantic layouts on S-FLCKR, where a strong",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00090"
+  },
+  {
+    "block_id": "blk_00091",
+    "type": "formula",
+    "content": "VQGAN can be learned with m = 5 , so that its code-",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00091"
+  },
+  {
+    "block_id": "blk_00092",
+    "type": "paragraph",
+    "content": "book together with the conditioning information provides the transformer with enough context for image generation in the megapixel regime. 4.3. Building Context-Rich Vocabularies How important are context-rich vocabularies? To inves- tigate this question, we ran experiments where the trans- former architecture is kept ﬁxed while the amount of con- text encoded into the representation of the ﬁrst stage is var- ied through the number of downsampling blocks of ourVQ- GAN. We specify the amount of context encoded in terms of reduction factor in the side-length between image in- puts and the resulting representations, i.e. a ﬁrst stage en- coding images of size H×W into discrete codes of size",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00092"
+  },
+  {
+    "block_id": "blk_00093",
+    "type": "formula",
+    "content": "H/f×W/f is denoted by a factor f. For f = 1 , we re-",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00093"
+  },
+  {
+    "block_id": "blk_00094",
+    "type": "paragraph",
+    "content": "produce the approach of [8] and replace our VQGAN by a",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00094"
+  },
+  {
+    "block_id": "blk_00095",
+    "type": "formula",
+    "content": "k-means clustering of RGB values withk = 512.",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00095"
+  },
+  {
+    "block_id": "blk_00096",
+    "type": "paragraph",
+    "content": "During training, we always crop images to obtain inputs of size 16× 16 for the transformer, i.e. when modeling im- ages with a factor f in the ﬁrst stage, we use crops of size 16f× 16f. To sample from the models, we always apply them in a sliding window manner as described in Sec. 3. Results Fig. 7 shows results for unconditional synthesis of faces on FacesHQ, the combination of CelebA-HQ [31] and 6",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00096"
+  },
+  {
+    "block_id": "blk_00097",
+    "type": "caption",
+    "content": "Figure 5. Samples generated from semantic layouts on S-FLCKR.",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00097"
+  },
+  {
+    "block_id": "blk_00098",
+    "type": "paragraph",
+    "content": "Sizes from top-to-bottom: 1280× 832, 1024× 416 and 1280×",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00098"
+  },
+  {
+    "block_id": "blk_00099",
+    "type": "formula",
+    "content": "240 pixels. Best viewed zoomed in. A larger visualization can be",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00099"
+  },
+  {
+    "block_id": "blk_00100",
+    "type": "paragraph",
+    "content": "found in the appendix, see Fig 29. FFHQ [33]. It clearly demonstrates the beneﬁts of power- ful VQGANs by increasing the effective receptive ﬁeld of the transformer. For small receptive ﬁelds, or equivalently smallf, the model cannot capture coherent structures. For",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00100"
+  },
+  {
+    "block_id": "blk_00101",
+    "type": "formula",
+    "content": "an intermediate value of f = 8 , the overall structure of",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00101"
+  },
+  {
+    "block_id": "blk_00102",
+    "type": "paragraph",
+    "content": "images can be approximated, but inconsistencies of facial features such as a half-bearded face and of viewpoints in different parts of the image arise. Only our full setting of",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00102"
+  },
+  {
+    "block_id": "blk_00103",
+    "type": "formula",
+    "content": "f = 16 can synthesize high-ﬁdelity samples. For analogous",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00103"
+  },
+  {
+    "block_id": "blk_00104",
+    "type": "paragraph",
+    "content": "results in the conditional setting on S-FLCKR, we refer to the appendix (Fig. 13 and Sec. C). To assess the effectiveness of our approach quantitatively, we compare results between training a transformer directly on pixels, and training it on top of a VQGAN’s latent code",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00104"
+  },
+  {
+    "block_id": "blk_00105",
+    "type": "formula",
+    "content": "withf = 2, given a ﬁxed computational budget. Again, we",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00105"
+  },
+  {
+    "block_id": "blk_00106",
+    "type": "paragraph",
+    "content": "follow [8] and learn a dictionary of 512 RGB values on CI- FAR10 to operate directly on pixel space and train the same transformer architecture on top of ourVQGAN with a latent",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00106"
+  },
+  {
+    "block_id": "blk_00107",
+    "type": "formula",
+    "content": "code of size 16× 16 = 256 . We observe improvements of",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00107"
+  },
+  {
+    "block_id": "blk_00108",
+    "type": "paragraph",
+    "content": "18.63% for FIDs and 14.08× faster sampling of images.",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00108"
+  },
+  {
+    "block_id": "blk_00109",
+    "type": "caption",
+    "content": "Figure 6. Applying the sliding attention window approach (Fig. 3)",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00109"
+  },
+  {
+    "block_id": "blk_00110",
+    "type": "paragraph",
+    "content": "to various conditional image synthesis tasks. Top: Depth-to-image on RIN, 2nd row: Stochastic superresolution on IN, 3rd and 4th row: Semantic synthesis on S-FLCKR, bottom: Edge-guided syn- thesis on IN. The resulting images vary between 368× 496 and 1024× 576, hence they are best viewed zoomed in. Dataset ours SPADE [53] Pix2PixHD (+aug) [75] CRN [9] COCO-Stuff 22.4 22.6/23.9(*) 111.5 (54.2) 70.4 ADE20K 35.5 33.9/35.7(*) 81.8 (41.5) 73.3",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00110"
+  },
+  {
+    "block_id": "blk_00111",
+    "type": "caption",
+    "content": "Table 2. FID score comparison for semantic image synthesis",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00111"
+  },
+  {
+    "block_id": "blk_00112",
+    "type": "paragraph",
+    "content": "(256× 256 pixels). (*): Recalculated with our evaluation protocol based on [50] on the validation splits of each dataset. 4.4. Benchmarking Image Synthesis Results In this section we investigate how our approach quantita- tively compares to existing models for generative image synthesis. In particular, we assess the performance of our model in terms of FID and compare to a variety of estab- lished models (GANs, V AEs, Flows, AR, Hybrid). The results on semantic synthesis are shown in Tab. 2, where we compare to [53, 75, 35, 9], and the results on uncon- ditional face synthesis are shown in Tab. 3. While some task-specialized GAN models report better FID scores, our approach provides a uniﬁed model that works well across a wide range of tasks while retaining the ability to encode and reconstruct images. It thereby bridges the gap between purely adversarial and likelihood-based approaches. 7",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00112"
+  },
+  {
+    "block_id": "blk_00113",
+    "type": "paragraph",
+    "content": "f1 f2 f8 f16 downsampling factor 1.0 3.86 65.81 280.68 speed-up",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00113"
+  },
+  {
+    "block_id": "blk_00114",
+    "type": "caption",
+    "content": "Figure 7. Evaluating the importance of effective codebook for HQ-Faces (CelebA-HQ and FFHQ) for a ﬁxed sequence length|s|= 16·16 =",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00114"
+  },
+  {
+    "block_id": "blk_00115",
+    "type": "paragraph",
+    "content": "256. Globally consistent structures can only be modeled with a context-rich vocabulary (right). All samples are generated with temperature",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00115"
+  },
+  {
+    "block_id": "blk_00116",
+    "type": "formula",
+    "content": "t = 1 .0 and top-k sampling with k = 100 . Last row reports the speedup over the f1 baseline which operates directly on pixels and takes",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00116"
+  },
+  {
+    "block_id": "blk_00117",
+    "type": "paragraph",
+    "content": "7258 seconds to produce a sample on a NVIDIA GeForce GTX Titan X. CelebA-HQ256× 256 FFHQ256× 256",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00117"
+  },
+  {
+    "block_id": "blk_00118",
+    "type": "section_heading",
+    "content": "Method FID ↓ Method FID ↓",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00118"
+  },
+  {
+    "block_id": "blk_00119",
+    "type": "formula",
+    "content": "GLOW [37] 69.0 VDV AE ( t = 0.7) [11] 38.8",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00119"
+  },
+  {
+    "block_id": "blk_00120",
+    "type": "formula",
+    "content": "NV AE [69] 40.3 VDV AE ( t = 1.0) 33.5",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00120"
+  },
+  {
+    "block_id": "blk_00121",
+    "type": "formula",
+    "content": "PIONEER (B.) [23] 39.2 (25.3) VDV AE ( t = 0.8) 29.8",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00121"
+  },
+  {
+    "block_id": "blk_00122",
+    "type": "formula",
+    "content": "NCPV AE [1] 24.8 VDV AE ( t = 0.9) 28.5",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00122"
+  },
+  {
+    "block_id": "blk_00123",
+    "type": "paragraph",
+    "content": "V AEBM [77] 20.4 VQGAN+P.SNAIL 21.9 Style ALAE [56] 19.2 BigGAN 12.4",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00123"
+  },
+  {
+    "block_id": "blk_00124",
+    "type": "formula",
+    "content": "DC-V AE [54] 15.8 ours(k=300) 9.6",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00124"
+  },
+  {
+    "block_id": "blk_00125",
+    "type": "formula",
+    "content": "ours(k=400) 10.2 U-Net GAN (+aug) [66] 10.9 (7.6)",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00125"
+  },
+  {
+    "block_id": "blk_00126",
+    "type": "paragraph",
+    "content": "PGGAN [31] 8.0 StyleGAN2 (+aug) [34] 3.8 (3.6)",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00126"
+  },
+  {
+    "block_id": "blk_00127",
+    "type": "caption",
+    "content": "Table 3. FID score comparison for face image synthesis. CelebA-",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00127"
+  },
+  {
+    "block_id": "blk_00128",
+    "type": "paragraph",
+    "content": "HQ results reproduced from [1, 54, 77, 24], FFHQ from [66, 32]. Autoregressive models are typically sampled with a decod- ing strategy [27] such as beam-search, top-k or nucleus sampling. For most of our results, including those in Tab. 2,",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00128"
+  },
+  {
+    "block_id": "blk_00129",
+    "type": "formula",
+    "content": "we use top-k sampling with k = 100 unless stated other-",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00129"
+  },
+  {
+    "block_id": "blk_00130",
+    "type": "paragraph",
+    "content": "wise. For the results on face synthesis in Tab. 3, we com- puted scores for k∈{ 100, 200, 300, 400, 500} and report",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00130"
+  },
+  {
+    "block_id": "blk_00131",
+    "type": "formula",
+    "content": "the best results, obtained withk = 400 for CelebA-HQ and",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00131"
+  },
+  {
+    "block_id": "blk_00132",
+    "type": "formula",
+    "content": "k = 300 for FFHQ. Fig. 10 in the supplementary shows",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00132"
+  },
+  {
+    "block_id": "blk_00133",
+    "type": "paragraph",
+    "content": "FID and Inception scores as a function ofk. Class-Conditional Synthesis on ImageNet To address a direct comparison with the previous state-of-the-art for au- toregressive modeling of class-conditional image synthesis on ImageNet, VQV AE-2 [61], we train a class-conditional ImageNet transformer on 256× 256 images, using a VQ-",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00133"
+  },
+  {
+    "block_id": "blk_00134",
+    "type": "formula",
+    "content": "GAN with dimZ = 16384 and f = 16 , and addition-",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00134"
+  },
+  {
+    "block_id": "blk_00135",
+    "type": "paragraph",
+    "content": "ally compare to BigGAN [4], IDDPM [49], DCTransformer [48] and ADM [15] in Tab. 4. Note that our model uses ≃ 10× less parameters than VQV AE-2, which has an esti- mated parameter count of 13.5B (estimate based on [67]). Samples of this model for different ImageNet classes are shown in Fig. 8. We observe that the adversarial training of the corresponding VQGAN enables sampling of high- quality images with realistic textures, of comparable or higher quality than existing approaches such as BigGAN and VQV AE-2, see also Fig. 14-17 in the supplementary. Model acceptance rate FID IS",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00135"
+  },
+  {
+    "block_id": "blk_00136",
+    "type": "formula",
+    "content": "mixed k, p = 1.0 1.0 17.04 70.6± 1.8",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00136"
+  },
+  {
+    "block_id": "blk_00137",
+    "type": "formula",
+    "content": "k = 973, p = 1.0 1.0 29.20 47.3± 1.3",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00137"
+  },
+  {
+    "block_id": "blk_00138",
+    "type": "formula",
+    "content": "k = 250, p = 1.0 1.0 15.98 78.6± 1.1",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00138"
+  },
+  {
+    "block_id": "blk_00139",
+    "type": "formula",
+    "content": "k = 973, p = 0.88 1.0 15.78 74.3± 1.8",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00139"
+  },
+  {
+    "block_id": "blk_00140",
+    "type": "formula",
+    "content": "k = 600, p = 1.0 0.05 5.20 280.3± 5.5",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00140"
+  },
+  {
+    "block_id": "blk_00141",
+    "type": "formula",
+    "content": "mixed k, p = 1.0 0.5 10.26 125.5± 2.4",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00141"
+  },
+  {
+    "block_id": "blk_00142",
+    "type": "formula",
+    "content": "mixed k, p = 1.0 0.25 7.35 188.6± 3.3",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00142"
+  },
+  {
+    "block_id": "blk_00143",
+    "type": "formula",
+    "content": "mixed k, p = 1.0 0.05 5.88 304.8± 3.6",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00143"
+  },
+  {
+    "block_id": "blk_00144",
+    "type": "formula",
+    "content": "mixed k, p = 1.0 0.005 6.59 402.7± 2.9",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00144"
+  },
+  {
+    "block_id": "blk_00145",
+    "type": "paragraph",
+    "content": "DCTransformer [48] 1.0 36.5 n/a VQV AE-2 [61] 1.0 ∼31 ∼45 VQV AE-2 n/a ∼10 ∼330 BigGAN [4] 1.0 7.53 168.6± 2.5 BigGAN-deep 1.0 6.84 203.6± 2.6 IDDPM [49] 1.0 12.3 n/a ADM-G, no guid. [15] 1.0 10.94 100.98 ADM-G, 1.0 guid. 1.0 4.59 186.7 ADM-G, 10.0 guid. 1.0 9.11 283.92 val. data 1.0 1.62 234.0± 3.9",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00145"
+  },
+  {
+    "block_id": "blk_00146",
+    "type": "caption",
+    "content": "Table 4. FID score comparison for class-conditional synthesis",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00146"
+  },
+  {
+    "block_id": "blk_00147",
+    "type": "paragraph",
+    "content": "on 256× 256 ImageNet, evaluated between 50k samples and the training split. Classiﬁer-based rejection sampling as in VQV AE-2 uses a ResNet-101 [22] classiﬁer. BigGAN(-deep) evaluated via",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00147"
+  },
+  {
+    "block_id": "blk_00148",
+    "type": "formula",
+    "content": "https://tfhub.dev/deepmind truncated at 1.0. “Mixed”",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00148"
+  },
+  {
+    "block_id": "blk_00149",
+    "type": "paragraph",
+    "content": "k refers to samples generated with different top-k values, herek∈ {100, 200, 250, 300, 350, 400, 500, 600, 800, 973}. Quantitative results are summarized in Tab. 4. We report FID and Inception Scores for the best k/p in top-k/top-p sampling. Following [61], we can further increase quality via classiﬁer-rejection, which keeps only the best m-out- of-n samples in terms of the classiﬁer’s score, i.e. with an acceptance rate of m/n. We use a ResNet-101 classiﬁer [22]. We observe that our model outperforms other autoregres- sive approaches (VQV AE-2, DCTransformer) in terms of FID and IS, surpasses BigGAN and IDDPM even for low rejection rates and yields scores close to the state of the art for higher rejection rates, see also Fig. 9. How good is theVQGAN? Reconstruction FIDs obtained via the codebook provide an estimate on the achievable FID of the generative model trained on it. To quantify the per- 8",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00149"
+  },
+  {
+    "block_id": "blk_00150",
+    "type": "caption",
+    "content": "Figure 8. Samples from our class-conditional ImageNet model trained on 256× 256 images.",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00150"
+  },
+  {
+    "block_id": "blk_00151",
+    "type": "caption",
+    "content": "Figure 9. FID and Inception Score as a function of top-k, nucleus and rejection ﬁltering.",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00151"
+  },
+  {
+    "block_id": "blk_00152",
+    "type": "paragraph",
+    "content": "Model Codebook Size dimZ FID/val FID/train VQV AE-2 64× 64 & 32× 32 512 n/a ∼ 10 DALL-E [59] 32× 32 8192 32.01 33.88 VQGAN 16× 16 1024 7.94 10.54 VQGAN 16× 16 16384 4.98 7.41 VQGAN∗ 32× 32 8192 1.49 3.24 VQGAN 64× 64 & 32× 32 512 1.45 2.78",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00152"
+  },
+  {
+    "block_id": "blk_00153",
+    "type": "caption",
+    "content": "Table 5. FID on ImageNet between reconstructed validation split",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00153"
+  },
+  {
+    "block_id": "blk_00154",
+    "type": "paragraph",
+    "content": "and original validation (FID/val) and training (FID/train) splits.",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00154"
+  },
+  {
+    "block_id": "blk_00155",
+    "type": "formula",
+    "content": "∗trained with Gumbel-Softmax reparameterization as in [59, 29].",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00155"
+  },
+  {
+    "block_id": "blk_00156",
+    "type": "paragraph",
+    "content": "formance gains of our VQGAN over discrete V AEs trained without perceptual and adversarial losses ( e.g. VQV AE-2, DALL-E [59]), we evaluate this metric on ImageNet and report results in Tab. 5. Our VQGAN outperforms non- adversarial models while providing signiﬁcantly more com-",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00156"
+  },
+  {
+    "block_id": "blk_00157",
+    "type": "formula",
+    "content": "pression (seq. length of 256 vs. 5120 = 32 2 + 64 2 for",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00157"
+  },
+  {
+    "block_id": "blk_00158",
+    "type": "formula",
+    "content": "VQV AE-2,256 vs 1024 for DALL-E). As expected, larger",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00158"
+  },
+  {
+    "block_id": "blk_00159",
+    "type": "formula",
+    "content": "versions of VQGAN (either in terms of larger codebook",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00159"
+  },
+  {
+    "block_id": "blk_00160",
+    "type": "paragraph",
+    "content": "sizes or increased code lengths) further improve perfor- mance. Using the same hierarchical codebook setting as in VQV AE-2 with our model provides the best reconstruction FID, albeit at the cost of a very long and thus impractical sequence. The qualitative comparison corresponding to the results in Tab. 5 can be found in Fig. 12. 5. Conclusion This paper adressed the fundamental challenges that previ- ously conﬁned transformers to low-resolution images. We proposed an approach which represents images as a compo- sition of perceptually rich image constituents and thereby overcomes the infeasible quadratic complexity when mod- eling images directly in pixel space. Modeling constituents with a CNN architecture and their compositions with a transformer architecture taps into the full potential of their complementary strengths and thereby allowed us to rep- resent the ﬁrst results on high-resolution image synthesis with a transformer-based architecture. In experiments, our approach demonstrates the efﬁciency of convolutional in- ductive biases and the expressivity of transformers by syn-",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00160"
+  },
+  {
+    "block_id": "blk_00161",
+    "type": "formula",
+    "content": "thesizing images in the megapixel range and outperforming",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00161"
+  },
+  {
+    "block_id": "blk_00162",
+    "type": "paragraph",
+    "content": "state-of-the-art convolutional approaches. Equipped with a general mechanism for conditional synthesis, it offers many opportunities for novel neural rendering approaches. This work has been supported by the German Research Foundation (DFG) projects 371923335, 421703927 and a hardware donation from NVIDIA corporation. 9",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00162"
+  },
+  {
+    "block_id": "blk_00163",
+    "type": "formula",
+    "content": "Taming Transformers for High-Resolution",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00163"
+  },
+  {
+    "block_id": "blk_00164",
+    "type": "paragraph",
+    "content": "Image Synthesis – Supplementary Material",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00164"
+  },
+  {
+    "block_id": "blk_00165",
+    "type": "formula",
+    "content": "The supplementary material for our workTaming Transformers for High-Resolution Image Synthesisis structured as follows:",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00165"
+  },
+  {
+    "block_id": "blk_00166",
+    "type": "paragraph",
+    "content": "First, Sec. A summarizes changes to a previous version of this paper. In Sec. B, we present hyperparameters and architectures which were used to train our models. Next, extending the discussion of Sec. 4.3, Sec. C presents additional evidence for the importance of perceptually rich codebooks and its interpretation as a trade-off between reconstruction ﬁdelity and sampling capability. Additional results on high-resolution image synthesis for a wide range of tasks are then presented in Sec. D, and Sec. E shows nearest neighbors of samples. Finally, Sec. F contains results regarding the ordering of image representations.",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00166"
+  },
+  {
+    "block_id": "blk_00167",
+    "type": "formula",
+    "content": "A. Changelog",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00167"
+  },
+  {
+    "block_id": "blk_00168",
+    "type": "paragraph",
+    "content": "We summarize changes between this version 1 of the paper and its previous version 2.",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00168"
+  },
+  {
+    "block_id": "blk_00169",
+    "type": "formula",
+    "content": "In the previous version, Eq. (4) had a weighting termβ on the commitment loss, and Tab. 8 reported a value ofβ = 0.25",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00169"
+  },
+  {
+    "block_id": "blk_00170",
+    "type": "formula",
+    "content": "for all models. However, due to a bug in the implementation,β was never used and all models have been trained withβ = 1.0.",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00170"
+  },
+  {
+    "block_id": "blk_00171",
+    "type": "paragraph",
+    "content": "Thus, we removedβ in Eq. (4). We updated class-conditional synthesis results on ImageNet in Sec. 4.4. The previous results, included here in Tab. 6 for completeness, were based on a slightly different implementation where the transformer did not predict the distribution of the ﬁrst token but used a histogram for it. The new model has been trained for 2.4 million steps with a batch size of 16 accumulated over 8 batches, which took 45.8 days on a single A100 GPU. The previous model had been trained for 1.0 million steps. Furthermore, the FID values were based on 50k (18k) samples against 50k (18k) training examples (to compare with MSP). For better comparison with other works, the current version reports FIDs based on 50k samples against all training examples of ImageNet using torch-fidelity [50]. We updated all qualitative ﬁgures showing samples from this model and added visualizations of the effect of tuning top-k/p or rejection rate in Fig. 14-26. To provide a better overview, we also include results from works that became available after the previous version of our work. Speciﬁcally, we include results on reconstruction quality of the VQV AE from [59] in Tab. 5 and Fig. 12 (which replaces the previous qualitative comparison), and results on class-conditional ImageNet sampling from [49, 48, 15] in Tab. 4. Note that with the exception of BigGAN and BigGAN-deep [4], no models or sampling results are available for the methods we compare to in Tab. 4. Thus, we can only report the numbers from the respective papers but cannot re-evaluate them with the same code. We follow the common evaluation protocol for class-conditional ImageNet synthesis from [4] and evaluate 50k samples from the model against the whole training split of ImageNet. However, it is not clear how different implementations",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00171"
+  },
+  {
+    "block_id": "blk_00172",
+    "type": "formula",
+    "content": "resize the training images. In our code, we use the largest center-crop and resize it bilinearly with anti-aliasing to 256× 256",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00172"
+  },
+  {
+    "block_id": "blk_00173",
+    "type": "paragraph",
+    "content": "using Pillow [73]. FID and Inception Scores are then computed with torch-fidelity [50]. We updated face-synthesis results in Tab. 3 based on a slightly different implementation as in the case of class-conditional ImageNet results and improve the previous results slightly. In addition, we evaluate the ability of our NLL-based training to",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00173"
+  },
+  {
+    "block_id": "blk_00174",
+    "type": "formula",
+    "content": "detect overﬁtting. We train larger models (FFHQ (big) and CelebA-HQ (big) in Tab. 8) on the face datasets, and show nearest",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00174"
+  },
+  {
+    "block_id": "blk_00175",
+    "type": "paragraph",
+    "content": "neighbors of samples obtained from checkpoints with the best NLL on the validation split and the training split in Sec. E. We also added Fig. 10, which visualizes the effect of tuningk in top-k sampling on FID and IS. B. Implementation Details The hyperparameters for all experiments presented in the main paper and supplementary material can be found in Tab. 8. Except for the c-IN (big), COCO-Stuff and ADE20K models, these hyperparameters are set such that each transformer model can be trained with a batch-size of at least 2 on a GPU with 12GB VRAM, but we generally train on 2-4 GPUs with an accumulated VRAM of 48 GB. If hardware permits, 16-bit precision training is enabled. 1https://arxiv.org/abs/2012.09841v3 2https://arxiv.org/abs/2012.09841v2 10",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00175"
+  },
+  {
+    "block_id": "blk_00176",
+    "type": "paragraph",
+    "content": "Dataset ours-previous (+R) BigGAN (-deep) MSP IN 256, 50K 19.8 (11.2) 7.1 (7.3) n.a. IN 256, 18K 23.5 9.6 (9.7) 50.4 Dataset ours-previous ours-new CelebA-HQ 256 10.7 10.2 FFHQ 256 11.4 9.6",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00176"
+  },
+  {
+    "block_id": "blk_00177",
+    "type": "caption",
+    "content": "Table 6. Results from a previous version of this paper, see also Sec. A. Left: Previous results on class-conditional ImageNet synthesis",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00177"
+  },
+  {
+    "block_id": "blk_00178",
+    "type": "paragraph",
+    "content": "with a slightly different implementation and evaluated against 50k and 18k training examples instead of the whole training split. See Tab. 4 for new, improved results evaluated against the whole training split. Right: Previous results on face-synthesis with a slightly different implementation compared to the new implementation. See also Tab. 3 for comparison with other methods.",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00178"
+  },
+  {
+    "block_id": "blk_00179",
+    "type": "caption",
+    "content": "Figure 10. FID and Inception Score as a function of top-k for CelebA-HQ (left) and FFHQ (right).",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00179"
+  },
+  {
+    "block_id": "blk_00180",
+    "type": "paragraph",
+    "content": "Encoder Decoder x∈ RH×W×C zq∈ Rh×w×nz Conv2D→ RH×W×C′ Conv2D→ Rh×w×C′′ m×{ Residual Block, Downsample Block}→ Rh×w×C′′ Residual Block→ Rh×w×C′′ Residual Block→ Rh×w×C′′ Non-Local Block→ Rh×w×C′′ Non-Local Block→ Rh×w×C′′ Residual Block→ Rh×w×C′′ Residual Block→ Rh×w×C′′ m×{ Residual Block, Upsample Block}→ RH×W×C′ GroupNorm, Swish, Conv2D→ Rh×w×nz GroupNorm, Swish, Conv2D→ RH×W×C",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00180"
+  },
+  {
+    "block_id": "blk_00181",
+    "type": "caption",
+    "content": "Table 7. High-level architecture of the encoder and decoder of our VQGAN. The design of the networks follows the architecture presented",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00181"
+  },
+  {
+    "block_id": "blk_00182",
+    "type": "formula",
+    "content": "in [25] with no skip-connections. For the discriminator, we use a patch-based model as in [28]. Note that h = H",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00182"
+  },
+  {
+    "block_id": "blk_00183",
+    "type": "formula",
+    "content": "2m , w = W",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00183"
+  },
+  {
+    "block_id": "blk_00184",
+    "type": "formula",
+    "content": "2m and f = 2 m.",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00184"
+  },
+  {
+    "block_id": "blk_00185",
+    "type": "paragraph",
+    "content": "VQGAN Architecture The architecture of our convolutional encoder and decoder models used in theVQGAN experiments is described in Tab. 7. Note that we adopt the compression rate by tuning the number of downsampling stepsm. Further note thatλ in Eq. 5 is set to zero in an initial warm-up phase. Empirically, we found that longer warm-ups generally lead to better",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00185"
+  },
+  {
+    "block_id": "blk_00186",
+    "type": "formula",
+    "content": "reconstructions. As a rule of thumb, we recommend settingλ = 0 for at least one epoch.",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00186"
+  },
+  {
+    "block_id": "blk_00187",
+    "type": "paragraph",
+    "content": "Transformer Architecture Our transformer model is identical to the GPT2 architecture [58] and we vary its capacity mainly through varying the amount of layers (see Tab. 8). Furthermore, we generally produce samples with a temperature",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00187"
+  },
+  {
+    "block_id": "blk_00188",
+    "type": "formula",
+    "content": "t = 1.0 and a top-k cutoff atk = 100 (with higher top-k values for larger codebooks).",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00188"
+  },
+  {
+    "block_id": "blk_00189",
+    "type": "paragraph",
+    "content": "C. On Context-Rich Vocabularies",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00189"
+  },
+  {
+    "block_id": "blk_00190",
+    "type": "formula",
+    "content": "Sec. 4.3 investigated the effect of the downsampling factor f used for encoding images. As demonstrated in Fig. 7, large",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00190"
+  },
+  {
+    "block_id": "blk_00191",
+    "type": "paragraph",
+    "content": "factors are crucial for our approach, since they enable the transformer to model long-range interactions efﬁciently. However,",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00191"
+  },
+  {
+    "block_id": "blk_00192",
+    "type": "formula",
+    "content": "since larger f correspond to larger compression rates, the reconstruction quality of the VQGAN starts to decrease after a",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00192"
+  },
+  {
+    "block_id": "blk_00193",
+    "type": "paragraph",
+    "content": "certain point, which is analyzed in Fig. 11. The left part shows the reconstruction error (measured by LPIPS [81]) versus the",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00193"
+  },
+  {
+    "block_id": "blk_00194",
+    "type": "formula",
+    "content": "negative log-likelihood obtained by the transformer for values off ranging from 1 to 64. The latter provides a measure of the",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00194"
+  },
+  {
+    "block_id": "blk_00195",
+    "type": "paragraph",
+    "content": "ability to model the distribution of the image representation, which increases with f. The reconstruction error on the other",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00195"
+  },
+  {
+    "block_id": "blk_00196",
+    "type": "formula",
+    "content": "hand decreases withf and the qualitative results on the right part show that beyond a critical value off, in this casef = 16,",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00196"
+  },
+  {
+    "block_id": "blk_00197",
+    "type": "paragraph",
+    "content": "reconstruction errors become severe. At this point, even when the image representations are modeled faithfully, as suggested",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00197"
+  },
+  {
+    "block_id": "blk_00198",
+    "type": "formula",
+    "content": "by a low negative log-likelihood, sampled images are of low-ﬁdelity, because the reconstruction capabilities provide an upper",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00198"
+  },
+  {
+    "block_id": "blk_00199",
+    "type": "paragraph",
+    "content": "bound on the quality that can be achieved.",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00199"
+  },
+  {
+    "block_id": "blk_00200",
+    "type": "formula",
+    "content": "Hence, Fig. 11 shows that we must learn perceptually rich encodings,i.e. encodings with a largef and perceptually faithful",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00200"
+  },
+  {
+    "block_id": "blk_00201",
+    "type": "paragraph",
+    "content": "reconstructions. This is the goal of our VQGAN and Fig. 12 compares its reconstruction capabilities against the VQV AE [72] 11",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00201"
+  },
+  {
+    "block_id": "blk_00202",
+    "type": "paragraph",
+    "content": "Experiment nlayer # params [M ] nz |Z| dropout length (s) ne m RIN 12 85 64 768 0.0 512 1024 4 c-RIN 18 128 64 768 0.0 257 768 4 D-RINv1 14 180 256 1024 0.0 512 768 4 D-RINv2 24 307 256 1024 0.0 512 1024 4 IN 24 307 256 1024 0.0 256 1024 4 c-IN 24 307 256 1024 0.0 257 1024 4 c-IN (big) 48 1400 256 16384 0.0 257 1536 4 IN-Edges 24 307 256 1024 0.0 512 1024 3 IN-SR 12 153 256 1024 0.0 512 1024 3",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00202"
+  },
+  {
+    "block_id": "blk_00203",
+    "type": "formula",
+    "content": "S-FLCKR,f = 4 24 307 256 1024 0.0 512 1024 2",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00203"
+  },
+  {
+    "block_id": "blk_00204",
+    "type": "formula",
+    "content": "S-FLCKR,f = 16 24 307 256 1024 0.0 512 1024 4",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00204"
+  },
+  {
+    "block_id": "blk_00205",
+    "type": "formula",
+    "content": "S-FLCKR,f = 32 24 307 256 1024 0.0 512 1024 5",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00205"
+  },
+  {
+    "block_id": "blk_00206",
+    "type": "formula",
+    "content": "(FacesHQ, f = 1)∗ 24 307 – 512 0.0 512 1024 –",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00206"
+  },
+  {
+    "block_id": "blk_00207",
+    "type": "formula",
+    "content": "FacesHQ,f = 2 24 307 256 1024 0.0 512 1024 1",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00207"
+  },
+  {
+    "block_id": "blk_00208",
+    "type": "formula",
+    "content": "FacesHQ,f = 4 24 307 256 1024 0.0 512 1024 2",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00208"
+  },
+  {
+    "block_id": "blk_00209",
+    "type": "formula",
+    "content": "FacesHQ,f = 8 24 307 256 1024 0.0 512 1024 3",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00209"
+  },
+  {
+    "block_id": "blk_00210",
+    "type": "formula",
+    "content": "FacesHQ∗∗,f = 16 24 307 256 1024 0.0 512 1024 4",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00210"
+  },
+  {
+    "block_id": "blk_00211",
+    "type": "formula",
+    "content": "FFHQ∗∗,f = 16 28 355 256 1024 0.0 256 1024 4",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00211"
+  },
+  {
+    "block_id": "blk_00212",
+    "type": "formula",
+    "content": "CelebA-HQ∗∗,f = 16 28 355 256 1024 0.0 256 1024 4",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00212"
+  },
+  {
+    "block_id": "blk_00213",
+    "type": "paragraph",
+    "content": "FFHQ (big) 24 801 256 1024 0.0 256 1664 4 CelebA-HQ (big) 24 801 256 1024 0.0 256 1664 4 COCO-Stuff 32 651 256 8192 0.0 512 1280 4 ADE20K 28 405 256 4096 0.1 512 1024 4 DeepFashion 18 129 256 1024 0.0 340 768 4 LSUN-CT 24 307 256 1024 0.0 256 1024 4 CIFAR-10 24 307 256 1024 0.0 256 1024 1",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00213"
+  },
+  {
+    "block_id": "blk_00214",
+    "type": "caption",
+    "content": "Table 8. Hyperparameters. For every experiment, we set the number of attention heads in the transformer to nh = 16. nlayer denotes the",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00214"
+  },
+  {
+    "block_id": "blk_00215",
+    "type": "paragraph",
+    "content": "number of transformer blocks, # params the number of transformer parameters,nz the dimensionality of codebook entries,|Z| the number of codebook entries, dropout the dropout rate for training the transformer, length (s) the total length of the sequence, ne the embedding dimensionality and m the number of downsampling steps in the VQGAN. D-RINv1 is the experiment which compares to Pixel-SNAIL in",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00215"
+  },
+  {
+    "block_id": "blk_00216",
+    "type": "formula",
+    "content": "Sec. 4.1. Note that the experiment (FacesHQ, f = 1) ∗ does not use a learned VQGAN but a ﬁxed k-means clustering algorithm as in [8]",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00216"
+  },
+  {
+    "block_id": "blk_00217",
+    "type": "formula",
+    "content": "with K = 512 centroids. A preﬁx “c” refers to a class-conditional model. The models marked with a ‘∗∗‘ are trained on the sameVQGAN.",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00217"
+  },
+  {
+    "block_id": "blk_00218",
+    "type": "formula",
+    "content": "used in DALL-E [59]. We observe that for f = 8 and 8192 codebook entries, both the VQV AE and VQGAN capture the",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00218"
+  },
+  {
+    "block_id": "blk_00219",
+    "type": "paragraph",
+    "content": "global structure faithfully. However, the textures produced by the VQV AE are blurry, whereas those of theVQGAN are crisp and realistic looking (e.g. the stone texture and the fur and tail of the squirrel). When we increase the compression rate of the",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00219"
+  },
+  {
+    "block_id": "blk_00220",
+    "type": "formula",
+    "content": "VQGAN further to f = 16 , we see that some reconstructed parts are not perfectly aligned with the input anymore ( e.g. the",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00220"
+  },
+  {
+    "block_id": "blk_00221",
+    "type": "formula",
+    "content": "paw of the squirrel), but, especially with slightly larger codebooks, the reconstructions still look realistic. This demonstrates",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00221"
+  },
+  {
+    "block_id": "blk_00222",
+    "type": "formula",
+    "content": "how the VQGAN provides high-ﬁdelity reconstructions at large factors, and thereby enables efﬁcient high-resolution image",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00222"
+  },
+  {
+    "block_id": "blk_00223",
+    "type": "paragraph",
+    "content": "synthesis with transformers. To illustrate how the choice off depends on the dataset, Fig. 13 presents results on S-FLCKR. In the left part, it shows,",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00223"
+  },
+  {
+    "block_id": "blk_00224",
+    "type": "formula",
+    "content": "analogous to Fig. 7, how the quality of samples increases with increasing f. However, in the right part, it shows that",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00224"
+  },
+  {
+    "block_id": "blk_00225",
+    "type": "paragraph",
+    "content": "reconstructions remain faithful perceptually faithful even for f 32, which is in contrast to the corresponding results on faces in Fig. 11. These results might be explained by a higher perceptual sensitivity to facial features as compared to textures, and",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00225"
+  },
+  {
+    "block_id": "blk_00226",
+    "type": "formula",
+    "content": "allow us to generate high-resolution landscapes even more efﬁciently withf = 32.",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00226"
+  },
+  {
+    "block_id": "blk_00227",
+    "type": "paragraph",
+    "content": "D. Additional Results Qualitative Comparisons The qualitative comparison corresponding to Tab. 4 and Tab. 6 can be found in Fig. 14, 15, 16 and 17. Since no models are available for VQV AE-2 and MSP, we extracted results directly from the supplementary 3 and",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00227"
+  },
+  {
+    "block_id": "blk_00228",
+    "type": "formula",
+    "content": "3https://drive.google.com/file/d/1H2nr_Cu7OK18tRemsWn_6o5DGMNYentM/view?usp=sharing",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00228"
+  },
+  {
+    "block_id": "blk_00229",
+    "type": "paragraph",
+    "content": "12",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00229"
+  },
+  {
+    "block_id": "blk_00230",
+    "type": "paragraph",
+    "content": "from the provided samples 4, respectively. For BigGAN, we produced the samples via the provided model 5. Similarly, the qualitative comparison with the best competitor model (SPADE) for semantic synthesis on standard benchmarks (see Tab. 2) can be found in Fig. 40 (ADE20K) and Fig. 41 (COCO-Stuff)6. Comparison to Image-GPT To further evaluate the effectiveness of our approach, we compare to the state-of-the-art generative transformer model on images, ImageGPT [8]. By using immense amounts of compute the authors demonstrated that transformer models can be applied to the pixel-representation of images and thereby achieved impressive results both in representation learning and image synthesis. However, as their approach is conﬁned to pixel-space, it does not scale beyond a resolution of 192× 192. As our approach leverages a strong compression method to obtain context-rich representations of images and then learns a transformer model, we can synthesize images of much higher resolution. We compare both approaches in Fig. 27 and Fig. 28, where completions of images are depicted. Both plots show that our approach is able to synthesize consistent completions of dramatically increased ﬁdelity. The results of [8] are obtained from https://",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00230"
+  },
+  {
+    "block_id": "blk_00231",
+    "type": "formula",
+    "content": "openai.com/blog/image-gpt/.",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00231"
+  },
+  {
+    "block_id": "blk_00232",
+    "type": "paragraph",
+    "content": "Additional High-Resolution Results Fig. 29, 30, 31 and Fig. 32 contain additional HR results on the S-FLCKR dataset",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00232"
+  },
+  {
+    "block_id": "blk_00233",
+    "type": "formula",
+    "content": "for bothf = 16 (m = 4) andf = 32 (m = 5) (semantically guided). In particular, we provide an enlarged version of Fig. 5",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00233"
+  },
+  {
+    "block_id": "blk_00234",
+    "type": "paragraph",
+    "content": "from the main text, which had to be scaled down due to space constraints. Additionally, we use our sliding window approach (see Sec. 3) to produce high-resolution samples for the depth-to-image setting on RIN in Fig. 33 and Fig. 34, edge-to-image on IN in Fig. 35, stochastic superresolution on IN in Fig. 36, more examples on semantically guided landscape synthesis",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00234"
+  },
+  {
+    "block_id": "blk_00235",
+    "type": "formula",
+    "content": "on S-FLCKR in Fig. 37 with f = 16 and in Fig. 38 with f = 32 , and unconditional image generation on LSUN-CT (see",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00235"
+  },
+  {
+    "block_id": "blk_00236",
+    "type": "paragraph",
+    "content": "Sec. 4.1) in Fig. 39. Moreover, for images of size 256× 256, we provide results for generation from semantic layout on (i) ADE20K in Fig. 40 and (ii) COCO-Stuff in Fig. 41, depth-to-image on IN in Fig. 42, pose-guided person generation in",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00236"
+  },
+  {
+    "block_id": "blk_00237",
+    "type": "caption",
+    "content": "Fig. 43 and class-conditional synthesis on RIN in Fig. 44.",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00237"
+  },
+  {
+    "block_id": "blk_00238",
+    "type": "paragraph",
+    "content": "E. Nearest Neighbors of Samples One advantage of likelihood-based generative models over, e.g., GANs is the ability to evaluate NLL on training data and",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00238"
+  },
+  {
+    "block_id": "blk_00239",
+    "type": "formula",
+    "content": "validation data to detect overﬁtting. To test this, we trained large models for face synthesis, which can easily overﬁt them,",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00239"
+  },
+  {
+    "block_id": "blk_00240",
+    "type": "paragraph",
+    "content": "and retained two checkpoints on each dataset: One for the best validation NLL (at the 10th and 13th epoch for FFHQ and CelebA-HQ, respectively), and another for the best training NLL (at epoch 1000). We then produced samples from both checkpoints and retrieved nearest neighbors from the training data based on the LPIPS similarity metric [81]. The results are shown in Fig. 45, where it can be observed that the checkpoints with best training NLL (best train NLL) reproduce the training examples, whereas samples from the checkpoints with best validation NLL (best val. NLL) depict new faces which are not found in the training data. Based on these results, we can conclude that early-stopping based on validation NLL can prevent overﬁtting. Furthermore, the bottleneck for our approach on face synthesis is given by the dataset size since it has the capacity to almost perfectly ﬁt the training data. Unfortunately, FID scores cannot detect such an overﬁtting. Indeed, the best train NLL checkpoints achieve FID scores of 3.86 on CelebA-HQ and 2.68 on FFHQ, compared to 10.2 and 9.6 for the best val. NLL checkpoints. While validation NLL provides a way to detect overﬁtting for likelihood-based models, it is not clear if early-stopping based on it is optimal if one is mainly interested in the quality of samples. To address this and the evaluation of GANs, new metrics will be required which can differentiate between models that produce new, high-quality samples and those that simply reproduce the training data. Our class-conditional ImageNet model does not display overﬁtting according to validation NLL, and the nearest neighbors shown in Fig. 46 also provide evidence that the model produces new, high-quality samples. F. On the Ordering of Image Representations For the “classical” domain of transformer models, NLP, the order of tokens is deﬁned by the language at hand. For images and their discrete representations, in contrast, it is not clear which linear ordering to use. In particular, our sliding-window approach depends on a row-major ordering and we thus investigate the performance of the following ﬁve different permu- tations of the input sequence of codebook indices: (i) row major, or raster scan order, where the image representation is 4https://bit.ly/2FJkvhJ",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00240"
+  },
+  {
+    "block_id": "blk_00241",
+    "type": "formula",
+    "content": "5https://tfhub.dev/deepmind/biggan-deep-256/1",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00241"
+  },
+  {
+    "block_id": "blk_00242",
+    "type": "paragraph",
+    "content": "6samples were reproduced with the authors’ ofﬁcial implementation available athttps://github.com/nvlabs/spade/ 13",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00242"
+  },
+  {
+    "block_id": "blk_00243",
+    "type": "paragraph",
+    "content": "unrolled from top left to bottom right. (ii) spiral out, which incorporates the prior assumption that most images show a centered object. (iii) z-curve, also known as z-order or morton curve, which introduces the prior of preserved locality when mapping a 2D image representation onto a 1D sequence. (iv) subsample, where preﬁxes correspond to subsampled repre- sentations, see also [46]. (v) alternate, which is related to row major, but alternates the direction of unrolling every row. (vi) spiral in, a reversed version ofspiral out which provides the most context for predicting the center of the image. A graphical visualization of these permutation variants is shown in Fig. 47. Given aVQGAN trained on ImageNet, we train a transformer for each permutation in a controlled setting, i.e. we ﬁx initialization and computational budget.",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00243"
+  },
+  {
+    "block_id": "blk_00244",
+    "type": "formula",
+    "content": "Results Fig.47 depicts the evolution of negative log-likelihood for each variant as a function of training iterations, with",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00244"
+  },
+  {
+    "block_id": "blk_00245",
+    "type": "paragraph",
+    "content": "ﬁnal values given by (i) 4.767, (ii) 4.889, (iii) 4.810, (iv) 5.015, (v) 4.812, (vi) 4.901. Interestingly,row major performs best in terms of this metric, whereas the more hierarchical subsample prior does not induce any helpful bias. We also include",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00245"
+  },
+  {
+    "block_id": "blk_00246",
+    "type": "formula",
+    "content": "qualitative samples in Fig. 48 and observe that the two worst performing models in terms of NLL ( subsample and spiral in)",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00246"
+  },
+  {
+    "block_id": "blk_00247",
+    "type": "paragraph",
+    "content": "tend to produce more textural samples, while the other variants synthesize samples with much more recognizable structures. Overall, we can conclude that the autoregressive codebook modeling isnot permutation-invariant, but the commonrow major ordering [71, 8] outperforms other orderings. 14",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00247"
+  },
+  {
+    "block_id": "blk_00248",
+    "type": "paragraph",
+    "content": "0.0 0.2 0.4 0.6 0.8 reconstruction error 102 103 104 105",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00248"
+  },
+  {
+    "block_id": "blk_00249",
+    "type": "formula",
+    "content": "negative log-likelihood",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00249"
+  },
+  {
+    "block_id": "blk_00250",
+    "type": "paragraph",
+    "content": "area of high-ﬁdelity area of low-ﬁdelity f1 f2 f4 f8 f16 f32 f64 f2 f4 f8 f16 f32 f64 recon- struction sample samples rec. error 0.11± 0.02 0 .20± 0.03 0 .23± 0.04 0 .38± 0.07 0 .63± 0.08 0 .66± 0.11 nll 5.66· 104 1.29· 104 4.10· 103 2.32· 103 2.28· 102 6.75· 101",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00250"
+  },
+  {
+    "block_id": "blk_00251",
+    "type": "caption",
+    "content": "Figure 11. Trade-off between negative log-likelihood (nll) and reconstruction error. While context-rich encodings obtained with large",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00251"
+  },
+  {
+    "block_id": "blk_00252",
+    "type": "paragraph",
+    "content": "factors f allow the transformer to effectively model long-range interactions, the reconstructions capabilities and hence quality of samples",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00252"
+  },
+  {
+    "block_id": "blk_00253",
+    "type": "formula",
+    "content": "suffer after a critical value (here, f = 16). For more details, see Sec. C.",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00253"
+  },
+  {
+    "block_id": "blk_00254",
+    "type": "caption",
+    "content": "Figure 12. Comparing reconstruction capabilities between VQV AEs andVQGANs. Numbers in parentheses denote compression factor and",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00254"
+  },
+  {
+    "block_id": "blk_00255",
+    "type": "paragraph",
+    "content": "codebook size. With the same compression factor and codebook size, VQGANs produce more realistic reconstructions compared to blurry reconstructions of VQV AEs. This enables increased compression rates forVQGAN while retaining realistic reconstructions. See Sec. C. f4 f16 f32 factor reconstructions f4 f16 f32",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00255"
+  },
+  {
+    "block_id": "blk_00256",
+    "type": "caption",
+    "content": "Figure 13. Samples on landscape dataset (left) obtained with different factorsf, analogous to Fig. 7. In contrast to faces, a factor off = 32",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00256"
+  },
+  {
+    "block_id": "blk_00257",
+    "type": "paragraph",
+    "content": "still allows for faithful reconstructions (right). See also Sec. C. 15",
+    "page": 15,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00257"
+  },
+  {
+    "block_id": "blk_00258",
+    "type": "paragraph",
+    "content": "ours VQV AE-2 [61] BigGAN [4] MSP [19]",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00258"
+  },
+  {
+    "block_id": "blk_00259",
+    "type": "caption",
+    "content": "Figure 14. Qualitative assessment of various models for class-conditional image synthesis on ImageNet. Depicted classes: 28: spotted",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00259"
+  },
+  {
+    "block_id": "blk_00260",
+    "type": "paragraph",
+    "content": "salamander (top) and 97: drake (bottom). We report class labels as in VQV AE-2 [61]. 16",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00260"
+  },
+  {
+    "block_id": "blk_00261",
+    "type": "paragraph",
+    "content": "ours VQV AE-2 [61] BigGAN [4] MSP [19]",
+    "page": 17,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00261"
+  },
+  {
+    "block_id": "blk_00262",
+    "type": "caption",
+    "content": "Figure 15. Qualitative assessment of various models for class-conditional image synthesis on ImageNet. Depicted classes: 108: sea",
+    "page": 17,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00262"
+  },
+  {
+    "block_id": "blk_00263",
+    "type": "paragraph",
+    "content": "anemone (top) and 141: redshank (bottom). We report class labels as in VQV AE-2 [61]. 17",
+    "page": 17,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00263"
+  },
+  {
+    "block_id": "blk_00264",
+    "type": "paragraph",
+    "content": "ours VQV AE-2 [61] BigGAN [4] MSP [19]",
+    "page": 18,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00264"
+  },
+  {
+    "block_id": "blk_00265",
+    "type": "caption",
+    "content": "Figure 16. Qualitative assessment of various models for class-conditional image synthesis on ImageNet. Depicted classes: 11: goldﬁnch",
+    "page": 18,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00265"
+  },
+  {
+    "block_id": "blk_00266",
+    "type": "paragraph",
+    "content": "(top) and 22: bald eagle (bottom). 18",
+    "page": 18,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00266"
+  },
+  {
+    "block_id": "blk_00267",
+    "type": "paragraph",
+    "content": "ours VQV AE-2 [61] BigGAN [4] MSP [19]",
+    "page": 19,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00267"
+  },
+  {
+    "block_id": "blk_00268",
+    "type": "caption",
+    "content": "Figure 17. Qualitative assessment of various models for class-conditional image synthesis on ImageNet. Depicted classes: 0: tench (top)",
+    "page": 19,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00268"
+  },
+  {
+    "block_id": "blk_00269",
+    "type": "paragraph",
+    "content": "and 9: ostrich (bottom). 19",
+    "page": 19,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00269"
+  },
+  {
+    "block_id": "blk_00270",
+    "type": "paragraph",
+    "content": "933: cheeseburger acc. rate 1.0 acc. rate 0.5 acc. rate 0.1 992: agaric acc. rate 1.0 acc. rate 0.5 acc. rate 0.1 200: tibetian terrier acc. rate 1.0 acc. rate 0.5 acc. rate 0.1",
+    "page": 20,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00270"
+  },
+  {
+    "block_id": "blk_00271",
+    "type": "caption",
+    "content": "Figure 18. Visualizing the effect of increased rejection rate ( i.e. lower acceptance rate) by using a ResNet-101 classiﬁer trained on",
+    "page": 20,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00271"
+  },
+  {
+    "block_id": "blk_00272",
+    "type": "paragraph",
+    "content": "ImageNet and samples from our class-conditional ImageNet model. Higher rejection rates tend to produce images showing more central,",
+    "page": 20,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00272"
+  },
+  {
+    "block_id": "blk_00273",
+    "type": "formula",
+    "content": "recognizable objects compared to the unguided samples. Here, k = 973 , p = 1 .0 are ﬁxed for all samples. Note that k = 973 is the",
+    "page": 20,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00273"
+  },
+  {
+    "block_id": "blk_00274",
+    "type": "formula",
+    "content": "effective size of the VQGAN’s codebook, i.e. it describes how many entries of the codebook with dimZ = 16384 are actually used.",
+    "page": 20,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00274"
+  },
+  {
+    "block_id": "blk_00275",
+    "type": "paragraph",
+    "content": "20",
+    "page": 20,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00275"
+  },
+  {
+    "block_id": "blk_00276",
+    "type": "paragraph",
+    "content": "933: cheeseburger",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00276"
+  },
+  {
+    "block_id": "blk_00277",
+    "type": "formula",
+    "content": "k = 973 k = 300 k = 100",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00277"
+  },
+  {
+    "block_id": "blk_00278",
+    "type": "paragraph",
+    "content": "992: agaric",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00278"
+  },
+  {
+    "block_id": "blk_00279",
+    "type": "formula",
+    "content": "k = 973 k = 300 k = 100",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00279"
+  },
+  {
+    "block_id": "blk_00280",
+    "type": "paragraph",
+    "content": "200: tibetian terrier",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00280"
+  },
+  {
+    "block_id": "blk_00281",
+    "type": "formula",
+    "content": "k = 973 k = 300 k = 100",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00281"
+  },
+  {
+    "block_id": "blk_00282",
+    "type": "caption",
+    "content": "Figure 19. Visualizing the effect of varying k in top-k sampling ( i.e. truncating the probability distribution per image token) by using",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00282"
+  },
+  {
+    "block_id": "blk_00283",
+    "type": "paragraph",
+    "content": "a ResNet-101 classiﬁer trained on ImageNet and samples from our class-conditional ImageNet model. Lower values of k produce more",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00283"
+  },
+  {
+    "block_id": "blk_00284",
+    "type": "formula",
+    "content": "uniform, low-entropic images compared to samples obtained with full k. Here, an acceptance rate of 1.0 and p = 1 .0 are ﬁxed for all",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00284"
+  },
+  {
+    "block_id": "blk_00285",
+    "type": "formula",
+    "content": "samples. Note that k = 973 is the effective size of the VQGAN’s codebook, i.e. it describes how many entries of the codebook with",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00285"
+  },
+  {
+    "block_id": "blk_00286",
+    "type": "formula",
+    "content": "dimZ = 16384 are actually used.",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00286"
+  },
+  {
+    "block_id": "blk_00287",
+    "type": "paragraph",
+    "content": "21",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00287"
+  },
+  {
+    "block_id": "blk_00288",
+    "type": "paragraph",
+    "content": "933: cheeseburger",
+    "page": 22,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00288"
+  },
+  {
+    "block_id": "blk_00289",
+    "type": "formula",
+    "content": "p = 1.0 p = 0.96 p = 0.84",
+    "page": 22,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00289"
+  },
+  {
+    "block_id": "blk_00290",
+    "type": "paragraph",
+    "content": "992: agaric",
+    "page": 22,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00290"
+  },
+  {
+    "block_id": "blk_00291",
+    "type": "formula",
+    "content": "p = 1.0 p = 0.96 p = 0.84",
+    "page": 22,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00291"
+  },
+  {
+    "block_id": "blk_00292",
+    "type": "paragraph",
+    "content": "200: tibetian terrier",
+    "page": 22,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00292"
+  },
+  {
+    "block_id": "blk_00293",
+    "type": "formula",
+    "content": "p = 1.0 p = 0.96 p = 0.84",
+    "page": 22,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00293"
+  },
+  {
+    "block_id": "blk_00294",
+    "type": "caption",
+    "content": "Figure 20. Visualizing the effect of varying p in top-p sampling (or nucleus sampling [27]) by using a ResNet-101 classiﬁer trained on",
+    "page": 22,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00294"
+  },
+  {
+    "block_id": "blk_00295",
+    "type": "paragraph",
+    "content": "ImageNet and samples from our class-conditional ImageNet model. Lowering p has similar effects as decreasing k, see Fig. 19. Here, an",
+    "page": 22,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00295"
+  },
+  {
+    "block_id": "blk_00296",
+    "type": "formula",
+    "content": "acceptance rate of 1.0 and k = 973 are ﬁxed for all samples.",
+    "page": 22,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00296"
+  },
+  {
+    "block_id": "blk_00297",
+    "type": "paragraph",
+    "content": "22",
+    "page": 22,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00297"
+  },
+  {
+    "block_id": "blk_00298",
+    "type": "caption",
+    "content": "Figure 21. Random samples on 256× 256 class-conditional ImageNet with k ∈ [100, 200, 250, 300, 350, 400, 500, 600, 800, 973] ,",
+    "page": 23,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00298"
+  },
+  {
+    "block_id": "blk_00299",
+    "type": "formula",
+    "content": "p = 1.0, acceptance rate 1.0. FID: 17.04, IS: 70.6± 1.8. Please see https://git.io/JLlvY for an uncompressed version.",
+    "page": 23,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00299"
+  },
+  {
+    "block_id": "blk_00300",
+    "type": "paragraph",
+    "content": "23",
+    "page": 23,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00300"
+  },
+  {
+    "block_id": "blk_00301",
+    "type": "caption",
+    "content": "Figure 22. Random samples on 256× 256 class-conditional ImageNet with k = 600 , p = 1 .0, acceptance rate 0.05. FID: 5.20, IS:",
+    "page": 24,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00301"
+  },
+  {
+    "block_id": "blk_00302",
+    "type": "paragraph",
+    "content": "280.3± 5.5. Please see https://git.io/JLlvY for an uncompressed version. 24",
+    "page": 24,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00302"
+  },
+  {
+    "block_id": "blk_00303",
+    "type": "caption",
+    "content": "Figure 23. Random samples on 256× 256 class-conditional ImageNet with k = 250 , p = 1 .0, acceptance rate 1.0. FID: 15.98, IS:",
+    "page": 25,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00303"
+  },
+  {
+    "block_id": "blk_00304",
+    "type": "paragraph",
+    "content": "78.6± 1.1. Please see https://git.io/JLlvY for an uncompressed version. 25",
+    "page": 25,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00304"
+  },
+  {
+    "block_id": "blk_00305",
+    "type": "caption",
+    "content": "Figure 24. Random samples on 256× 256 class-conditional ImageNet with k = 973 , p = 0 .88, acceptance rate 1.0. FID: 15.78, IS:",
+    "page": 26,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00305"
+  },
+  {
+    "block_id": "blk_00306",
+    "type": "paragraph",
+    "content": "74.3± 1.8. Please see https://git.io/JLlvY for an uncompressed version. 26",
+    "page": 26,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00306"
+  },
+  {
+    "block_id": "blk_00307",
+    "type": "caption",
+    "content": "Figure 25. Random samples on 256× 256 class-conditional ImageNet with k ∈ [100, 200, 250, 300, 350, 400, 500, 600, 800, 973] ,",
+    "page": 27,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00307"
+  },
+  {
+    "block_id": "blk_00308",
+    "type": "formula",
+    "content": "p = 1.0, acceptance rate 0.005. FID: 6.59, IS: 402.7± 2.9. Please see https://git.io/JLlvY for an uncompressed version.",
+    "page": 27,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00308"
+  },
+  {
+    "block_id": "blk_00309",
+    "type": "paragraph",
+    "content": "27",
+    "page": 27,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00309"
+  },
+  {
+    "block_id": "blk_00310",
+    "type": "caption",
+    "content": "Figure 26. Random samples on 256× 256 class-conditional ImageNet with k ∈ [100, 200, 250, 300, 350, 400, 500, 600, 800, 973] ,",
+    "page": 28,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00310"
+  },
+  {
+    "block_id": "blk_00311",
+    "type": "formula",
+    "content": "p = 1.0, acceptance rate 0.05. FID: 5.88, IS: 304.8± 3.6. Please see https://git.io/JLlvY for an uncompressed version.",
+    "page": 28,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00311"
+  },
+  {
+    "block_id": "blk_00312",
+    "type": "paragraph",
+    "content": "28",
+    "page": 28,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00312"
+  },
+  {
+    "block_id": "blk_00313",
+    "type": "paragraph",
+    "content": "conditioning ours (top) vs iGPT [8] (bottom)",
+    "page": 29,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00313"
+  },
+  {
+    "block_id": "blk_00314",
+    "type": "caption",
+    "content": "Figure 27. Comparing our approach with the pixel-based approach of [8]. Here, we use ourf = 16 S-FLCKR model to obtain high-ﬁdelity",
+    "page": 29,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00314"
+  },
+  {
+    "block_id": "blk_00315",
+    "type": "paragraph",
+    "content": "image completions of the inputs depicted on the left (half completions). For each conditioning, we show three of our samples (top) and three of [8] (bottom). 29",
+    "page": 29,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00315"
+  },
+  {
+    "block_id": "blk_00316",
+    "type": "paragraph",
+    "content": "conditioning ours (top) vs iGPT [8] (bottom)",
+    "page": 30,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00316"
+  },
+  {
+    "block_id": "blk_00317",
+    "type": "caption",
+    "content": "Figure 28. Comparing our approach with the pixel-based approach of [8]. Here, we use ourf = 16 S-FLCKR model to obtain high-ﬁdelity",
+    "page": 30,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00317"
+  },
+  {
+    "block_id": "blk_00318",
+    "type": "paragraph",
+    "content": "image completions of the inputs depicted on the left (half completions). For each conditioning, we show three of our samples (top) and three of [8] (bottom). 30",
+    "page": 30,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00318"
+  },
+  {
+    "block_id": "blk_00319",
+    "type": "caption",
+    "content": "Figure 29. Samples generated from semantic layouts on S-FLCKR. Sizes from top-to-bottom: 1280× 832, 1024× 416 and 1280× 240",
+    "page": 31,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00319"
+  },
+  {
+    "block_id": "blk_00320",
+    "type": "paragraph",
+    "content": "pixels. 31",
+    "page": 31,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00320"
+  },
+  {
+    "block_id": "blk_00321",
+    "type": "caption",
+    "content": "Figure 30. Samples generated from semantic layouts on S-FLCKR. Sizes from top-to-bottom: 1536× 512, 1840× 1024, and 1536× 620",
+    "page": 32,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00321"
+  },
+  {
+    "block_id": "blk_00322",
+    "type": "paragraph",
+    "content": "pixels. 32",
+    "page": 32,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00322"
+  },
+  {
+    "block_id": "blk_00323",
+    "type": "caption",
+    "content": "Figure 31. Samples generated from semantic layouts on S-FLCKR. Sizes from top-to-bottom: 2048× 512, 1460× 440, 2032× 448 and",
+    "page": 33,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00323"
+  },
+  {
+    "block_id": "blk_00324",
+    "type": "paragraph",
+    "content": "2016× 672 pixels. 33",
+    "page": 33,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00324"
+  },
+  {
+    "block_id": "blk_00325",
+    "type": "caption",
+    "content": "Figure 32. Samples generated from semantic layouts on S-FLCKR. Sizes from top-to-bottom: 1280× 832, 1024× 416 and 1280× 240",
+    "page": 34,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00325"
+  },
+  {
+    "block_id": "blk_00326",
+    "type": "paragraph",
+    "content": "pixels. 34",
+    "page": 34,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00326"
+  },
+  {
+    "block_id": "blk_00327",
+    "type": "paragraph",
+    "content": "conditioning samples",
+    "page": 35,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00327"
+  },
+  {
+    "block_id": "blk_00328",
+    "type": "caption",
+    "content": "Figure 33. Depth-guided neural rendering on RIN with f = 16 using the sliding attention window.",
+    "page": 35,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00328"
+  },
+  {
+    "block_id": "blk_00329",
+    "type": "paragraph",
+    "content": "35",
+    "page": 35,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00329"
+  },
+  {
+    "block_id": "blk_00330",
+    "type": "paragraph",
+    "content": "conditioning samples",
+    "page": 36,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00330"
+  },
+  {
+    "block_id": "blk_00331",
+    "type": "caption",
+    "content": "Figure 34. Depth-guided neural rendering on RIN with f = 16 using the sliding attention window.",
+    "page": 36,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00331"
+  },
+  {
+    "block_id": "blk_00332",
+    "type": "paragraph",
+    "content": "36",
+    "page": 36,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00332"
+  },
+  {
+    "block_id": "blk_00333",
+    "type": "paragraph",
+    "content": "conditioning samples",
+    "page": 37,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00333"
+  },
+  {
+    "block_id": "blk_00334",
+    "type": "caption",
+    "content": "Figure 35. Intentionally limiting the receptive ﬁeld can lead to interesting creative applications like this one: Edge-to-Image synthesis on",
+    "page": 37,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00334"
+  },
+  {
+    "block_id": "blk_00335",
+    "type": "formula",
+    "content": "IN with f = 8, using the sliding attention window.",
+    "page": 37,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00335"
+  },
+  {
+    "block_id": "blk_00336",
+    "type": "paragraph",
+    "content": "37",
+    "page": 37,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00336"
+  },
+  {
+    "block_id": "blk_00337",
+    "type": "paragraph",
+    "content": "conditioning samples",
+    "page": 38,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00337"
+  },
+  {
+    "block_id": "blk_00338",
+    "type": "caption",
+    "content": "Figure 36. Additional results for stochastic superresolution with an f = 16 model on IN, using the sliding attention window.",
+    "page": 38,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00338"
+  },
+  {
+    "block_id": "blk_00339",
+    "type": "paragraph",
+    "content": "38",
+    "page": 38,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00339"
+  },
+  {
+    "block_id": "blk_00340",
+    "type": "paragraph",
+    "content": "conditioning samples",
+    "page": 39,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00340"
+  },
+  {
+    "block_id": "blk_00341",
+    "type": "caption",
+    "content": "Figure 37. Samples generated from semantic layouts on S-FLCKR with f = 16, using the sliding attention window.",
+    "page": 39,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00341"
+  },
+  {
+    "block_id": "blk_00342",
+    "type": "paragraph",
+    "content": "39",
+    "page": 39,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00342"
+  },
+  {
+    "block_id": "blk_00343",
+    "type": "paragraph",
+    "content": "conditioning samples",
+    "page": 40,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00343"
+  },
+  {
+    "block_id": "blk_00344",
+    "type": "caption",
+    "content": "Figure 38. Samples generated from semantic layouts on S-FLCKR with f = 32, using the sliding attention window.",
+    "page": 40,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00344"
+  },
+  {
+    "block_id": "blk_00345",
+    "type": "paragraph",
+    "content": "40",
+    "page": 40,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00345"
+  },
+  {
+    "block_id": "blk_00346",
+    "type": "caption",
+    "content": "Figure 39. Unconditional samples from a model trained on LSUN Churches & Towers, using the sliding attention window.",
+    "page": 41,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00346"
+  },
+  {
+    "block_id": "blk_00347",
+    "type": "paragraph",
+    "content": "41",
+    "page": 41,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00347"
+  },
+  {
+    "block_id": "blk_00348",
+    "type": "paragraph",
+    "content": "conditioning ground truth ours SPADE [53]",
+    "page": 42,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00348"
+  },
+  {
+    "block_id": "blk_00349",
+    "type": "caption",
+    "content": "Figure 40. Qualitative comparison to [53] on 256× 256 images from the ADE20K dataset.",
+    "page": 42,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00349"
+  },
+  {
+    "block_id": "blk_00350",
+    "type": "paragraph",
+    "content": "42",
+    "page": 42,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00350"
+  },
+  {
+    "block_id": "blk_00351",
+    "type": "paragraph",
+    "content": "conditioning ground truth ours SPADE [53]",
+    "page": 43,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00351"
+  },
+  {
+    "block_id": "blk_00352",
+    "type": "caption",
+    "content": "Figure 41. Qualitative comparison to [53] on 256× 256 images from the COCO-Stuff dataset.",
+    "page": 43,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00352"
+  },
+  {
+    "block_id": "blk_00353",
+    "type": "paragraph",
+    "content": "43",
+    "page": 43,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00353"
+  },
+  {
+    "block_id": "blk_00354",
+    "type": "paragraph",
+    "content": "conditioning samples conditioning samples",
+    "page": 44,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00354"
+  },
+  {
+    "block_id": "blk_00355",
+    "type": "caption",
+    "content": "Figure 42. Conditional samples for the depth-to-image model on IN.",
+    "page": 44,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00355"
+  },
+  {
+    "block_id": "blk_00356",
+    "type": "paragraph",
+    "content": "conditioning samples conditioning samples",
+    "page": 44,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00356"
+  },
+  {
+    "block_id": "blk_00357",
+    "type": "caption",
+    "content": "Figure 43. Conditional samples for the pose-guided synthesis model via keypoints on DeepFashion.",
+    "page": 44,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00357"
+  },
+  {
+    "block_id": "blk_00358",
+    "type": "paragraph",
+    "content": "class exemplar samples class exemplar samples",
+    "page": 44,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00358"
+  },
+  {
+    "block_id": "blk_00359",
+    "type": "caption",
+    "content": "Figure 44. Samples produced by the class-conditional model trained on RIN.",
+    "page": 44,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00359"
+  },
+  {
+    "block_id": "blk_00360",
+    "type": "paragraph",
+    "content": "44",
+    "page": 44,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00360"
+  },
+  {
+    "block_id": "blk_00361",
+    "type": "paragraph",
+    "content": "sample nearest neighbors CelebA-HQ (best val. NLL) CelebA-HQ (best train NLL) FFHQ (best val. NLL) FFHQ (best train NLL)",
+    "page": 45,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00361"
+  },
+  {
+    "block_id": "blk_00362",
+    "type": "caption",
+    "content": "Figure 45. Nearest neighbors for our face-models trained on FFHQ and CelebA-HQ ( 256× 256 pix), based on the LPIPS [82] distance.",
+    "page": 45,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00362"
+  },
+  {
+    "block_id": "blk_00363",
+    "type": "paragraph",
+    "content": "The left column shows a sample from our model, while the 10 examples to the right show the nearest neighbors from the corresponding class (increasing distance) in the training dataset. We evaluate two different model checkpoints for each dataset: Best val. NLL denotes",
+    "page": 45,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00363"
+  },
+  {
+    "block_id": "blk_00364",
+    "type": "formula",
+    "content": "the minimal NLL over the course of training, evaluated on unseen testdata. For this checkpoint, both models generate crisp, high-quality",
+    "page": 45,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00364"
+  },
+  {
+    "block_id": "blk_00365",
+    "type": "paragraph",
+    "content": "samples not present in the training data. However, when drastically overﬁtting the model, it reproduces samples from the training data (best train NLL). Although not an ideal measure of image quality, NLL thus provides a proxy on model selection, whereas FID does not. See also Sec. E. 45",
+    "page": 45,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00365"
+  },
+  {
+    "block_id": "blk_00366",
+    "type": "formula",
+    "content": "k = 250,p = 1.0,a = 1.0",
+    "page": 46,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00366"
+  },
+  {
+    "block_id": "blk_00367",
+    "type": "formula",
+    "content": "k = 973,p = 0.88,a = 1.0",
+    "page": 46,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00367"
+  },
+  {
+    "block_id": "blk_00368",
+    "type": "formula",
+    "content": "mixedk,p = 1.0,a = 0.05",
+    "page": 46,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00368"
+  },
+  {
+    "block_id": "blk_00369",
+    "type": "formula",
+    "content": "mixedk,p = 1.0,a = 0.005",
+    "page": 46,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00369"
+  },
+  {
+    "block_id": "blk_00370",
+    "type": "caption",
+    "content": "Figure 46. Nearest neighbors for our class-conditional ImageNet model ( 256× 256 pix), based on the LPIPS [82] distance. The left",
+    "page": 46,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00370"
+  },
+  {
+    "block_id": "blk_00371",
+    "type": "paragraph",
+    "content": "column shows a sample from our model, while the 10 examples to the right show the nearest neighbors from the corresponding class (increasing distance) in the training dataset. Our model produces new, unseen high-quality images, not present in the training data. 46",
+    "page": 46,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00371"
+  },
+  {
+    "block_id": "blk_00372",
+    "type": "paragraph",
+    "content": "row major spiral in spiral out z-curve subsample alternate 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 0 11 10 9 1 12 15 8 2 13 14 7 3 4 5 6 15 4 5 6 14 3 0 7 13 2 1 8 12 11 10 9 0 1 4 5 2 3 6 7 8 9 12 13 10 11 14 15 0 4 1 5 8 12 9 13 2 6 3 7 10 14 11 15 0 1 2 3 7 6 5 4 8 9 10 11 15 14 13 12 0 100000 200000 300000 400000 500000 600000 700000 800000 training step 4.8 5.0 5.2 5.4 5.6",
+    "page": 47,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00372"
+  },
+  {
+    "block_id": "blk_00373",
+    "type": "formula",
+    "content": "negative log-likelihood",
+    "page": 47,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00373"
+  },
+  {
+    "block_id": "blk_00374",
+    "type": "paragraph",
+    "content": "subsample spiralin spiralout alternate zcurve rowmajor Batch-wise Training Loss 100000 200000 300000 400000 500000 600000 700000 800000 training step 4.8 4.9 5.0 5.1 5.2",
+    "page": 47,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00374"
+  },
+  {
+    "block_id": "blk_00375",
+    "type": "formula",
+    "content": "negative log-likelihood",
+    "page": 47,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00375"
+  },
+  {
+    "block_id": "blk_00376",
+    "type": "paragraph",
+    "content": "subsample spiralin spiralout alternate zcurve rowmajor Validation Loss",
+    "page": 47,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00376"
+  },
+  {
+    "block_id": "blk_00377",
+    "type": "caption",
+    "content": "Figure 47. Top: All sequence permutations we investigate, illustrated on a4× 4 grid. Bottom: The transformer architecture is permutation",
+    "page": 47,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00377"
+  },
+  {
+    "block_id": "blk_00378",
+    "type": "formula",
+    "content": "invariant but next-token prediction is not: The average loss on the validation split of ImageNet, corresponding to the negative log-likelihood,",
+    "page": 47,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00378"
+  },
+  {
+    "block_id": "blk_00379",
+    "type": "paragraph",
+    "content": "differs signiﬁcantly between different prediction orderings. Among our choices, the commonly used row-major order performs best. 47",
+    "page": 47,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00379"
+  },
+  {
+    "block_id": "blk_00380",
+    "type": "paragraph",
+    "content": "Row Major Subsample Z-Curve Spiral Out Alternating Spiral In",
+    "page": 48,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00380"
+  },
+  {
+    "block_id": "blk_00381",
+    "type": "caption",
+    "content": "Figure 48. Random samples from transformer models trained with different orderings for autoregressive prediction as described in Sec. F.",
+    "page": 48,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00381"
+  },
+  {
+    "block_id": "blk_00382",
+    "type": "paragraph",
+    "content": "48",
+    "page": 48,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00382"
+  },
+  {
+    "block_id": "blk_00383",
+    "type": "section_heading",
+    "content": "References",
+    "page": 49,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00383"
+  },
+  {
+    "block_id": "blk_00384",
+    "type": "reference",
+    "content": "[1] Jyoti Aneja, Alexander G. Schwing, Jan Kautz, and Arash Vahdat. NCP-V AE: variational autoencoders with noise contrastive priors. CoRR, abs/2010.02917, 2020. 8 [2] Dzmitry Bahdanau, Kyunghyun Cho, and Yoshua Bengio. Neural machine translation by jointly learning to align and translate, 2016. 2 [3] Yoshua Bengio, Nicholas L ´eonard, and Aaron C. Courville. Estimating or propagating gradients through stochastic neurons for conditional computation. CoRR, abs/1308.3432, 2013. 4",
+    "page": 49,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00384"
+  },
+  {
+    "block_id": "blk_00385",
+    "type": "reference",
+    "content": "[4] Andrew Brock, Jeff Donahue, and Karen Simonyan. Large Scale GAN Training for High Fidelity Natural Image Synthesis. In 7th",
+    "page": 49,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00385"
+  },
+  {
+    "block_id": "blk_00386",
+    "type": "reference",
+    "content": "International Conference on Learning Representations, ICLR, 2019. 8, 10, 16, 17, 18, 19",
+    "page": 49,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00386"
+  },
+  {
+    "block_id": "blk_00387",
+    "type": "reference",
+    "content": "[5] Tom B. Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared Kaplan, Prafulla Dhariwal, Arvind Neelakantan, Pranav",
+    "page": 49,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00387"
+  },
+  {
+    "block_id": "blk_00388",
+    "type": "reference",
+    "content": "Shyam, Girish Sastry, Amanda Askell, Sandhini Agarwal, Ariel Herbert-V oss, Gretchen Krueger, Tom Henighan, Rewon Child, Aditya Ramesh, Daniel M. Ziegler, Jeffrey Wu, Clemens Winter, Christopher Hesse, Mark Chen, Eric Sigler, Mateusz Litwin, Scott",
+    "page": 49,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00388"
+  },
+  {
+    "block_id": "blk_00389",
+    "type": "reference",
+    "content": "Gray, Benjamin Chess, Jack Clark, Christopher Berner, Sam McCandlish, Alec Radford, Ilya Sutskever, and Dario Amodei. Language",
+    "page": 49,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00389"
+  },
+  {
+    "block_id": "blk_00390",
+    "type": "reference",
+    "content": "Models are Few-Shot Learners. arXiv preprint arXiv:2005.14165, 2020. 1 [6] Holger Caesar, Jasper Uijlings, and Vittorio Ferrari. COCO-Stuff: Thing and stuff classes in context. In Computer vision and pattern recognition (CVPR), 2018 IEEE conference on. IEEE, 2018. 6 [7] Liang-Chieh Chen, G. Papandreou, I. Kokkinos, Kevin Murphy, and A. Yuille. DeepLab: Semantic Image Segmentation with Deep Convolutional Nets, Atrous Convolution, and Fully Connected CRFs. IEEE Transactions on Pattern Analysis and Machine Intelligence, 2018. 5 [8] Mark Chen, Alec Radford, Rewon Child, Jeff Wu, Heewoo Jun, Prafulla Dhariwal, David Luan, and Ilya Sutskever. Generative pretraining from pixels. 2020. 1, 2, 3, 4, 5, 6, 7, 12, 13, 14, 29, 30 [9] Qifeng Chen and Vladlen Koltun. Photographic image synthesis with cascaded reﬁnement networks. In IEEE International Con- ference on Computer Vision, ICCV 2017, Venice, Italy, October 22-29, 2017 , pages 1520–1529. IEEE Computer Society, 2017. 7 [10] Xi Chen, Nikhil Mishra, Mostafa Rohaninejad, and Pieter Abbeel. Pixelsnail: An improved autoregressive generative model. In ICML, volume 80 of Proceedings of Machine Learning Research, pages 863–871. PMLR, 2018. 2, 5 [11] Rewon Child. Very deep vaes generalize autoregressive models and can outperform them on images. CoRR, abs/2011.10650, 2020. 8 [12] Rewon Child, Scott Gray, Alec Radford, and Ilya Sutskever. Generating long sequences with sparse transformers, 2019. 1, 2, 5 [13] Bin Dai and David P. Wipf. Diagnosing and enhancing V AE models. In 7th International Conference on Learning Representations, ICLR, 2019. 2",
+    "page": 49,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00390"
+  },
+  {
+    "block_id": "blk_00391",
+    "type": "reference",
+    "content": "[14] Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li, and Li Fei-Fei. Imagenet: A large-scale hierarchical image database. In 2009",
+    "page": 49,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00391"
+  },
+  {
+    "block_id": "blk_00392",
+    "type": "reference",
+    "content": "IEEE Computer Society Conference on Computer Vision and Pattern Recognition CVPR, 2009. 5 [15] Prafulla Dhariwal and Alex Nichol. Diffusion models beat gans on image synthesis, 2021. 8, 10 [16] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, et al. An image is worth 16x16 words: Transformers for image recognition at scale. 2020. 1 [17] Alexey Dosovitskiy and Thomas Brox. Generating Images with Perceptual Similarity Metrics based on Deep Networks. In Advances in Neural Information Processing Systems 29: Annual Conference on Neural Information Processing Systems, NeurIPS, 2016. 4 [18] Patrick Esser, Robin Rombach, and Bj ¨orn Ommer. A Disentangling Invertible Interpretation Network for Explaining Latent Repre- sentations. In 2020 IEEE/CVF Conference on Computer Vision and Pattern Recognition, CVPR, 2020. 2 [19] Jeffrey De Fauw, Sander Dieleman, and Karen Simonyan. Hierarchical autoregressive image models with auxiliary decoders. CoRR, abs/1903.04933, 2019. 16, 17, 18, 19 [20] Ian J. Goodfellow, Jean Pouget-Abadie, Mehdi Mirza, Bing Xu, David Warde-Farley, Sherjil Ozair, Aaron C. Courville, and Yoshua Bengio. Generative Adversarial Nets. In Advances in Neural Information Processing Systems 27: Annual Conference on Neural Information Processing Systems, NeurIPS, 2014. 2 [21] Seungwook Han, Akash Srivastava, Cole L. Hurwitz, Prasanna Sattigeri, and David D. Cox. not-so-biggan: Generating high-ﬁdelity images on a small compute budget. CoRR, abs/2009.04433, 2020. 2",
+    "page": 49,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00392"
+  },
+  {
+    "block_id": "blk_00393",
+    "type": "reference",
+    "content": "[22] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Deep residual learning for image recognition. CoRR, abs/1512.03385,",
+    "page": 49,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00393"
+  },
+  {
+    "block_id": "blk_00394",
+    "type": "reference",
+    "content": "2015. 8 [23] Ari Heljakka, Arno Solin, and Juho Kannala. Pioneer networks: Progressively growing generative autoencoder. In C. V . Jawahar, Hongdong Li, Greg Mori, and Konrad Schindler, editors,Computer Vision - ACCV 2018 - 14th Asian Conference on Computer Vision, Perth, Australia, December 2-6, 2018, Revised Selected Papers, Part I, 2018. 8 [24] Ari Heljakka, Arno Solin, and Juho Kannala. Towards photographic image manipulation with balanced growing of generative autoencoders. In IEEE Winter Conference on Applications of Computer Vision, WACV 2020, Snowmass Village, CO, USA, March 1-5, 2020, pages 3109–3118. IEEE, 2020. 8 49",
+    "page": 49,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00394"
+  },
+  {
+    "block_id": "blk_00395",
+    "type": "reference",
+    "content": "[25] Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising diffusion probabilistic models, 2020. 11 [26] Jonathan Ho, Nal Kalchbrenner, Dirk Weissenborn, and Tim Salimans. Axial attention in multidimensional transformers. CoRR, abs/1912.12180, 2019. 2, 5 [27] Ari Holtzman, Jan Buys, Li Du, Maxwell Forbes, and Yejin Choi. The curious case of neural text degeneration. In ICLR. OpenRe- view.net, 2020. 8, 22 [28] Phillip Isola, Jun-Yan Zhu, Tinghui Zhou, and Alexei A. Efros. Image-to-Image Translation with Conditional Adversarial Networks. In 2017 IEEE Conference on Computer Vision and Pattern Recognition, CVPR, 2017. 4, 11",
+    "page": 50,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00395"
+  },
+  {
+    "block_id": "blk_00396",
+    "type": "reference",
+    "content": "[29] Eric Jang, Shixiang Gu, and Ben Poole. Categorical reparameterization with gumbel-softmax. arXiv preprint arXiv:1611.01144 ,",
+    "page": 50,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00396"
+  },
+  {
+    "block_id": "blk_00397",
+    "type": "reference",
+    "content": "2016. 9 [30] Justin Johnson, Alexandre Alahi, and Li Fei-Fei. Perceptual losses for real-time style transfer and super-resolution. In ECCV (2), volume 9906 of Lecture Notes in Computer Science, pages 694–711. Springer, 2016. 4 [31] Tero Karras, Timo Aila, Samuli Laine, and Jaakko Lehtinen. Progressive growing of gans for improved quality, stability, and variation. CoRR, abs/1710.10196, 2017. 6, 8 [32] Tero Karras, Miika Aittala, Janne Hellsten, Samuli Laine, Jaakko Lehtinen, and Timo Aila. Training generative adversarial networks with limited data. In Hugo Larochelle, Marc’Aurelio Ranzato, Raia Hadsell, Maria-Florina Balcan, and Hsuan-Tien Lin, editors,Ad- vances in Neural Information Processing Systems 33: Annual Conference on Neural Information Processing Systems 2020, NeurIPS 2020, December 6-12, 2020, virtual, 2020. 8 [33] Tero Karras, Samuli Laine, and Timo Aila. A style-based generator architecture for generative adversarial networks. In IEEE Conference on Computer Vision and Pattern Recognition, (CVPR) 2019, Long Beach, CA, USA, June 16-20, 2019, pages 4401–4410. Computer Vision Foundation / IEEE, 2019. 7 [34] Tero Karras, Samuli Laine, Miika Aittala, Janne Hellsten, Jaakko Lehtinen, and Timo Aila. Analyzing and improving the image quality of stylegan. In 2020 IEEE/CVF Conference on Computer Vision and Pattern Recognition, CVPR 2020, Seattle, WA, USA, June 13-19, 2020, pages 8107–8116. IEEE, 2020. 8 [35] Prateek Katiyar and Anna Khoreva. Improving augmentation and evaluation schemes for semantic image synthesis, 2021. 7 [36] Yoon Kim, Carl Denton, Luong Hoang, and Alexander M. Rush. Structured attention networks, 2017. 2 [37] Diederik P. Kingma and Prafulla Dhariwal. Glow: Generative Flow with Invertible 1x1 Convolutions. In Advances in Neural Information Processing Systems 31: Annual Conference on Neural Information Processing Systems 2018, NeurIPS, 2018. 8 [38] Diederik P. Kingma and Max Welling. Auto-Encoding Variational Bayes. In 2nd International Conference on Learning Representa- tions, ICLR, 2014. 2",
+    "page": 50,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00397"
+  },
+  {
+    "block_id": "blk_00398",
+    "type": "reference",
+    "content": "[39] Alex Lamb, Vincent Dumoulin, and Aaron C. Courville. Discriminative regularization for generative models.CoRR, abs/1602.03220,",
+    "page": 50,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00398"
+  },
+  {
+    "block_id": "blk_00399",
+    "type": "reference",
+    "content": "2016. 4 [40] Anders Boesen Lindbo Larsen, Søren Kaae Sønderby, Hugo Larochelle, and Ole Winther. Autoencoding beyond pixels using a learned similarity metric, 2015. 4 [41] Naihan Li, Shujie Liu, Yanqing Liu, Sheng Zhao, and Ming Liu. Neural speech synthesis with transformer network. In AAAI, pages 6706–6713. AAAI Press, 2019. 2 [42] Chieh Hubert Lin, Chia-Che Chang, Yu-Sheng Chen, Da-Cheng Juan, Wei Wei, and Hwann-Tzong Chen. COCO-GAN: generation by parts via conditional coordinating. In ICCV, pages 4511–4520. IEEE, 2019. 5 [43] Jinlin Liu, Yuan Yao, and Jianqiang Ren. An acceleration framework for high resolution image synthesis. CoRR, abs/1909.03611, 2019. 2 [44] Peter J. Liu, Mohammad Saleh, Etienne Pot, Ben Goodrich, Ryan Sepassi, Lukasz Kaiser, and Noam Shazeer. Generating wikipedia by summarizing long sequences. In ICLR (Poster). OpenReview.net, 2018. 4 [45] Ziwei Liu, Ping Luo, Shi Qiu, Xiaogang Wang, and Xiaoou Tang. Deepfashion: Powering robust clothes recognition and retrieval with rich annotations. In Proceedings of IEEE Conference on Computer Vision and Pattern Recognition (CVPR), June 2016. 6 [46] Jacob Menick and Nal Kalchbrenner. Generating high ﬁdelity images with subscale pixel networks and multidimensional upscaling. In 7th International Conference on Learning Representations, ICLR 2019, New Orleans, LA, USA, May 6-9, 2019. OpenReview.net, 2019. 14 [47] Fabian Mentzer, George Toderici, Michael Tschannen, and Eirikur Agustsson. High-ﬁdelity generative image compression, 2020. 4 [48] Charlie Nash, Jacob Menick, Sander Dieleman, and Peter W. Battaglia. Generating images with sparse representations, 2021. 8, 10 [49] Alex Nichol and Prafulla Dhariwal. Improved denoising diffusion probabilistic models, 2021. 8, 10 [50] Anton Obukhov, Maximilian Seitzer, Po-Wei Wu, Semen Zhydenko, Jonathan Kyl, and Elvis Yu-Jing Lin. High-ﬁdelity performance metrics for generative models in pytorch, 2020. Version: 0.3.0, DOI: 10.5281/zenodo.4957738. 7, 10 [51] B. Ommer and J. M. Buhmann. Learning the compositional nature of visual objects. In 2007 IEEE Conference on Computer Vision and Pattern Recognition, pages 1–8, 2007. 2 [52] Ankur P. Parikh, Oscar T ¨ackstr¨om, Dipanjan Das, and Jakob Uszkoreit. A decomposable attention model for natural language inference, 2016. 2 50",
+    "page": 50,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00399"
+  },
+  {
+    "block_id": "blk_00400",
+    "type": "reference",
+    "content": "[53] Taesung Park, Ming-Yu Liu, Ting-Chun Wang, and Jun-Yan Zhu. Semantic Image Synthesis with Spatially-Adaptive Normalization. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, CVPR, 2019. 2, 7, 42, 43 [54] Gaurav Parmar, Dacheng Li, Kwonjoon Lee, and Zhuowen Tu. Dual contradistinctive generative autoencoder, 2020. 8 [55] Niki Parmar, Ashish Vaswani, Jakob Uszkoreit, Lukasz Kaiser, Noam Shazeer, Alexander Ku, and Dustin Tran. Image transformer. In ICML, volume 80 of Proceedings of Machine Learning Research, pages 4052–4061. PMLR, 2018. 2, 3, 5 [56] Stanislav Pidhorskyi, Donald A. Adjeroh, and Gianfranco Doretto. Adversarial latent autoencoders. In 2020 IEEE/CVF Conference on Computer Vision and Pattern Recognition, CVPR 2020, Seattle, WA, USA, June 13-19, 2020, pages 14092–14101. IEEE, 2020. 8 [57] A. Radford. Improving language understanding by generative pre-training. 2018. 1 [58] A. Radford, Jeffrey Wu, R. Child, David Luan, Dario Amodei, and Ilya Sutskever. Language models are unsupervised multitask learners. 2019. 1, 5, 11 [59] Aditya Ramesh, Mikhail Pavlov, Gabriel Goh, Scott Gray, Chelsea V oss, Alec Radford, Mark Chen, and Ilya Sutskever. Zero-shot text-to-image generation, 2021. 9, 10, 12 [60] Ren ´e Ranftl, Katrin Lasinger, David Hafner, Konrad Schindler, and Vladlen Koltun. Towards robust monocular depth estimation: Mixing datasets for zero-shot cross-dataset transfer.IEEE Transactions on Pattern Analysis and Machine Intelligence (TPAMI), 2020. 5 [61] Ali Razavi, Aaron van den Oord, and Oriol Vinyals. Generating diverse high-ﬁdelity images with vq-vae-2, 2019. 3, 4, 5, 8, 16, 17, 18, 19 [62] Danilo Jimenez Rezende, Shakir Mohamed, and Daan Wierstra. Stochastic backpropagation and approximate inference in deep generative models. In Proceedings of the 31st International Conference on International Conference on Machine Learning, ICML , 2014. 2 [63] Robin Rombach, Patrick Esser, and Bj ¨orn Ommer. Making sense of cnns: Interpreting deep representations and their invariances with inns. In Andrea Vedaldi, Horst Bischof, Thomas Brox, and Jan-Michael Frahm, editors, Computer Vision - ECCV 2020 - 16th European Conference, Glasgow, UK, August 23-28, 2020, Proceedings, Part XVII , volume 12362 of Lecture Notes in Computer Science, pages 647–664. Springer, 2020. 2 [64] Robin Rombach, Patrick Esser, and Bjorn Ommer. Network-to-network translation with conditional invertible neural networks. In H. Larochelle, M. Ranzato, R. Hadsell, M. F. Balcan, and H. Lin, editors, Advances in Neural Information Processing Systems , volume 33, pages 2784–2797. Curran Associates, Inc., 2020. 2 [65] Shibani Santurkar, Dimitris Tsipras, Brandon Tran, Andrew Ilyas, Logan Engstrom, and Aleksander Madry. Computer vision with a single (robust) classiﬁer. InArXiv preprint arXiv:1906.09453, 2019. 5",
+    "page": 51,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00400"
+  },
+  {
+    "block_id": "blk_00401",
+    "type": "reference",
+    "content": "[66] Edgar Sch ¨onfeld, Bernt Schiele, and Anna Khoreva. A u-net based discriminator for generative adversarial networks. In 2020",
+    "page": 51,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00401"
+  },
+  {
+    "block_id": "blk_00402",
+    "type": "reference",
+    "content": "IEEE/CVF Conference on Computer Vision and Pattern Recognition, CVPR 2020, Seattle, WA, USA, June 13-19, 2020, pages 8204– 8213. IEEE, 2020. 8 [67] Kim Seonghyeon. Implementation of generating diverse high-ﬁdelity images with vq-vae-2 in pytorch, 2020. 8 [68] Aliaksandr Siarohin, St ´ephane Lathuili`ere, Sergey Tulyakov, Elisa Ricci, and Nicu Sebe. First order motion model for image anima- tion. In Conference on Neural Information Processing Systems (NeurIPS), December 2019. 2 [69] Arash Vahdat and Jan Kautz. NV AE: A deep hierarchical variational autoencoder. In Hugo Larochelle, Marc’Aurelio Ranzato, Raia Hadsell, Maria-Florina Balcan, and Hsuan-Tien Lin, editors, Advances in Neural Information Processing Systems 33: Annual Conference on Neural Information Processing Systems 2020, NeurIPS 2020, December 6-12, 2020, virtual, 2020. 8 [70] A ¨aron van den Oord, Nal Kalchbrenner, and Koray Kavukcuoglu. Pixel recurrent neural networks. In ICML, volume 48 of JMLR Workshop and Conference Proceedings, pages 1747–1756. JMLR.org, 2016. 2 [71] Aaron van den Oord, Nal Kalchbrenner, Oriol Vinyals, Lasse Espeholt, Alex Graves, and Koray Kavukcuoglu. Conditional image generation with pixelcnn decoders, 2016. 2, 4, 14 [72] Aaron van den Oord, Oriol Vinyals, and Koray Kavukcuoglu. Neural discrete representation learning, 2018. 3, 4, 11 [73] Hugo van Kemenade, wiredfool, Andrew Murray, Alex Clark, Alexander Karpinsky, Ondrej Baranovi ˇc, Christoph Gohlke, Jon Dufresne, Brian Crowell, David Schmidt, Konstantin Kopachev, Alastair Houghton, Sandro Mani, Steve Landey, vashek, Josh Ware, Jason Douglas, David Caro, Uriel Martinez, Steve Kossouho, Riley Lahd, Stanislau T., Antony Lee, Eric W. Brown, Oliver Tonnhofer, Mickael Bonﬁll, Peter Rowlands, Fahad Al-Saidi, German Novikov, and Michał G´orny. python-pillow/pillow: 8.2.0, Apr. 2021. 10 [74] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is All you Need. In Advances in Neural Information Processing Systems 30: Annual Conference on Neural Information Processing Systems, NeurIPS, 2017. 1, 2, 3 [75] Ting-Chun Wang, Ming-Yu Liu, Jun-Yan Zhu, Andrew Tao, Jan Kautz, and Bryan Catanzaro. High-resolution image synthesis and semantic manipulation with conditional gans. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, 2018. 7 [76] Dirk Weissenborn, Oscar T ¨ackstr¨om, and Jakob Uszkoreit. Scaling autoregressive video models. In ICLR. OpenReview.net, 2020. 2 [77] Zhisheng Xiao, Karsten Kreis, Jan Kautz, and Arash Vahdat. Vaebm: A symbiosis between variational autoencoders and energy-based",
+    "page": 51,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00402"
+  },
+  {
+    "block_id": "blk_00403",
+    "type": "section_heading",
+    "content": "models, 2021. 8",
+    "page": 51,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00403"
+  },
+  {
+    "block_id": "blk_00404",
+    "type": "paragraph",
+    "content": "51",
+    "page": 51,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00404"
+  },
+  {
+    "block_id": "blk_00405",
+    "type": "paragraph",
+    "content": "[78] Zhisheng Xiao, Qing Yan, Yi-an Chen, and Yali Amit. Generative latent ﬂow: A framework for non-adversarial image generation. CoRR, abs/1905.10485, 2019. 2",
+    "page": 52,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00405"
+  },
+  {
+    "block_id": "blk_00406",
+    "type": "formula",
+    "content": "[79] Fisher Yu, Yinda Zhang, Shuran Song, Ari Seff, and Jianxiong Xiao. Lsun: Construction of a large-scale image dataset using deep",
+    "page": 52,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00406"
+  },
+  {
+    "block_id": "blk_00407",
+    "type": "paragraph",
+    "content": "learning with humans in the loop. arXiv preprint arXiv:1506.03365, 2015. 5 [80] Pan Zhang, Bo Zhang, Dong Chen, Lu Yuan, and Fang Wen. Cross-Domain Correspondence Learning for Exemplar-Based Image Translation. In 2020 IEEE/CVF Conference on Computer Vision and Pattern Recognition, CVPR, 2020. 2 [81] Richard Zhang, Phillip Isola, Alexei A Efros, Eli Shechtman, and Oliver Wang. The Unreasonable Effectiveness of Deep Features as a Perceptual Metric. In CVPR, 2018. 4, 11, 13 [82] Richard Zhang, Phillip Isola, Alexei A Efros, Eli Shechtman, and Oliver Wang. The unreasonable effectiveness of deep features as a perceptual metric. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, CVPR, 2018. 45, 46 [83] Bolei Zhou, Hang Zhao, Xavier Puig, Sanja Fidler, Adela Barriuso, and Antonio Torralba. Semantic understanding of scenes through the ade20k dataset. arXiv preprint arXiv:1608.05442, 2016. 6 [84] Tinghui Zhou, Shubham Tulsiani, Weilun Sun, Jitendra Malik, and Alexei A. Efros. View synthesis by appearance ﬂow, 2017. 2 [85] Peihao Zhu, Rameen Abdal, Yipeng Qin, and Peter Wonka. Sean: Image synthesis with semantic region-adaptive normalization, 2019. 2 52",
+    "page": 52,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00407"
+  }
+]

@@ -1,0 +1,675 @@
+{
+  "paper_skeleton": {
+    "problem": "为移动设备设计卷积神经网络（CNN）具有挑战性，因为移动模型需要小而快，同时保持高精度。手动平衡这些权衡在庞大的架构可能性空间中非常困难。",
+    "motivation": "现有手动设计的移动CNN模型（如MobileNet、ShuffleNet）需要大量人力，且难以在精度、延迟和模型大小之间找到最优平衡。现有神经架构搜索（NAS）方法通常使用FLOPS等代理指标来近似延迟，但FLOPS与真实世界推理延迟并不准确对应。",
+    "core_idea": "提出一种平台感知的自动化移动神经架构搜索（MNAS）方法，将真实世界推理延迟直接纳入多目标优化目标，并设计一种新的分层分解搜索空间，以鼓励网络层多样性，从而自动发现精度与延迟权衡更优的移动CNN模型。",
+    "method": "1. 将设计问题形式化为多目标优化问题，同时考虑精度和推理延迟。2. 直接在移动设备上测量真实推理延迟，而非使用FLOPS等代理。3. 提出分层分解搜索空间，将网络层分组为预定义骨架，并在每个块内进行子搜索。4. 使用强化学习（基于RNN的控制器）搜索帕累托最优解。",
+    "experiments": "在ImageNet分类和COCO目标检测任务上进行实验。在ImageNet上，MnasNet-A1达到75.2% top-1精度，延迟78ms（Pixel手机）。与MobileNetV2相比，速度快1.8倍且精度高0.5%；与NASNet相比，速度快2.3倍且精度高1.2%。在COCO上，作为SSD的特征提取器，MnasNet在精度和延迟上均优于MobileNetV1/V2。",
+    "claims": [
+      "MNAS方法能自动发现精度与延迟权衡更优的移动CNN模型。",
+      "直接测量真实延迟比使用FLOPS等代理更准确。",
+      "分层分解搜索空间能促进层多样性，对资源受限模型至关重要。",
+      "MnasNet模型在多个视觉任务上优于现有手动设计和自动搜索的移动模型。"
+    ],
+    "limitations": "1. 架构搜索成本高昂（在64个TPUv2设备上耗时4.5天）。2. 搜索空间和奖励设计可能仍有改进空间。3. 延迟测量依赖于特定移动平台（Pixel 1手机），可能不适用于所有设备。4. 论文未详细讨论模型在其他移动平台（如iOS）上的泛化能力。"
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "多目标优化问题形式化",
+        "label": "问题定义",
+        "summary": "将移动CNN设计问题形式化为同时优化精度和推理延迟的多目标优化问题。",
+        "description": "给定模型m，ACC(m)表示其在目标任务上的精度，LAT(m)表示其在目标移动平台上的推理延迟，T是目标延迟。传统方法将T作为硬约束并最大化精度，但本文提出一种软约束方法，通过参数α和β调整目标函数，使延迟在目标值附近平滑变化。",
+        "type": "problem_formulation",
+        "anchors": [
+          "anc_00024",
+          "anc_00025",
+          "anc_00026",
+          "anc_00036",
+          "anc_00037",
+          "anc_00038",
+          "anc_00039",
+          "anc_00040"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "真实延迟测量",
+        "label": "延迟评估",
+        "summary": "直接在移动设备上测量模型的真实推理延迟，而非使用FLOPS等代理指标。",
+        "description": "与之前使用FLOPS近似延迟的工作不同，本文通过在实际移动设备（如Pixel手机）上执行模型来直接测量推理延迟。这考虑了移动硬件/软件的特性，因为FLOPS可能不准确（例如MobileNet和NASNet的FLOPS相似但延迟差异大）。",
+        "type": "evaluation_method",
+        "anchors": [
+          "anc_00017",
+          "anc_00026"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "分层分解搜索空间",
+        "label": "搜索空间设计",
+        "summary": "提出一种新的分层分解搜索空间，将网络层分组为预定义骨架，并在每个块内进行子搜索，以鼓励层多样性。",
+        "description": "搜索空间由预定义骨架（S个阶段，每个阶段有B个块）组成。每个块的架构由一组决策变量（如ConvOp、KernelSize、SERatio、SkipOp、Fi）决定，而Ni决定每个块中层的重复次数。这种设计将搜索空间大小从逐层方法的10^39减少到约10^13。",
+        "type": "search_space",
+        "anchors": [
+          "anc_00059",
+          "anc_00063",
+          "anc_00067",
+          "anc_00069",
+          "anc_00071",
+          "anc_00072",
+          "anc_00074",
+          "anc_00075"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "强化学习搜索算法",
+        "label": "搜索算法",
+        "summary": "使用强化学习（基于RNN的控制器）来搜索帕累托最优解，通过采样-评估-更新循环训练控制器。",
+        "description": "控制器是一个RNN，它生成一系列动作（token）来定义CNN模型。目标是最大化期望奖励R(m)，其中R(m)由多目标奖励函数定义。搜索过程包括：控制器采样模型，在目标任务上训练以获得精度，在移动设备上测量延迟，然后使用奖励更新控制器参数。",
+        "type": "search_algorithm",
+        "anchors": [
+          "anc_00075",
+          "anc_00076",
+          "anc_00078",
+          "anc_00080",
+          "anc_00081",
+          "anc_00088",
+          "anc_00090",
+          "anc_00092",
+          "anc_00094"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "多目标奖励函数",
+        "label": "奖励函数",
+        "summary": "定义了一个多目标奖励函数，将精度和延迟结合，通过参数α和β控制延迟约束的软硬程度。",
+        "description": "奖励函数为：Reward(m) = ACC(m)^α * [LAT(m)/T]^β。当α=0, β=-1时，延迟为硬约束；当α=β=-0.07时，延迟为软约束，允许在目标延迟附近平滑变化。参数β≈-0.07是通过使延迟减半但精度提高5%的模型具有相似奖励来推导的。",
+        "type": "reward_function",
+        "anchors": [
+          "anc_00049",
+          "anc_00050",
+          "anc_00051",
+          "anc_00053",
+          "anc_00054",
+          "anc_00056",
+          "anc_00058"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "搜索与训练细节",
+        "label": "实现细节",
+        "summary": "在ImageNet训练集上直接进行架构搜索，但使用较少的训练步骤（5个epoch），并保留50K图像作为验证集。",
+        "description": "由于在大型任务上直接搜索成本高昂，本文在ImageNet训练集上进行搜索，但每个模型只训练5个epoch。使用与NASNet相同的RNN控制器。搜索在64个TPUv2设备上耗时4.5天。控制器总共采样约8K个模型，但只有15个顶级模型被转移到完整的ImageNet训练，1个模型被转移到COCO。",
+        "type": "implementation_details",
+        "anchors": [
+          "anc_00096",
+          "anc_00097",
+          "anc_00098",
+          "anc_00099",
+          "anc_00100",
+          "anc_00101"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "模型缩放与迁移",
+        "label": "模型应用",
+        "summary": "搜索到的模型可以通过深度乘数或输入大小进行缩放，以适应不同的延迟要求，并可迁移到其他任务（如COCO目标检测）。",
+        "description": "MnasNet模型可以通过调整深度乘数（0.35到1.4）或输入图像大小（96到224）进行缩放，以在不同延迟下工作。此外，搜索到的模型可以作为特征提取器插入到SSD目标检测框架中，用于COCO任务。",
+        "type": "model_application",
+        "anchors": [
+          "anc_00105",
+          "anc_00107",
+          "anc_00109",
+          "anc_00110",
+          "anc_00120",
+          "anc_00121",
+          "anc_00122",
+          "anc_00124",
+          "anc_00125",
+          "anc_00126",
+          "anc_00138"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_005",
+        "label": "定义奖励函数",
+        "description": "多目标优化问题通过奖励函数具体化，该函数结合了精度和延迟。"
+      },
+      {
+        "source": "node_002",
+        "target": "node_005",
+        "label": "提供延迟输入",
+        "description": "真实延迟测量为奖励函数中的延迟项提供输入。"
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "定义搜索空间",
+        "description": "分层分解搜索空间为强化学习搜索算法提供动作空间。"
+      },
+      {
+        "source": "node_004",
+        "target": "node_006",
+        "label": "执行搜索",
+        "description": "强化学习搜索算法在给定搜索空间和奖励函数下执行搜索，并产生搜索到的模型。"
+      },
+      {
+        "source": "node_005",
+        "target": "node_004",
+        "label": "指导搜索",
+        "description": "奖励函数用于计算每个采样模型的奖励，从而指导控制器更新。"
+      },
+      {
+        "source": "node_006",
+        "target": "node_007",
+        "label": "模型输出",
+        "description": "搜索过程产生顶级模型，这些模型经过完整训练后可用于缩放和迁移。"
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "现有手动设计的移动CNN模型（如MobileNetV1/V2、ShuffleNet）和现有神经架构搜索方法（如NASNet），后者通常使用FLOPS作为延迟代理，并在CIFAR-10等小任务上进行搜索。",
+    "new_method": "MNAS方法：1) 直接测量真实延迟并纳入多目标优化；2) 使用分层分解搜索空间鼓励层多样性；3) 在ImageNet上直接搜索，但使用较少训练步骤。",
+    "deltas": [
+      {
+        "before": "使用FLOPS等代理指标近似推理延迟。",
+        "after": "直接在移动设备上测量真实推理延迟。",
+        "why_it_matters": "FLOPS与真实延迟不准确对应（例如MobileNet和NASNet的FLOPS相似但延迟差异大），直接测量能更准确地优化实际部署性能。",
+        "anchors": [
+          "anc_00017",
+          "anc_00026"
+        ]
+      },
+      {
+        "before": "搜索空间通常基于重复堆叠相同单元（cell），缺乏层多样性。",
+        "after": "提出分层分解搜索空间，将网络分组为阶段和块，并在每个块内搜索不同架构，鼓励层多样性。",
+        "why_it_matters": "层多样性对资源受限模型至关重要，能实现更好的精度-延迟权衡。实验表明，MnasNet比仅使用单一类型层的变体表现更好。",
+        "anchors": [
+          "anc_00059",
+          "anc_00063",
+          "anc_00067",
+          "anc_00069",
+          "anc_00071",
+          "anc_00072",
+          "anc_00074",
+          "anc_00075",
+          "anc_00158",
+          "anc_00160",
+          "anc_00161",
+          "anc_00162"
+        ]
+      },
+      {
+        "before": "架构搜索通常在CIFAR-10等小代理任务上进行，然后迁移到ImageNet。",
+        "after": "直接在ImageNet训练集上进行架构搜索，但使用较少训练步骤（5个epoch）。",
+        "why_it_matters": "小代理任务在考虑延迟时可能无效，因为模型通常需要放大才能应用于更大问题。直接在目标任务上搜索能更好地优化延迟-精度权衡。",
+        "anchors": [
+          "anc_00096",
+          "anc_00097",
+          "anc_00098",
+          "anc_00099"
+        ]
+      },
+      {
+        "before": "优化目标通常仅考虑精度，或使用硬延迟约束。",
+        "after": "提出多目标奖励函数，通过参数α和β将延迟作为软约束，允许在目标延迟附近平滑变化。",
+        "why_it_matters": "软约束允许在单次搜索中探索帕累托曲线上的多个模型，从而获得不同延迟-精度权衡的模型。",
+        "anchors": [
+          "anc_00049",
+          "anc_00050",
+          "anc_00051",
+          "anc_00053",
+          "anc_00054",
+          "anc_00056",
+          "anc_00058",
+          "anc_00144",
+          "anc_00145",
+          "anc_00146",
+          "anc_00147",
+          "anc_00148",
+          "anc_00150",
+          "anc_00152",
+          "anc_00153"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "Reward(m) = ACC(m)^{\\alpha} \\cdot \\left(\\frac{LAT(m)}{T}\\right)^{\\beta}",
+        "variables": [
+          {
+            "name": "Reward(m)",
+            "description": "模型m的奖励值",
+            "confidence": "high",
+            "anchors": [
+              "anc_00049",
+              "anc_00080"
+            ]
+          },
+          {
+            "name": "ACC(m)",
+            "description": "模型m在目标任务上的精度",
+            "confidence": "high",
+            "anchors": [
+              "anc_00036",
+              "anc_00040"
+            ]
+          },
+          {
+            "name": "LAT(m)",
+            "description": "模型m在目标移动平台上的推理延迟",
+            "confidence": "high",
+            "anchors": [
+              "anc_00037",
+              "anc_00038"
+            ]
+          },
+          {
+            "name": "T",
+            "description": "目标延迟",
+            "confidence": "high",
+            "anchors": [
+              "anc_00038",
+              "anc_00103"
+            ]
+          },
+          {
+            "name": "\\alpha",
+            "description": "精度项的指数参数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00051",
+              "anc_00054",
+              "anc_00058"
+            ]
+          },
+          {
+            "name": "\\beta",
+            "description": "延迟项的指数参数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00050",
+              "anc_00051",
+              "anc_00054",
+              "anc_00058"
+            ]
+          }
+        ],
+        "dependencies": [
+          "精度ACC(m)",
+          "延迟LAT(m)",
+          "目标延迟T",
+          "参数α, β"
+        ],
+        "intuition": "该奖励函数将精度和延迟结合为一个单一目标。当α=0, β=-1时，延迟为硬约束（仅当延迟≤T时奖励为正）。当α=β=-0.07时，延迟为软约束，允许在目标延迟附近平滑变化，从而在单次搜索中探索多个帕累托最优解。",
+        "anchors": [
+          "anc_00049",
+          "anc_00050",
+          "anc_00051",
+          "anc_00053",
+          "anc_00054",
+          "anc_00056",
+          "anc_00058"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "\\theta^* = \\arg\\max_{\\theta} \\mathbb{E}_{m \\sim p_{\\theta}(m)} [R(m)]",
+        "variables": [
+          {
+            "name": "\\theta",
+            "description": "控制器（RNN）的参数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00078"
+            ]
+          },
+          {
+            "name": "p_{\\theta}(m)",
+            "description": "由参数θ的控制器定义的模型m的分布",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00076",
+              "anc_00078"
+            ]
+          },
+          {
+            "name": "R(m)",
+            "description": "模型m的奖励，即Reward(m)",
+            "confidence": "high",
+            "anchors": [
+              "anc_00080",
+              "anc_00081"
+            ]
+          }
+        ],
+        "dependencies": [
+          "控制器参数θ",
+          "模型分布",
+          "奖励函数R(m)"
+        ],
+        "intuition": "强化学习的目标：找到控制器参数θ，使得从控制器采样的模型的期望奖励最大化。通过采样-评估-更新循环迭代优化θ。",
+        "anchors": [
+          "anc_00078",
+          "anc_00080",
+          "anc_00081"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "在ImageNet分类任务上，MnasNet-A1达到75.2% top-1精度，延迟78ms（Pixel手机），参数3.9M，乘加操作312M。与MobileNetV2相比，速度快1.8倍且精度高0.5%；与NASNet相比，速度快2.3倍且精度高1.2%。",
+      "anchors": [
+        "anc_00082",
+        "anc_00086",
+        "anc_00087",
+        "anc_00102",
+        "anc_00103",
+        "anc_00117"
+      ]
+    },
+    "ablation": {
+      "description": "1. 软延迟约束 vs 硬延迟约束：软约束（α=β=-0.07）允许在单次搜索中获得多个帕累托最优模型。2. 搜索空间与奖励的解耦：从NASNet开始，仅添加延迟约束（使用多目标奖励）会生成更快但精度较低的模型；同时使用新搜索空间和多目标奖励可获得更高精度和更低延迟。3. 层多样性：MnasNet比仅使用单一类型层的变体（如仅使用3x3卷积）表现更好。",
+      "anchors": [
+        "anc_00144",
+        "anc_00145",
+        "anc_00146",
+        "anc_00147",
+        "anc_00148",
+        "anc_00150",
+        "anc_00152",
+        "anc_00153",
+        "anc_00154",
+        "anc_00155",
+        "anc_00156",
+        "anc_00158",
+        "anc_00160",
+        "anc_00161",
+        "anc_00162"
+      ]
+    },
+    "robustness": {
+      "description": "模型缩放鲁棒性：MnasNet模型在不同深度乘数（0.35到1.4）和输入图像大小（96到224）下，始终优于MobileNetV2。",
+      "anchors": [
+        "anc_00105",
+        "anc_00107",
+        "anc_00109",
+        "anc_00110",
+        "anc_00120",
+        "anc_00121",
+        "anc_00122"
+      ]
+    },
+    "scaling": {
+      "description": "模型缩放：通过调整深度乘数或输入大小，MnasNet可以在不同延迟下工作。此外，针对特定延迟目标（如22ms）进行新的架构搜索，可以进一步优化模型。",
+      "anchors": [
+        "anc_00105",
+        "anc_00107",
+        "anc_00109",
+        "anc_00110",
+        "anc_00120",
+        "anc_00121",
+        "anc_00122",
+        "anc_00124",
+        "anc_00125",
+        "anc_00126",
+        "anc_00133",
+        "anc_00135",
+        "anc_00136",
+        "anc_00137"
+      ]
+    },
+    "case_study": {
+      "description": "MnasNet-A1架构分析：该模型由多种层架构组成，包括3x3和5x5卷积，这与之前仅使用3x3卷积的移动模型不同。",
+      "anchors": [
+        "anc_00157",
+        "anc_00158",
+        "anc_00159",
+        "anc_00160"
+      ]
+    },
+    "human_eval": {
+      "description": "未提及人工评估。",
+      "anchors": []
+    },
+    "benchmark": {
+      "description": "在ImageNet分类和COCO目标检测两个标准基准上进行评估。在COCO上，MnasNet作为SSD的特征提取器，mAP为23.0，与SSD300（23.2）相当，但参数少7.4倍，乘加操作少42倍。",
+      "anchors": [
+        "anc_00129",
+        "anc_00131",
+        "anc_00138",
+        "anc_00139",
+        "anc_00140"
+      ]
+    },
+    "efficiency": {
+      "description": "效率：MnasNet-A1在Pixel手机上延迟78ms，参数3.9M，乘加操作312M。与MobileNetV2（1.4）相比，速度快1.8倍；与NASNet-A相比，速度快2.3倍。与ResNet-50相比，精度略高（76.7%），但参数少4.8倍，乘加操作少10倍。",
+      "anchors": [
+        "anc_00082",
+        "anc_00086",
+        "anc_00087",
+        "anc_00102",
+        "anc_00103",
+        "anc_00117",
+        "anc_00118",
+        "anc_00119"
+      ]
+    }
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "MNAS方法能自动发现精度与延迟权衡更优的移动CNN模型。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00082",
+          "anc_00086",
+          "anc_00087",
+          "anc_00102",
+          "anc_00103",
+          "anc_00117",
+          "anc_00118",
+          "anc_00119",
+          "anc_00129",
+          "anc_00131",
+          "anc_00138",
+          "anc_00139",
+          "anc_00140"
+        ],
+        "risk_flags": [
+          "实验仅在Pixel 1手机上测量延迟，可能不适用于其他平台。"
+        ]
+      },
+      {
+        "claim": "直接测量真实延迟比使用FLOPS等代理更准确。",
+        "evidence_source_type": "动机与观察",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00017",
+          "anc_00026"
+        ],
+        "risk_flags": [
+          "论文提到FLOPS是不准确的代理，但未提供系统性的比较实验。"
+        ]
+      },
+      {
+        "claim": "分层分解搜索空间能促进层多样性，对资源受限模型至关重要。",
+        "evidence_source_type": "消融实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00154",
+          "anc_00155",
+          "anc_00156",
+          "anc_00158",
+          "anc_00160",
+          "anc_00161",
+          "anc_00162"
+        ],
+        "risk_flags": [
+          "消融实验仅比较了MnasNet与其单一类型层变体，未与其他搜索空间设计进行广泛比较。"
+        ]
+      },
+      {
+        "claim": "MnasNet模型在多个视觉任务上优于现有手动设计和自动搜索的移动模型。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00082",
+          "anc_00086",
+          "anc_00087",
+          "anc_00102",
+          "anc_00103",
+          "anc_00117",
+          "anc_00118",
+          "anc_00119",
+          "anc_00129",
+          "anc_00131",
+          "anc_00138",
+          "anc_00139",
+          "anc_00140"
+        ],
+        "risk_flags": [
+          "比较的基线模型可能不是最新的。"
+        ]
+      },
+      {
+        "claim": "软延迟约束允许在单次搜索中探索帕累托曲线上的多个模型。",
+        "evidence_source_type": "消融实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00144",
+          "anc_00145",
+          "anc_00146",
+          "anc_00147",
+          "anc_00148",
+          "anc_00150",
+          "anc_00152",
+          "anc_00153"
+        ],
+        "risk_flags": [
+          "参数α和β的推导基于特定假设（延迟减半但精度提高5%的模型具有相似奖励）。"
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "MNAS",
+        "definition": "Mobile Neural Architecture Search，移动神经架构搜索，本文提出的自动化方法。",
+        "anchors": [
+          "anc_00006",
+          "anc_00015"
+        ]
+      },
+      {
+        "term": "分层分解搜索空间",
+        "definition": "一种将网络层分组为预定义骨架（阶段和块），并在每个块内进行子搜索的搜索空间设计，以鼓励层多样性。",
+        "anchors": [
+          "anc_00059",
+          "anc_00063",
+          "anc_00067",
+          "anc_00069",
+          "anc_00071",
+          "anc_00072",
+          "anc_00074",
+          "anc_00075"
+        ]
+      },
+      {
+        "term": "多目标奖励函数",
+        "definition": "将精度和延迟结合为一个单一奖励值的函数，通过参数α和β控制延迟约束的软硬程度。",
+        "anchors": [
+          "anc_00049",
+          "anc_00050",
+          "anc_00051",
+          "anc_00053",
+          "anc_00054",
+          "anc_00056",
+          "anc_00058"
+        ]
+      },
+      {
+        "term": "帕累托最优",
+        "definition": "在多目标优化中，一个解在不恶化至少一个目标的情况下，无法改善任何其他目标。",
+        "anchors": [
+          "anc_00075",
+          "anc_00144",
+          "anc_00145",
+          "anc_00146",
+          "anc_00147"
+        ]
+      },
+      {
+        "term": "MBConv",
+        "definition": "Mobile Inverted Bottleneck Convolution，移动倒置瓶颈卷积，是MobileNetV2中使用的一种高效卷积块。",
+        "anchors": [
+          "anc_00160"
+        ]
+      },
+      {
+        "term": "SE (Squeeze-and-Excitation)",
+        "definition": "一种通道注意力机制，通过压缩和激励操作来自适应地重新校准通道特征响应。",
+        "anchors": [
+          "anc_00071",
+          "anc_00112",
+          "anc_00114",
+          "anc_00119"
+        ]
+      },
+      {
+        "term": "SSDLite",
+        "definition": "SSD（Single Shot MultiBox Detector）的一个资源高效版本，使用深度可分离卷积。",
+        "anchors": [
+          "anc_00138"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "required_datasets": [
+      "ImageNet (ILSVRC 2012)",
+      "COCO (trainval35k, test-dev2017)"
+    ],
+    "required_models": [
+      "RNN控制器（与NASNet相同）",
+      "移动倒置瓶颈卷积（MBConv）作为基础块"
+    ],
+    "required_compute": "64个TPUv2设备，用于架构搜索（约4.5天）。完整ImageNet训练和COCO训练需要额外计算资源。",
+    "code_available": "是，代码在 https://github.com/tensorflow/tpu/tree/master/models/official/mnasnet",
+    "steps": [
+      "1. 实现分层分解搜索空间，定义骨架（阶段、块）和每个块的决策变量（ConvOp、KernelSize、SERatio、SkipOp、Fi、Ni）。",
+      "2. 实现多目标奖励函数 Reward(m) = ACC(m)^α * (LAT(m)/T)^β，其中α=β=-0.07。",
+      "3. 实现RNN控制器，用于生成模型架构的token序列。",
+      "4. 设置搜索循环：控制器采样模型，在ImageNet训练集上训练5个epoch以获得精度，在Pixel手机上测量延迟，计算奖励，更新控制器。",
+      "5. 从搜索结果中选择顶级模型，在完整ImageNet上训练（使用RMSProp、学习率调度等）。",
+      "6. 对于COCO任务，将训练好的MnasNet模型作为特征提取器插入SSDLite，并在COCO trainval35k上训练。"
+    ],
+    "missing_details": [
+      "RNN控制器的具体架构和训练细节（如学习率、优化器）未在提供的文本中详细说明。",
+      "搜索过程中采样模型的训练细节（如优化器、学习率）仅提到5个epoch，未提供完整设置。",
+      "延迟测量的具体环境（如操作系统版本、后台进程）未详细说明。",
+      "分层分解搜索空间中每个决策变量的具体选项（如ConvOp的可能值）未完全列出。"
+    ],
+    "risk_points": [
+      "架构搜索成本高昂，需要大量计算资源（64个TPUv2设备）。",
+      "延迟测量依赖于特定移动平台（Pixel 1手机），在其他设备上可能表现不同。",
+      "搜索空间和奖励函数的设计可能对结果有较大影响，但论文中仅进行了有限的消融研究。",
+      "代码可用性：虽然提供了代码链接，但可能依赖于特定的TensorFlow版本和TPU环境。"
+    ]
+  }
+}

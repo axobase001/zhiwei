@@ -1,0 +1,856 @@
+{
+  "paper_skeleton": {
+    "problem": "多任务学习中，不同任务损失函数的相对权重对模型性能影响巨大，手动调整这些权重困难且昂贵，限制了多任务学习的实际应用。",
+    "motivation": "现有方法通常使用朴素的加权和损失，权重要么统一，要么需要手动调优，过程耗时且效果不佳。需要一种原则性的方法来自动学习最优的任务权重。",
+    "core_idea": "提出一种基于同方差不确定性（homoscedastic uncertainty）的多任务损失加权方法。通过将每个任务的不确定性建模为可学习的参数，自动调整损失权重，从而同时学习具有不同单位或尺度的回归和分类任务。",
+    "method": "基于概率建模，为回归任务定义高斯似然，为分类任务定义缩放softmax似然。通过最大化联合对数似然，推导出包含不确定性参数的损失函数。不确定性参数作为正则项，自动学习任务权重。模型采用编码器-解码器架构，共享编码器，任务特定解码器。",
+    "experiments": "在CityScapes数据集上进行实验，任务包括语义分割、实例分割和深度回归。比较了单任务模型、朴素加权多任务模型和本文提出的不确定性加权模型。在Tiny CityScapes子集和全分辨率CityScapes上进行了定量和定性评估。",
+    "claims": [
+      "多任务学习性能对损失权重敏感。",
+      "基于同方差不确定性的加权方法能自动学习最优权重。",
+      "该方法能提升单个任务性能，优于单独训练的模型。",
+      "该方法能同时处理回归和分类任务。"
+    ],
+    "limitations": "论文未深入探讨异方差不确定性或更复杂的不确定性建模。实验主要限于CityScapes数据集和三个特定任务。"
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "输入图像",
+        "label": "输入",
+        "summary": "单目RGB图像作为模型输入。",
+        "description": "模型接收单张单目RGB图像作为输入，用于后续的多任务预测。",
+        "type": "input",
+        "anchors": [
+          "anc_00006"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "共享编码器",
+        "label": "特征提取",
+        "summary": "基于ResNet101的深度卷积编码器，提取共享特征表示。",
+        "description": "使用ResNet101作为基础特征编码器，采用空洞卷积，输出特征图相对于输入图像下采样8倍。随后连接ASPP模块以增强上下文推理能力。",
+        "type": "module",
+        "anchors": [
+          "anc_00130"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "任务特定解码器",
+        "label": "解码器",
+        "summary": "为每个任务（语义、实例、深度）设置独立的卷积解码器。",
+        "description": "每个解码器由一个3x3卷积层（输出256通道）和一个1x1卷积层（回归任务输出）组成，将共享特征映射到特定任务的输出。",
+        "type": "module",
+        "anchors": [
+          "anc_00093"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "语义分割输出",
+        "label": "分类输出",
+        "summary": "像素级语义分类结果。",
+        "description": "解码器输出每个像素的类别概率分布，用于语义分割。",
+        "type": "output",
+        "anchors": [
+          "anc_00006"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "实例分割输出",
+        "label": "回归输出",
+        "summary": "像素级实例向量回归结果。",
+        "description": "解码器输出每个像素指向其实例质心的向量（x, y方向），随后通过聚类（如OPTICS）得到实例分割结果。",
+        "type": "output",
+        "anchors": [
+          "anc_00093",
+          "anc_00096",
+          "anc_00104"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "深度回归输出",
+        "label": "回归输出",
+        "summary": "像素级逆深度估计结果。",
+        "description": "解码器输出每个像素的逆深度值。",
+        "type": "output",
+        "anchors": [
+          "anc_00006"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "多任务损失函数",
+        "label": "损失计算",
+        "summary": "基于同方差不确定性的加权损失函数，自动学习任务权重。",
+        "description": "损失函数由各任务损失项（如L1损失、交叉熵损失）加权求和，并加上不确定性参数的正则项（log σ）。权重通过不确定性参数σ自动学习。",
+        "type": "loss",
+        "anchors": [
+          "anc_00051",
+          "anc_00052",
+          "anc_00075",
+          "anc_00076",
+          "anc_00077",
+          "anc_00078"
+        ]
+      },
+      {
+        "node_id": "node_008",
+        "title": "不确定性参数",
+        "label": "可学习参数",
+        "summary": "每个任务对应一个可学习的同方差不确定性参数σ（或log σ²）。",
+        "description": "不确定性参数σ（或s = log σ²）作为模型参数与网络权重W一起优化。它控制对应任务损失的权重：σ越大，该任务损失权重越小；σ越小，权重越大。正则项log σ防止σ无限增大。",
+        "type": "parameter",
+        "anchors": [
+          "anc_00088",
+          "anc_00089",
+          "anc_00057",
+          "anc_00084",
+          "anc_00085"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "edge_001",
+        "source": "node_001",
+        "target": "node_002",
+        "label": "输入特征",
+        "summary": "输入图像被送入共享编码器提取特征。",
+        "anchors": [
+          "anc_00006"
+        ]
+      },
+      {
+        "edge_id": "edge_002",
+        "source": "node_002",
+        "target": "node_003",
+        "label": "共享特征",
+        "summary": "编码器提取的共享特征被送入各个任务特定解码器。",
+        "anchors": [
+          "anc_00093"
+        ]
+      },
+      {
+        "edge_id": "edge_003",
+        "source": "node_003",
+        "target": "node_004",
+        "label": "语义预测",
+        "summary": "语义解码器输出像素级分类结果。",
+        "anchors": [
+          "anc_00006"
+        ]
+      },
+      {
+        "edge_id": "edge_004",
+        "source": "node_003",
+        "target": "node_005",
+        "label": "实例向量预测",
+        "summary": "实例解码器输出像素级实例向量。",
+        "anchors": [
+          "anc_00093",
+          "anc_00096"
+        ]
+      },
+      {
+        "edge_id": "edge_005",
+        "source": "node_003",
+        "target": "node_006",
+        "label": "深度预测",
+        "summary": "深度解码器输出像素级逆深度估计。",
+        "anchors": [
+          "anc_00006"
+        ]
+      },
+      {
+        "edge_id": "edge_006",
+        "source": "node_004",
+        "target": "node_007",
+        "label": "语义损失",
+        "summary": "语义分割输出与真值计算交叉熵损失。",
+        "anchors": [
+          "anc_00082"
+        ]
+      },
+      {
+        "edge_id": "edge_007",
+        "source": "node_005",
+        "target": "node_007",
+        "label": "实例损失",
+        "summary": "实例向量输出与真值计算L1损失。",
+        "anchors": [
+          "anc_00099",
+          "anc_00100"
+        ]
+      },
+      {
+        "edge_id": "edge_008",
+        "source": "node_006",
+        "target": "node_007",
+        "label": "深度损失",
+        "summary": "深度输出与真值计算L2损失（或L1损失）。",
+        "anchors": [
+          "anc_00054"
+        ]
+      },
+      {
+        "edge_id": "edge_009",
+        "source": "node_008",
+        "target": "node_007",
+        "label": "权重调节",
+        "summary": "不确定性参数σ调节对应任务损失的权重。",
+        "anchors": [
+          "anc_00051",
+          "anc_00052",
+          "anc_00075",
+          "anc_00076",
+          "anc_00077",
+          "anc_00078"
+        ]
+      },
+      {
+        "edge_id": "edge_010",
+        "source": "node_007",
+        "target": "node_002",
+        "label": "反向传播",
+        "summary": "总损失通过反向传播更新编码器和解码器权重W以及不确定性参数σ。",
+        "anchors": [
+          "anc_00041",
+          "anc_00057"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "朴素加权和损失（Naïve weighted sum of losses）。损失函数为各任务损失的加权和：L = Σ w_i * L_i(W)，其中权重w_i需要手动调优或统一设置。",
+    "new_method": "基于同方差不确定性的多任务损失加权。损失函数为：L = Σ (1/(2σ_i²)) * L_i(W) + log σ_i（对于回归任务），或类似形式（对于分类任务）。其中σ_i是可学习的任务不确定性参数。",
+    "deltas": [
+      {
+        "before": "损失权重w_i是超参数，需要手动调优，过程昂贵且效果依赖经验。",
+        "after": "损失权重由可学习的不确定性参数σ_i自动决定，权重为1/(2σ_i²)（或类似形式）。",
+        "why_it_matters": "消除了手动调优权重的需要，使多任务学习更易于应用。权重根据数据自适应学习，通常能获得更好的性能。",
+        "anchors": [
+          "anc_00003",
+          "anc_00017",
+          "anc_00019",
+          "anc_00057",
+          "anc_00084"
+        ]
+      },
+      {
+        "before": "朴素加权和可能导致权重收敛到零或训练不稳定。",
+        "after": "损失函数包含正则项log σ_i，防止不确定性参数无限增大（即防止权重趋近于零），使训练稳定。",
+        "why_it_matters": "确保所有任务都被学习，避免某些任务被忽略。",
+        "anchors": [
+          "anc_00085",
+          "anc_00086",
+          "anc_00087"
+        ]
+      },
+      {
+        "before": "对于分类任务，通常使用标准的softmax交叉熵损失。",
+        "after": "为分类任务引入缩放softmax似然：p(y|f_W(x), σ) = Softmax( (1/σ²) * f_W(x) )，并将不确定性参数纳入损失函数。",
+        "why_it_matters": "将不确定性建模统一扩展到分类任务，使方法能同时处理回归和分类任务。",
+        "anchors": [
+          "anc_00060",
+          "anc_00066",
+          "anc_00067",
+          "anc_00075",
+          "anc_00076",
+          "anc_00077",
+          "anc_00078"
+        ]
+      },
+      {
+        "before": "多任务学习可能因任务冲突而损害单个任务性能。",
+        "after": "通过不确定性加权，模型能自动平衡任务，甚至提升单个任务性能（如语义分割IoU从59.4%提升到63.4%）。",
+        "why_it_matters": "证明了多任务学习不仅能共享表示，还能通过合适的加权策略直接提升各任务性能。",
+        "anchors": [
+          "anc_00109",
+          "anc_00111",
+          "anc_00115"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\mathcal{L}(W, \\sigma_1, \\sigma_2) = \\frac{1}{2\\sigma_1^2}\\mathcal{L}_1(W) + \\frac{1}{2\\sigma_2^2}\\mathcal{L}_2(W) + \\log \\sigma_1 + \\log \\sigma_2",
+        "variables": [
+          {
+            "name": "\\mathcal{L}(W, \\sigma_1, \\sigma_2)",
+            "description": "多任务总损失",
+            "confidence": "high",
+            "anchors": [
+              "anc_00051",
+              "anc_00052"
+            ]
+          },
+          {
+            "name": "W",
+            "description": "神经网络权重",
+            "confidence": "high",
+            "anchors": [
+              "anc_00026"
+            ]
+          },
+          {
+            "name": "\\sigma_1, \\sigma_2",
+            "description": "任务1和任务2的同方差不确定性参数（标准差）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00027",
+              "anc_00040"
+            ]
+          },
+          {
+            "name": "\\mathcal{L}_1(W), \\mathcal{L}_2(W)",
+            "description": "任务1和任务2的损失函数（如L2损失）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00054"
+            ]
+          }
+        ],
+        "dependencies": [
+          "anc_00048",
+          "anc_00049",
+          "anc_00050"
+        ],
+        "intuition": "这是两个回归任务的多任务损失函数。每个任务的损失被其不确定性方差σ²的倒数加权（权重为1/(2σ²)）。不确定性σ越大，该任务损失权重越小。最后一项log σ是正则项，防止σ无限增大（即防止权重趋近于零）。通过最小化此损失，模型同时学习网络权重W和不确定性参数σ。",
+        "anchors": [
+          "anc_00046",
+          "anc_00047",
+          "anc_00048",
+          "anc_00049",
+          "anc_00050",
+          "anc_00051",
+          "anc_00052",
+          "anc_00054",
+          "anc_00056",
+          "anc_00057"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "\\mathcal{L} = \\frac{1}{2\\sigma_1^2}\\mathcal{L}_1(W) + \\frac{1}{\\sigma_2^2}\\mathcal{L}_2(W) + \\log \\sigma_1 + \\log \\sigma_2",
+        "variables": [
+          {
+            "name": "\\mathcal{L}",
+            "description": "混合任务（一个回归，一个分类）的多任务总损失",
+            "confidence": "high",
+            "anchors": [
+              "anc_00075",
+              "anc_00076",
+              "anc_00077",
+              "anc_00078"
+            ]
+          },
+          {
+            "name": "\\sigma_1",
+            "description": "回归任务的不确定性参数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00071"
+            ]
+          },
+          {
+            "name": "\\sigma_2",
+            "description": "分类任务的不确定性参数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00072"
+            ]
+          },
+          {
+            "name": "\\mathcal{L}_1(W)",
+            "description": "回归任务的损失（如L2损失）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00080"
+            ]
+          },
+          {
+            "name": "\\mathcal{L}_2(W)",
+            "description": "分类任务的损失（交叉熵损失，基于缩放softmax）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00081",
+              "anc_00082"
+            ]
+          }
+        ],
+        "dependencies": [
+          "anc_00070",
+          "anc_00071",
+          "anc_00072",
+          "anc_00074"
+        ],
+        "intuition": "这是混合任务（一个回归，一个分类）的损失函数。回归部分与公式1类似。分类部分使用缩放softmax似然，其损失权重为1/σ²（注意与回归的1/(2σ²)略有不同，源于推导中的近似）。正则项同样是log σ。该公式统一了回归和分类任务的不确定性加权。",
+        "anchors": [
+          "anc_00068",
+          "anc_00070",
+          "anc_00071",
+          "anc_00072",
+          "anc_00074",
+          "anc_00075",
+          "anc_00076",
+          "anc_00077",
+          "anc_00078",
+          "anc_00080",
+          "anc_00081",
+          "anc_00082",
+          "anc_00083"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "s := \\log \\sigma^2",
+        "variables": [
+          {
+            "name": "s",
+            "description": "模型实际预测的对数方差",
+            "confidence": "high",
+            "anchors": [
+              "anc_00088",
+              "anc_00089"
+            ]
+          },
+          {
+            "name": "\\sigma^2",
+            "description": "方差",
+            "confidence": "high",
+            "anchors": [
+              "anc_00088"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "在实践中，为了数值稳定性，模型预测对数方差s = log σ²，而不是直接预测方差σ²。这避免了除以零的风险，并且通过指数映射exp(s)可以确保方差为正。",
+        "anchors": [
+          "anc_00088",
+          "anc_00089",
+          "anc_00090"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "latex": "p(y|f_W(x)) = \\mathcal{N}(f_W(x), \\sigma^2)",
+        "variables": [
+          {
+            "name": "p(y|f_W(x))",
+            "description": "给定模型输出f_W(x)时，观测值y的似然（回归任务）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00027"
+            ]
+          },
+          {
+            "name": "f_W(x)",
+            "description": "神经网络输出（均值）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00026"
+            ]
+          },
+          {
+            "name": "\\sigma^2",
+            "description": "观测噪声方差（同方差不确定性）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00027",
+              "anc_00040"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "对于回归任务，假设观测值y服从以模型输出f_W(x)为均值、σ²为方差的高斯分布。σ²代表数据中的噪声水平（同方差不确定性）。",
+        "anchors": [
+          "anc_00026",
+          "anc_00027",
+          "anc_00040"
+        ]
+      },
+      {
+        "formula_id": "formula_005",
+        "latex": "p(y|f_W(x), \\sigma) = \\text{Softmax}\\left(\\frac{1}{\\sigma^2} f_W(x)\\right)",
+        "variables": [
+          {
+            "name": "p(y|f_W(x), \\sigma)",
+            "description": "给定模型输出和不确定性时，观测类别y的似然（分类任务）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00060"
+            ]
+          },
+          {
+            "name": "f_W(x)",
+            "description": "神经网络输出的logits向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00060"
+            ]
+          },
+          {
+            "name": "\\sigma",
+            "description": "不确定性参数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00060"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "对于分类任务，将模型输出logits缩放1/σ²后通过softmax函数得到类别概率分布。σ²越大，缩放后的logits越接近零，分布越均匀（熵越大），表示不确定性越高。",
+        "anchors": [
+          "anc_00059",
+          "anc_00060",
+          "anc_00062",
+          "anc_00064"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "在CityScapes数据集上，使用本文提出的多任务不确定性加权损失，同时训练语义分割、实例分割和深度回归三个任务，相比单任务模型和朴素加权多任务模型，各项指标均有提升。",
+      "results": [
+        {
+          "task": "语义分割 (IoU)",
+          "single_task": "59.4%",
+          "naive_multi_task": "50.1% (均匀权重)",
+          "proposed_method": "63.4% (三任务不确定性加权)",
+          "anchors": [
+            "anc_00109",
+            "anc_00111",
+            "anc_00115"
+          ]
+        },
+        {
+          "task": "实例分割 (Mean Error px)",
+          "single_task": "4.61",
+          "naive_multi_task": "3.79 (均匀权重)",
+          "proposed_method": "3.50 (三任务不确定性加权)",
+          "anchors": [
+            "anc_00109",
+            "anc_00111"
+          ]
+        },
+        {
+          "task": "深度回归 (Mean Error m⁻¹)",
+          "single_task": "0.640",
+          "naive_multi_task": "0.592 (均匀权重)",
+          "proposed_method": "0.522 (三任务不确定性加权)",
+          "anchors": [
+            "anc_00109",
+            "anc_00111"
+          ]
+        }
+      ]
+    },
+    "ablation": {
+      "description": "对比了不同任务组合（单任务、两任务、三任务）以及不同加权策略（单任务、均匀权重、近似最优权重、不确定性加权）的效果。",
+      "results": [
+        {
+          "setting": "单任务 vs. 多任务",
+          "finding": "多任务学习（即使使用均匀权重）在某些任务上可能不如单任务模型，但使用合适的加权（如不确定性加权）后，多任务学习能显著提升所有任务性能。",
+          "anchors": [
+            "anc_00109",
+            "anc_00111",
+            "anc_00115"
+          ]
+        },
+        {
+          "setting": "不同加权策略",
+          "finding": "均匀权重性能较差；近似最优权重（通过网格搜索）性能较好但搜索成本高；不确定性加权性能最好且无需手动调优。",
+          "anchors": [
+            "anc_00109",
+            "anc_00115"
+          ]
+        },
+        {
+          "setting": "任务数量",
+          "finding": "使用三任务不确定性加权（3×✓）的性能优于任何两任务组合（2×✓），表明方法能自动学习更好的任务间权重。",
+          "anchors": [
+            "anc_00109",
+            "anc_00111",
+            "anc_00112"
+          ]
+        }
+      ]
+    },
+    "robustness": {
+      "description": "论文展示了模型对不确定性参数初始化的鲁棒性。图6显示，无论初始值如何，不确定性参数和任务损失都能收敛到相似的值。",
+      "anchors": [
+        "anc_00140"
+      ]
+    },
+    "scaling": {
+      "description": "在Tiny CityScapes（128x256）和全分辨率CityScapes（1024x2048）上均进行了实验，验证了方法在不同数据规模下的有效性。",
+      "anchors": [
+        "anc_00113",
+        "anc_00119",
+        "anc_00132"
+      ]
+    },
+    "case_study": {
+      "description": "图5和图8展示了多任务学习在具体图像上的定性结果，显示了深度、语义和实例分割的联合预测效果。图9展示了一些失败案例。",
+      "anchors": [
+        "anc_00121",
+        "anc_00145",
+        "anc_00148"
+      ]
+    },
+    "human_eval": {
+      "description": "未提及人工评估。",
+      "anchors": []
+    },
+    "benchmark": {
+      "description": "在CityScapes基准测试集上提交了结果（表2），与当时其他方法进行了比较。论文指出，由于其他方法可能使用了集成或更多数据，比较不完全公平。",
+      "anchors": [
+        "anc_00119",
+        "anc_00120"
+      ]
+    },
+    "efficiency": {
+      "description": "论文未详细讨论计算效率或推理时间。训练细节（如迭代次数、批量大小、GPU型号）在附录A中提供。",
+      "anchors": [
+        "anc_00132"
+      ]
+    }
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim_id": "claim_001",
+        "claim": "多任务学习的性能对损失权重的选择非常敏感。",
+        "evidence_source_type": "实验分析",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00013",
+          "anc_00014",
+          "anc_00015",
+          "anc_00016",
+          "anc_00017",
+          "anc_00019",
+          "anc_00020",
+          "anc_00022"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_002",
+        "claim": "基于同方差不确定性的加权方法能自动学习最优的任务权重，无需手动调优。",
+        "evidence_source_type": "理论推导与实验验证",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00003",
+          "anc_00057",
+          "anc_00084",
+          "anc_00085",
+          "anc_00087",
+          "anc_00109",
+          "anc_00111",
+          "anc_00115"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_003",
+        "claim": "使用不确定性加权的多任务学习能提升单个任务的性能，优于单独训练的模型。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00109",
+          "anc_00111",
+          "anc_00115"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_004",
+        "claim": "该方法能统一处理回归和分类任务。",
+        "evidence_source_type": "理论推导与实验设置",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00058",
+          "anc_00059",
+          "anc_00060",
+          "anc_00066",
+          "anc_00067",
+          "anc_00075",
+          "anc_00076",
+          "anc_00077",
+          "anc_00078",
+          "anc_00109"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_005",
+        "claim": "多任务学习能通过共享表示改善模型的泛化能力。",
+        "evidence_source_type": "引用先前工作与实验观察",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00006",
+          "anc_00008",
+          "anc_00122"
+        ],
+        "risk_flags": [
+          "此为多任务学习的一般性主张，本文实验支持但非独创性证明。"
+        ]
+      },
+      {
+        "claim_id": "claim_006",
+        "claim": "模型对不确定性参数的初始化不敏感。",
+        "evidence_source_type": "实验观察",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00140"
+        ],
+        "risk_flags": [
+          "证据主要来自训练曲线图，缺乏详细的统计分析。"
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "同方差不确定性 (Homoscedastic Uncertainty)",
+        "definition": "一种与输入无关、但与任务相关的不确定性。它捕获了数据中固有的噪声水平，对于所有输入都是相同的。在本文中，它被建模为每个任务一个可学习的标量参数σ。",
+        "anchors": [
+          "anc_00024",
+          "anc_00025"
+        ]
+      },
+      {
+        "term": "认知不确定性 (Epistemic Uncertainty)",
+        "definition": "由于模型缺乏知识（如训练数据不足）而导致的不确定性。可以通过增加训练数据来减少。",
+        "anchors": [
+          "anc_00024"
+        ]
+      },
+      {
+        "term": "偶然不确定性 (Aleatoric Uncertainty)",
+        "definition": "数据中固有的、无法通过更多数据消除的随机不确定性。同方差不确定性是其一种特殊情况。",
+        "anchors": [
+          "anc_00024"
+        ]
+      },
+      {
+        "term": "多任务学习 (Multi-task Learning)",
+        "definition": "一种机器学习范式，通过共享表示同时学习多个相关任务，旨在提高学习效率和泛化能力。",
+        "anchors": [
+          "anc_00003",
+          "anc_00008"
+        ]
+      },
+      {
+        "term": "损失权重 (Loss Weights)",
+        "definition": "在多任务学习中，用于平衡不同任务损失贡献的系数。本文提出通过不确定性参数自动学习这些权重。",
+        "anchors": [
+          "anc_00003",
+          "anc_00017",
+          "anc_00019"
+        ]
+      },
+      {
+        "term": "编码器-解码器架构 (Encoder-Decoder Architecture)",
+        "definition": "一种神经网络结构，编码器将输入映射到低维特征表示，解码器将该特征映射回所需的输出空间。本文使用共享编码器和任务特定解码器。",
+        "anchors": [
+          "anc_00090",
+          "anc_00093"
+        ]
+      },
+      {
+        "term": "ASPP模块 (Atrous Spatial Pyramid Pooling)",
+        "definition": "一种使用不同膨胀率的空洞卷积来捕获多尺度上下文信息的模块，常用于语义分割。",
+        "anchors": [
+          "anc_00130"
+        ]
+      },
+      {
+        "term": "OPTICS聚类",
+        "definition": "一种基于密度的聚类算法，用于从实例向量预测中生成实例分割掩码。",
+        "anchors": [
+          "anc_00104"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "required_datasets": [
+      {
+        "name": "CityScapes",
+        "description": "大规模城市道路场景理解数据集，包含立体图像、语义分割、实例分割标注，以及由SGM生成的伪深度真值。",
+        "anchors": [
+          "anc_00107",
+          "anc_00108"
+        ]
+      },
+      {
+        "name": "Tiny CityScapes",
+        "description": "CityScapes的下采样子集（128x256分辨率），用于快速实验验证。",
+        "anchors": [
+          "anc_00113"
+        ]
+      }
+    ],
+    "required_models": [
+      {
+        "name": "ResNet101",
+        "description": "用作特征编码器的骨干网络。",
+        "anchors": [
+          "anc_00130"
+        ]
+      },
+      {
+        "name": "DeepLabV3",
+        "description": "基础的语义分割架构，本文模型基于此修改。",
+        "anchors": [
+          "anc_00130"
+        ]
+      }
+    ],
+    "required_compute": {
+      "description": "使用单个NVIDIA 1080Ti GPU进行训练。Tiny CityScapes实验训练50,000次迭代，全分辨率实验训练100,000次迭代。",
+      "anchors": [
+        "anc_00132"
+      ]
+    },
+    "code_available": {
+      "status": "unknown",
+      "details": "论文未提及代码是否公开。需要检查作者主页或GitHub。"
+    },
+    "steps": [
+      "1. 准备CityScapes数据集，包括图像、语义/实例分割标注和深度真值（或使用提供的SGM深度）。",
+      "2. 实现基于ResNet101和ASPP的共享编码器。",
+      "3. 为语义分割、实例分割（输出实例向量）和深度回归分别实现解码器。",
+      "4. 实现多任务损失函数，包括回归任务的高斯似然损失和分类任务的缩放softmax似然损失，以及不确定性正则项。",
+      "5. 在训练过程中，同时优化网络权重W和每个任务的不确定性参数σ（或s = log σ²）。",
+      "6. 对于实例分割，在推理时对预测的实例向量应用聚类算法（如OPTICS）以获得最终实例掩码。",
+      "7. 在Tiny CityScapes上进行初步实验和调参，然后在全分辨率CityScapes上进行训练和评估。"
+    ],
+    "missing_details": [
+      "具体的优化器学习率调度策略（附录A可能提供，但此处未提取）。",
+      "实例向量聚类OPTICS的具体参数设置。",
+      "训练时数据增强的完整细节（如随机缩放范围、裁剪大小等，部分已提及）。",
+      "不确定性参数σ的初始化值（论文讨论了鲁棒性，但未明确推荐值）。",
+      "损失函数中近似等式（公式10）的具体影响和适用条件。"
+    ],
+    "risk_points": [
+      "实例分割依赖于语义分割结果来确定哪些像素属于实例类别，存在错误传播风险。",
+      "深度真值是使用SGM从立体图像生成的伪标签，可能包含噪声，影响深度回归任务的学习。",
+      "论文中的近似（公式10）可能在某些情况下引入误差，需要验证其影响。",
+      "方法在CityScapes数据集上验证，其泛化到其他领域（如医疗图像、自然图像）的能力未知。"
+    ]
+  }
+}

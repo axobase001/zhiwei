@@ -1,0 +1,2733 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "尽管大型多模态模型（LMM）在视觉指令调优方面取得了进展，但训练LMM的最佳方案仍不明确，不同模型在对话式推理和学术任务基准上表现不一，且缺乏系统性的设计选择研究。",
+      "anchors": [
+        "anc_00004",
+        "anc_00006",
+        "anc_00008"
+      ]
+    },
+    "motivation": {
+      "summary": "为了理解LMM的能力并建立更强、更易复现的基线，需要系统地研究LLaVA框架下的设计选择，以平衡自然对话和学术任务性能，并探索开放问题如高分辨率输入、组合能力和模型幻觉。",
+      "anchors": [
+        "anc_00004",
+        "anc_00009",
+        "anc_00011",
+        "anc_00013"
+      ]
+    },
+    "core_idea": {
+      "summary": "在LLaVA框架内，通过简单的修改（使用MLP视觉-语言连接器和添加学术任务导向的VQA数据及响应格式提示）建立更强的基线，实现数据高效和状态最先进的性能。",
+      "anchors": [
+        "anc_00004",
+        "anc_00009",
+        "anc_00033"
+      ]
+    },
+    "method": {
+      "summary": "基于LLaVA框架，采用CLIP-ViT-L-336px视觉编码器和MLP投影层作为视觉-语言连接器，结合两阶段训练：视觉-语言对齐预训练和视觉指令调优。引入学术任务数据（如VQA）和响应格式提示，并通过图像分块编码扩展到高分辨率输入。",
+      "anchors": [
+        "anc_00004",
+        "anc_00021",
+        "anc_00033",
+        "anc_00035",
+        "anc_00043"
+      ]
+    },
+    "experiments": {
+      "summary": "在12个基准上评估，包括学术任务导向基准（如VQAv2、GQA）和指令跟随LMM基准（如MME、MM-Vet）。进行消融研究，分析数据效率、模型选择、分辨率缩放等。",
+      "anchors": [
+        "anc_00037",
+        "anc_00045",
+        "anc_00046",
+        "anc_00047",
+        "anc_00048",
+        "anc_00051",
+        "anc_00056"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "1. LLaVA中的全连接视觉-语言连接器强大且数据高效。2. 简单修改（MLP连接器和学术任务数据）可建立更强基线。3. LLaVA-1.5在12个基准上达到最先进性能。4. 模型可扩展到高分辨率输入并保持数据效率。5. 存在组合能力，如多语言视觉对话。6. 数据效率高，随机下采样75%数据不会显著降低性能。",
+        "anchors": [
+          "anc_00004",
+          "anc_00009",
+          "anc_00033",
+          "anc_00037",
+          "anc_00045",
+          "anc_00046",
+          "anc_00047",
+          "anc_00048",
+          "anc_00051",
+          "anc_00056",
+          "anc_00066",
+          "anc_00070",
+          "anc_00123",
+          "anc_00125"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "1. 高分辨率图像训练时间延长。2. 缺乏多图像理解能力。3. 在某些领域的问题解决能力有限。4. 可能产生幻觉或传播错误信息。",
+        "anchors": [
+          "anc_00075",
+          "anc_00127",
+          "anc_00128"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "视觉编码器",
+        "label": "Vision Encoder",
+        "summary": "使用预训练的CLIP-ViT-L-336px模型提取视觉特征。",
+        "description": "视觉编码器基于CLIP-ViT-L-14架构，输入图像分辨率调整为336x336像素，输出视觉特征图。对于高分辨率输入，采用分块编码策略。",
+        "type": "component",
+        "anchors": [
+          "anc_00004",
+          "anc_00035",
+          "anc_00080"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "视觉-语言连接器",
+        "label": "Vision-Language Connector",
+        "summary": "采用MLP投影层将视觉特征映射到语言模型嵌入空间。",
+        "description": "连接器是一个两层MLP（多层感知机），将视觉编码器的输出投影到语言模型的词嵌入维度。这替代了LLaVA中使用的单一线性层，提高了性能。",
+        "type": "component",
+        "anchors": [
+          "anc_00004",
+          "anc_00009",
+          "anc_00033"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "大型语言模型",
+        "label": "Large Language Model (LLM)",
+        "summary": "使用Vicuna-7B或13B作为基础语言模型，进行指令调优。",
+        "description": "LLM基于Vicuna架构，经过监督指令微调（SFT）和可能的RLHF优化。用于理解用户指令并生成文本响应。",
+        "type": "component",
+        "anchors": [
+          "anc_00037",
+          "anc_00069"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "训练数据混合",
+        "label": "Training Data Mixture",
+        "summary": "包含多种数据集：VQA、OCR、区域级VQA、视觉对话和语言对话数据。",
+        "description": "数据混合包括VQAv2、GQA、OKVQA、A-OKVQA、OCRVQA、TextCaps、Visual Genome、RefCOCO、ShareGPT等。采用响应格式提示和采样策略以提高效率。",
+        "type": "data",
+        "anchors": [
+          "anc_00093",
+          "anc_00096",
+          "anc_00097"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "高分辨率处理",
+        "label": "High-Resolution Processing",
+        "summary": "通过图像分块编码和全局上下文拼接扩展到高分辨率输入。",
+        "description": "将输入图像分割成多个小块，每个小块独立编码为原始分辨率（224x224），然后合并特征图。拼接一个下采样图像的特征以提供全局上下文。",
+        "type": "technique",
+        "anchors": [
+          "anc_00035",
+          "anc_00043",
+          "anc_00050",
+          "anc_00051"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "响应格式提示",
+        "label": "Response Format Prompts",
+        "summary": "使用特定提示引导模型输出所需格式（如短答案、JSON等）。",
+        "description": "在训练和评估中，添加格式提示（如'Answer with the option's letter from the given choices directly'）以控制输出格式，提高在学术任务上的性能。",
+        "type": "technique",
+        "anchors": [
+          "anc_00004",
+          "anc_00033",
+          "anc_00095"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "两阶段训练",
+        "label": "Two-Stage Training",
+        "summary": "第一阶段：视觉-语言对齐预训练；第二阶段：视觉指令调优。",
+        "description": "预训练阶段使用图像-文本对对齐视觉特征和语言嵌入。指令调优阶段在视觉指令数据上微调整个模型。",
+        "type": "process",
+        "anchors": [
+          "anc_00021",
+          "anc_00024"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "特征投影",
+        "description": "视觉编码器输出的特征图通过MLP连接器投影到语言空间。",
+        "anchors": [
+          "anc_00004",
+          "anc_00033"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "嵌入输入",
+        "description": "投影后的视觉特征作为输入序列的一部分馈送到LLM。",
+        "anchors": [
+          "anc_00021"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_007",
+        "label": "数据驱动训练",
+        "description": "训练数据混合用于两阶段训练过程。",
+        "anchors": [
+          "anc_00096",
+          "anc_00097"
+        ]
+      },
+      {
+        "source": "node_005",
+        "target": "node_001",
+        "label": "分块输入",
+        "description": "高分辨率图像被分割成小块，每个小块独立输入视觉编码器。",
+        "anchors": [
+          "anc_00043",
+          "anc_00080"
+        ]
+      },
+      {
+        "source": "node_006",
+        "target": "node_004",
+        "label": "提示集成",
+        "description": "响应格式提示集成到训练数据中，指导模型输出格式。",
+        "anchors": [
+          "anc_00033",
+          "anc_00095"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00004",
+        "anc_00031"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00004",
+        "anc_00009",
+        "anc_00033",
+        "anc_00037"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "使用单一线性层作为视觉-语言连接器。",
+        "after": "使用两层MLP作为视觉-语言连接器。",
+        "why_it_matters": "MLP连接器提高了视觉-语言对齐的表达能力，从而提升了模型在多个基准上的性能。",
+        "anchors": [
+          "anc_00004",
+          "anc_00009",
+          "anc_00033"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "训练数据主要包含对话式QA、详细描述和复杂推理数据。",
+        "after": "添加学术任务导向的VQA数据（如VQAv2、GQA）和响应格式提示。",
+        "why_it_matters": "学术任务数据增强了模型在短答案VQA任务上的性能，而格式提示使模型能适应不同输出格式，平衡了对话和学术任务。",
+        "anchors": [
+          "anc_00004",
+          "anc_00033",
+          "anc_00096"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "视觉编码器使用CLIP-ViT-L-224px。",
+        "after": "视觉编码器升级为CLIP-ViT-L-336px。",
+        "why_it_matters": "更高分辨率的视觉编码器提供了更详细的视觉特征，有助于提升感知能力。",
+        "anchors": [
+          "anc_00004"
+        ],
+        "delta_id": "delta_3"
+      },
+      {
+        "before": "固定分辨率输入，无法处理高分辨率图像。",
+        "after": "通过图像分块编码和全局上下文拼接支持高分辨率输入（如448x448）。",
+        "why_it_matters": "扩展了模型处理高分辨率图像的能力，提高了详细感知并减少幻觉。",
+        "anchors": [
+          "anc_00035",
+          "anc_00043",
+          "anc_00050",
+          "anc_00051"
+        ],
+        "delta_id": "delta_4"
+      },
+      {
+        "before": "训练数据量相对较小（如LLaVA使用约150K数据）。",
+        "after": "使用约1.2M公开数据，但通过数据效率策略（如采样）保持高效。",
+        "why_it_matters": "在增加数据量的同时保持了训练效率，实现了更强性能。",
+        "anchors": [
+          "anc_00004",
+          "anc_00070"
+        ],
+        "delta_id": "delta_5"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\text{Visual Features} = \\text{CLIP-ViT-L-336px}(\\text{Image})",
+        "variables": [
+          {
+            "name": "Image",
+            "description": "输入图像，分辨率调整为336x336像素。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00004"
+            ]
+          },
+          {
+            "name": "Visual Features",
+            "description": "视觉编码器输出的特征图。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00004"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "使用预训练的CLIP视觉编码器从图像中提取高级语义特征。",
+        "anchors": [
+          "anc_00004"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "\\text{Projected Features} = \\text{MLP}(\\text{Visual Features})",
+        "variables": [
+          {
+            "name": "Visual Features",
+            "description": "视觉编码器输出的特征图。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00004"
+            ]
+          },
+          {
+            "name": "Projected Features",
+            "description": "投影到语言模型嵌入空间的视觉特征。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00004"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "通过MLP将视觉特征映射到语言模型的词嵌入空间，实现跨模态对齐。",
+        "anchors": [
+          "anc_00004",
+          "anc_00033"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "\\text{Response} = \\text{LLM}(\\text{Projected Features}, \\text{Text Prompt})",
+        "variables": [
+          {
+            "name": "Projected Features",
+            "description": "投影后的视觉特征。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00004"
+            ]
+          },
+          {
+            "name": "Text Prompt",
+            "description": "用户指令和可能的格式提示。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00033"
+            ]
+          },
+          {
+            "name": "Response",
+            "description": "语言模型生成的文本响应。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00004"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "LLM基于视觉特征和文本提示生成响应，实现多模态理解和生成。",
+        "anchors": [
+          "anc_00021"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "latex": "\\text{High-Res Features} = \\text{Concat}(\\text{Patch Features}, \\text{Global Context})",
+        "variables": [
+          {
+            "name": "Patch Features",
+            "description": "图像分块编码后的特征图合并结果。",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00043",
+              "anc_00050"
+            ]
+          },
+          {
+            "name": "Global Context",
+            "description": "下采样图像的特征，提供全局上下文。",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00051"
+            ]
+          },
+          {
+            "name": "High-Res Features",
+            "description": "用于LLM的高分辨率视觉特征。",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00050"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "通过分块编码和全局上下文拼接，使模型能处理任意分辨率图像，同时保持细节和全局理解。",
+        "anchors": [
+          "anc_00035",
+          "anc_00043",
+          "anc_00050",
+          "anc_00051"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "LLaVA-1.5在12个基准上达到最先进性能，包括学术任务和指令跟随任务。",
+      "metrics": [
+        "VQAv2",
+        "GQA",
+        "MME",
+        "MM-Vet",
+        "POPE",
+        "MMBench",
+        "SEED-Bench"
+      ],
+      "results": "在Table 3和Table 4中报告，LLaVA-1.5在多个基准上优于InstructBLIP、Qwen-VL等。",
+      "anchors": [
+        "anc_00037",
+        "anc_00045",
+        "anc_00046",
+        "anc_00047",
+        "anc_00048"
+      ]
+    },
+    "ablation": {
+      "description": "消融研究分析数据效率、模型选择、分辨率缩放等。",
+      "studies": [
+        {
+          "name": "数据效率",
+          "description": "随机下采样训练数据混合，采样比例从0.1到0.5。",
+          "findings": "50%数据仍能保持较好性能，但完整数据混合提供最佳覆盖。",
+          "anchors": [
+            "anc_00070"
+          ]
+        },
+        {
+          "name": "模型选择",
+          "description": "比较不同LLM（如Vicuna-v1.3、v1.5、LLaMA-2-Chat）。",
+          "findings": "Vicuna-v1.5整体性能最佳，LLaMA-2基模型通常优于LLaMA-1。",
+          "anchors": [
+            "anc_00069"
+          ]
+        },
+        {
+          "name": "全局上下文",
+          "description": "在高分辨率模型中，消融全局上下文拼接的效果。",
+          "findings": "全局上下文在GQA、MME、MM-Vet上分别提升0.9、71、3.2点。",
+          "anchors": [
+            "anc_00062"
+          ]
+        }
+      ]
+    },
+    "robustness": {
+      "description": "评估模型在对抗性问题和格式指令泛化上的鲁棒性。",
+      "findings": "模型能泛化到未见过的格式提示，并在VizWiz上有效识别不可回答问题。",
+      "anchors": [
+        "anc_00055",
+        "anc_00066"
+      ]
+    },
+    "scaling": {
+      "description": "研究数据、模型和分辨率的缩放效应。",
+      "studies": [
+        {
+          "name": "数据缩放",
+          "description": "增加学术任务数据和区域级VQA数据。",
+          "findings": "数据增加持续提升性能，如添加GQA后GQA分数从51.4提升到62.0。",
+          "anchors": [
+            "anc_00037"
+          ]
+        },
+        {
+          "name": "模型缩放",
+          "description": "从7B扩展到13B LLM。",
+          "findings": "13B模型在多个基准上进一步提升，如MME从1510.7到1531.3。",
+          "anchors": [
+            "anc_00037"
+          ]
+        },
+        {
+          "name": "分辨率缩放",
+          "description": "从336x336扩展到448x448（LLaVA-1.5-HD）。",
+          "findings": "高分辨率进一步提升整体性能，尤其在需要细节感知的任务上。",
+          "anchors": [
+            "anc_00056"
+          ]
+        }
+      ]
+    },
+    "case_study": {
+      "description": "定性示例展示模型能力，如格式指令遵循、多语言对话、写作任务。",
+      "examples": [
+        {
+          "name": "格式指令泛化",
+          "description": "模型能根据用户请求切换输出格式（如JSON）。",
+          "anchors": [
+            "anc_00099",
+            "anc_00102"
+          ]
+        },
+        {
+          "name": "多语言视觉对话",
+          "description": "模型能参与多语言视觉对话，尽管训练数据主要是英语。",
+          "anchors": [
+            "anc_00123",
+            "anc_00125"
+          ]
+        },
+        {
+          "name": "写作任务",
+          "description": "模型能生成详细的旅行博客文章，基于视觉输入。",
+          "anchors": [
+            "anc_00105",
+            "anc_00107",
+            "anc_00109",
+            "anc_00113",
+            "anc_00115",
+            "anc_00117",
+            "anc_00121"
+          ]
+        }
+      ]
+    },
+    "human_eval": {
+      "description": "未明确提及人工评估，但使用GPT-4评估响应质量。",
+      "anchors": [
+        "anc_00056"
+      ]
+    },
+    "benchmark": {
+      "description": "在12个基准上评估，包括学术任务和指令跟随基准。",
+      "benchmarks": [
+        "VQAv2",
+        "GQA",
+        "VizWiz",
+        "SciQA-IMG",
+        "TextVQA",
+        "POPE",
+        "MME",
+        "MMBench",
+        "SEED-Bench",
+        "LLaVA-Wild",
+        "MM-Vet"
+      ],
+      "anchors": [
+        "anc_00045",
+        "anc_00047",
+        "anc_00051"
+      ]
+    },
+    "efficiency": {
+      "description": "训练效率高，13B模型在单个8-A100节点上约1天完成训练。",
+      "details": "使用1.2M公开数据，通过数据采样和批处理策略提高效率。",
+      "anchors": [
+        "anc_00004",
+        "anc_00097"
+      ]
+    },
+    "experiments": [
+      {
+        "description": "LLaVA-1.5在12个基准上达到最先进性能，包括学术任务和指令跟随任务。",
+        "metrics": [
+          "VQAv2",
+          "GQA",
+          "MME",
+          "MM-Vet",
+          "POPE",
+          "MMBench",
+          "SEED-Bench"
+        ],
+        "results": "在Table 3和Table 4中报告，LLaVA-1.5在多个基准上优于InstructBLIP、Qwen-VL等。",
+        "anchors": [
+          "anc_00037",
+          "anc_00045",
+          "anc_00046",
+          "anc_00047",
+          "anc_00048"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "main_result_1",
+        "dataset": [
+          "VQAv2",
+          "GQA",
+          "VizWiz",
+          "SciQA-IMG",
+          "TextVQA",
+          "POPE",
+          "MME",
+          "MMBench",
+          "SEED-Bench",
+          "LLaVA-Wild",
+          "MM-Vet"
+        ],
+        "baseline": [
+          "InstructBLIP",
+          "Qwen-VL",
+          "BLIP-2"
+        ],
+        "result_summary": "LLaVA-1.5在12个基准上达到最先进性能，包括学术任务和指令跟随任务。",
+        "what_it_tries_to_prove": "LLaVA-1.5在12个基准上达到最先进性能，包括学术任务和指令跟随任务。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "消融研究分析数据效率、模型选择、分辨率缩放等。",
+        "studies": [
+          {
+            "name": "数据效率",
+            "description": "随机下采样训练数据混合，采样比例从0.1到0.5。",
+            "findings": "50%数据仍能保持较好性能，但完整数据混合提供最佳覆盖。",
+            "anchors": [
+              "anc_00070"
+            ]
+          },
+          {
+            "name": "模型选择",
+            "description": "比较不同LLM（如Vicuna-v1.3、v1.5、LLaMA-2-Chat）。",
+            "findings": "Vicuna-v1.5整体性能最佳，LLaMA-2基模型通常优于LLaMA-1。",
+            "anchors": [
+              "anc_00069"
+            ]
+          },
+          {
+            "name": "全局上下文",
+            "description": "在高分辨率模型中，消融全局上下文拼接的效果。",
+            "findings": "全局上下文在GQA、MME、MM-Vet上分别提升0.9、71、3.2点。",
+            "anchors": [
+              "anc_00062"
+            ]
+          }
+        ],
+        "experiment_id": "experiment_2",
+        "type": "ablation",
+        "name": "ablation_2",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "消融研究分析数据效率、模型选择、分辨率缩放等。",
+        "what_it_tries_to_prove": "消融研究分析数据效率、模型选择、分辨率缩放等。",
+        "evidence_strength": "strong",
+        "anchors": [
+          "anc_00070",
+          "anc_00069",
+          "anc_00062"
+        ]
+      },
+      {
+        "description": "评估模型在对抗性问题和格式指令泛化上的鲁棒性。",
+        "findings": "模型能泛化到未见过的格式提示，并在VizWiz上有效识别不可回答问题。",
+        "anchors": [
+          "anc_00055",
+          "anc_00066"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "robustness",
+        "name": "robustness_3",
+        "dataset": [
+          "VizWiz"
+        ],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "模型能泛化到未见过的格式提示，并在VizWiz上有效识别不可回答问题。",
+        "what_it_tries_to_prove": "模型能泛化到未见过的格式提示，并在VizWiz上有效识别不可回答问题。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "研究数据、模型和分辨率的缩放效应。",
+        "studies": [
+          {
+            "name": "数据缩放",
+            "description": "增加学术任务数据和区域级VQA数据。",
+            "findings": "数据增加持续提升性能，如添加GQA后GQA分数从51.4提升到62.0。",
+            "anchors": [
+              "anc_00037"
+            ]
+          },
+          {
+            "name": "模型缩放",
+            "description": "从7B扩展到13B LLM。",
+            "findings": "13B模型在多个基准上进一步提升，如MME从1510.7到1531.3。",
+            "anchors": [
+              "anc_00037"
+            ]
+          },
+          {
+            "name": "分辨率缩放",
+            "description": "从336x336扩展到448x448（LLaVA-1.5-HD）。",
+            "findings": "高分辨率进一步提升整体性能，尤其在需要细节感知的任务上。",
+            "anchors": [
+              "anc_00056"
+            ]
+          }
+        ],
+        "experiment_id": "experiment_4",
+        "type": "scaling",
+        "name": "scaling_4",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "研究数据、模型和分辨率的缩放效应。",
+        "what_it_tries_to_prove": "研究数据、模型和分辨率的缩放效应。",
+        "evidence_strength": "strong",
+        "anchors": [
+          "anc_00037",
+          "anc_00056"
+        ]
+      },
+      {
+        "description": "定性示例展示模型能力，如格式指令遵循、多语言对话、写作任务。",
+        "examples": [
+          {
+            "name": "格式指令泛化",
+            "description": "模型能根据用户请求切换输出格式（如JSON）。",
+            "anchors": [
+              "anc_00099",
+              "anc_00102"
+            ]
+          },
+          {
+            "name": "多语言视觉对话",
+            "description": "模型能参与多语言视觉对话，尽管训练数据主要是英语。",
+            "anchors": [
+              "anc_00123",
+              "anc_00125"
+            ]
+          },
+          {
+            "name": "写作任务",
+            "description": "模型能生成详细的旅行博客文章，基于视觉输入。",
+            "anchors": [
+              "anc_00105",
+              "anc_00107",
+              "anc_00109",
+              "anc_00113",
+              "anc_00115",
+              "anc_00117",
+              "anc_00121"
+            ]
+          }
+        ],
+        "experiment_id": "experiment_5",
+        "type": "case_study",
+        "name": "case_study_5",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "定性示例展示模型能力，如格式指令遵循、多语言对话、写作任务。",
+        "what_it_tries_to_prove": "定性示例展示模型能力，如格式指令遵循、多语言对话、写作任务。",
+        "evidence_strength": "moderate",
+        "anchors": [
+          "anc_00099",
+          "anc_00102",
+          "anc_00123",
+          "anc_00125",
+          "anc_00105",
+          "anc_00107",
+          "anc_00109",
+          "anc_00113",
+          "anc_00115",
+          "anc_00117",
+          "anc_00121"
+        ]
+      },
+      {
+        "description": "未明确提及人工评估，但使用GPT-4评估响应质量。",
+        "anchors": [
+          "anc_00056"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "human_eval",
+        "name": "human_eval_6",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "未明确提及人工评估，但使用GPT-4评估响应质量。",
+        "what_it_tries_to_prove": "未明确提及人工评估，但使用GPT-4评估响应质量。",
+        "evidence_strength": "moderate"
+      },
+      {
+        "description": "在12个基准上评估，包括学术任务和指令跟随基准。",
+        "benchmarks": [
+          "VQAv2",
+          "GQA",
+          "VizWiz",
+          "SciQA-IMG",
+          "TextVQA",
+          "POPE",
+          "MME",
+          "MMBench",
+          "SEED-Bench",
+          "LLaVA-Wild",
+          "MM-Vet"
+        ],
+        "anchors": [
+          "anc_00045",
+          "anc_00047",
+          "anc_00051"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "benchmark",
+        "name": "benchmark_7",
+        "dataset": [
+          "VQAv2",
+          "GQA",
+          "VizWiz",
+          "SciQA-IMG",
+          "TextVQA",
+          "POPE",
+          "MME",
+          "MMBench",
+          "SEED-Bench",
+          "LLaVA-Wild",
+          "MM-Vet"
+        ],
+        "baseline": [
+          "InstructBLIP",
+          "Qwen-VL",
+          "BLIP-2"
+        ],
+        "metrics": [],
+        "result_summary": "在12个基准上评估，包括学术任务和指令跟随基准。",
+        "what_it_tries_to_prove": "在12个基准上评估，包括学术任务和指令跟随基准。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "训练效率高，13B模型在单个8-A100节点上约1天完成训练。",
+        "details": "使用1.2M公开数据，通过数据采样和批处理策略提高效率。",
+        "anchors": [
+          "anc_00004",
+          "anc_00097"
+        ],
+        "experiment_id": "experiment_8",
+        "type": "efficiency",
+        "name": "efficiency_8",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "训练效率高，13B模型在单个8-A100节点上约1天完成训练。",
+        "what_it_tries_to_prove": "训练效率高，13B模型在单个8-A100节点上约1天完成训练。",
+        "evidence_strength": "strong"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim_id": "claim_001",
+        "claim": "LLaVA中的全连接视觉-语言连接器强大且数据高效。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00004",
+          "anc_00009"
+        ],
+        "risk_flags": [],
+        "evidence": [
+          {
+            "evidence_id": "evidence_001",
+            "description": "在Table 2中，LLaVA使用全连接连接器在MME上达到809.6分，而InstructBLIP使用更复杂架构在MME上达到1212.8分，但LLaVA在添加VQA数据后性能大幅提升。",
+            "anchors": [
+              "anc_00037"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_002",
+        "claim": "使用MLP连接器和添加学术任务数据可建立更强基线。",
+        "evidence_source_type": "消融研究",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00004",
+          "anc_00033",
+          "anc_00037"
+        ],
+        "risk_flags": [],
+        "evidence": [
+          {
+            "evidence_id": "evidence_002",
+            "description": "在Table 2中，从基线LLaVA（MME 809.6）到添加VQA-v2（MME 1197.0）再到添加格式提示（MME 1323.8）再到添加MLP连接器（MME 1355.2），性能逐步提升。",
+            "anchors": [
+              "anc_00037"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_003",
+        "claim": "LLaVA-1.5在12个基准上达到最先进性能。",
+        "evidence_source_type": "基准比较",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00037",
+          "anc_00045",
+          "anc_00046",
+          "anc_00047",
+          "anc_00048"
+        ],
+        "risk_flags": [
+          "部分基准训练图像可能被观察到（如GQA）"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evidence_003",
+            "description": "在Table 3和Table 4中，LLaVA-1.5在多个基准上优于InstructBLIP、Qwen-VL等，如在GQA上达到63.3（13B模型），在MME上达到1531.3（13B模型）。",
+            "anchors": [
+              "anc_00045",
+              "anc_00046",
+              "anc_00047",
+              "anc_00048"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_004",
+        "claim": "模型可扩展到高分辨率输入并保持数据效率。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00035",
+          "anc_00043",
+          "anc_00050",
+          "anc_00051",
+          "anc_00056"
+        ],
+        "risk_flags": [
+          "高分辨率训练时间延长"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evidence_004",
+            "description": "在Table 2中，从336x336（GQA 51.4）扩展到448x448（GQA 62.0）性能提升，且在Table 5中显示高分辨率模型在细节感知任务上表现更好。",
+            "anchors": [
+              "anc_00037",
+              "anc_00056"
+            ],
+            "strength": "中"
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_005",
+        "claim": "存在组合能力，如多语言视觉对话。",
+        "evidence_source_type": "定性示例",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00123",
+          "anc_00125"
+        ],
+        "risk_flags": [
+          "新兴行为，可能不稳定"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evidence_005",
+            "description": "在Figure 5中，LLaVA-1.5能够参与多语言视觉对话，尽管训练数据主要是英语，展示了组合能力。",
+            "anchors": [
+              "anc_00123",
+              "anc_00125"
+            ],
+            "strength": "中"
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_006",
+        "claim": "数据效率高，随机下采样75%数据不会显著降低性能。",
+        "evidence_source_type": "消融研究",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00070"
+        ],
+        "risk_flags": [
+          "性能下降可能在某些任务上更明显"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evidence_006",
+            "description": "在Figure 4中，随机下采样50%数据仍能保持较好性能，但完整数据混合提供最佳覆盖。",
+            "anchors": [
+              "anc_00070"
+            ],
+            "strength": "中"
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "LMM",
+        "definition": "大型多模态模型，结合视觉和语言模态的模型。",
+        "anchors": [
+          "anc_00003"
+        ],
+        "appears_in": [
+          "anc_00003"
+        ]
+      },
+      {
+        "term": "视觉指令调优",
+        "definition": "使用视觉指令数据微调模型以遵循用户指令。",
+        "anchors": [
+          "anc_00004"
+        ],
+        "appears_in": [
+          "anc_00004"
+        ]
+      },
+      {
+        "term": "MLP投影层",
+        "definition": "多层感知机，用于将视觉特征投影到语言嵌入空间。",
+        "anchors": [
+          "anc_00004"
+        ],
+        "appears_in": [
+          "anc_00004"
+        ]
+      },
+      {
+        "term": "响应格式提示",
+        "definition": "在训练或评估中添加的文本提示，指导模型输出特定格式。",
+        "anchors": [
+          "anc_00033"
+        ],
+        "appears_in": [
+          "anc_00033"
+        ]
+      },
+      {
+        "term": "分块编码",
+        "definition": "将高分辨率图像分割成小块，独立编码后合并特征的技术。",
+        "anchors": [
+          "anc_00043"
+        ],
+        "appears_in": [
+          "anc_00043"
+        ]
+      },
+      {
+        "term": "全局上下文",
+        "definition": "下采样图像的特征，提供整体场景信息，与高分辨率特征拼接。",
+        "anchors": [
+          "anc_00051"
+        ],
+        "appears_in": [
+          "anc_00051"
+        ]
+      },
+      {
+        "term": "数据效率",
+        "definition": "模型在较少训练数据下达到良好性能的能力。",
+        "anchors": [
+          "anc_00004"
+        ],
+        "appears_in": [
+          "anc_00004"
+        ]
+      },
+      {
+        "term": "组合能力",
+        "definition": "模型泛化到需要组合多种独立训练能力的任务。",
+        "anchors": [
+          "anc_00072"
+        ],
+        "appears_in": [
+          "anc_00072"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        "VQAv2",
+        "GQA",
+        "OKVQA",
+        "A-OKVQA",
+        "OCRVQA",
+        "TextCaps",
+        "Visual Genome",
+        "RefCOCO",
+        "ShareGPT"
+      ],
+      "required_models": [
+        "CLIP-ViT-L-14 (336px)",
+        "Vicuna-7B或13B",
+        "MLP投影层（两层）"
+      ],
+      "compute_requirements": "单个8-A100节点，约1天训练时间（13B模型）。",
+      "code_available": "是，代码和模型将公开（https://llava-vl.github.io）。",
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 准备数据：收集并预处理上述数据集，应用响应格式提示。",
+          "anchors": [
+            "anc_00093",
+            "anc_00096",
+            "anc_00097"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 构建模型：集成CLIP视觉编码器、MLP连接器和Vicuna LLM。",
+          "anchors": [
+            "anc_00004",
+            "anc_00021",
+            "anc_00033"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 预训练：使用图像-文本对进行视觉-语言对齐预训练。",
+          "anchors": [
+            "anc_00021",
+            "anc_00024"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "4. 指令调优：在视觉指令数据混合上微调整个模型。",
+          "anchors": [
+            "anc_00021",
+            "anc_00024",
+            "anc_00096"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "5. 高分辨率扩展（可选）：实现分块编码和全局上下文拼接。",
+          "anchors": [
+            "anc_00035",
+            "anc_00043",
+            "anc_00050",
+            "anc_00051"
+          ]
+        },
+        {
+          "step": "step_6",
+          "description": "6. 评估：在12个基准上测试模型性能。",
+          "anchors": [
+            "anc_00045",
+            "anc_00047",
+            "anc_00051"
+          ]
+        }
+      ],
+      "missing_details": [],
+      "risk_points": []
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-03T18:41:27+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_cv_092_improved_baselines_with_visual_instruction_tunin_2023",
+    "title": "Improved Baselines with Visual Instruction Tuning",
+    "authors": [
+      "Haotian Liu",
+      "Chunyuan Li",
+      "Yuheng Li",
+      "Yong Jae Lee"
+    ],
+    "venue": "Computer Vision and Pattern Recognition",
+    "year": 2023,
+    "arxiv_id": "2310.03744",
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-03T18:40:00+00:00",
+    "paper_type": "Vision-Language / Vision-Language / Multimodal / Top-cited Computer Vision paper",
+    "citation_count": 4951,
+    "influential_citation_count": 853,
+    "semantic_scholar_id": "124d4d374fbef2016fa9880489871a58a7450644",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/124d4d374fbef2016fa9880489871a58a7450644",
+    "importance_rank": 92,
+    "selection_source": "semantic_scholar_top_cited_cv_open_pdf_2026_05_03",
+    "open_access_pdf_url": "https://arxiv.org/pdf/2310.03744",
+    "fields_of_study": [
+      "Computer Science"
+    ],
+    "publication_types": [
+      "JournalArticle",
+      "Conference"
+    ],
+    "abstract": "Large multimodal models (LMM) have recently shown encouraging progress with visual instruction tuning. In this paper, we present the first systematic study to investigate the design choices of LMMs in a controlled setting under the LLaVA framework. We show that the fully-connected vision-language connector in LLaVA is surprisingly power-ful and data-efficient. With simple modifications to LLa VA, namely, using CLIP- ViT-L-336px with an MLP projection and adding academic-task-oriented VQA data with response formatting prompts, we establish stronger baselines that achieve state-of-the-art across 11 benchmarks. Our final 13B checkpoint uses merely 1.2M publicly available data, and finishes full training in ~ 1 day on a single 8-AI00 node. Furthermore, we present some early exploration of open problems in LMMs, including scaling to higher resolution inputs, compositional capabilities, and model hallucination, etc. We hope this makes state-of-the-art LMM research more accessible. Code and model will be publicly available."
+  },
+  "anchors": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Improved Baselines with Visual Instruction Tuning Haotian Liu1 Chunyuan Li2 Yuheng Li1 Yong Jae Lee1 1University of Wisconsin–Madison 2Microsoft Research, Redmond https://llava-vl.github.io",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Abstract",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Large multimodal models (LMM) have recently shown",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "encouraging progress with visual instruction tuning. In this paper, we present the first systematic study to investigate the design choices of LMMs in a controlled setting under the LLaVA framework. We show that the fully-connected vision-language connector in LLaVA is surprisingly power- ful and data-efficient. With simple modifications to LLaVA, namely, using CLIP-ViT-L-336px with an MLP projection and adding academic-task-oriented VQA data with response formatting prompts, we establish stronger baselines that achieve state-of-the-art across 11 benchmarks. Our final 13B checkpoint uses merely 1.2M publicly available data, and finishes full training in ∼1 day on a single 8-A100 node. Furthermore, we present some early exploration of open problems in LMMs, including scaling to higher resolution inputs, compositional capabilities, and model hallucination, etc. We hope this makes state-of-the-art LMM research more accessible. Code and model will be publicly available. 1. Introduction",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Large multimodal models (LMMs) have become increas-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ingly popular in the research community, as they are the key building blocks towards general-purpose assis- tants [2, 30, 43]. Recent studies on LMMs are converg- ing on a central concept known as visual instruction tun- ing [36]. The results are promising, e.g. LLaV A [36] and MiniGPT-4 [62] demonstrate impressive results on natural instruction-following and visual reasoning capabilities. To better understand the capability of LMMs, multiple bench- marks [ 17, 27, 34, 37, 55] have been proposed. Recent works further demonstrate improved performance by scal- ing up the pretraining data [3, 14, 54], instruction-following data [14, 18, 29, 58], visual encoders [3], or language mod- els [39], respectively. The LLaV A architecture is also lever- aged in different downstream tasks and domains, including region-level [8, 56] and pixel-level [26, 50] understanding, biomedical assistants [31], image generation [5], adversarial studies [6, 59]. VQAv2 GQA VizWiz SQA-IMG T extVQA POPE MME MMBenc...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 1. LLaV A-1.5achieves SoTA on a broad range of 11 tasks",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(Top), with high training sample efficiency (Left) and simple mod- ifications to LLaV A (Right): an MLP connector and including academic-task-oriented data with response formatting prompts. However, despite many benchmarks and developments, it still remains unclear what the best recipe is to train LMMs towards the goal of general-purpose assistants. For exam- ple, LLaV A [36] excels in conversational-style visual rea- soning and even outperforms later approaches like Instruct- BLIP [14] on such benchmarks [ 55], while InstructBLIP excels in traditional VQA benchmarks that demands single- word or short answers. Given the significant differences in the model architecture and training data between them, the root cause of the disparity in their capabilities remains elusive, despite conjectures [37, 55]: the amount of training data, the usage of resamplers like Qformer [32], etc. To this arXiv:2310.03744v2 [cs.CV] 15 May 2024",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "end, we present the first systematic study to investigate the design choices of LMMs in a controlled setting. Our study originates from LLaV A and builds a road map by carefully making effective contributions from the perspectives of the input, model, and data. First, we unveil that the fully-connected vision-language connector in LLaV A is surprisingly powerful and data- efficient, and we establish stronger and more feasible base- lines built upon the LLaV A framework. We report that two simple improvements, namely, an MLP cross-modal con- nector and incorporating academic task related data such as VQA, are orthogonal to the framework of LLaV A, and when used with LLaV A, lead to better multimodal under- standing capabilities. In contrast to InstructBLIP [ 14] or Qwen-VL [3], which trains specially designed visual resam- plers on hundreds of millions or even billions of image-text paired data, LLaV A uses one of the simplest architecture design for LMMs and requires only training a s...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "problems of large multimodal models. Our findings include:",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(1) Scaling to high-resolution image inputs. We show that LLaV A’s architecture is versatile in scaling to higher res- olutions by simply dividing images into grids and main- tains its data efficiency; with the increased resolution, it improves the model’s detailed perception capabilities and reduces hallucination. (2) Compositional capabilities. We",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "find that large multimodal models are capable of general-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "izing to compositional capabilities. For example, training on long-form language reasoning together with shorter vi- sual reasoning can improve the model’s writing capability for multimodal questions. (3) Data efficiency. We show that randomly downsampling LLaV A’s training data mixture by up to 75% does not significantly decrease the model’s performance, suggesting that the possibility of a more so- phisticated dataset compression strategy can further improve LLaV A’s already efficient training pipeline. (4) Data scaling. We provide empirical evidence for the scaling of data granu- larity in conjunction with the model’s capability is crucial for an improved capability without introducing artifacts like hallucination. In sum, we perform a systematic study on the training",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "of large multimodal models, and introduce a simple yet",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "effective approach to balance the multitask learning and ef-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "fective scaling for large multimodal models. Our improved",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "baselines, LLaV A-1.5, uses onlypublic data, achieves the state-of-the-art on a broad range of 11 tasks, and is signif- icantly more data-efficient than previous approaches. By rethinking the conventional approaches and exploring the open problems in visual instruction tuning, we pave the way for more robust and capable systems for LMMs. We hope these improved and easily-reproducible baselines will pro- vide a reference for future research in open-source LMMs. 2. Related Work",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Instruction-following large multimodal models (LMMs).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Common architectures include a pre-trained visual backbone",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "to encode visual features, a pre-trained large language model",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(LLM) to comprehend the user instructions and produce responses, and a vision-language cross-modal connector to align the vision encoder outputs to the language mod- els. As shown in Fig. 1, LLaV A [ 36] is perhaps the sim- plest architecture for LMMs. Optionally, visual resamplers (e.g. Qformer [ 32]) are used to reduce the number of vi- sual patches [3, 14, 62]. Training an instruction-following LMM usually follows a two-stage protocol. First, the vision- language alignment pretraining stage leverages image-text pairs to align the visual features with the language model’s word embedding space. Earlier works utilize relatively few image-text pairs (e.g. ∼600K [36] or ∼6M [62]), while some recent works pretrain the vision-language connector for a spe-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00022",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "cific language model on a large amount of image-text pairs",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(e.g. 129M [14] and 1.4B [3]), to maximize the LMM’s per-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00024",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "formance. Second, the visual instruction tuning stage tunes the model on visual instructions [36], to enable the model to follow users’ diverse requests on instructions that involve the visual contents. Dealing with higher resolution with grids in LMM are studied in con-current works [1, 28, 53]. Multimodal instruction-following data. In NLP, studies",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "show that the quality of instruction-following data largely",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "affects the capability of the resulting instruction-following models [61]. For visual instruction tuning, LLaV A [36] is the pioneer to leverage text-only GPT-4 to expand the existing COCO [35] bounding box and caption dataset to a multi- modal instruction-following dataset that contains three types of instruction-following data: conversational-style QA, de- tailed description, and complex reasoning. LLaV A’s pipeline has been employed to expand to textual understanding [57], million-scales [58], and region-level conversations [8]. In- structBLIP [14] incorporates academic-task-oriented VQA datasets to further enhance the model’s visual capabilities. Conversely, [7] identifies that such naive data merging can result in models that tend to overfit to VQA datasets and thus are unable to participate in natural conversations. The authors further propose to leverage the LLaV A pipeline to convert VQA datasets to a conversational style. While this proves effective for training, it introduce...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00027",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "shows that adding a large number of academic language",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00028",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tasks for instruction tuning can effectively improve the gen-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "eralization ability. In light of this, we consider investigating the root cause of the inability to balance between natural conversations and academic tasks in multimodal models. 3. Approach 3.1. Preliminaries",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "As the seminal work of visual instruction tuning, LLaV A [36]",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00031",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "showcases commendable proficiency in visual reasoning ca- pabilities, surpassing even more recent models on diverse benchmarks [4, 55] for real-life visual instruction-following tasks. LLaV A uses a single linear layer to project the vi- sual features to language space, and optimizes the whole LLM for visual instruction tuning. However, LLaV A falls short on academic benchmarks that typically require short- form answers (e.g. single-word), and tends to answer yes for yes/no questions due to the lack of such data in the training distribution. On the other hand, InstructBLIP [14] is the pioneer to in- corporate academic-task-oriented datasets like VQA-v2 [19] along with LLaV A-Instruct [36], and demonstrates improved performance on VQA benchmarks. It pretrains Qformer [32] on 129M image-text pairs and only finetunes the instruction- aware Qformer for visual instruction tuning. However, re- cent studies [7, 55] show that it does not perform as well as LLaV A on engaging in real-life visu...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 1. Visual input example to illustrate the challenge of (a)",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00033",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "multitask balancing and (b) different format prompts. The same image input is used. LLM is finetuned with such prompts, LLaV A is able to prop- erly adjust the output format according to the user’s instruc- tions (see Table 1b), and does not require additional process- ing of the VQA answers using ChatGPT [7], which further enables scaling to various data sources. As shown in Table 2, by merely including VQAv2 [19] in training, LLaV A’s per- formance on MME significantly improves (1323.8 vs 809.6) and outperforms InstructBLIP by 111 points. 3.3. Scaling the Data and Model MLP vision-language connector. Inspired by the improved performance in self-supervised learning by changing from a linear projection to an MLP [9, 10], we find that improv- ing the vision-language connector’s representation power with a two-layer MLP can improve LLaV A’s multimodal capabilities, compared with the original linear projection. Academic task oriented data. We further include addi- tional academic-task-or...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "split encodeflattenLLMresize encode flatten",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00035",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 2. LLaV A-1.5-HD.Scaling LLaV A-1.5 to higher resolutions by splitting the image into grids and encoding them independently. This",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "allows the model to scale to any resolution, without performing positional embedding interpolation for ViTs. We additionally concatenate",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00037",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the feature of a downsampled image to provide the LLM with a global context. Method LLM Res. GQA MME MM-Vet InstructBLIP 14B 224 49.5 1212.8 25.6 Only using a subset of InstructBLIP training data 0 LLaV A 7B 224 – 809.6 25.5 1 +VQA-v2 7B 224 47.0 1197.0 27.7 2 +Format prompt 7B 224 46.8 1323.8 26.3 3 +MLP VL connector7B 224 47.3 1355.2 27.8 4 +OKVQA/OCR 7B 224 50.0 1377.6 29.6 Additional scaling 5 +Region-level VQA7B 224 50.3 1426.5 30.8 6 +Scale up resolution7B 336 51.4 1450 30.3 7 +GQA 7B 336 62.0∗ 1469.2 30.7 8 +ShareGPT 7B 336 62.0∗ 1510.7 31.1 9 +Scale up LLM 13B 336 63.3∗ 1531.3 36.1",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00038",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 2. Scaling results on ■ data, ■ model, and ■ resolution.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00039",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "We choose to conduct experiments on GQA [21], MME [17], and",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "MM-Vet [55] to examine the representative capabilities of VQA",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00041",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "with short answers, VQA with output formatting, and natural vi- sual conversations, respectively. ∗Training images of GQA were observed during training. four additional datasets that are used in InstructBLIP: open- knowledge VQA (OKVQA [41], A-OKVQA [45]) and OCR (OCRVQA [42], TextCaps [47]). A-OKVQA is converted to multiple choice questions and a specific response formatting prompt is used: Answer with the option’s letter from the given choices directly. With only a subset of the datasets InstructBLIP uses, LLaV A already surpasses it on all three tasks in Table 2, suggesting LLaV A’s effective design. Fur- thermore, we find further adding region-level VQA datasets (Visual Genome [ 25], RefCOCO [ 24, 40]) improves the model’s capability of localizing fine-grained visual details. Additional scaling. We further scale up the input image resolution to 336 2 to allow the LLM to clearly “see” the details of images, by swapping the vision encoder to CLIP- ViT-L-336px (the highest resolution...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00042",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "a large-scale image-text paired dataset [3, 32], and limits the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00043",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "resolution of the image to a fixed size that the LMM can accept during inference. Instead, as shown in Fig. 2, we overcome this by dividing the image into smaller image patches of the resolution that the vision encoder is originally trained for, and encode them independently. After obtaining the feature maps of individ-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ual patches, we then combine them into a single large feature",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00045",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Method LLM Image Sample Size VQAv2 GQA VisWiz SciQA- TextVQA Size Pretrain Finetune [19] [21] [20] IMG [38] [48] BLIP-2 [32] Vicuna-13B 224 2 129M - 65.0 41 19.6 61 42.5 InstructBLIP [14] Vicuna-7B 224 2 129M 1.2M – 49.2 34.5 60.5 50.1 InstructBLIP [14] Vicuna-13B 2242 129M 1.2M – 49.5 33.4 63.1 50.7 Shikra [8] Vicuna-13B 224 2 600K 5.5M 77.4∗ – – – – IDEFICS-9B [22] LLaMA-7B 2242 353M 1M 50.9 38.4 35.5 – 25.9 IDEFICS-80B [22] LLaMA-65B 2242 353M 1M 60.0 45.2 36.0 – 30.9 Qwen-VL [3] Qwen-7B 448 2 1.4B† 50M† 78.8∗ 59.3∗ 35.2 67.1 63.8∗ Qwen-VL-Chat [3] Qwen-7B 448 2 1.4B∗ 50M† 78.2∗ 57.5∗ 38.9 68.2 61.5 ∗ LLaV A-1.5 Vicuna-7B 3362 558K 665K 78.5∗ 62.0∗ 50.0 66.8 58.2 LLaV A-1.5 Vicuna-13B 3362 558K 665K 80.0∗ 63.3∗ 53.6 71.6 61.3 LLaV A-1.5-HD Vicuna-13B 4482 558K 665K 81.8∗ 64.7∗ 57.5 71.0 62.5 Specialist SOTA: PaLI-X-55B [11] 86.1∗ 72.1∗ 70.9∗ – 71.4 ∗",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00046",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 3. Comparison with SoTA methods on academic-task-oriented datasets. LLaV A-1.5 achieves the best performance on 4/5",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00047",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "benchmarks, and ranks the second on the other. ∗The training images/annotations of the datasets are observed during training. †Includes in-house data that is not publicly accessible. Method POPE [34] MME MMBench [37]SEED-Bench [27]LLaV A- MM-Vet rand pop adv [17] en cn all img vid Wild [36] [55] BLIP2-14B [32] 89.6 85.5 80.9 1293.8 – – 46.4 49.7 36.7 38.1 22.4 InstructBLIP-8B [14] – – – – 36 23.7 53.4 58.8 38.1 60.9 26.2 InstructBLIP-14B [14]87.7 77 72 1212.8 – – – – – 58.2 25.6 Shikra-13B [8] – – – – 58.8 – – – – – – IDEFICS-9B [22] – – – – 48.2 25.2 – 44.5 – – – IDEFICS-80B [22] – – – – 54.5 38.1 – 53.2 – – – Qwen-VL [3] – – – – 38.2 7.4 56.3 62.3 39.1 – – Qwen-VL-Chat [3] – – – 1487.5 60.6 56.7 58.2 65.4 37.8 – – LLaV A-7B [36] 76.3 72.2 70.1 809.6 38.7 36.4 33.5 37.0 23.8 62.8 25.5 LLaV A-1.5-7B 87.3 86.1 84.2 1510.7 64.3 58.3 58.6 66.1 37.3 65.4 31.1 LLaV A-1.5-13B 87.1 86.2 84.5 1531.3 67.7 63.6 61.6 68.2 42.7 72.5 36.1 LLaV A-1.5-13B-HD87.5 86.4 85.0 1500.1 68.8 61.9 62.6 70.1...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00048",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 4. Comparison with SoTA methods on benchmarks for instruction-following LMMs. LLaV A-1.5 achieves the best overall",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "performance.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00050",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "map of the target resolution, and feed that into the LLM. To",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "provide the LLM with the global context and to reduce the artifact of the split-encode-merge operation, we addition- ally concatenate the feature of a downsampled image to the merged feature map. This allows us to scale the input to any arbitrary resolution and maintain the data efficiency of LLaV A-1.5. We call this resulting model LLaV A-1.5-HD. 4. Empirical Evaluation 4.1. Benchmarks We evaluate LLaV A-1.5 on a collection of both academic- task-oriented benchmarks and recent benchmarks specifi- cally proposed for instruction-following LMMs, totalling 12 benchmarks. For academic-task-oriented benchmarks, VQA-v2 [19] and GQA [21] evaluate model’s visual percep- tion capabilities on open-ended short answers. VizWiz [20] contains 8,000 images to evaluate model’s zero-shot gen- eralization on visual questions asked by visually impaired people. Following InstructBLIP [ 14], the image subset of ScienceQA [38] with multiple choice are used to evaluate the zero-shot generalization on scient...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00052",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Visual input example, Tricky Question: User If there are factual errors in the questions, point it out; if not, proceed to answering the question. What’s happening in the desert? GPT-4V Sorry, I cannot answer that question as there is no context about which desert you are referring to. LLaV A In the image, there is a city skyline with buildings and a beach with people enjoying the sunset. The scene is set in a desert, which is unusual for a beach setting. LLaV A-1.5There are no deserts in the image. The image features",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00053",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "a beach with palm trees, a city skyline, and a large",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "body of water.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 5. LLaV A-1.5 can detect and answer tricky questions when",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "prompted to verify the question. the response with GPT-4 evaluation. 4.2. Results We show that LLaV A-1.5 achieves the best overall per- formance on 12 benchmarks, despite using magnitudes smaller pretraining and instruction tuning data compared with other methods [3, 14]. LLaV A-1.5 significantly outper- forms LLaV A on all benchmarks for instruction-following LMMs. Note that it is challenging to evalute the original LLaV A on academic datasets like VQA-v2 [19] that demand open-ended short answers. When we continue to scale up the image resolution to 4482 with LLaV A-1.5-HD, it further improves the overall performance on all benchmarks, especially on tasks that require perception of details in the images (e.g. OCR in MM- Vet, detailed description in LLaV A-Bench-in-the-Wild [36]). Moreover, we find that adding the global context effectively recovers the model from the split-and-merge artifacts and guides the model to more easily locate the relevant regions from the high-resolution fe...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00057",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 6. LLaV A-1.5 can extract information from the image and",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00058",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "answer following the required format, despite a few errors com- pared with GPT-4V . GPT-4V results are obtained from [52].",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00059",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "outperforms 80B IDEFICS [22], a Flamingo-like LMM with",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00060",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "billions of trainable parameters for cross-modal connection. This also makes us rethink the benefits of the vision samplers",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00061",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "and the necessity of the additional large-scale pretraining, in",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00062",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "terms of multimodal instruction-following capabilities. Global context. For higher resolution, we pad and resize the image to a single image of 2242, and concatenate it with the high resolution features to provide a global context. Ablation on a 7B model shows that the global context effectively boosts performance on all three validation benchmarks. GQA MME MM-Vet high-res patch only62.9 1425.8 31.9 +global context63.8(+0.9) 1497.5(+71) 35.1(+3.2) 4.3. Emerging Properties Format instruction generalization. Although LLaV A-1.5 is only trained with a limited number of format instructions, it generalizes to others. First, VizWiz [20] requires the model",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "GQA SQA-IMG T extVQA POPE MMEMMBench MMBench-CN SEED-Bench MM-Vet 0.8 0.9 1.0 Vicuna-1.1 Vicuna-1.3 Vicuna-1.5 LLaMA-2-Chat",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00064",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 3. Ablation on LLM choices. Data points represent the",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00065",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "relative performance of the best performing variant for each dataset.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00066",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "to output “Unanswerable” when the provided content is in- sufficient to answer the question, and our response format prompt (see Appendix) effectively instructs the model to do so (11.1% → 67.8% on unanswerable questions). We addi- tionally present qualitative examples on instructing LLaV A- 1.5 to verify tricky questions (Fig. 5), respond in a con- strained JSON format (Fig. 6), and more in appendix. Multilingual multimodal capability. Though LLaV A-1.5 is not finetuned for multilingual multimodal instruction fol- lowing at all (all visual instructions including VQA are in English), we find that it is capable of following multilingual instructions. This is partly due to the multilingual language instructions in ShareGPT [46]. Although ShareGPT does not contain images in its instructions, the model learns from this dataset the behavior of adaptively responding with the lan- guage that corresponds to the user’s request. We empirically show that this behavior is transferred to visual co...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 4. Ablation on data efficiency. Data points represent the",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00068",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "relative performance of the best performing variant for each dataset.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "that used in v1.1). Unlike Vicuna series that is only trained with supervised instruction finetuning (SFT), LLaMA-2- Chat is further optimized with reinforcement-learning from human-feedback (RLHF). We visualize the relative perfor- mance of these variants in Fig. 3. First, we find that Vicuna-v1.5 achieves the best overall performance, and LLaMA-2-based models generally per- form better than LLaMA-1-based, suggesting the importance of the base language model. This is further evidenced by the results on MMBench-CN [37]: despite Vicuna-v1.3 and v1.5 using the same ShareGPT data for instruction tuning, the performance in generalization to Chinese of Vicuna-v1.3 is significantly worse than v1.5. Second, language instruction-tuning matters on specific capabilities that are required by each dataset. For example, although LLaMA-2-Chat and Vicuna-v1.5 achieves almost the same performance on MMBench, the generalization to MMBench-CN [37] of LLaMA-2-Chat is worse than Vicuna- v1.5, which is pa...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00070",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "5.1. Data Efficiency Despite the data efficiency of LLaV A-1.5 when compared with approaches like InstructBLIP [ 14], the training of LLaV A-1.5 still doubles when compared with LLaV A. In this section, we conduct experiments for further improving the data efficiency by randomly sub-sampling the training data mixture of LLaV A-1.5, with a sampling ratio ranging from 0.1 to 0.5. We visualize the relative performance of different sampling variants in Fig. 4. First, the full data mixture provides the best knowledge coverage, and allows the model to achieve the best overall performance. To our surprise, with only 50% of the samples, the model still maintains more than 98% of the full dataset performance. This suggests that there is room for further improvements in data efficiency. Second, when downsampling the dataset to 50%, the model’s performance on MMBench, ScienceQA, and POPE does not decrease at all, and it even slightly improves on MMBench. Similarly, the model’s performance remain...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00071",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "becomes large enough, the model learns to hallucinate. This",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00072",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "further suggests that there needs to be a balance between improving the data annotation with more details and the model’s capability to properly process the information at such granularities. We hope this finding provides a reference for future work in terms of dealing with hallucination and the scaling of the models and data. 5.3. Compositional Capabilities We demonstrate interesting compositional capabilities in LLaV A-1.5: the model trained on a set of tasks indepen- dently generalizes to tasks that require a combination of these capabilities without explicit joint training. We note some of the findings below. First, we observe an improved language capability in vi- sual conversations after including the ShareGPT [46] data, in- cluding the multimodal multilingual capability as discussed in Sec. 4.3. Moreover, the model is more capable at pro- viding longer and more detailed responses in visual conver- sations. Second, the additional visual knowledge from the academic-task-oriented...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00073",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "of large multimodal models, and propose a simple, effective,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00074",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "and data-efficient baseline, LLaV A-1.5, for large multimodal",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00075",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "models. In addition, we explore the open problems in visual instruction tuning, scale LMMs to higher resolutions, and present some intriguing findings in terms of model halluci- nation and compositional capabilities for LMMs. We hope these improved and easily-reproducible baselines as well as the new findings will provide a reference for future research in open-source LMM. Limitations. Despite the promising results demonstrated by LLaV A-1.5, it still has limitations including prolonged training for high-resolution images, lack of multiple-image understanding, limited problem solving capabilities in cer- tain fields. It is not exempt from producing hallucinations, and should be used with caution in critical applications (e.g. medical). See appendix for a detailed discussion. Acknowledgements. This work was supported in part by NSF CAREER IIS2150012, and Institute of Information &",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00076",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "communications Technology Planning & Evaluation(IITP)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00077",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "grants funded by the Korea government(MSIT) (No. 2022- 0-00871, Development of AI Autonomy and Knowledge Enhancement for AI Agent Collaboration) and (No. RS-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00078",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2022-00187238, Development of Large Korean Language",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00079",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Model Technology for Efficient Pre-training).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00080",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Appendix This appendix is organized as follows. • In Section A, we show implementation details for LLaV A-1.5-HD (Sec. A.1), data and prompts (Sec. A.2), and hyperparameters (Sec. A.3). • In Section B, we present more qualitative results for response format prompts (Sec. B.1), compositional ca- pabilities (Sec. B.2). • In Section C, we discuss limitations with more details. A. Implementation Details A.1. LLaV A-1.5-HD A.1.1 Preprocessing Overview. We use CLIP-ViT-L-14 (2242) as the base image",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00081",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "encoder. We first select and pad the input image to a target",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00082",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "resolution that effectively captures its details, and split the image into 2242 grids. All 2242 image patches are encoded by the CLIP image encoder separately and their features are",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00083",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "merged back to a single large feature map. We then post-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00084",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "process the resulting feature map to a flattened list of features. We additionally concatenate the features of a fixed-resolution image to provide the model with a global context.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00085",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Target resolution selection. We predefine a set of resolu-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00086",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tions to support up to six grids (1x1, 1x2, 1x3, 1x4, 1x5, 1x6,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00087",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2x2, 2x3, and their transpose). This system allows for a max-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00088",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "imum resolution of 672x448 (or 448x672). Two criteria are",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00089",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "enforced in the target resolution selection: (1) Detail preser-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00090",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "vation: the selected resolution preserves as much detail from the original image as possible; (2) Resource efficiency: the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00091",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "resolution should not be excessively large to avoid unneces-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00092",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "sary consumption of pixels and memory (e.g. it should not select 4482 for a 2242 input image). Postprocessing. We perform three steps of postprocessing to ensure that the final features can be processed effectively and efficiently by the language model. (1) Padding removal. Features corresponding exclusively to the paddings are dis- carded. This reduces the number of visual tokens processed by the language model and improves the efficiency. (2)Row- end Tokens. We append a special token to the end of each row of features, to provide an explicit indication of the shape of the image. Unlike the original LLaV A and LLaV A-1.5 that uses a fixed resolution, we now use a variable resolution for the image features of LLaV A-1.5-HD, such indication allows the language model to capture the exact shape and the size of the image for each sample. (3)Flattening. Finally, we flatten the image feature map and feed it into the language model along with language token features. Data Size Response forma...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00093",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 7. Instruction-following Data Mixture of LLaV A-1.5.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00094",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Data Response formatting prompts LLaV A-Bench, MM-Vet– VQAv2, GQA, TextVQA, MME, POPE Answer the question using a single word or phrase. ScienceQA, MMBench, SEED-Bench Answer with the option’s letter from the given choices directly. VizWiz When the provided information is insufficient, respond with ‘Unanswerable’. Answer the question using a single word or phrase.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00095",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 8. Response format prompt for evaluation.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00096",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "A.1.2 Training Since we compute the visual features on the original 224 2 resolution that the vision encoder is trained on, we do not perform additional pretraining. We also do not perform additional high resolution pretraining for the visual projec- tors, and perform visual instruction tuning directly on the higher-resolution images. A.2. Data Our final training data mixture contains a variety of datasets: VQA [19, 21, 41, 45], OCR [42, 47], region-level VQA [24, 25, 40], visual conversation [ 36] and language conversa- tion [46] data. We adopt multiple strategies to reduce train- ing cost and enhance efficiency, detailed as follows: 1. For all VQA datasets, QA pairs from the same training image are merged into a single conversation. 2. For ShareGPT [46], we filter out invalid conversations as [12]. Unlike Vicuna [12], long conversations that surpass 2048 tokens are truncated rather than splitting to multiple conversations. This results in ∼40K conversations. 3. Each QA pair in A-OKV...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00097",
+      "page": 10,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "5. For Visual Genome, we sample 10 annotations for images with additional annotations. 6. For RefCOCO, conversations are dissected into segments, each containing fewer than 10 conversations. 7. We obverse that language conversations are often longer than visual ones. For each batch, we sample conversa- tions only from a single modality, and this speeds up the training by 25%, and does not affect the final outcome. All data splits are concatenated together and sampled with the same probability. We present the response format- ting prompts of the final instruction-following data mixtures in Table 7 and the response format prompts used for each evaluation benchmark in Table 8. A.3. Hyperparameters The latest Vicuna v1.5 [60] is used as the base LLM. LLaV A- 1.5 uses the same set of hyperparameters as the original LLaV A, except that we halve the learning rate in pretraining due to the usage of the MLP projection layer instead of the original linear projection layer design. We show the tr...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00098",
+      "page": 10,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 9. Hyperparameters of LLaV A-1.5 are the same as the",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00099",
+      "page": 10,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "original LLaV A, except that we halve the learning rate in pretraining due to the usage of the MLP projection layer. B. Qualitative Results B.1. Response Format Prompts We show additional examples of LLaV A-1.5 generalizing to different unseen response format prompts. First, as shown in Table 10, LLaV A-1.5 can provide de- tails at different granularities in response to user’s requests. When requested by the user, it is also capable of switching between response formats within the conversations. Second, we provide another example of the constrained prompting to generate the prompts for Stable Diffusion mod- els. We show an example of generating anime prompts in",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00100",
+      "page": 10,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 12.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00101",
+      "page": 10,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Visual input example, Different Format Prompts: User What is the color of the shirt that the man is wearing?Answer the question using a single word or phrase. LLaV A-1.5 Yellow User Is this unusual?Please explain briefly with a short sentence. LLaV A-1.5 Yes, it is unusual to see a man ironing clothes while standing on the back of a moving car. User Is this unusual? Please explain in detail. LLaV A-1.5 Yes, this is an unusual scene. A man is ironing clothes while standing on the back of a mov- ing yellow SUV . This is not a typical activity one would expect to see on a city street, as iron- ing clothes is usually done indoors, in a more private setting. The man’s actions are not only unconventional but also potentially dangerous, as standing on the back of a moving vehicle can be hazardous and may lead to accidents or in- juries. Additionally, the presence of a suitcase and a handbag in the scene suggests that the man might be traveling or on the go, which further emphasizes the unusu...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00102",
+      "page": 10,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 10. LLaV A-1.5 learns to format the response according to",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00103",
+      "page": 10,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the user’s request, generalizes to unseen format instructions, and can alter the response format within the conversation upon the user’s request.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00104",
+      "page": 11,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Visual input example, Visual Writing Task:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00105",
+      "page": 11,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "User Compose an engaging travel blog post about a recent trip tothis place, highlightingcultural experiencesandmust-see",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00106",
+      "page": 11,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "attractions. LLaV A In my recent trip to Honolulu, I had the opportunity to experience the vibrant local culture and explore the beautiful beaches that this city has to offer. One of the must-see attractions was Waikiki Beach, where I witnessed a lively atmosphere with",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00107",
+      "page": 11,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "people sunbathing, swimming, and playing beach games. The crystal blue waters of the Pacific Ocean were a stunning sight,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00108",
+      "page": 11,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "and the white sandy beach provided the perfect spot for relaxation. Aside from the beach, I also had the chance to immerse myself in the local culture by visiting the Pearl Harbor Memorial, which paid tribute to the events that led to the United States’ involvement in World War II. The memorial was a somber",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00109",
+      "page": 11,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "reminder of the past, and it was fascinating to learn about the history surrounding the attack on Pearl Harbor.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00110",
+      "page": 11,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Other cultural experiences included trying local Hawaiian cuisine, such as poke bowls and traditional Hawaiian dishes, which were delicious and offered a unique taste of the region. I also had the opportunity to explore the city’s bustling streets, where I came across local shops, markets, and street performers, adding to the lively atmosphere. Overall, my trip to Honolulu was an enriching experience, filled with cultural discoveries, breathtaking natural beauty, and unforgettable memories. LLaV A-1.5 Title: A Sunny Escape to the Tropical Paradise of Waikiki Beach",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00111",
+      "page": 11,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "Introduction:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00112",
+      "page": 11,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "I recently had the pleasure of visiting the beautiful Waikiki Beach in Hawaii, and I must say, it was an unforgettable experience. The crystal blue waters, the lively atmosphere, and the stunning cityscape in the background made it a perfect",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00113",
+      "page": 11,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "destination for a relaxing getaway. In this travel blog post, I’ll share my experiences and must-see attractions during my trip",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00114",
+      "page": 11,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "to Waikiki Beach. Day 1: Arrival and Exploration",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00115",
+      "page": 11,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "Upon arrival, I was greeted by the warm and welcoming Hawaiian culture. The vibrant colors and lively music set the tone",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00116",
+      "page": 11,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "for my adventure. I decided to explore the area around Waikiki Beach, starting with the iconic Diamond Head Crater. The hike to the top was a bit challenging, but the breathtaking views of the beach and the city made it worthwhile. Day 2: Beach Day and Cultural Experiences",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00117",
+      "page": 11,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "I woke up early and headed to the beach to enjoy a day of sunbathing and swimming. The beach was bustling with activity,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00118",
+      "page": 11,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "and I loved watching the surfers catching waves. In the evening, I attended a traditional Hawaiian luau, where I learned about the local customs and traditions, including hula dancing and the art of making leis. Day 3: City Tour and Sunset Cruise On the third day, I took a guided city tour to learn more about the history and culture of Hawaii. I visited the Pearl Harbor Memorial, the Bishop Museum, and the Iolani Palace, which was once the residence of the Hawaiian monarchs. In the evening, I went on a sunset cruise around the Waikiki coastline, where I enjoyed a delicious meal and witnessed the stunning sunset over the ocean. Day 4: Snorkeling and Relaxation For my last day in Waikiki, I decided to go snorkeling in the crystal clear waters of Hanauma Bay. The marine life was incredible, and I had the opportunity to see colorful fish and coral reefs up close. After a long day of exploring, I relaxed on the beach and soaked up the sun.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00119",
+      "page": 11,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "Conclusion:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00120",
+      "page": 11,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "My trip to Waikiki Beach was an unforgettable experience filled with adventure, culture, and relaxation. From the breathtaking views of the ocean to the vibrant cityscape, this tropical paradise has something for everyone. I highly recommend visiting Waikiki Beach for a sunny escape and a chance to immerse yourself in the beautiful Hawaiian culture.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00121",
+      "page": 11,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "Table 11. LLaV A-1.5 provides more detailed, visually-grounded responses for writing tasks with visual inputs than LLaV A.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00122",
+      "page": 12,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "Spanish: ¿Cuáles son las cosas de las que debería tener cuidado cuando visite aquí?Cuando visite el lugar con la pier en el lago, debería tener cuidado de las siguientes cosas:1.Mantenerse alejado del borde de la pier para evitar caer al agua o sufrir una lesión.2.No subir a la pier si está prohibido o si no está diseñada para ello.3.No arrojar objetos o desperdiciar en el agua, ya que esto puede dañar el ecosistema del lago.4.No interferir con la fauna local, como los pájaros que se pueden encontrar en la zona.Si decide nadar en el lago, asegúrese de conocer las condiciones del agua, como la profundidad y la presencia de algas, y de tener las habilidades y equipos adecuados para hacerlo de manera segura.Tenir en cuenta estas precauciones ayudará a garantizar una experiencia segura y responsable en el lugar.Translation: When visiting the place with the pier at the lake, you should be careful about the following things:1.Stay away from the edge of the pier to avoid falling into the wat...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00123",
+      "page": 12,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "Figure 5. Compositional capability: multilingual visual conversation. LLaV A-1.5 generalizes to multilingual visual conversations, when",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00124",
+      "page": 12,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "training on visual instruction following data (English-only) together with the text-only ShareGPT data (multilingual). However, there can still be errors in some languages (e.g. Korean, errors marked in red).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00125",
+      "page": 13,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "B.2. Compositional Capabilities We present qualitative examples of the compositional capa- bilities of LLaV A-1.5. As shown in Fig. 5, LLaV A-1.5 is capable of participating in multilingual visual conversations and adapting its output language based on the user’s input, even though it has not been trained on multilingual visual instruction data. We hypothesize this emerging bahavior is a compositional capability learned from visual conversations (English-only) and the text-only ShareGPT data (multilin- gual). However, there can still be errors in some languages (e.g. Korean), which could be improved by incorporating more of those language data. Additionally, in Table 11, we show another observed compositional capability after including the ShareGPT data in training. LLaV A-1.5 is able to produce more detailed and visually-grounded responses in writing tasks with visual inputs than LLaV A. Visual input example, Constrained SD Prompt Generation: User Here’s a formula for a Stable Diffus...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00126",
+      "page": 13,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "Table 12. Constrained prompt generation for Stable Diffusion.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00127",
+      "page": 13,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "Corresponding components are marked in color. C. Limitations Despite the promising results demonstrated by LLaV A-1.5, several limitations must be acknowledged. First, LLaV A- 1.5 utilizes full image patches, potentially prolonging each training iteration. While visual resamplers [ 3, 14, 32] re- duce the number of visual patches in LLMs, they currently cannot achieve convergence as efficiently as LLaV A with a comparable amount of training data, probably due to more trainable parameters in the resamplers. The development of a sample-efficient visual resampler could pave the way for future scaling-up of instruction-following multimodal models. Second, LLaV A-1.5 is not yet capable of processing multiple images due to the lack of such instruction-following data, and the limit of the context length. Third, although LLaV A-1.5 exhibits proficiency in following complex in- structions, its problem-solving capabilities can still be lim- ited in certain domains, which could be improved with...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00128",
+      "page": 13,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "ally disseminating misinformation, and should be used with",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00129",
+      "page": 13,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "caution in critical applications (e.g. medical).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00130",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "References",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00131",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[1] Adept AI. Fuyu-8b: A multimodal architecture for ai agents.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00132",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "https://www.adept.ai/blog/fuyu-8b, 2024. 2",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00133",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[2] Jean-Baptiste Alayrac, Jeff Donahue, Pauline Luc, Antoine Miech, Iain Barr, Yana Hasson, Karel Lenc, Arthur Mensch,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00134",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Katie Millican, Malcolm Reynolds, et al. Flamingo: a vi-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00135",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "sual language model for few-shot learning. arXiv preprint arXiv:2204.14198, 2022. 1 [3] Jinze Bai, Shuai Bai, Shusheng Yang, Shijie Wang, Sinan Tan, Peng Wang, Junyang Lin, Chang Zhou, and Jingren",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00136",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Zhou. Qwen-vl: A frontier large vision-language model with",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00137",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "versatile abilities. arXiv preprint arXiv:2308.12966, 2023. 1, 2, 4, 5, 6, 13 [4] Yonatan Bitton, Hritik Bansal, Jack Hessel, Rulin Shao, Wan- rong Zhu, Anas Awadalla, Josh Gardner, Rohan Taori, and Ludwig Schimdt. Visit-bench: A benchmark for vision- language instruction following inspired by real-world use, 2023. 3 [5] Kevin Black, Michael Janner, Yilun Du, Ilya Kostrikov, and Sergey Levine. Training diffusion models with reinforcement learning. arXiv preprint arXiv:2305.13301, 2023. 1 [6] Nicholas Carlini, Milad Nasr, Christopher A Choquette-Choo, Matthew Jagielski, Irena Gao, Anas Awadalla, Pang Wei Koh, Daphne Ippolito, Katherine Lee, Florian Tramer, et al. Are aligned neural networks adversarially aligned? arXiv preprint arXiv:2306.15447, 2023. 1 [7] Delong Chen, Jianfeng Liu, Wenliang Dai, and Baoyuan",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00138",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Wang. Visual instruction tuning with polite flamingo. arXiv",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00139",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "preprint arXiv:2307.01003, 2023. 2, 3 [8] Keqin Chen, Zhao Zhang, Weili Zeng, Richong Zhang, Feng Zhu, and Rui Zhao. Shikra: Unleashing multimodal llm’s",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00140",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "referential dialogue magic. arXiv preprint arXiv:2306.15195,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00141",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "2023. 1, 2, 4, 5 [9] Ting Chen, Simon Kornblith, Mohammad Norouzi, and Geof- frey Hinton. A simple framework for contrastive learning of visual representations. In ICML, 2020. 3",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00142",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[10] Xinlei Chen, Haoqi Fan, Ross Girshick, and Kaiming He. Im-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00143",
+      "page": 13,
+      "section": "References",
+      "bbox": null,
+      "text_span": "proved baselines with momentum contrastive learning. arXiv preprint arXiv:2003.04297, 2020. 3 [11] Xi Chen, Josip Djolonga, Piotr Padlewski, Basil Mustafa, Soravit Changpinyo, Jialin Wu, Carlos Riquelme Ruiz, Sebas-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00144",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "tian Goodman, Xiao Wang, Yi Tay, et al. Pali-x: On scaling up a multilingual vision and language model. arXiv preprint arXiv:2305.18565, 2023. 5 [12] Wei-Lin Chiang, Zhuohan Li, Zi Lin, Ying Sheng, Zhanghao",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00145",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Wu, Hao Zhang, Lianmin Zheng, Siyuan Zhuang, Yonghao",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00146",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Zhuang, Joseph E. Gonzalez, Ion Stoica, and Eric P. Xing. Vicuna: An open-source chatbot impressing gpt-4 with 90%* chatgpt quality, 2023. 9 [13] Hyung Won Chung, Le Hou, Shayne Longpre, Barret Zoph, Yi Tay, William Fedus, Yunxuan Li, Xuezhi Wang, Mostafa Dehghani, Siddhartha Brahma, et al. Scaling instruction- finetuned language models. arXiv preprint arXiv:2210.11416, 2022. 2 [14] Wenliang Dai, Junnan Li, Dongxu Li, Anthony Meng Huat Tiong, Junqi Zhao, Weisheng Wang, Boyang Li, Pascale Fung, and Steven Hoi. Instructblip: Towards general-purpose vision- language models with instruction tuning. arXiv preprint arXiv:2305.06500, 2023. 1, 2, 3, 5, 6, 8, 13 [15] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Syl- vain Gelly, et al. An image is worth 16x16 words: Trans- formers for image recognition at scale. arXiv preprint arXiv:2010.11929, 2020. 4 [16] Yuxin Fang, Wen Wang, Bin...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00147",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "mark for multimodal large language models. arXiv preprint",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00148",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "arXiv:2306.13394, 2023. 1, 4, 5 [18] Tao Gong, Chengqi Lyu, Shilong Zhang, Yudong Wang, Miao Zheng, Qian Zhao, Kuikun Liu, Wenwei Zhang, Ping Luo, and Kai Chen. Multimodal-gpt: A vision and language model",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00149",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "for dialogue with humans. arXiv preprint arXiv:2305.04790,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00150",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "2023. 1 [19] Yash Goyal, Tejas Khot, Douglas Summers-Stay, Dhruv Ba- tra, and Devi Parikh. Making the v in vqa matter: Elevating the role of image understanding in visual question answering. In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 6904–6913, 2017. 3, 5, 6, 9 [20] Danna Gurari, Qing Li, Abigale J Stangl, Anhong Guo, Chi Lin, Kristen Grauman, Jiebo Luo, and Jeffrey P Bigham. Vizwiz grand challenge: Answering visual questions from blind people. In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 3608–3617, 2018. 5, 6 [21] Drew A Hudson and Christopher D Manning. Gqa: A new dataset for real-world visual reasoning and compositional question answering. In CVPR, 2019. 4, 5, 9 [22] IDEFICS. Introducing idefics: An open reproduction of state-of-the-art visual language model. https : / /",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00151",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "huggingface.co/blog/idefics, 2023. 5, 6",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00152",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[23] Gabriel Ilharco, Mitchell Wortsman, Ross Wightman, Cade Gordon, Nicholas Carlini, Rohan Taori, Achal Dave, Vaishaal Shankar, Hongseok Namkoong, John Miller, Hannaneh Ha- jishirzi, Ali Farhadi, and Ludwig Schmidt. Openclip. 2021. If you use this software, please cite it as below. 6 [24] Sahar Kazemzadeh, Vicente Ordonez, Mark Matten, and Tamara Berg. Referitgame: Referring to objects in pho- tographs of natural scenes. In Proceedings of the 2014 con- ference on empirical methods in natural language processing (EMNLP), pages 787–798, 2014. 4, 9 [25] Ranjay Krishna, Yuke Zhu, Oliver Groth, Justin Johnson, Kenji Hata, Joshua Kravitz, Stephanie Chen, Yannis Kalan- tidis, Li-Jia Li, David A Shamma, et al. Visual genome: Connecting language and vision using crowdsourced dense image annotations. International journal of computer vision, 123:32–73, 2017. 4, 9 [26] Xin Lai, Zhuotao Tian, Yukang Chen, Yanwei Li, Yuhui Yuan, Shu Liu, and Jiaya Jia. Lisa: Reasoning segmentation",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00153",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "via large language model. arXiv preprint arXiv:2308.00692,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00154",
+      "page": 14,
+      "section": "References",
+      "bbox": null,
+      "text_span": "2023. 1 [27] Bohao Li, Rui Wang, Guangzhi Wang, Yuying Ge, Yix- iao Ge, and Ying Shan. Seed-bench: Benchmarking mul- timodal llms with generative comprehension. arXiv preprint arXiv:2307.16125, 2023. 1, 5 [28] Bo Li, Peiyuan Zhang, Jingkang Yang, Yuanhan Zhang, Fanyi Pu, and Ziwei Liu. Otterhd: A high-resolution multi-modality",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00155",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "model, 2023. 2",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00156",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "[29] Bo Li, Yuanhan Zhang, Liangyu Chen, Jinghao Wang, Fanyi Pu, Jingkang Yang, Chunyuan Li, and Ziwei Liu. Mimic-it: Multi-modal in-context instruction tuning. arXiv preprint arXiv:2306.05425, 2023. 1 [30] Chunyuan Li, Zhe Gan, Zhengyuan Yang, Jianwei Yang, Lin- jie Li, Lijuan Wang, and Jianfeng Gao. Multimodal founda- tion models: From specialists to general-purpose assistants. arXiv preprint arXiv:2309.10020, 2023. 1 [31] Chunyuan Li, Cliff Wong, Sheng Zhang, Naoto Usuyama, Haotian Liu, Jianwei Yang, Tristan Naumann, Hoifung Poon,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00157",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "and Jianfeng Gao. Llava-med: Training a large language-and-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00158",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "vision assistant for biomedicine in one day. arXiv preprint arXiv:2306.00890, 2023. 1 [32] Junnan Li, Dongxu Li, Silvio Savarese, and Steven Hoi. Blip- 2: Bootstrapping language-image pre-training with frozen",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00159",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "image encoders and large language models. arXiv preprint",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00160",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "arXiv:2301.12597, 2023. 1, 2, 3, 4, 5, 6, 13 [33] Xiang Lisa Li and Percy Liang. Prefix-tuning: Optimiz- ing continuous prompts for generation. arXiv preprint arXiv:2101.00190, 2021. 3 [34] Yifan Li, Yifan Du, Kun Zhou, Jinpeng Wang, Wayne Xin Zhao, and Ji-Rong Wen. Evaluating object hallucina-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00161",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "tion in large vision-language models. arXiv preprint",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00162",
+      "page": 14,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "arXiv:2305.10355, 2023. 1, 5 [35] Tsung-Yi Lin, Michael Maire, Serge Belongie, James Hays, Pietro Perona, Deva Ramanan, Piotr Dollár, and C Lawrence Zitnick. Microsoft COCO: Common objects in context. In ECCV, 2014. 2, 5 [36] Haotian Liu, Chunyuan Li, Qingyang Wu, and Yong Jae Lee. Visual instruction tuning. In NeurIPS, 2023. 1, 2, 3, 4, 5, 6, 8, 9",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00163",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "[37] Yuan Liu, Haodong Duan, Yuanhan Zhang, Bo Li, Songyang Zhang, Wangbo Zhao, Yike Yuan, Jiaqi Wang, Conghui He, Ziwei Liu, et al. Mmbench: Is your multi-modal model an all-around player? arXiv preprint arXiv:2307.06281, 2023. 1, 5, 7 [38] Pan Lu, Swaroop Mishra, Tanglin Xia, Liang Qiu, Kai-Wei Chang, Song-Chun Zhu, Oyvind Tafjord, Peter Clark, and Ashwin Kalyan. Learn to explain: Multimodal reasoning via thought chains for science question answering. Advances in Neural Information Processing Systems, 2022. 5 [39] Yadong Lu, Chunyuan Li, Haotian Liu, Jianwei Yang, Jian- feng Gao, and Yelong Shen. An empirical study of scal-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00164",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "ing instruct-tuned large multimodal models. arXiv preprint",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00165",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "arXiv:2309.09958, 2023. 1, 4 [40] Junhua Mao, Jonathan Huang, Alexander Toshev, Oana Cam- buru, Alan L Yuille, and Kevin Murphy. Generation and comprehension of unambiguous object descriptions. In Pro- ceedings of the IEEE conference on computer vision and pattern recognition, pages 11–20, 2016. 4, 9 [41] Kenneth Marino, Mohammad Rastegari, Ali Farhadi, and Roozbeh Mottaghi. Ok-vqa: A visual question answering benchmark requiring external knowledge. In Conference on Computer Vision and Pattern Recognition (CVPR), 2019. 4, 9 [42] Anand Mishra, Shashank Shekhar, Ajeet Kumar Singh, and Anirban Chakraborty. Ocr-vqa: Visual question answering by reading text in images. In 2019 international conference on document analysis and recognition (ICDAR), pages 947–952. IEEE, 2019. 4, 9 [43] OpenAI. Gpt-4v(ision) system card. https://cdn. openai . com / papers / GPTV _ System _ Card . pdf, 2023. 1 [44] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00166",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "jad Almahairi, Yasmine Babaei, Nikolay Bashlykov, Soumya",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00167",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Batra, Prajjwal Bhargava, Shruti Bhosale, et al. Llama 2:",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00168",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Open foundation and fine-tuned chat models. arXiv preprint arXiv:2307.09288, 2023. 7 [50] Wenhai Wang, Zhe Chen, Xiaokang Chen, Jiannan Wu, Xizhou Zhu, Gang Zeng, Ping Luo, Tong Lu, Jie Zhou, Yu",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00169",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Qiao, et al. Visionllm: Large language model is also an",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00170",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "open-ended decoder for vision-centric tasks. arXiv preprint arXiv:2305.11175, 2023. 1 [51] Jason Wei, Maarten Bosma, Vincent Y Zhao, Kelvin Guu, Adams Wei Yu, Brian Lester, Nan Du, Andrew M Dai, and Quoc V Le. Finetuned language models are zero-shot learners. arXiv preprint arXiv:2109.01652, 2021. 2 [52] Zhengyuan Yang, Linjie Li, Kevin Lin, Jianfeng Wang, Chung-Ching Lin, Zicheng Liu, and Lijuan Wang. The dawn",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00171",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "of lmms: Preliminary explorations with gpt-4v (ision). arXiv",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00172",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "preprint arXiv:2309.17421, 2023. 6 [53] Jiabo Ye, Anwen Hu, Haiyang Xu, Qinghao Ye, Ming Yan, Guohai Xu, Chenliang Li, Junfeng Tian, Qi Qian, Ji Zhang, Qin Jin, Liang He, Xin Alex Lin, and Fei Huang. Ureader: Universal ocr-free visually-situated language understanding",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00173",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "with multimodal large language model, 2023. 2",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00174",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "[54] Qinghao Ye, Haiyang Xu, Guohai Xu, Jiabo Ye, Ming Yan, Yiyang Zhou, Junyang Wang, Anwen Hu, Pengcheng Shi, Yaya Shi, et al. mplug-owl: Modularization empowers",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00175",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "large language models with multimodality. arXiv preprint",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00176",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "arXiv:2304.14178, 2023. 1 [55] Weihao Yu, Zhengyuan Yang, Linjie Li, Jianfeng Wang, Kevin Lin, Zicheng Liu, Xinchao Wang, and Lijuan Wang.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00177",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Mm-vet: Evaluating large multimodal models for integrated",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00178",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "capabilities. arXiv preprint arXiv:2308.02490, 2023. 1, 3, 4, 5, 8 [56] Shilong Zhang, Peize Sun, Shoufa Chen, Min Xiao, Wenqi Shao, Wenwei Zhang, Kai Chen, and Ping Luo. Gpt4roi:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00179",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Instruction tuning large language model on region-of-interest.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00180",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "arXiv preprint arXiv:2307.03601, 2023. 1 [57] Yanzhe Zhang, Ruiyi Zhang, Jiuxiang Gu, Yufan Zhou, Nedim Lipka, Diyi Yang, and Tong Sun. Llavar: Enhanced visual instruction tuning for text-rich image understanding. arXiv preprint arXiv:2306.17107, 2023. 2 [58] Bo Zhao, Boya Wu, and Tiejun Huang. Svit: Scaling up visual instruction tuning. arXiv preprint arXiv:2307.04087, 2023. 1, 2 [59] Yunqing Zhao, Tianyu Pang, Chao Du, Xiao Yang, Chongx- uan Li, Ngai-Man Cheung, and Min Lin. On evaluating",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00181",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "adversarial robustness of large vision-language models. arXiv",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00182",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "preprint arXiv:2305.16934, 2023. 1",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00183",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "[60] Lianmin Zheng, Wei-Lin Chiang, Ying Sheng, Siyuan",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00184",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Zhuang, Zhanghao Wu, Yonghao Zhuang, Zi Lin, Zhuohan Li, Dacheng Li, Eric. P Xing, Hao Zhang, Joseph E. Gonzalez, and Ion Stoica. Judging llm-as-a-judge with mt-bench and chatbot arena, 2023. 10 [61] Chunting Zhou, Pengfei Liu, Puxin Xu, Srini Iyer, Jiao Sun, Yuning Mao, Xuezhe Ma, Avia Efrat, Ping Yu, Lili Yu, et al. Lima: Less is more for alignment. arXiv preprint arXiv:2305.11206, 2023. 2, 8 [62] Deyao Zhu, Jun Chen, Xiaoqian Shen, Xiang Li, and Mo- hamed Elhoseiny. Minigpt-4: Enhancing vision-language",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00185",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "understanding with advanced large language models. arXiv",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00186",
+      "page": 15,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "preprint arXiv:2304.10592, 2023. 1, 2",
+      "source_type": "paragraph"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "warnings": [
+      {
+        "code": "ok",
+        "message": "Grounding verification passed with current v1 checks.",
+        "target": null,
+        "severity": "info"
+      }
+    ],
+    "anchor_count": 186
+  }
+}

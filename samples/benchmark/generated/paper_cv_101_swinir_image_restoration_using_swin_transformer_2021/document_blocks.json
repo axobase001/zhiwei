@@ -1,0 +1,1028 @@
+[
+  {
+    "block_id": "blk_00001",
+    "type": "title",
+    "content": "SwinIR: Image Restoration Using Swin Transformer Jingyun Liang1 Jiezhang Cao1 Guolei Sun1 Kai Zhang1,* Luc Van Gool1,2 Radu Timofte1 1Computer Vision Lab, ETH Zurich, Switzerland 2KU Leuven, Belgium {jinliang, jiezcao, guosun, kai.zhang, vangool, timofter }@vision.ee.ethz.ch https://github.com/JingyunLiang/SwinIR",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "anchor_id": "anc_00001"
+  },
+  {
+    "block_id": "blk_00002",
+    "type": "section_heading",
+    "content": "Abstract",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00002"
+  },
+  {
+    "block_id": "blk_00003",
+    "type": "paragraph",
+    "content": "Image restoration is a long-standing low-level vision problem that aims to restore high-quality images from low- quality images (e.g., downscaled, noisy and compressed im- ages). While state-of-the-art image restoration methods are based on convolutional neural networks, few attempts have been made with Transformers which show impressive per- formance on high-level vision tasks. In this paper , we pro- pose a strong baseline model SwinIR for image restora- tion based on the Swin Transformer . SwinIR consists of three parts: shallow feature extraction, deep feature extrac- tion and high-quality image reconstruction. In particular , the deep feature extraction module is composed of several residual Swin Transformer blocks (RSTB), each of which has several Swin Transformer layers together with a resid- ual connection. We conduct experiments on three represen- tative tasks: image super-resolution (including classical, lightweight and real-world image super-resolution), image denoising (including grayscale and color image denoising) and JPEG compression artifact reduction. Experimental re- sults demonstrate that SwinIR outperforms state-of-the-art methods on different tasks by up to 0.14∼0.45dB, while the total number of parameters can be reduced by up to 67%. 1. Introduction Image restoration, such as image super-resolution (SR), image denoising and JPEG compression artifact reduction, aims to reconstruct the high-quality clean image from its low-quality degraded counterpart. Since several revolu- tionary work [18, 40, 90, 91], convolutional neural net- works (CNN) have become the primary workhorse for im- age restoration [43, 51, 43, 81, 92, 95, 24, 93, 46, 89, 88]. Most CNN-based methods focus on elaborate architec- ture designs such as residual learning [43, 51] and dense connections [97, 81]. Although the performance is sig- niﬁcantly improved compared with traditional model-based *Corresponding author. 0.2 0.4 0.6 0.8 1.0 1.2 Number of Parameters 1e8 32.45 32.50 32.55 32.60 32.65 32.70PSNR (dB) EDSR (CVPR2017) RNAN (ICLR2019) OISR (CVPR2019) RDN (CVPR2018) RCAN (ECCV2018) IGNN (NeurIPS2020) HAN (ECCV2020) NLSA (CVPR2021) IPT (CVPR2021) SwinIR (ours)",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00003"
+  },
+  {
+    "block_id": "blk_00004",
+    "type": "caption",
+    "content": "Figure 1: PSNR results v.s the total number of parameters of dif-",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00004"
+  },
+  {
+    "block_id": "blk_00005",
+    "type": "paragraph",
+    "content": "ferent methods for image SR (×4) on Set5 [3]. methods [73, 14, 28], they generally suffer from two basic problems that stem from the basic convolution layer. First, the interactions between images and convolution kernels are content-independent. Using the same convolution kernel to restore different image regions may not be the best choice. Second, under the principle of local processing, convolution is not effective for long-range dependency modelling. As an alternative to CNN, Transformer [76] designs a self-attention mechanism to capture global interactions be- tween contexts and has shown promising performance in several vision problems [6, 74, 19, 56]. However, vision Transformers for image restoration [9, 5] usually divide the input image into patches with ﬁxed size ( e.g., 48×48) and process each patch independently. Such a strategy in- evitably gives rise to two drawbacks. First, border pixels cannot utilize neighbouring pixels that are out of the patch for image restoration. Second, the restored image may in- troduce border artifacts around each patch. While this prob- lem can be alleviated by patch overlapping, it would intro- duce extra computational burden. Recently, Swin Transformer [56] has shown great promise as it integrates the advantages of both CNN and Transformer. On the one hand, it has the advantage of",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00005"
+  },
+  {
+    "block_id": "blk_00006",
+    "type": "formula",
+    "content": "CNN to process image with large size due to the local at-",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00006"
+  },
+  {
+    "block_id": "blk_00007",
+    "type": "paragraph",
+    "content": "tention mechanism. On the other hand, it has the advantage of Transformer to model long-range dependency with the shifted window scheme. 1 arXiv:2108.10257v1 [eess.IV] 23 Aug 2021",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00007"
+  },
+  {
+    "block_id": "blk_00008",
+    "type": "paragraph",
+    "content": "In this paper, we propose an image restoration model, namely SwinIR, based on Swin Transformer. More specif- ically, SwinIR consists of three modules: shallow feature extraction, deep feature extraction and high-quality image reconstruction modules. Shallow feature extraction module uses a convolution layer to extract shallow feature, which is directly transmitted to the reconstruction module so as to preserve low-frequency information. Deep feature extrac- tion module is mainly composed of residual Swin Trans- former blocks (RSTB), each of which utilizes several Swin Transformer layers for local attention and cross-window in- teraction. In addition, we add a convolution layer at the end of the block for feature enhancement and use a resid- ual connection to provide a shortcut for feature aggregation. Finally, both shallow and deep features are fused in the re- construction module for high-quality image reconstruction. Compared with prevalent CNN-based image restoration models, Transformer-based SwinIR has several beneﬁts: (1) content-based interactions between image content and at- tention weights, which can be interpreted as spatially vary- ing convolution [13, 21, 75]. (2) long-range dependency modelling are enabled by the shifted window mechanism. (3) better performance with less parameters. For example, as shown in Fig. 1, SwinIR achieves better PSNR with less parameters compared with existing image SR methods. 2. Related Work 2.1. Image Restoration Compared to traditional image restoration methods [28, 72, 73, 62, 32] which are generally model-based, learning- based methods, especially CNN-based methods, have be- come more popular due to their impressive performance. They often learn mappings between low-quality and high-",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00008"
+  },
+  {
+    "block_id": "blk_00009",
+    "type": "formula",
+    "content": "quality images from large-scale paired datasets. Since pi-",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00009"
+  },
+  {
+    "block_id": "blk_00010",
+    "type": "paragraph",
+    "content": "oneering work SRCNN [18] (for image SR), DnCNN [90] (for image denoising) and ARCNN [17] (for JPEG com- pression artifact reduction), a ﬂurry of CNN-based mod- els have been proposed to improve model representation ability by using more elaborate neural network architec- ture designs, such as residual block [40, 7, 88], dense block [81, 97, 98] and others [10, 42, 93, 78, 77, 79, 50, 48, 49, 92, 70, 36, 83, 30, 11, 16, 96, 64, 38, 26, 41, 25]. Some of them have exploited the attention mechanism inside the CNN framework, such as channel attention [95, 15, 63], non-local attention [52, 61] and adaptive patch aggrega- tion [100]. 2.2. Vision Transformer Recently, natural language processing model Trans- former [76] has gained much popularity in the computer vision community. When used in vision problems such as image classiﬁcation [66, 19, 84, 56, 45, 55, 75], ob- ject detection [6, 53, 74, 56], segmentation [84, 99, 56, 4] and crowd counting [47, 69], it learns to attend to impor- tant image regions by exploring the global interactions be- tween different regions. Due to its impressive performance, Transformer has also been introduced for image restora- tion [9, 5, 82]. Chen et al. [9] proposed a backbone model IPT for various restoration problems based on the stan-",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00010"
+  },
+  {
+    "block_id": "blk_00011",
+    "type": "formula",
+    "content": "dard Transformer. However, IPT relies on large number of",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00011"
+  },
+  {
+    "block_id": "blk_00012",
+    "type": "formula",
+    "content": "parameters (over 115.5M parameters), large-scale datasets",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00012"
+  },
+  {
+    "block_id": "blk_00013",
+    "type": "paragraph",
+    "content": "(over 1.1M images) and multi-task learning for good perfor- mance. Cao et al. [5] proposed VSR-Transformer that uses the self-attention mechanism for better feature fusion in video SR, but image features are still extracted from CNN. Besides, both IPT and VSR-Transformer are patch-wise at- tention, which may be improper for image restoration. In addition, a concurrent work [82] proposed a U-shaped ar- chitecture based on the Swin Transformer [56]. 3. Method 3.1. Network Architecture As shown in Fig. 2, SwinIR consists of three modules: shallow feature extraction, deep feature extraction and high- quality (HQ) image reconstruction modules. We employ the same feature extraction modules for all restoration tasks, but use different reconstruction modules for different tasks. Shallow and deep feature extraction. Given a low- quality (LQ) input ILQ∈ RH×W ×Cin (H,W andCin are the image height, width and input channel number, respec- tively), we use a 3× 3 convolutional layerHSF(·) to extract shallow featureF0∈ RH×W ×C as",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00013"
+  },
+  {
+    "block_id": "blk_00014",
+    "type": "formula",
+    "content": "F0 =HSF(ILQ), (1)",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00014"
+  },
+  {
+    "block_id": "blk_00015",
+    "type": "paragraph",
+    "content": "where C is the feature channel number. The convolution layer is good at early visual processing, leading to more stable optimization and better results [86]. It also provides a simple way to map the input image space to a higher dimensional feature space. Then, we extract deep feature FDF∈ RH×W ×C fromF0 as",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00015"
+  },
+  {
+    "block_id": "blk_00016",
+    "type": "formula",
+    "content": "FDF =HDF(F0), (2)",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00016"
+  },
+  {
+    "block_id": "blk_00017",
+    "type": "paragraph",
+    "content": "whereHDF(·) is the deep feature extraction module and it containsK residual Swin Transformer blocks (RSTB) and a 3× 3 convolutional layer. More speciﬁcally, intermediate featuresF1,F 2,...,F K and the output deep featureFDF are extracted block by block as",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00017"
+  },
+  {
+    "block_id": "blk_00018",
+    "type": "formula",
+    "content": "Fi =HRSTBi (Fi−1), i = 1, 2,...,K,",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00018"
+  },
+  {
+    "block_id": "blk_00019",
+    "type": "formula",
+    "content": "FDF =HCONV(FK), (3)",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00019"
+  },
+  {
+    "block_id": "blk_00020",
+    "type": "paragraph",
+    "content": "where HRSTBi (·) denotes the i-th RSTB and HCONV is the last convolutional layer. Using a convolutional layer at the 2",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00020"
+  },
+  {
+    "block_id": "blk_00021",
+    "type": "paragraph",
+    "content": "Shallow FeatureExtraction Deep FeatureExtractionHQ ImageReconstruction RSTBRSTBRSTBRSTBRSTBRSTBConv+ ConvSTL STLSTLSTLSTL+ LayerNormMSA+LayerNormMLP+(a) ResidualSwinTransformer Block(RSTB) (b) SwinTransformer Layer(STL) STL",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00021"
+  },
+  {
+    "block_id": "blk_00022",
+    "type": "caption",
+    "content": "Figure 2: The architecture of the proposed SwinIR for image restoration.",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00022"
+  },
+  {
+    "block_id": "blk_00023",
+    "type": "paragraph",
+    "content": "end of feature extraction can bring the inductive bias of the convolution operation into the Transformer-based network, and lay a better foundation for the later aggregation of shal- low and deep features. Image reconstruction. Taking image SR as an example, we reconstruct the high-quality image IRHQ by aggregating shallow and deep features as",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00023"
+  },
+  {
+    "block_id": "blk_00024",
+    "type": "formula",
+    "content": "IRHQ =HREC(F0 +FDF), (4)",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00024"
+  },
+  {
+    "block_id": "blk_00025",
+    "type": "paragraph",
+    "content": "where HREC(·) is the function of the reconstruction mod- ule. Shallow feature mainly contain low-frequencies, while deep feature focus on recovering lost high-frequencies. With a long skip connection, SwinIR can transmit the low- frequency information directly to the reconstruction mod- ule, which can help deep feature extraction module focus on high-frequency information and stabilize training. For the implementation of reconstruction module, we use the sub-pixel convolution layer [68] to upsample the feature. For tasks that do not need upsampling, such as image denoising and JPEG compression artifact reduction, a single convolution layer is used for reconstruction. Besides, we use residual learning to reconstruct the residual between the LQ and the HQ image instead of the HQ image. This is formulated as",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00025"
+  },
+  {
+    "block_id": "blk_00026",
+    "type": "formula",
+    "content": "IRHQ =HSwinIR(ILQ) +ILQ, (5)",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00026"
+  },
+  {
+    "block_id": "blk_00027",
+    "type": "paragraph",
+    "content": "whereHSwinIR(·) denotes the function of SwinIR. Loss function. For image SR, we optimize the parameters",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00027"
+  },
+  {
+    "block_id": "blk_00028",
+    "type": "formula",
+    "content": "of SwinIR by minimizing theL1 pixel loss",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00028"
+  },
+  {
+    "block_id": "blk_00029",
+    "type": "formula",
+    "content": "L =∥IRHQ−IHQ∥1, (6)",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00029"
+  },
+  {
+    "block_id": "blk_00030",
+    "type": "paragraph",
+    "content": "whereIRHQ is obtained by takingILQ as the input of SwinIR, andIHQ is the corresponding ground-truth HQ image. For classical and lightweight image SR, we only use the naive L1 pixel loss as same as previous work to show the effec- tiveness of the proposed network. For real-world image SR, we use a combination of pixel loss, GAN loss and percep- tual loss [81, 89, 80, 27, 39, 81] to improve visual quality. For image denoising and JPEG compression artifact re- duction, we use the Charbonnier loss [8] L = √ ∥IRHQ−IHQ∥2 +ϵ2, (7) whereϵ is a constant that is empirically set to 10−3. 3.2. Residual Swin Transformer Block As shown in Fig. 2(a), the residual Swin Transformer block (RSTB) is a residual block with Swin Transformer layers (STL) and convolutional layers. Given the input fea- tureFi,0 of thei-th RSTB, we ﬁrst extract intermediate fea- turesFi,1,Fi,2,...,F i,L byL Swin Transformer layers as",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00030"
+  },
+  {
+    "block_id": "blk_00031",
+    "type": "formula",
+    "content": "Fi,j =HSTLi,j (Fi,j−1), j = 1, 2,...,L, (8)",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00031"
+  },
+  {
+    "block_id": "blk_00032",
+    "type": "paragraph",
+    "content": "whereHSTLi,j (·) is the j-th Swin Transformer layer in the i-th RSTB. Then, we add a convolutional layer before the residual connection. The output of RSTB is formulated as",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00032"
+  },
+  {
+    "block_id": "blk_00033",
+    "type": "formula",
+    "content": "Fi,out =HCONVi (Fi,L) +Fi,0, (9)",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00033"
+  },
+  {
+    "block_id": "blk_00034",
+    "type": "paragraph",
+    "content": "where HCONVi (·) is the convolutional layer in the i-th RSTB. This design has two beneﬁts. First, although Trans- former can be viewed as a speciﬁc instantiation of spatially varying convolution [21, 75], covolutional layers with spa- tially invariant ﬁlters can enhance the translational equivari- ance of SwinIR. Second, the residual connection provides a identity-based connection from different blocks to the re- construction module, allowing the aggregation of different levels of features. 3",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00034"
+  },
+  {
+    "block_id": "blk_00035",
+    "type": "paragraph",
+    "content": "Swin Transformer layer . Swin Transformer layer (STL) [56] is based on the standard multi-head self- attention of the original Transformer layer [76]. The main differences lie in local attention and the shifted window mechanism. As shown in Fig. 2(b), given an input of size H×W×C, Swin Transformer ﬁrst reshapes the input to a HW M 2 × M 2× C feature by partitioning the input into non-overlappingM×M local windows, where HW M 2 is the total number of windows. Then, it computes the standard self-attention separately for each window ( i.e., local atten- tion). For a local window feature X∈ RM 2×C, the query, key and value matricesQ,K andV are computed as",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00035"
+  },
+  {
+    "block_id": "blk_00036",
+    "type": "formula",
+    "content": "Q =XPQ, K =XPK, V =XPV, (10)",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00036"
+  },
+  {
+    "block_id": "blk_00037",
+    "type": "paragraph",
+    "content": "where PQ, PK and PV are projection matrices that are shared across different windows. Generally, we have Q,K,V ∈ RM 2×d. The attention matrix is thus computed by the self-attention mechanism in a local window as",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00037"
+  },
+  {
+    "block_id": "blk_00038",
+    "type": "formula",
+    "content": "Attention(Q,K,V ) = SoftMax(QKT/",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00038"
+  },
+  {
+    "block_id": "blk_00039",
+    "type": "paragraph",
+    "content": "√ d +B)V, (11) where B is the learnable relative positional encoding. In practice, following [76], we perform the attention function forh times in parallel and concatenate the results for multi- head self-attention (MSA). Next, a multi-layer perceptron (MLP) that has two fully- connected layers with GELU non-linearity between them is used for further feature transformations. The LayerNorm (LN) layer is added before both MSA and MLP, and the residual connection is employed for both modules. The whole process is formulated as",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00039"
+  },
+  {
+    "block_id": "blk_00040",
+    "type": "formula",
+    "content": "X = MSA(LN(X)) +X,",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00040"
+  },
+  {
+    "block_id": "blk_00041",
+    "type": "formula",
+    "content": "X = MLP(LN(X)) +X. (12)",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00041"
+  },
+  {
+    "block_id": "blk_00042",
+    "type": "paragraph",
+    "content": "However, when the partition is ﬁxed for different lay- ers, there is no connection across local windows. There- fore, regular and shifted window partitioning are used al- ternately to enable cross-window connections [56], where shifted window partitioning means shifting the feature by (⌊M 2⌋,⌊M 2⌋) pixels before partitioning. 4. Experiments 4.1. Experimental Setup For classical image SR, real-world image SR, image denoising and JPEG compression artifact reduction, the RSTB number, STL number, window size, channel num- ber and attention head number are generally set to 6, 6, 8, 180 and 6, respectively. One exception is that the win- dow size is set to 7 for JPEG compression artifact reduc- tion, as we observe signiﬁcant performance drop when us- ing 8, possibly because JPEG encoding uses 8× 8 image partions. For lightweight image SR, we decrease RSTB number and channel number to 4 and 60, respectively. Fol- lowing [95, 63], when self-ensemble strategy [51] is used in testing, we mark the model with a symbol “+”, e.g., SwinIR+. Due to page limit, training and evaluation details are provided in the supplementary. 4.2. Ablation Study and Discussion For ablation study, we train SwinIR on DIV2K [1] for classical image SR (×2) and test it on Manga109 [60]. Impact of channel number, RSTB number and STL number . We show the effects of channel number, RSTB number and STL number in a RSTB on model performance in Figs. 3(a), 3(b) and 3(c), respectively. It is observed that the PSNR is positively correlated with these three hyper- parameters. For channel number, although the performance keeps increasing, the total number of parameters grows quadratically. To balance the performance and model size, we choose 180 as the channel number in rest experiments. As for RSTB number and layer number, the performance gain becomes saturated gradually. We choose 6 for both of them to obtain a relatively small model. Impact of patch size and training image number; model convergence comparison. We compare the proposed SwinIR with a representative CNN-based model RCAN to compare the difference of Transformer-based and CNN- based models. From Fig. 3(d), one can see that SwinIR performs better than RCAN on different patch sizes, and",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00042"
+  },
+  {
+    "block_id": "blk_00043",
+    "type": "formula",
+    "content": "the PSNR gain becomes larger when the patch size is larger.",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00043"
+  },
+  {
+    "block_id": "blk_00044",
+    "type": "caption",
+    "content": "Fig. 3(e) shows the impact of the number of training images.",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00044"
+  },
+  {
+    "block_id": "blk_00045",
+    "type": "paragraph",
+    "content": "Extra images from Flickr2K are used in training when the",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00045"
+  },
+  {
+    "block_id": "blk_00046",
+    "type": "formula",
+    "content": "percentage is larger than 100% (800 images). There are",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00046"
+  },
+  {
+    "block_id": "blk_00047",
+    "type": "paragraph",
+    "content": "two observations. First, as expected, the performance of SwinIR rises with the training image number. Second, dif- ferent from the observation in IPT that Transformer-based",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00047"
+  },
+  {
+    "block_id": "blk_00048",
+    "type": "formula",
+    "content": "models are heavily relied on large amount of training data,",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00048"
+  },
+  {
+    "block_id": "blk_00049",
+    "type": "paragraph",
+    "content": "SwinIR achieves better results than CNN-based models us- ing the same training data, even when the dataset is small (i.e., 25%, 200 images). We also plot the PSNR during training for both SwinIR and RCAN in Fig. 3(f). It is clear that SwinIR converges faster and better than RCAN, which is contradictory to previous observations that Transformer- based models often suffer from slow model convergence. Impact of residual connection and convolution layer in RSTB. Table 1 shows four residual connection variants in RSTB: no residual connection, using 1× 1 convolu- tion layer, using 3× 3 convolution layer and using three 3× 3 convolution layers (channel number of the interme- diate layer is set to one fourth of network channel num- ber). From the table, we can have following observations. First, the residual connection in RSTB is important as it improves the PSNR by 0.16dB. Second, using 1× 1 con- volution brings little improvement maybe because it cannot 4",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00049"
+  },
+  {
+    "block_id": "blk_00050",
+    "type": "paragraph",
+    "content": "60 90 120 150 180 210 240 Channel Number 39.00 39.14 39.28 39.42 39.56 39.70PSNR (dB) (a) 0 2 4 6 8 10 12 RSTB Number 38.7 38.9 39.1 39.3 39.5 39.7PSNR (dB) (b) 0 2 4 6 8 10 12 Layer Number in a RSTB 38.90 39.06 39.22 39.38 39.54 39.70PSNR (dB) (c) 32 40 48 56 64 72 80 Training Patch Size 39.2 39.3 39.4 39.5 39.6 39.7PSNR (dB) SwinIR RCAN (CNN-based) (d) 0.5 1.0 1.5 2.0 2.5 3.0 3.5 4.0 4.5 Percentage of Used Images 39.00 39.18 39.36 39.54 39.72 39.90PSNR (dB) SwinIR RCAN (CNN-based) (e) 0 1 2 3 4 5 Training Iterations 1e5 38.2 38.4 38.6 38.8 39.0 39.2 39.4 39.6PSNR (dB) SwinIR RCAN (CNN-based) (f)",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00050"
+  },
+  {
+    "block_id": "blk_00051",
+    "type": "caption",
+    "content": "Figure 3: Ablation study on different settings of SwinIR. Results are tested on Manga109 [60] for image SR (×2).",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00051"
+  },
+  {
+    "block_id": "blk_00052",
+    "type": "caption",
+    "content": "Table 1: Ablation study on RSTB design.",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00052"
+  },
+  {
+    "block_id": "blk_00053",
+    "type": "paragraph",
+    "content": "Design No residual 1 × 1 conv 3 × 3 conv Three 3 × 3 conv PSNR 39.42 39.45 39.58 39.56 extract local neighbouring information as 3× 3 convolution does. Third, although using three 3× 3 convolution lay- ers can reduce the number of parameters, the performance drops slightly. 4.3. Results on Image SR Classical image SR. Table 2 shows the quantitative com- parisons between SwinIR (middle size) and state-of-the-art methods: DBPN [31], RCAN [95], RRDB [81], SAN [15], IGNN [100], HAN [63], NLSA [61] and IPT [9]. As one can see, when trained on DIV2K, SwinIR achieves best performance on almost all ﬁve benchmark datasets for all",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00053"
+  },
+  {
+    "block_id": "blk_00054",
+    "type": "formula",
+    "content": "scale factors. The maximum PSNR gain reaches 0.26dB",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00054"
+  },
+  {
+    "block_id": "blk_00055",
+    "type": "paragraph",
+    "content": "on Manga109 for scale factor 4. Note that RCAN and HAN introduce channel and spatial attention, IGNN pro- poses adaptive patch feature aggregation, and NLSA is based on the non-local attention mechanism. However, all these CNN-based attention mechanisms perform worse than the proposed Transformer-based SwinIR, which indicates the effectiveness of the proposed model. When we train",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00055"
+  },
+  {
+    "block_id": "blk_00056",
+    "type": "formula",
+    "content": "SwinIR on a larger dataset (DIV2K+Flickr2K), the perfor-",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00056"
+  },
+  {
+    "block_id": "blk_00057",
+    "type": "formula",
+    "content": "mance further increases by a large margin (up to 0.47dB),",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00057"
+  },
+  {
+    "block_id": "blk_00058",
+    "type": "paragraph",
+    "content": "achieving better accuracy than the same Transformer-based model IPT, even though IPT utilizes ImageNet (more than 1.3M images) in training and has huge number of param- eters (115.5M). In contrast, SwinIR has a small number of parameters (11.8M) even compared with state-of-the-art CNN-based models (15.4∼44.3M). As for runtime, repre- sentative CNN-based model RCAN, IPT and SwinIR take about 0.2, 4.5s and 1.1s to test on a 1, 024× 1, 024 im- age, respectively. Visual comparisons are show in Fig. 4. SwinIR can restore high-frequency details and alleviate the blurring artifacts, resulting in sharp and natural edges. In contrast, most CNN-based methods produces blurry images or even incorrect textures. IPT generates better images com- pared with CNN-based methods, but it suffers from image distortions and border artifact. Lightweight image SR. We also provide comparison of SwinIR (small size) with state-of-the-art lightweight im- age SR methods: CARN [2], FALSR-A [12], IMDN [35], LAPAR-A [44] and LatticeNet [57]. In addition to PSNR and SSIM, we also report the total numbers of parame- ters and multiply-accumulate operations (evaluated on a 1280× 720 HQ image) to compare the model size and com- putational complexity of different models. As shown in Ta- ble 3, SwinIR outperforms competitive methods by a PSNR",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00058"
+  },
+  {
+    "block_id": "blk_00059",
+    "type": "formula",
+    "content": "margin of up to 0.53dB on different benchmark datasets,",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00059"
+  },
+  {
+    "block_id": "blk_00060",
+    "type": "paragraph",
+    "content": "with similar total numbers of parameters and multiply- accumulate operations. This indicates that the SwinIR ar- chitecture is highly efﬁcient for image restoration. Real-world image SR. The ultimate goal of image SR is for real-world applications. Recently, Zhang et al . [89] proposed a practical degradation model BSRGAN for real- world image SR and achieved surprising results in real scenarios1. To test the performance of SwinIR for real- world SR, we re-train SwinIR by using the same degra- dation model as BSRGAN for low-quality image syn- thesis. Since there is no ground-truth high-quality im- ages, we only provide visual comparison with representa- tive bicubic model ESRGAN [81] and state-of-the-art real- world image SR models RealSR [37], BSRGAN [89] and Real-ESRGAN [80]. As shown in Fig. 5, SwinIR pro- duces visually pleasing images with clear and sharp edges, whereas other compared methods may suffer from unsat- isfactory artifacts. In addition, to exploit the full poten- tial of SwinIR for real applications, we further propose a 1https://github.com/cszn/BSRGAN 5",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00060"
+  },
+  {
+    "block_id": "blk_00061",
+    "type": "caption",
+    "content": "Table 2: Quantitative comparison (average PSNR/SSIM) with state-of-the-art methods for classical image SR on bench-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00061"
+  },
+  {
+    "block_id": "blk_00062",
+    "type": "paragraph",
+    "content": "mark datasets. Best and second best performance are in red and blue colors, respectively. Results on ×8 are provided in supplementary.",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00062"
+  },
+  {
+    "block_id": "blk_00063",
+    "type": "section_heading",
+    "content": "Method Scale Training",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00063"
+  },
+  {
+    "block_id": "blk_00064",
+    "type": "paragraph",
+    "content": "Dataset Set5 [3] Set14 [87] BSD100 [58] Urban100 [34] Manga109 [60] PSNR SSIM PSNR SSIM PSNR SSIM PSNR SSIM PSNR SSIM RCAN [95] ×2 DIV2K 38.27 0.9614 34.12 0.9216 32.41 0.9027 33.34 0.9384 39.44 0.9786 SAN [15] ×2 DIV2K 38.31 0.9620 34.07 0.9213 32.42 0.9028 33.10 0.9370 39.32 0.9792 IGNN [100] ×2 DIV2K 38.24 0.9613 34.07 0.9217 32.41 0.9025 33.23 0.9383 39.35 0.9786 HAN [63] ×2 DIV2K 38.27 0.9614 34.16 0.9217 32.41 0.9027 33.35 0.9385 39.46 0.9785 NLSA [61] ×2 DIV2K 38.34 0.9618 34.08 0.9231 32.43 0.9027 33.42 0.9394 39.59 0.9789 SwinIR (Ours) ×2 DIV2K 38.35 0.9620 34.14 0.9227 32.44 0.9030 33.40 0.9393 39.60 0.9792 SwinIR+ (Ours) ×2 DIV2K 38.38 0.9621 34.24 0.9233 32.47 0.9032 33.51 0.9401 39.70 0.9794 DBPN [31] ×2 DIV2K+Flickr2K 38.09 0.9600 33.85 0.9190 32.27 0.9000 32.55 0.9324 38.89 0.9775 IPT [9] ×2 ImageNet 38.37 - 34.43 - 32.48 - 33.76 - - - SwinIR (Ours) ×2 DIV2K+Flickr2K 38.42 0.9623 34.46 0.9250 32.53 0.9041 33.81 0.9427 39.92 0.9797 SwinIR+ (Ours) ×2 DIV2K+Flickr2K 38.46 0.9624 34.61 0.9260 32.55 0.9043 33.95 0.9433 40.02 0.9800 RCAN [95] ×3 DIV2K 34.74 0.9299 30.65 0.8482 29.32 0.8111 29.09 0.8702 34.44 0.9499 SAN [15] ×3 DIV2K 34.75 0.9300 30.59 0.8476 29.33 0.8112 28.93 0.8671 34.30 0.9494 IGNN [100] ×3 DIV2K 34.72 0.9298 30.66 0.8484 29.31 0.8105 29.03 0.8696 34.39 0.9496 HAN [63] ×3 DIV2K 34.75 0.9299 30.67 0.8483 29.32 0.8110 29.10 0.8705 34.48 0.9500 NLSA [61] ×3 DIV2K 34.85 0.9306 30.70 0.8485 29.34 0.8117 29.25 0.8726 34.57 0.9508 SwinIR (Ours) ×3 DIV2K 34.89 0.9312 30.77 0.8503 29.37 0.8124 29.29 0.8744 34.74 0.9518 SwinIR+ (Ours) ×3 DIV2K 34.95 0.9316 30.83 0.8511 29.41 0.8130 29.42 0.8761 34.92 0.9526 IPT [9] ×3 ImageNet 34.81 - 30.85 - 29.38 - 29.49 - - - SwinIR (Ours) ×3 DIV2K+Flickr2K 34.97 0.9318 30.93 0.8534 29.46 0.8145 29.75 0.8826 35.12 0.9537 SwinIR+ (Ours) ×3 DIV2K+Flickr2K 35.04 0.9322 31.00 0.8542 29.49 0.8150 29.90 0.8841 35.28 0.9543 RCAN [95] ×4 DIV2K 32.63 0.9002 28.87 0.7889 27.77 0.7436 26.82 0.8087 31.22 0.9173 SAN [15] ×4 DIV2K 32.64 0.9003 28.92 0.7888 27.78 0.7436 26.79 0.8068 31.18 0.9169 IGNN [100] ×4 DIV2K 32.57 0.8998 28.85 0.7891 27.77 0.7434 26.84 0.8090 31.28 0.9182 HAN [63] ×4 DIV2K 32.64 0.9002 28.90 0.7890 27.80 0.7442 26.85 0.8094 31.42 0.9177 NLSA [61] ×4 DIV2K 32.59 0.9000 28.87 0.7891 27.78 0.7444 26.96 0.8109 31.27 0.9184 SwinIR (Ours) ×4 DIV2K 32.72 0.9021 28.94 0.7914 27.83 0.7459 27.07 0.8164 31.67 0.9226 SwinIR+ (Ours) ×4 DIV2K 32.81 0.9029 29.02 0.7928 27.87 0.7466 27.21 0.8187 31.88 0.9423 DBPN [31] ×4 DIV2K+Flickr2K 32.47 0.8980 28.82 0.7860 27.72 0.7400 26.38 0.7946 30.91 0.9137 IPT [9] ×4 ImageNet 32.64 - 29.01 - 27.82 - 27.26 - - - RRDB [81] ×4 DIV2K+Flickr2K 32.73 0.9011 28.99 0.7917 27.85 0.7455 27.03 0.8153 31.66 0.9196 SwinIR (Ours) ×4 DIV2K+Flickr2K 32.92 0.9044 29.09 0.7950 27.92 0.7489 27.45 0.8254 32.03 0.9260 SwinIR+ (Ours) ×4 DIV2K+Flickr2K 32.93 0.9043 29.15 0.7958 27.95 0.7494 27.56 0.8273 32.22 0.9273 Urban100 (4×):img012 HR VDSR [40] EDSR [51] RDN [97] OISR [33] SAN [15] RNAN [96] IGNN [100] IPT [9] SwinIR(ours)",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00064"
+  },
+  {
+    "block_id": "blk_00065",
+    "type": "caption",
+    "content": "Figure 4: Visual comparison of bicubic image SR (×4) methods. Compared images are derived from [9]. Best viewed by zooming.",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00065"
+  },
+  {
+    "block_id": "blk_00066",
+    "type": "caption",
+    "content": "Table 3: Quantitative comparison (average PSNR/SSIM) with state-of-the-art methods for lightweight image SR on bench-",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00066"
+  },
+  {
+    "block_id": "blk_00067",
+    "type": "paragraph",
+    "content": "mark datasets. Best and second best performance are in red and blue colors, respectively. Method Scale #Params #Mult-Adds Set5 [3] Set14 [87] BSD100 [58] Urban100 [34] Manga109 [60] PSNR SSIM PSNR SSIM PSNR SSIM PSNR SSIM PSNR SSIM CARN [2] ×2 1,592K 222.8G 37.76 0.9590 33.52 0.9166 32.09 0.8978 31.92 0.9256 38.36 0.9765 FALSR-A [12] ×2 1,021K 234.7G 37.82 0.959 33.55 0.9168 32.1 0.8987 31.93 0.9256 - - IMDN [35] ×2 694K 158.8G 38.00 0.9605 33.63 0.9177 32.19 0.8996 32.17 0.9283 38.88 0.9774 LAPAR-A [44] ×2 548K 171.0G 38.01 0.9605 33.62 0.9183 32.19 0.8999 32.10 0.9283 38.67 0.9772 LatticeNet [57] ×2 756K 169.5G 38.15 0.9610 33.78 0.9193 32.25 0.9005 32.43 0.9302 - - SwinIR (Ours) ×2 878K 195.6G 38.14 0.9611 33.86 0.9206 32.31 0.9012 32.76 0.9340 39.12 0.9783 CARN [2] ×3 1,592K 118.8G 34.29 0.9255 30.29 0.8407 29.06 0.8034 28.06 0.8493 33.50 0.9440 IMDN [35] ×3 703K 71.5G 34.36 0.9270 30.32 0.8417 29.09 0.8046 28.17 0.8519 33.61 0.9445 LAPAR-A [44] ×3 544K 114.0G 34.36 0.9267 30.34 0.8421 29.11 0.8054 28.15 0.8523 33.51 0.9441 LatticeNet [57] ×3 765K 76.3G 34.53 0.9281 30.39 0.8424 29.15 0.8059 28.33 0.8538 - - SwinIR (Ours) ×3 886K 87.2G 34.62 0.9289 30.54 0.8463 29.20 0.8082 28.66 0.8624 33.98 0.9478 CARN [2] ×4 1,592K 90.9G 32.13 0.8937 28.60 0.7806 27.58 0.7349 26.07 0.7837 30.47 0.9084 IMDN [35] ×4 715K 40.9G 32.21 0.8948 28.58 0.7811 27.56 0.7353 26.04 0.7838 30.45 0.9075 LAPAR-A [44] ×4 659K 94.0G 32.15 0.8944 28.61 0.7818 27.61 0.7366 26.14 0.7871 30.42 0.9074 LatticeNet [57] ×4 777K 43.6G 32.30 0.8962 28.68 0.7830 27.62 0.7367 26.25 0.7873 - - SwinIR (Ours) ×4 897K 49.6G 32.44 0.8976 28.77 0.7858 27.69 0.7406 26.47 0.7980 30.92 0.9151 6",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00067"
+  },
+  {
+    "block_id": "blk_00068",
+    "type": "paragraph",
+    "content": "LR (×4) ESRGAN [81] RealSR [37] BSRGAN [89] Real-ESRGAN [80] SwinIR (ours)",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00068"
+  },
+  {
+    "block_id": "blk_00069",
+    "type": "caption",
+    "content": "Figure 5: Visual comparison of real-world image SR (×4) methods on real-world images.",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00069"
+  },
+  {
+    "block_id": "blk_00070",
+    "type": "caption",
+    "content": "Table 4: Quantitative comparison (average PSNR/SSIM/PSNR-B) with state-of-the-art methods for",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00070"
+  },
+  {
+    "block_id": "blk_00071",
+    "type": "paragraph",
+    "content": "JPEG compression artifact reduction on benchmark datasets. Best and second best performance are in red and blue colors, respectively. Dataset q ARCNN [17] DnCNN-3 [90] QGAC [20] RNAN [96] RDN [98] DRUNet [88] SwinIR (ours) Classic5 [22] 10 29.03/0.7929/28.76 29.40/0.8026/29.13 29.84/0.8370/29.43 29.96/0.8178/29.62 30.00/0.8188/- 30.16/0.8234/29.81 30.27/0.8249/29.95 20 31.15/0.8517/30.59 31.63/0.8610/31.19 31.98/0.8850/31.37 32.11/0.8693/31.57 32.15/0.8699/- 32.39/0.8734/31.80 32.52/0.8748/31.99 30 32.51/0.8806/31.98 32.91/0.8861/32.38 33.22/0.9070/32.42 33.38/0.8924/32.68 33.43/0.8930/- 33.59/0.8949/32.82 33.73/0.8961/33.03 40 33.32/0.8953/32.79 33.77/0.9003/33.20 - 34.27/0.9061/33.4 34.27/0.9061/- 34.41/0.9075/33.51 34.52/0.9082/33.66 LIVE1 [67] 10 28.96/0.8076/28.77 29.19/0.8123/28.90 29.53/0.8400/29.15 29.63/0.8239/29.25 29.67/0.8247/- 29.79/0.8278/29.48 29.86/0.8287/29.50 20 31.29/0.8733/30.79 31.59/0.8802/31.07 31.86/0.9010/31.27 32.03/0.8877/31.44 32.07/0.8882/- 32.17/0.8899/31.69 32.25/0.8909/31.70 30 32.67/0.9043/32.22 32.98/0.9090/32.34 33.23/0.9250/32.50 33.45/0.9149/32.71 33.51/0.9153/- 33.59/0.9166/32.99 33.69/0.9174/33.01 40 33.63/0.9198/33.14 33.96/0.9247/33.28 - 34.47/0.9299/33.66 34.51/0.9302/- 34.58/0.9312/33.93 34.67/0.9317/33.88",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00071"
+  },
+  {
+    "block_id": "blk_00072",
+    "type": "formula",
+    "content": "large model and train it on much larger datasets. Exper-",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00072"
+  },
+  {
+    "block_id": "blk_00073",
+    "type": "paragraph",
+    "content": "iments show that it can deal with more complex corrup- tions and achieves even better performance on real-world images than the current model. Due to page limit, the details are given in our project page https://github.com/ JingyunLiang/SwinIR. 4.4. Results on JPEG Compression Artifact Reduc- tion",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00073"
+  },
+  {
+    "block_id": "blk_00074",
+    "type": "caption",
+    "content": "Table 4 shows the comparison of SwinIR with state-",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00074"
+  },
+  {
+    "block_id": "blk_00075",
+    "type": "paragraph",
+    "content": "of-the-art JPEG compression artifact reduction methods: ARCNN [17], DnCNN-3 [90], QGAC [20], RNAN [96], RDN [98] and DRUNet [88]. All of compared methods are CNN-based models. Following [98, 88], we test dif- ferent methods on two benchmark datasets (Classic5 [22] and LIVE1 [67]) for JPEG quality factors 10, 20, 30 and 40. As we can see, the proposed SwinIR has average PSNR gains of at least 0.11dB and 0.07dB on two testing datasets for different quality factors. Besides, compared with the previous best model DRUNet, SwinIR only has 11.5M pa-",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00075"
+  },
+  {
+    "block_id": "blk_00076",
+    "type": "formula",
+    "content": "rameters, while DRUNet is a large model that has 32.7M",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00076"
+  },
+  {
+    "block_id": "blk_00077",
+    "type": "paragraph",
+    "content": "parameters. 4.5. Results on Image Denoising We show grayscale and color image denoising re- sults in Table 5 and Table 6, respectively. Com- pared methods include traditional models BM3D [14] and WNNM [29], CNN-based models DnCNN [90], IR- CNN [91], FFDNet [92], N3Net [65], NLRN [52], FOC- Net [38], RNAN [96], MWCNN [54] and DRUNet [88]. Following [90, 88], the compared noise levels include 15, 25 and 50. As one can see, our model achieves better per- formance than all compared methods. In particular, it sur- passes the state-of-the-art model DRUNet by up to 0.3dB",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00077"
+  },
+  {
+    "block_id": "blk_00078",
+    "type": "formula",
+    "content": "on the large Urban100 dataset that has 100 high-resolution",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00078"
+  },
+  {
+    "block_id": "blk_00079",
+    "type": "paragraph",
+    "content": "testing images. It is worth pointing out that SwinIR only has 12.0M parameters, whereas DRUNet has 32.7M param- eters. This indicates that the SwinIR architecture is highly efﬁcient in learning feature representations for restoration. The visual comparison for grayscale and color image de- noising of different methods are shown in Figs. 6 and 7. As we can see, our method can remove heavy noise cor- ruption and preserve high-frequency image details, result- ing in sharper edges and more natural textures. By contrast, other methods suffer from either over-smoothness or over- sharpness, and cannot recover rich textures. 5. Conclusion In this paper, we propose a Swin Transformer-based im- age restoration model SwinIR. The model is composed of three parts: shallow feature extraction, deep feature extrac- 7",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00079"
+  },
+  {
+    "block_id": "blk_00080",
+    "type": "caption",
+    "content": "Table 5: Quantitative comparison (average PSNR) with state-of-the-art methods for grayscale image denoising on bench-",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00080"
+  },
+  {
+    "block_id": "blk_00081",
+    "type": "paragraph",
+    "content": "mark datasets. Best and second best performance are in red and blue colors, respectively. Dataset σ BM3D [14] WNNM [29] DnCNN [90] IRCNN [91] FFDNet [92] N3Net [65] NLRN [52] FOCNet [38] RNAN [96] MWCNN [54] DRUNet [88] SwinIR (ours) Set12 [90] 15 32.37 32.70 32.86 32.76 32.75 - 33.16 33.07 - 33.15 33.25 33.36 25 29.97 30.28 30.44 30.37 30.43 30.55 30.80 30.73 - 30.79 30.94 31.01 50 26.72 27.05 27.18 27.12 27.32 27.43 27.64 27.68 27.70 27.74 27.90 27.91 BSD68 [59] 15 31.08 31.37 31.73 31.63 31.63 - 31.88 31.83 - 31.86 31.91 31.97 25 28.57 28.83 29.23 29.15 29.19 29.30 29.41 29.38 - 29.41 29.48 29.50 50 25.60 25.87 26.23 26.19 26.29 26.39 26.47 26.50 26.48 26.53 26.59 26.58 Urban100 [34] 15 32.35 32.97 32.64 32.46 32.40 - 33.45 33.15 - 33.17 33.44 33.70 25 29.70 30.39 29.95 29.80 29.90 30.19 30.94 30.64 - 30.66 31.11 31.30 50 25.95 26.83 26.26 26.22 26.50 26.82 27.49 27.40 27.65 27.42 27.96 27.98",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00081"
+  },
+  {
+    "block_id": "blk_00082",
+    "type": "caption",
+    "content": "Table 6: Quantitative comparison (average PSNR) with state-of-the-art methods for color image denoising on benchmark",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00082"
+  },
+  {
+    "block_id": "blk_00083",
+    "type": "paragraph",
+    "content": "datasets. Best and second best performance are in red and blue colors, respectively. Dataset σ BM3D [14] DnCNN [90] IRCNN [91] FFDNet [92] DSNet [64] RPCNN [85] BRDNet [71] RNAN [96] RDN [98] IPT [9] DRUNet [88] SwinIR (ours) CBSD68 [59] 15 33.52 33.90 33.86 33.87 33.91 - 34.10 - - - 34.30 34.42 25 30.71 31.24 31.16 31.21 31.28 31.24 31.43 - - - 31.69 31.78 50 27.38 27.95 27.86 27.96 28.05 28.06 28.16 28.27 28.31 28.39 28.51 28.56 Kodak24 [23] 15 34.28 34.60 34.69 34.63 34.63 - 34.88 - - - 35.31 35.34 25 32.15 32.14 32.18 32.13 32.16 32.34 32.41 - - - 32.89 32.89 50 28.46 28.95 28.93 28.98 29.05 29.25 29.22 29.58 29.66 29.64 29.86 29.79 McMaster [94] 15 34.06 33.45 34.58 34.66 34.67 - 35.08 - - - 35.40 35.61 25 31.66 31.52 32.18 32.35 32.40 32.33 32.75 - - - 33.14 33.20 50 28.51 28.62 28.91 29.18 29.28 29.33 29.52 29.72 - 29.98 30.08 30.22 Urban100 [34] 15 33.93 32.98 33.78 33.83 - - 34.42 - - - 34.81 35.13 25 31.36 30.81 31.20 31.40 - 31.81 31.99 - - - 32.60 32.90 50 27.93 27.59 27.70 28.05 - 28.62 28.56 29.08 29.38 29.71 29.61 29.82 Noisy BM3D [14] DnCNN [90] FFDNet [92] DRUNet [88] SwinIR (ours)",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00083"
+  },
+  {
+    "block_id": "blk_00084",
+    "type": "caption",
+    "content": "Figure 6: Visual comparison of grayscale image denoising (noise level 50) methods on image “ Monarch” from Set12 [90]. Compared",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00084"
+  },
+  {
+    "block_id": "blk_00085",
+    "type": "paragraph",
+    "content": "images are derived from [88]. Noisy DnCNN [90] FFDNet [92] IPT [9] DRUNet [88] SwinIR (ours)",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00085"
+  },
+  {
+    "block_id": "blk_00086",
+    "type": "caption",
+    "content": "Figure 7: Visual comparison ofcolor image denoising (noise level 50) methods on image “163085” from CBSD68 [59]. Compared images",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00086"
+  },
+  {
+    "block_id": "blk_00087",
+    "type": "paragraph",
+    "content": "are derived from [88]. tion and HR reconstruction modules. In particular, we use a stack of residual Swin Transformer blocks (RSTB) for deep feature extraction, and each RSTB is composed of Swin Transformer layers, convolution layer and a residual con- nection. Extensive experiments show that SwinIR achieves state-of-the-art performance on three representative image restoration tasks and six different settings: classic image SR, lightweight image SR, real-world image SR, grayscale image denoising, color image denoising and JPEG com- pression artifact reduction, which demonstrates the effec- tiveness and generalizability of the proposed SwinIR. In the future, we will extend the model to other restoration tasks such as image deblurring and deraining. Acknowledgements This paper was partially supported",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00087"
+  },
+  {
+    "block_id": "blk_00088",
+    "type": "formula",
+    "content": "by the ETH Zurich Fund (OK), a Huawei Technologies Oy",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00088"
+  },
+  {
+    "block_id": "blk_00089",
+    "type": "paragraph",
+    "content": "(Finland) project, the China Scholarship Council and an Amazon AWS grant. Special thanks goes to Yijue Chen. 8",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00089"
+  },
+  {
+    "block_id": "blk_00090",
+    "type": "section_heading",
+    "content": "References",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00090"
+  },
+  {
+    "block_id": "blk_00091",
+    "type": "reference",
+    "content": "[1] Eirikur Agustsson and Radu Timofte. Ntire 2017 challenge on single image super-resolution: Dataset and study. In IEEE Conference on Computer Vision and Pattern Recog- nition Workshops, pages 126–135, 2017. 4 [2] Namhyuk Ahn, Byungkon Kang, and Kyung-Ah Sohn. Fast, accurate, and lightweight super-resolution with cas- cading residual network. In European Conference on Com- puter Vision, pages 252–268, 2018. 5, 6 [3] Marco Bevilacqua, Aline Roumy, Christine Guillemot, and Marie line Alberi Morel. Low-complexity single-image super-resolution based on nonnegative neighbor embed- ding. In British Machine Vision Conference , pages 135.1– 135.10, 2012. 1, 6 [4] Hu Cao, Yueyue Wang, Joy Chen, Dongsheng Jiang, Xi- aopeng Zhang, Qi Tian, and Manning Wang. Swin-unet: Unet-like pure transformer for medical image segmenta- tion. arXiv preprint arXiv:2105.05537, 2021. 2 [5] Jiezhang Cao, Yawei Li, Kai Zhang, and Luc Van Gool. Video super-resolution transformer. arXiv preprint arXiv:2106.06847, 2021. 1, 2 [6] Nicolas Carion, Francisco Massa, Gabriel Synnaeve, Nico- las Usunier, Alexander Kirillov, and Sergey Zagoruyko. End-to-end object detection with transformers. InEuropean Conference on Computer Vision, pages 213–229. Springer, 2020. 1, 2 [7] Lukas Cavigelli, Pascal Hager, and Luca Benini. Cas-cnn: A deep convolutional neural network for image compres- sion artifact suppression. In 2017 International Joint Con- ference on Neural Networks, pages 752–759, 2017. 2 [8] Pierre Charbonnier, Laure Blanc-Feraud, Gilles Aubert,",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00091"
+  },
+  {
+    "block_id": "blk_00092",
+    "type": "reference",
+    "content": "and Michel Barlaud. Two deterministic half-quadratic reg-",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00092"
+  },
+  {
+    "block_id": "blk_00093",
+    "type": "reference",
+    "content": "ularization algorithms for computed imaging. In Interna- tional Conference on Image Processing , volume 2, pages 168–172. IEEE, 1994. 3 [9] Hanting Chen, Yunhe Wang, Tianyu Guo, Chang Xu, Yip- ing Deng, Zhenhua Liu, Siwei Ma, Chunjing Xu, Chao Xu, and Wen Gao. Pre-trained image processing transformer. In IEEE Conference on Computer Vision and Pattern Recog- nition, pages 12299–12310, 2021. 1, 2, 5, 6, 8 [10] Yunjin Chen and Thomas Pock. Trainable nonlinear reac- tion diffusion: A ﬂexible framework for fast and effective image restoration. IEEE transactions on pattern analysis and machine intelligence, 39(6):1256–1272, 2016. 2 [11] Wenlong Cheng, Mingbo Zhao, Zhiling Ye, and Shuhang Gu. Mfagan: A compression framework for memory- efﬁcient on-device super-resolution gan. arXiv preprint arXiv:2107.12679, 2021. 2 [12] Xiangxiang Chu, Bo Zhang, Hailong Ma, Ruijun Xu, and Qingyuan Li. Fast, accurate and lightweight super- resolution with neural architecture search. In International Conference on Pattern Recognition , pages 59–64. IEEE, 2020. 5, 6 [13] Jean-Baptiste Cordonnier, Andreas Loukas, and Martin Jaggi. On the relationship between self-attention and con- volutional layers. arXiv preprint arXiv:1911.03584 , 2019. 2 [14] Kostadin Dabov, Alessandro Foi, Vladimir Katkovnik, and Karen Egiazarian. Image denoising by sparse 3-d transform-domain collaborative ﬁltering. IEEE Transac- tions on image processing , 16(8):2080–2095, 2007. 1, 7, 8 [15] Tao Dai, Jianrui Cai, Yongbing Zhang, Shu-Tao Xia, and Lei Zhang. Second-order attention network for single im- age super-resolution. In IEEE Conference on Computer Vi- sion and Pattern Recognition , pages 11065–11074, 2019. 2, 5, 6 [16] Xin Deng, Yutong Zhang, Mai Xu, Shuhang Gu, and Yiping Duan. Deep coupled feedback network for joint exposure fusion and image super-resolution. IEEE Transactions on Image Processing, 30:3098–3112, 2021. 2 [17] Chao Dong, Yubin Deng, Chen Change Loy, and Xiaoou Tang. Compression artifacts reduction by a deep convolu- tional network. In IEEE International Conference on Com- puter Vision, pages 576–584, 2015. 2, 7",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00093"
+  },
+  {
+    "block_id": "blk_00094",
+    "type": "reference",
+    "content": "[18] Chao Dong, Chen Change Loy, Kaiming He, and Xiaoou",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00094"
+  },
+  {
+    "block_id": "blk_00095",
+    "type": "reference",
+    "content": "Tang. Learning a deep convolutional network for image super-resolution. In European Conference on Computer Vi- sion, pages 184–199, 2014. 1, 2 [19] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, et al. An image is worth 16x16 words: Transformers for image recognition at scale. arXiv preprint arXiv:2010.11929, 2020. 1, 2 [20] Max Ehrlich, Larry Davis, Ser-Nam Lim, and Abhinav Shrivastava. Quantization guided jpeg artifact correction. In European Conference on Computer Vision , pages 293– 309, 2020. 7 [21] Gamaleldin Elsayed, Prajit Ramachandran, Jonathon Shlens, and Simon Kornblith. Revisiting spatial invariance with low-rank local connectivity. In International Confer- ence on Machine Learning , pages 2868–2879, 2020. 2, 3 [22] Alessandro Foi, Vladimir Katkovnik, and Karen Egiazar- ian. Pointwise shape-adaptive dct for high-quality de- noising and deblocking of grayscale and color images. IEEE Transactions on Image Processing, 16(5):1395–1411, 2007. 7 [23] Rich Franzen. Kodak lossless true color image suite. source: http://r0k. us/graphics/kodak, 4(2), 1999. 8 [24] Manuel Fritsche, Shuhang Gu, and Radu Timofte. Fre- quency separation for real-world super-resolution. In IEEE Conference on International Conference on Computer Vi- sion Workshops, pages 3599–3608, 2019. 1 [25] Xueyang Fu, Menglu Wang, Xiangyong Cao, Xinghao Ding, and Zheng-Jun Zha. A model-driven deep unfold- ing method for jpeg artifacts removal. IEEE Transactions on Neural Networks and Learning Systems , 2021. 2 [26] Xueyang Fu, Zheng-Jun Zha, Feng Wu, Xinghao Ding, and John Paisley. Jpeg artifacts reduction via deep convolu- tional sparse coding. In IEEE International Conference on Computer Vision, pages 2501–2510, 2019. 2 [27] Ian Goodfellow, Jean Pouget-Abadie, Mehdi Mirza, Bing Xu, David Warde-Farley, Sherjil Ozair, Aaron Courville, 9",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00095"
+  },
+  {
+    "block_id": "blk_00096",
+    "type": "reference",
+    "content": "and Yoshua Bengio. Generative adversarial nets. In Ad- vances in Neural Information Processing Systems , pages 2672–2680, 2014. 3 [28] Shuhang Gu, Nong Sang, and Fan Ma. Fast image su- per resolution via local regression. In IEEE Conference on International Conference on Pattern Recognition , pages 3128–3131, 2012. 1, 2 [29] Shuhang Gu, Lei Zhang, Wangmeng Zuo, and Xiangchu",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00096"
+  },
+  {
+    "block_id": "blk_00097",
+    "type": "reference",
+    "content": "Feng. Weighted nuclear norm minimization with applica-",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00097"
+  },
+  {
+    "block_id": "blk_00098",
+    "type": "reference",
+    "content": "tion to image denoising. In IEEE conference on computer vision and pattern recognition , pages 2862–2869, 2014. 7, 8 [30] Yong Guo, Jian Chen, Jingdong Wang, Qi Chen, Jiezhang Cao, Zeshuai Deng, Yanwu Xu, and Mingkui Tan. Closed- loop matters: Dual regression networks for single image super-resolution. In IEEE Conference on Computer Vision and Pattern Recognition, pages 5407–5416, 2020. 2 [31] Muhammad Haris, Gregory Shakhnarovich, and Norim- ichi Ukita. Deep back-projection networks for super- resolution. In IEEE Conference on Computer Vision and Pattern Recognition, pages 1664–1673, 2018. 5, 6",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00098"
+  },
+  {
+    "block_id": "blk_00099",
+    "type": "reference",
+    "content": "[32] Kaiming He, Jian Sun, and Xiaoou Tang. Single image haze",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00099"
+  },
+  {
+    "block_id": "blk_00100",
+    "type": "reference",
+    "content": "removal using dark channel prior. IEEE transactions on Pattern Analysis and Machine Intelligence , 33(12):2341– 2353, 2010. 2 [33] Xiangyu He, Zitao Mo, Peisong Wang, Yang Liu, Mingyuan Yang, and Jian Cheng. Ode-inspired network design for single image super-resolution. In IEEE Confer- ence on Computer Vision and Pattern Recognition , pages 1732–1741, 2019. 6 [34] Jia-Bin Huang, Abhishek Singh, and Narendra Ahuja. Single image super-resolution from transformed self- exemplars. In IEEE Conference on Computer Vision and Pattern Recognition, pages 5197–5206, 2015. 6, 8 [35] Zheng Hui, Xinbo Gao, Yunchu Yang, and Xiumei Wang. Lightweight image super-resolution with informa- tion multi-distillation network. In ACM International Con- ference on Multimedia, pages 2024–2032, 2019. 5, 6 [36] Takashi Isobe, Xu Jia, Shuhang Gu, Songjiang Li, Shengjin Wang, and Qi Tian. Video super-resolution with recurrent structure-detail network. In European Conference on Com- puter Vision, pages 645–660. Springer, 2020. 2 [37] Xiaozhong Ji, Yun Cao, Ying Tai, Chengjie Wang, Jilin Li, and Feiyue Huang. Real-world super-resolution via ker- nel estimation and noise injection. In IEEE Conference on Computer Vision and Pattern Recognition Workshops , pages 466–467, 2020. 5, 7 [38] Xixi Jia, Sanyang Liu, Xiangchu Feng, and Lei Zhang. Foc- net: A fractional optimal control network for image denois- ing. In IEEE Conference on Computer Vision and Pattern Recognition, pages 6054–6063, 2019. 2, 7, 8 [39] Justin Johnson, Alexandre Alahi, and Li Fei-Fei. Perceptual losses for real-time style transfer and super-resolution. In European Conference on Computer Vision, pages 694–711. Springer, 2016. 3 [40] Jiwon Kim, Jung Kwon Lee, and Kyoung Mu Lee. Accu- rate image super-resolution using very deep convolutional networks. In IEEE Conference on Computer Vision and Pattern Recognition, pages 1646–1654, 2016. 1, 2, 6 [41] Yoonsik Kim, Jae Woong Soh, Jaewoo Park, Byeongyong Ahn, Hyun-Seung Lee, Young-Su Moon, and Nam Ik Cho. A pseudo-blind convolutional neural network for the reduc- tion of compression artifacts. IEEE Transactions on Cir-",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00100"
+  },
+  {
+    "block_id": "blk_00101",
+    "type": "reference",
+    "content": "cuits and Systems for Video Technology , 30(4):1121–1135,",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00101"
+  },
+  {
+    "block_id": "blk_00102",
+    "type": "reference",
+    "content": "2019. 2 [42] Wei-Sheng Lai, Jia-Bin Huang, Narendra Ahuja, and Ming- Hsuan Yang. Deep laplacian pyramid networks for fast and accurate super-resolution. In IEEE Conference on Computer Vision and Pattern Recognition, pages 624–632, 2017. 2 [43] Christian Ledig, Lucas Theis, Ferenc Husz ´ar, Jose Ca- ballero, Andrew Cunningham, Alejandro Acosta, Andrew Aitken, Alykhan Tejani, Johannes Totz, Zehan Wang, et al. Photo-realistic single image super-resolution using a gener- ative adversarial network. In IEEE Conference on Com- puter Vision and Pattern Recognition , pages 4681–4690, 2017. 1 [44] Wenbo Li, Kun Zhou, Lu Qi, Nianjuan Jiang, Jiangbo Lu, and Jiaya Jia. Lapar: Linearly-assembled pixel-adaptive regression network for single image super-resolution and beyond. arXiv preprint arXiv:2105.10422, 2021. 5, 6 [45] Yawei Li, Kai Zhang, Jiezhang Cao, Radu Timofte, and Luc Van Gool. Localvit: Bringing locality to vision transform- ers. arXiv preprint arXiv:2104.05707, 2021. 2",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00102"
+  },
+  {
+    "block_id": "blk_00103",
+    "type": "reference",
+    "content": "[46] Zhen Li, Jinglei Yang, Zheng Liu, Xiaomin Yang, Gwang-",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00103"
+  },
+  {
+    "block_id": "blk_00104",
+    "type": "reference",
+    "content": "gil Jeon, and Wei Wu. Feedback network for image super- resolution. In IEEE Conference on Computer Vision and Pattern Recognition, pages 3867–3876, 2019. 1 [47] Dingkang Liang, Xiwu Chen, Wei Xu, Yu Zhou, and Xiang Bai. Transcrowd: Weakly-supervised crowd counting with transformer. arXiv preprint arXiv:2104.09116, 2021. 2 [48] Jingyun Liang, Andreas Lugmayr, Kai Zhang, Martin Danelljan, Luc Van Gool, and Radu Timofte. Hierarchi- cal conditional ﬂow: A uniﬁed framework for image super- resolution and image rescaling. In IEEE Conference on In- ternational Conference on Computer Vision, 2021. 2 [49] Jingyun Liang, Guolei Sun, Kai Zhang, Luc Van Gool, and Radu Timofte. Mutual afﬁne network for spatially variant kernel estimation in blind image super-resolution. In IEEE Conference on International Conference on Computer Vi- sion, 2021. 2 [50] Jingyun Liang, Kai Zhang, Shuhang Gu, Luc Van Gool, and Radu Timofte. Flow-based kernel prior with application to blind super-resolution. In IEEE Conference on Computer Vision and Pattern Recognition, pages 10601–10610, 2021. 2 [51] Bee Lim, Sanghyun Son, Heewon Kim, Seungjun Nah, and Kyoung Mu Lee. Enhanced deep residual networks for sin- gle image super-resolution. In IEEE Conference on Com- puter Vision and Pattern Recognition Workshops , pages 136–144, 2017. 1, 4, 6 [52] Ding Liu, Bihan Wen, Yuchen Fan, Chen Change Loy, and Thomas S Huang. Non-local recurrent network for image restoration. arXiv preprint arXiv:1806.02919, 2018. 2, 7, 8 10",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00104"
+  },
+  {
+    "block_id": "blk_00105",
+    "type": "reference",
+    "content": "[53] Li Liu, Wanli Ouyang, Xiaogang Wang, Paul Fieguth, Jie Chen, Xinwang Liu, and Matti Pietik ¨ainen. Deep learning for generic object detection: A survey. International Jour- nal of Computer Vision, 128(2):261–318, 2020. 2 [54] Pengju Liu, Hongzhi Zhang, Kai Zhang, Liang Lin, and Wangmeng Zuo. Multi-level wavelet-cnn for image restora- tion. In IEEE conference on computer vision and pattern recognition workshops, pages 773–782, 2018. 7, 8 [55] Yun Liu, Guolei Sun, Yu Qiu, Le Zhang, Ajad Chhatkuli, and Luc Van Gool. Transformer in convolutional neural networks. arXiv preprint arXiv:2106.03180, 2021. 2 [56] Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng Zhang, Stephen Lin, and Baining Guo. Swin trans- former: Hierarchical vision transformer using shifted win- dows. arXiv preprint arXiv:2103.14030, 2021. 1, 2, 4 [57] Xiaotong Luo, Yuan Xie, Yulun Zhang, Yanyun Qu, Cui- hua Li, and Yun Fu. Latticenet: Towards lightweight image super-resolution with lattice block. In European Confer- ence on Computer Vision, pages 272–289, 2020. 5, 6 [58] David Martin, Charless Fowlkes, Doron Tal, and Jitendra Malik. A database of human segmented natural images and its application to evaluating segmentation algorithms",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00105"
+  },
+  {
+    "block_id": "blk_00106",
+    "type": "reference",
+    "content": "and measuring ecological statistics. In IEEE Conference on",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00106"
+  },
+  {
+    "block_id": "blk_00107",
+    "type": "reference",
+    "content": "International Conference on Computer Vision , pages 416– 423, 2001. 6 [59] David Martin, Charless Fowlkes, Doron Tal, and Jitendra Malik. A database of human segmented natural images and its application to evaluating segmentation algorithms and",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00107"
+  },
+  {
+    "block_id": "blk_00108",
+    "type": "reference",
+    "content": "measuring ecological statistics. In IEEE International Con-",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00108"
+  },
+  {
+    "block_id": "blk_00109",
+    "type": "reference",
+    "content": "ference on Computer Vision, pages 416–423, 2001. 8 [60] Yusuke Matsui, Kota Ito, Yuji Aramaki, Azuma Fuji- moto, Toru Ogawa, Toshihiko Yamasaki, and Kiyoharu Aizawa. Sketch-based manga retrieval using manga109 dataset. Multimedia Tools and Applications, 76(20):21811– 21838, 2017. 4, 5, 6 [61] Yiqun Mei, Yuchen Fan, and Yuqian Zhou. Image super- resolution with non-local sparse attention. In IEEE Confer- ence on Computer Vision and Pattern Recognition , pages 3517–3526, 2021. 2, 5, 6 [62] Tomer Michaeli and Michal Irani. Nonparametric blind super-resolution. In IEEE Conference on International Conference on Computer Vision, pages 945–952, 2013. 2 [63] Ben Niu, Weilei Wen, Wenqi Ren, Xiangde Zhang, Lian- ping Yang, Shuzhen Wang, Kaihao Zhang, Xiaochun Cao, and Haifeng Shen. Single image super-resolution via a holistic attention network. In European Conference on Computer Vision, pages 191–207, 2020. 2, 4, 5, 6 [64] Yali Peng, Lu Zhang, Shigang Liu, Xiaojun Wu, Yu Zhang, and Xili Wang. Dilated residual networks with symmet- ric skip connection for image denoising. Neurocomputing, 345:67–76, 2019. 2, 8 [65] Tobias Pl ¨otz and Stefan Roth. Neural nearest neighbors net- works. arXiv preprint arXiv:1810.12575, 2018. 7, 8 [66] Prajit Ramachandran, Niki Parmar, Ashish Vaswani, Irwan Bello, Anselm Levskaya, and Jonathon Shlens. Stand- alone self-attention in vision models. arXiv preprint arXiv:1906.05909, 2019. 2 [67] HR Sheikh. Live image quality assessment database release 2. http://live. ece. utexas. edu/research/quality, 2005. 7 [68] Wenzhe Shi, Jose Caballero, Ferenc Husz ´ar, Johannes Totz, Andrew P Aitken, Rob Bishop, Daniel Rueckert, and Zehan Wang. Real-time single image and video super- resolution using an efﬁcient sub-pixel convolutional neural network. In IEEE Conference on Computer Vision and Pat- tern Recognition, pages 1874–1883, 2016. 3 [69] Guolei Sun, Yun Liu, Thomas Probst, Danda Pani Paudel, Nikola Popovic, and Luc Van Gool. Boosting crowd count- ing with transformers. arXiv preprint arXiv:2105.10926 , 2021. 2",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00109"
+  },
+  {
+    "block_id": "blk_00110",
+    "type": "reference",
+    "content": "[70] Ying Tai, Jian Yang, Xiaoming Liu, and Chunyan Xu.",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00110"
+  },
+  {
+    "block_id": "blk_00111",
+    "type": "reference",
+    "content": "Memnet: A persistent memory network for image restora- tion. In IEEE International Conference on Computer Vi- sion, pages 4539–4547, 2017. 2 [71] Chunwei Tian, Yong Xu, and Wangmeng Zuo. Image de- noising using deep cnn with batch renormalization. Neural Networks, 121:461–473, 2020. 8 [72] Radu Timofte, Vincent De Smet, and Luc Van Gool. An- chored neighborhood regression for fast example-based super-resolution. In IEEE Conference on International Conference on Computer Vision , pages 1920–1927, 2013. 2 [73] Radu Timofte, Vincent De Smet, and Luc Van Gool. A+: Adjusted anchored neighborhood regression for fast super- resolution. In Asian Conference on Computer Vision, pages 111–126, 2014. 1, 2 [74] Hugo Touvron, Matthieu Cord, Matthijs Douze, Francisco Massa, Alexandre Sablayrolles, and Herv ´e J ´egou. Train- ing data-efﬁcient image transformers & distillation through attention. arXiv preprint arXiv:2012.12877, 2020. 1, 2 [75] Ashish Vaswani, Prajit Ramachandran, Aravind Srinivas, Niki Parmar, Blake Hechtman, and Jonathon Shlens. Scal- ing local self-attention for parameter efﬁcient visual back- bones. arXiv preprint arXiv:2103.12731, 2021. 2, 3 [76] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. arXiv preprint arXiv:1706.03762, 2017. 1, 2, 4 [77] Longguang Wang, Yingqian Wang, Xiaoyu Dong, Qingyu Xu, Jungang Yang, Wei An, and Yulan Guo. Unsuper- vised degradation representation learning for blind super- resolution. In IEEE Conference on Computer Vision and Pattern Recognition, pages 10581–10590, 2021. 2 [78] Longguang Wang, Yingqian Wang, Zhengfa Liang, Zaiping Lin, Jungang Yang, Wei An, and Yulan Guo. Learning par- allax attention for stereo image super-resolution. In IEEE Conference on Computer Vision and Pattern Recognition , pages 12250–12259, 2019. 2 [79] Longguang Wang, Yingqian Wang, Zaiping Lin, Jungang Yang, Wei An, and Yulan Guo. Learning a single net- work for scale-arbitrary super-resolution. In IEEE Con- ference on International Conference on Computer Vision , pages 10581–10590, 2021. 2 [80] Xintao Wang, Liangbin Xie, Chao Dong, and Ying Shan. Real-esrgan: Training real-world blind super-resolution 11",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00111"
+  },
+  {
+    "block_id": "blk_00112",
+    "type": "reference",
+    "content": "with pure synthetic data. arXiv preprint arXiv:2107.10833, 2021. 3, 5, 7 [81] Xintao Wang, Ke Yu, Shixiang Wu, Jinjin Gu, Yihao Liu, Chao Dong, Yu Qiao, and Chen Change Loy. Esrgan: Enhanced super-resolution generative adversarial networks. In European Conference on Computer Vision Workshops , pages 701–710, 2018. 1, 2, 3, 5, 6, 7",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00112"
+  },
+  {
+    "block_id": "blk_00113",
+    "type": "reference",
+    "content": "[82] Zhendong Wang, Xiaodong Cun, Jianmin Bao, and",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00113"
+  },
+  {
+    "block_id": "blk_00114",
+    "type": "reference",
+    "content": "Jianzhuang Liu. Uformer: A general u-shaped transformer for image restoration. arXiv preprint arXiv:2106.03106 , 2021. 2 [83] Yunxuan Wei, Shuhang Gu, Yawei Li, Radu Timofte, Long- cun Jin, and Hengjie Song. Unsupervised real-world im- age super resolution via domain-distance aware training. In IEEE Conference on Computer Vision and Pattern Recog- nition, pages 13385–13394, 2021. 2 [84] Bichen Wu, Chenfeng Xu, Xiaoliang Dai, Alvin Wan, Peizhao Zhang, Zhicheng Yan, Masayoshi Tomizuka, Joseph Gonzalez, Kurt Keutzer, and Peter Vajda. Vi- sual transformers: Token-based image representation and processing for computer vision. arXiv preprint arXiv:2006.03677, 2020. 2 [85] Zhihao Xia and Ayan Chakrabarti. Identifying recurring patterns with deep neural networks for natural image de- noising. In IEEE Winter Conference on Applications of Computer Vision, pages 2426–2434, 2020. 8 [86] Tete Xiao, Mannat Singh, Eric Mintun, Trevor Darrell, Pi- otr Doll ´ar, and Ross Girshick. Early convolutions help transformers see better. arXiv preprint arXiv:2106.14881 , 2021. 2 [87] Roman Zeyde, Michael Elad, and Matan Protter. On single image scale-up using sparse-representations. In Interna- tional Conference on Curves and Surfaces , pages 711–730, 2010. 6 [88] Kai Zhang, Yawei Li, Wangmeng Zuo, Lei Zhang, Luc Van Gool, and Radu Timofte. Plug-and-play image restora- tion with deep denoiser prior.IEEE Transactions on Pattern Analysis and Machine Intelligence, 2021. 1, 2, 7, 8 [89] Kai Zhang, Jingyun Liang, Luc Van Gool, and Radu Timo- fte. Designing a practical degradation model for deep blind image super-resolution. In IEEE Conference on Interna- tional Conference on Computer Vision, 2021. 1, 3, 5, 7 [90] Kai Zhang, Wangmeng Zuo, Yunjin Chen, Deyu Meng, and Lei Zhang. Beyond a gaussian denoiser: Residual learning of deep cnn for image denoising. IEEE transactions on image processing, 26(7):3142–3155, 2017. 1, 2, 7, 8 [91] Kai Zhang, Wangmeng Zuo, Shuhang Gu, and Lei Zhang. Learning deep cnn denoiser prior for image restoration. In IEEE Conference on Computer Vision and Pattern Recog- nition, pages 3929–3938, 2017. 1, 7, 8 [92] Kai Zhang, Wangmeng Zuo, and Lei Zhang. Ffdnet: Toward a fast and ﬂexible solution for cnn-based im- age denoising. IEEE Transactions on Image Processing , 27(9):4608–4622, 2018. 1, 2, 7, 8 [93] Kai Zhang, Wangmeng Zuo, and Lei Zhang. Learning a single convolutional super-resolution network for multiple degradations. In IEEE Conference on Computer Vision and Pattern Recognition, pages 3262–3271, 2018. 1, 2 [94] Lei Zhang, Xiaolin Wu, Antoni Buades, and Xin Li. Color demosaicking by local directional interpolation and nonlo- cal adaptive thresholding. Journal of Electronic imaging , 20(2):023016, 2011. 8 [95] Yulun Zhang, Kunpeng Li, Kai Li, Lichen Wang, Bineng Zhong, and Yun Fu. Image super-resolution using very deep residual channel attention networks. In European Confer- ence on Computer Vision, pages 286–301, 2018. 1, 2, 4, 5, 6 [96] Yulun Zhang, Kunpeng Li, Kai Li, Bineng Zhong, and Yun Fu. Residual non-local attention networks for image restoration. arXiv preprint arXiv:1903.10082 , 2019. 2, 6, 7, 8 [97] Yulun Zhang, Yapeng Tian, Yu Kong, Bineng Zhong, and Yun Fu. Residual dense network for image super- resolution. In IEEE Conference on Computer Vision and Pattern Recognition, pages 2472–2481, 2018. 1, 2, 6 [98] Yulun Zhang, Yapeng Tian, Yu Kong, Bineng Zhong, and Yun Fu. Residual dense network for image restoration. IEEE Transactions on Pattern Analysis and Machine Intel- ligence, 43(7):2480–2495, 2020. 2, 7, 8 [99] Sixiao Zheng, Jiachen Lu, Hengshuang Zhao, Xiatian Zhu, Zekun Luo, Yabiao Wang, Yanwei Fu, Jianfeng Feng, Tao Xiang, Philip HS Torr, et al. Rethinking semantic segmen- tation from a sequence-to-sequence perspective with trans- formers. In IEEE Conference on Computer Vision and Pat- tern Recognition, pages 6881–6890, 2021. 2 [100] Shangchen Zhou, Jiawei Zhang, Wangmeng Zuo, and Chen Change Loy. Cross-scale internal graph neu- ral network for image super-resolution. arXiv preprint arXiv:2006.16673, 2020. 2, 5, 6 12",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00114"
+  }
+]

@@ -1,0 +1,939 @@
+{
+  "paper_skeleton": {
+    "problem": "现有移动端网络中的注意力机制（如SE）忽略了位置信息，导致无法生成空间选择性的注意力图，限制了模型在视觉任务中的性能。",
+    "motivation": "位置信息对于捕捉物体结构至关重要，但现有的通道注意力方法（如SE）通过2D全局池化丢失了位置信息。后续工作（如CBAM）尝试引入空间注意力，但卷积只能捕捉局部关系，无法建模长距离依赖。",
+    "core_idea": "提出坐标注意力（Coordinate Attention），通过将通道注意力分解为两个1D特征编码过程（水平和垂直方向），在捕捉长距离依赖的同时保留精确的位置信息，生成方向感知和位置敏感的注意力图。",
+    "method": "坐标注意力块包含三个步骤：1）坐标信息嵌入：使用两个1D全局池化（水平和垂直）分别聚合特征，生成方向感知的特征图；2）坐标注意力生成：将两个特征图拼接，通过1x1卷积和激活函数生成中间特征，然后分割并分别通过1x1卷积和sigmoid生成水平和垂直注意力图；3）注意力应用：将两个注意力图分别扩展并与输入特征图相乘，得到增强的输出。",
+    "experiments": "在ImageNet分类、COCO/Pascal VOC目标检测和Pascal VOC/Cityscapes语义分割上进行了广泛实验，使用MobileNetV2、MobileNeXt和EfficientNet作为基线网络。",
+    "claims": [
+      "坐标注意力能同时建模通道关系和位置信息，优于SE和CBAM等注意力方法。",
+      "坐标注意力在移动端网络中计算开销极小，几乎不增加额外计算负担。",
+      "坐标注意力在下游任务（如目标检测和语义分割）中表现更优，尤其在需要密集预测的任务中提升更大。",
+      "坐标注意力对不同的基线网络（如MobileNetV2、MobileNeXt、EfficientNet）和不同的权重乘子均有效。"
+    ],
+    "limitations": "论文未明确讨论坐标注意力在极端轻量级模型（如参数量极小的模型）中的性能，也未探讨其在视频或3D视觉任务中的适用性。"
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "输入特征图",
+        "label": "Input Feature Map",
+        "summary": "输入特征图X，尺寸为C×H×W，作为坐标注意力块的输入。",
+        "description": "输入特征图X是来自前一个卷积层的输出，包含C个通道，高度H，宽度W。",
+        "type": "input",
+        "anchors": [
+          "anc_00017",
+          "anc_00022"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "坐标信息嵌入",
+        "label": "Coordinate Information Embedding",
+        "summary": "通过两个1D全局池化操作（水平和垂直）分别聚合特征，生成方向感知的特征图。",
+        "description": "使用空间范围为(H,1)和(1,W)的池化核，分别沿水平和垂直方向聚合特征，生成两个特征图z^h和z^w，每个尺寸为C×H×1和C×1×W。",
+        "type": "process",
+        "anchors": [
+          "anc_00029",
+          "anc_00030",
+          "anc_00031",
+          "anc_00032",
+          "anc_00033",
+          "anc_00034",
+          "anc_00035",
+          "anc_00036",
+          "anc_00037",
+          "anc_00038",
+          "anc_00039"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "特征拼接与中间编码",
+        "label": "Concatenation and Intermediate Encoding",
+        "summary": "将两个方向感知的特征图拼接，并通过1x1卷积和激活函数生成中间特征图f。",
+        "description": "将z^h和z^w沿空间维度拼接，得到尺寸为C×(H+W)的特征图，然后通过1x1卷积F1和激活函数δ（如ReLU）生成中间特征图f，尺寸为C/r×(H+W)，其中r是缩减比。",
+        "type": "process",
+        "anchors": [
+          "anc_00040",
+          "anc_00041",
+          "anc_00042",
+          "anc_00043"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "注意力图生成",
+        "label": "Attention Map Generation",
+        "summary": "将中间特征图f分割为水平和垂直部分，分别通过1x1卷积和sigmoid生成水平注意力图g^h和垂直注意力图g^w。",
+        "description": "将f沿空间维度分割为f^h（C/r×H）和f^w（C/r×W），然后分别通过1x1卷积F^h和F^w以及sigmoid函数σ，生成水平注意力图g^h（C×H×1）和垂直注意力图g^w（C×1×W）。",
+        "type": "process",
+        "anchors": [
+          "anc_00045",
+          "anc_00046",
+          "anc_00047",
+          "anc_00048"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "注意力应用与输出",
+        "label": "Attention Application and Output",
+        "summary": "将水平和垂直注意力图分别扩展并与输入特征图相乘，得到增强的输出特征图Y。",
+        "description": "将g^h和g^w扩展到与输入特征图相同的尺寸，然后通过逐元素相乘应用到输入特征图X上，得到输出特征图Y，其中每个元素y_c(i,j) = x_c(i,j) × g^h_c(i) × g^w_c(j)。",
+        "type": "output",
+        "anchors": [
+          "anc_00049",
+          "anc_00050"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "输入特征图传递给坐标信息嵌入",
+        "anchors": [
+          "anc_00017",
+          "anc_00022"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "方向感知特征图传递给特征拼接与中间编码",
+        "anchors": [
+          "anc_00039",
+          "anc_00040"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "中间特征图传递给注意力图生成",
+        "anchors": [
+          "anc_00043",
+          "anc_00045"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "label": "注意力图传递给注意力应用与输出",
+        "anchors": [
+          "anc_00048",
+          "anc_00049"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "SE（Squeeze-and-Excitation）注意力",
+    "new_method": "坐标注意力（Coordinate Attention）",
+    "deltas": [
+      {
+        "before": "SE注意力通过2D全局池化将特征图压缩为单个通道描述符，丢失了位置信息。",
+        "after": "坐标注意力通过两个1D全局池化（水平和垂直）分别聚合特征，保留了方向感知的位置信息。",
+        "why_it_matters": "位置信息对于生成空间选择性的注意力图至关重要，有助于更准确地定位感兴趣物体。",
+        "anchors": [
+          "anc_00003",
+          "anc_00008",
+          "anc_00024",
+          "anc_00028",
+          "anc_00030"
+        ]
+      },
+      {
+        "before": "SE注意力只建模通道间关系，忽略了空间信息。",
+        "after": "坐标注意力同时建模通道间关系和空间位置信息，生成方向感知和位置敏感的注意力图。",
+        "why_it_matters": "在视觉任务中，同时考虑通道和空间信息可以提升特征表示能力，尤其在目标检测和语义分割等任务中。",
+        "anchors": [
+          "anc_00003",
+          "anc_00008",
+          "anc_00028",
+          "anc_00050"
+        ]
+      },
+      {
+        "before": "CBAM等方法尝试引入空间注意力，但使用卷积只能捕捉局部关系，无法建模长距离依赖。",
+        "after": "坐标注意力通过1D全局池化捕捉长距离依赖，同时保留精确的位置信息。",
+        "why_it_matters": "长距离依赖对于视觉任务（如场景理解）很重要，而精确的位置信息有助于物体定位。",
+        "anchors": [
+          "anc_00008",
+          "anc_00013",
+          "anc_00016",
+          "anc_00039"
+        ]
+      },
+      {
+        "before": "SE注意力在移动端网络中计算开销小，但性能提升有限。",
+        "after": "坐标注意力在移动端网络中计算开销极小（几乎无额外计算负担），但性能提升显著。",
+        "why_it_matters": "移动端网络对计算资源敏感，坐标注意力在保持轻量级的同时实现了更好的性能。",
+        "anchors": [
+          "anc_00003",
+          "anc_00006",
+          "anc_00007",
+          "anc_00009",
+          "anc_00016"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "formula": "z^h_c(h) = \\frac{1}{W} \\sum_{0 \\le i < W} x_c(h, i)",
+        "variables": [
+          {
+            "name": "z^h_c(h)",
+            "description": "水平方向上第c个通道在高度h处的池化输出",
+            "confidence": "high"
+          },
+          {
+            "name": "W",
+            "description": "特征图的宽度",
+            "confidence": "high"
+          },
+          {
+            "name": "x_c(h, i)",
+            "description": "输入特征图X在通道c、高度h、宽度i处的值",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "输入特征图X"
+        ],
+        "intuition": "通过水平方向的1D全局池化，聚合特征图在宽度维度上的信息，生成方向感知的特征图，保留垂直方向的位置信息。",
+        "anchors": [
+          "anc_00031",
+          "anc_00032",
+          "anc_00033",
+          "anc_00034"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "formula": "z^w_c(w) = \\frac{1}{H} \\sum_{0 \\le j < H} x_c(j, w)",
+        "variables": [
+          {
+            "name": "z^w_c(w)",
+            "description": "垂直方向上第c个通道在宽度w处的池化输出",
+            "confidence": "high"
+          },
+          {
+            "name": "H",
+            "description": "特征图的高度",
+            "confidence": "high"
+          },
+          {
+            "name": "x_c(j, w)",
+            "description": "输入特征图X在通道c、高度j、宽度w处的值",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "输入特征图X"
+        ],
+        "intuition": "通过垂直方向的1D全局池化，聚合特征图在高度维度上的信息，生成方向感知的特征图，保留水平方向的位置信息。",
+        "anchors": [
+          "anc_00035",
+          "anc_00036",
+          "anc_00037",
+          "anc_00038"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "formula": "f = \\delta(F_1([z^h, z^w]))",
+        "variables": [
+          {
+            "name": "f",
+            "description": "中间特征图，尺寸为C/r×(H+W)",
+            "confidence": "high"
+          },
+          {
+            "name": "F_1",
+            "description": "1x1卷积变换",
+            "confidence": "high"
+          },
+          {
+            "name": "[z^h, z^w]",
+            "description": "水平和垂直特征图的拼接",
+            "confidence": "high"
+          },
+          {
+            "name": "\\delta",
+            "description": "非线性激活函数（如ReLU）",
+            "confidence": "high"
+          },
+          {
+            "name": "r",
+            "description": "缩减比，用于控制块大小",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "z^h",
+          "z^w"
+        ],
+        "intuition": "将两个方向感知的特征图拼接，通过1x1卷积和激活函数进行编码，生成同时包含水平和垂直方向信息的中间特征图。",
+        "anchors": [
+          "anc_00042",
+          "anc_00043"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "formula": "g^h = \\sigma(F_h(f^h))",
+        "variables": [
+          {
+            "name": "g^h",
+            "description": "水平注意力图，尺寸为C×H×1",
+            "confidence": "high"
+          },
+          {
+            "name": "F_h",
+            "description": "1x1卷积变换",
+            "confidence": "high"
+          },
+          {
+            "name": "f^h",
+            "description": "中间特征图f的水平部分，尺寸为C/r×H",
+            "confidence": "high"
+          },
+          {
+            "name": "\\sigma",
+            "description": "sigmoid函数",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "f"
+        ],
+        "intuition": "通过1x1卷积和sigmoid生成水平注意力图，用于对输入特征图的水平方向进行加权。",
+        "anchors": [
+          "anc_00046"
+        ]
+      },
+      {
+        "formula_id": "formula_005",
+        "formula": "g^w = \\sigma(F_w(f^w))",
+        "variables": [
+          {
+            "name": "g^w",
+            "description": "垂直注意力图，尺寸为C×1×W",
+            "confidence": "high"
+          },
+          {
+            "name": "F_w",
+            "description": "1x1卷积变换",
+            "confidence": "high"
+          },
+          {
+            "name": "f^w",
+            "description": "中间特征图f的垂直部分，尺寸为C/r×W",
+            "confidence": "high"
+          },
+          {
+            "name": "\\sigma",
+            "description": "sigmoid函数",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "f"
+        ],
+        "intuition": "通过1x1卷积和sigmoid生成垂直注意力图，用于对输入特征图的垂直方向进行加权。",
+        "anchors": [
+          "anc_00047"
+        ]
+      },
+      {
+        "formula_id": "formula_006",
+        "formula": "y_c(i, j) = x_c(i, j) \\times g^h_c(i) \\times g^w_c(j)",
+        "variables": [
+          {
+            "name": "y_c(i, j)",
+            "description": "输出特征图Y在通道c、位置(i,j)处的值",
+            "confidence": "high"
+          },
+          {
+            "name": "x_c(i, j)",
+            "description": "输入特征图X在通道c、位置(i,j)处的值",
+            "confidence": "high"
+          },
+          {
+            "name": "g^h_c(i)",
+            "description": "水平注意力图在通道c、高度i处的值",
+            "confidence": "high"
+          },
+          {
+            "name": "g^w_c(j)",
+            "description": "垂直注意力图在通道c、宽度j处的值",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "X",
+          "g^h",
+          "g^w"
+        ],
+        "intuition": "将水平和垂直注意力图分别扩展并与输入特征图相乘，实现对感兴趣区域的增强，同时保留通道和位置信息。",
+        "anchors": [
+          "anc_00049",
+          "anc_00050"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "task": "ImageNet分类",
+        "dataset": "ImageNet",
+        "baseline": "MobileNetV2",
+        "method": "MobileNetV2 + CA",
+        "metric": "Top-1准确率",
+        "result": "74.3%（比SE高0.8%，比CBAM高0.7%）",
+        "anchors": [
+          "anc_00052",
+          "anc_00054"
+        ]
+      },
+      {
+        "task": "COCO目标检测",
+        "dataset": "COCO",
+        "baseline": "MobileNetV2 + SSDLite320",
+        "method": "MobileNetV2 + CA + SSDLite320",
+        "metric": "AP",
+        "result": "23.6（比SE高1.3，比CBAM高1.3）",
+        "anchors": [
+          "anc_00076",
+          "anc_00077"
+        ]
+      },
+      {
+        "task": "Pascal VOC语义分割",
+        "dataset": "Pascal VOC 2012",
+        "baseline": "MobileNetV2 + DeepLabV3",
+        "method": "MobileNetV2 + CA + DeepLabV3",
+        "metric": "mIoU",
+        "result": "73.32%（比SE高1.63%，比CBAM高2.04%）",
+        "anchors": [
+          "anc_00080",
+          "anc_00081"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "experiment": "水平注意力 vs 垂直注意力 vs 坐标注意力",
+        "setting": "在MobileNetV2上分别添加水平注意力、垂直注意力和坐标注意力",
+        "result": "坐标注意力（74.3%）优于单独的水平或垂直注意力（均为73.5%）",
+        "anchors": [
+          "anc_00052",
+          "anc_00054"
+        ]
+      },
+      {
+        "experiment": "缩减比r的影响",
+        "setting": "在MobileNetV2上使用不同的缩减比r（32和16）",
+        "result": "当r减半时，模型参数增加，但性能提升（从74.3%到74.7%）",
+        "anchors": [
+          "anc_00056",
+          "anc_00060"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "experiment": "不同基线网络",
+        "setting": "在MobileNetV2、MobileNeXt和EfficientNet-b0上应用坐标注意力",
+        "result": "坐标注意力在所有基线网络上均带来一致的性能提升",
+        "anchors": [
+          "anc_00054",
+          "anc_00058",
+          "anc_00069"
+        ]
+      },
+      {
+        "experiment": "不同权重乘子",
+        "setting": "在MobileNetV2的不同宽度乘子（1.0、0.75、0.5）上应用坐标注意力",
+        "result": "坐标注意力在所有宽度乘子上均优于SE和CBAM",
+        "anchors": [
+          "anc_00054"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "experiment": "模型大小与性能",
+        "setting": "在不同大小的MobileNetV2模型上应用坐标注意力",
+        "result": "坐标注意力在不同模型大小下均能提升性能，且提升幅度相对稳定",
+        "anchors": [
+          "anc_00054"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "experiment": "特征图可视化",
+        "setting": "使用Grad-CAM可视化不同注意力方法在最后一个构建块中的特征图",
+        "result": "坐标注意力能更精确地定位感兴趣物体，而SE和CBAM的定位较模糊",
+        "anchors": [
+          "anc_00064",
+          "anc_00065"
+        ]
+      }
+    ],
+    "human_eval": [],
+    "benchmark": [
+      {
+        "benchmark": "ImageNet分类",
+        "results": [
+          {
+            "method": "MobileNetV2 + CA",
+            "metric": "Top-1准确率",
+            "value": "74.3%",
+            "anchors": [
+              "anc_00054"
+            ]
+          }
+        ]
+      },
+      {
+        "benchmark": "COCO目标检测",
+        "results": [
+          {
+            "method": "MobileNetV2 + CA + SSDLite320",
+            "metric": "AP",
+            "value": "23.6",
+            "anchors": [
+              "anc_00076"
+            ]
+          }
+        ]
+      },
+      {
+        "benchmark": "Pascal VOC语义分割",
+        "results": [
+          {
+            "method": "MobileNetV2 + CA + DeepLabV3",
+            "metric": "mIoU",
+            "value": "73.32%",
+            "anchors": [
+              "anc_00081"
+            ]
+          }
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "metric": "参数量",
+        "baseline": "MobileNetV2: 3.5M",
+        "method": "MobileNetV2 + CA: 3.95M",
+        "overhead": "增加约0.45M参数（约12.9%）",
+        "anchors": [
+          "anc_00052",
+          "anc_00054"
+        ]
+      },
+      {
+        "metric": "计算量（M-Adds）",
+        "baseline": "MobileNetV2: 300M",
+        "method": "MobileNetV2 + CA: 310M",
+        "overhead": "增加约10M计算量（约3.3%）",
+        "anchors": [
+          "anc_00052",
+          "anc_00054"
+        ]
+      },
+      {
+        "metric": "延迟",
+        "baseline": "MobileNetV2: 14-16ms",
+        "method": "MobileNetV2 + CA: 16-18ms",
+        "overhead": "增加约2ms延迟",
+        "anchors": [
+          "anc_00052"
+        ]
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "坐标注意力能同时建模通道关系和位置信息，优于SE和CBAM等注意力方法。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00052",
+          "anc_00054",
+          "anc_00058",
+          "anc_00069",
+          "anc_00076",
+          "anc_00081"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "坐标注意力在移动端网络中计算开销极小，几乎不增加额外计算负担。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00052",
+          "anc_00054"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "坐标注意力在下游任务（如目标检测和语义分割）中表现更优，尤其在需要密集预测的任务中提升更大。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00076",
+          "anc_00081",
+          "anc_00085",
+          "anc_00086",
+          "anc_00087",
+          "anc_00088"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "坐标注意力对不同的基线网络（如MobileNetV2、MobileNeXt、EfficientNet）和不同的权重乘子均有效。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00054",
+          "anc_00058",
+          "anc_00069"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "坐标注意力通过1D全局池化捕捉长距离依赖，同时保留精确的位置信息。",
+        "evidence_source_type": "方法描述",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00030",
+          "anc_00039",
+          "anc_00041"
+        ],
+        "risk_flags": [
+          "长距离依赖的捕捉程度未通过定量实验验证"
+        ]
+      },
+      {
+        "claim": "坐标注意力生成的注意力图能更精确地定位感兴趣物体。",
+        "evidence_source_type": "可视化分析",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00064",
+          "anc_00065"
+        ],
+        "risk_flags": [
+          "可视化结果可能受主观判断影响"
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "坐标注意力（Coordinate Attention）",
+        "definition": "一种轻量级注意力机制，通过将通道注意力分解为两个1D特征编码过程（水平和垂直方向），在捕捉长距离依赖的同时保留精确的位置信息。",
+        "anchors": [
+          "anc_00003",
+          "anc_00016"
+        ]
+      },
+      {
+        "term": "通道注意力（Channel Attention）",
+        "definition": "通过建模通道间关系来重新加权特征图通道重要性的注意力机制，如SE注意力。",
+        "anchors": [
+          "anc_00003",
+          "anc_00024"
+        ]
+      },
+      {
+        "term": "SE注意力（Squeeze-and-Excitation Attention）",
+        "definition": "一种通道注意力方法，通过2D全局池化将特征图压缩为通道描述符，然后通过全连接层学习通道权重。",
+        "anchors": [
+          "anc_00003",
+          "anc_00024",
+          "anc_00025",
+          "anc_00026",
+          "anc_00027",
+          "anc_00028"
+        ]
+      },
+      {
+        "term": "CBAM（Convolutional Block Attention Module）",
+        "definition": "一种结合通道注意力和空间注意力的模块，空间注意力部分使用卷积捕捉局部空间关系。",
+        "anchors": [
+          "anc_00008",
+          "anc_00013",
+          "anc_00020",
+          "anc_00021"
+        ]
+      },
+      {
+        "term": "缩减比（Reduction Ratio）",
+        "definition": "在注意力块中用于控制中间特征图通道数的比率，通常用于减少计算开销。",
+        "anchors": [
+          "anc_00043",
+          "anc_00048",
+          "anc_00056",
+          "anc_00060"
+        ]
+      },
+      {
+        "term": "1D全局池化（1D Global Pooling）",
+        "definition": "沿一个空间方向（水平或垂直）进行全局平均池化，生成方向感知的特征图。",
+        "anchors": [
+          "anc_00030",
+          "anc_00031",
+          "anc_00032",
+          "anc_00033",
+          "anc_00034",
+          "anc_00035",
+          "anc_00036",
+          "anc_00037",
+          "anc_00038"
+        ]
+      },
+      {
+        "term": "方向感知特征图（Direction-Aware Feature Map）",
+        "definition": "通过1D全局池化生成的特征图，包含特定方向（水平或垂直）的空间信息。",
+        "anchors": [
+          "anc_00039"
+        ]
+      },
+      {
+        "term": "位置敏感注意力图（Position-Sensitive Attention Map）",
+        "definition": "坐标注意力生成的注意力图，能够反映物体在特定行和列的存在性，从而精确定位物体。",
+        "anchors": [
+          "anc_00050"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "required_datasets": [
+      {
+        "name": "ImageNet",
+        "description": "大规模图像分类数据集，用于预训练和评估分类性能。",
+        "anchors": [
+          "anc_00006",
+          "anc_00052",
+          "anc_00054"
+        ]
+      },
+      {
+        "name": "COCO",
+        "description": "目标检测数据集，用于评估目标检测性能。",
+        "anchors": [
+          "anc_00071",
+          "anc_00076",
+          "anc_00077"
+        ]
+      },
+      {
+        "name": "Pascal VOC 2007/2012",
+        "description": "目标检测和语义分割数据集，用于评估检测和分割性能。",
+        "anchors": [
+          "anc_00071",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081"
+        ]
+      },
+      {
+        "name": "Cityscapes",
+        "description": "城市街景语义分割数据集，用于评估分割性能。",
+        "anchors": [
+          "anc_00082",
+          "anc_00083"
+        ]
+      }
+    ],
+    "required_models": [
+      {
+        "name": "MobileNetV2",
+        "description": "轻量级移动端网络，作为主要基线网络。",
+        "anchors": [
+          "anc_00034",
+          "anc_00044",
+          "anc_00052",
+          "anc_00054"
+        ]
+      },
+      {
+        "name": "MobileNeXt",
+        "description": "另一种轻量级移动端网络，用于验证坐标注意力的泛化性。",
+        "anchors": [
+          "anc_00044",
+          "anc_00058"
+        ]
+      },
+      {
+        "name": "EfficientNet-b0",
+        "description": "高效的移动端网络，用于验证坐标注意力在更强基线上的效果。",
+        "anchors": [
+          "anc_00066",
+          "anc_00069"
+        ]
+      },
+      {
+        "name": "SSDLite320",
+        "description": "轻量级目标检测器，用于目标检测实验。",
+        "anchors": [
+          "anc_00071",
+          "anc_00076",
+          "anc_00077"
+        ]
+      },
+      {
+        "name": "DeepLabV3",
+        "description": "语义分割模型，用于语义分割实验。",
+        "anchors": [
+          "anc_00075",
+          "anc_00080",
+          "anc_00081"
+        ]
+      }
+    ],
+    "required_compute": [
+      {
+        "type": "GPU",
+        "description": "用于模型训练和推理，具体型号和数量未指定。",
+        "confidence": "low"
+      }
+    ],
+    "code_available": {
+      "available": true,
+      "url": "https://github.com/Andrew-Qibin/CoordAttention",
+      "anchors": [
+        "anc_00003"
+      ]
+    },
+    "steps": [
+      {
+        "step": 1,
+        "description": "准备数据集：下载ImageNet、COCO、Pascal VOC和Cityscapes数据集。",
+        "anchors": [
+          "anc_00006",
+          "anc_00071",
+          "anc_00075",
+          "anc_00082"
+        ]
+      },
+      {
+        "step": 2,
+        "description": "实现坐标注意力块：根据论文描述实现坐标信息嵌入、坐标注意力生成和注意力应用。",
+        "anchors": [
+          "anc_00029",
+          "anc_00040",
+          "anc_00049"
+        ]
+      },
+      {
+        "step": 3,
+        "description": "将坐标注意力块插入基线网络：在MobileNetV2、MobileNeXt和EfficientNet的适当位置插入坐标注意力块。",
+        "anchors": [
+          "anc_00044",
+          "anc_00052",
+          "anc_00058",
+          "anc_00069"
+        ]
+      },
+      {
+        "step": 4,
+        "description": "训练分类模型：在ImageNet上训练带有坐标注意力的分类模型。",
+        "anchors": [
+          "anc_00052",
+          "anc_00054"
+        ]
+      },
+      {
+        "step": 5,
+        "description": "训练检测模型：使用SSDLite320在COCO和Pascal VOC上训练目标检测模型。",
+        "anchors": [
+          "anc_00071",
+          "anc_00076",
+          "anc_00077"
+        ]
+      },
+      {
+        "step": 6,
+        "description": "训练分割模型：使用DeepLabV3在Pascal VOC和Cityscapes上训练语义分割模型。",
+        "anchors": [
+          "anc_00075",
+          "anc_00080",
+          "anc_00081",
+          "anc_00082",
+          "anc_00083"
+        ]
+      },
+      {
+        "step": 7,
+        "description": "评估性能：在相应数据集上评估分类、检测和分割性能。",
+        "anchors": [
+          "anc_00052",
+          "anc_00054",
+          "anc_00076",
+          "anc_00077",
+          "anc_00080",
+          "anc_00081",
+          "anc_00082",
+          "anc_00083"
+        ]
+      }
+    ],
+    "missing_details": [
+      {
+        "detail": "具体的训练超参数（如学习率调度、批量大小、优化器等）在论文中未完全指定。",
+        "anchors": [
+          "anc_00071"
+        ]
+      },
+      {
+        "detail": "坐标注意力块在基线网络中的具体插入位置和数量未详细说明。",
+        "anchors": [
+          "anc_00044"
+        ]
+      },
+      {
+        "detail": "计算资源（如GPU型号、数量、训练时间）未指定。",
+        "confidence": "low"
+      }
+    ],
+    "risk_points": [
+      {
+        "risk": "坐标注意力块的实现可能因细节差异（如激活函数选择、初始化方法）而影响性能。",
+        "anchors": [
+          "anc_00042",
+          "anc_00046",
+          "anc_00047"
+        ]
+      },
+      {
+        "risk": "在不同基线网络和任务上的性能提升可能因数据集和评估指标而异。",
+        "anchors": [
+          "anc_00054",
+          "anc_00058",
+          "anc_00069",
+          "anc_00076",
+          "anc_00081"
+        ]
+      },
+      {
+        "risk": "论文未讨论坐标注意力在极端轻量级模型或不同视觉任务（如视频、3D）中的适用性。",
+        "anchors": []
+      }
+    ]
+  }
+}

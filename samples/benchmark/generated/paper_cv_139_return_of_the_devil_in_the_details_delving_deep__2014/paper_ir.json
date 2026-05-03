@@ -1,0 +1,2743 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "尽管CNN在图像识别和目标检测基准上取得了显著成果，但不同CNN方法之间以及CNN与传统浅层表示（如Bag-of-Visual-Words和Improved Fisher Vector）之间的系统比较仍然缺失，且实现细节对性能的影响不明确。",
+      "anchors": [
+        "anc_00005",
+        "anc_00007",
+        "anc_00009",
+        "anc_00010"
+      ]
+    },
+    "motivation": {
+      "summary": "需要对CNN方法进行严格评估，探索不同深度架构，并在共同基础上进行比较，以识别和披露重要的实现细节，从而澄清深度与浅层方法的性能差距。",
+      "anchors": [
+        "anc_00005",
+        "anc_00009",
+        "anc_00010",
+        "anc_00011",
+        "anc_00013"
+      ]
+    },
+    "core_idea": {
+      "summary": "通过大规模实验，系统比较浅层表示（IFV）、预训练CNN表示和微调CNN表示，识别通用最佳实践（如数据增强、特征归一化）和特定场景最佳实践（如深度特征的降维），并展示这些实践在深度和浅层方法间的可迁移性。",
+      "anchors": [
+        "anc_00016",
+        "anc_00018",
+        "anc_00019",
+        "anc_00020"
+      ]
+    },
+    "method": {
+      "summary": "采用三种场景：1) 浅层表示（IFV）；2) 预训练CNN表示；3) 预训练后微调CNN表示。使用SVM分类器，评估数据增强、颜色信息、特征归一化等通用方法，以及CNN架构选择、降维等特定方法。",
+      "anchors": [
+        "anc_00022",
+        "anc_00023",
+        "anc_00024",
+        "anc_00025",
+        "anc_00029",
+        "anc_00035"
+      ]
+    },
+    "experiments": {
+      "summary": "在PASCAL VOC 2007/2012、ILSVRC-2012、Caltech-101/256等数据集上进行广泛实验，比较不同表示和增强策略的性能，分析维度、速度和准确性权衡。",
+      "anchors": [
+        "anc_00054",
+        "anc_00110",
+        "anc_00160",
+        "anc_00163"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "CNN表示在预训练后显著优于浅层表示（如IFV），即使后者采用了数据增强等改进。",
+        "anchors": [
+          "anc_00138",
+          "anc_00142",
+          "anc_00156",
+          "anc_00177"
+        ]
+      },
+      {
+        "claim_id": "claim_2",
+        "claim": "数据增强技术（如裁剪和翻转）对浅层和深度方法都能带来类似的性能提升。",
+        "anchors": [
+          "anc_00045",
+          "anc_00113",
+          "anc_00114",
+          "anc_00127",
+          "anc_00129"
+        ]
+      },
+      {
+        "claim_id": "claim_3",
+        "claim": "CNN输出层的维度可以显著降低（如从4096降至2048）而不会对性能产生不利影响。",
+        "anchors": [
+          "anc_00105",
+          "anc_00148",
+          "anc_00150"
+        ]
+      },
+      {
+        "claim_id": "claim_4",
+        "claim": "微调预训练CNN可以进一步提升在目标数据集上的性能。",
+        "anchors": [
+          "anc_00035",
+          "anc_00036",
+          "anc_00037",
+          "anc_00156",
+          "anc_00167"
+        ]
+      },
+      {
+        "claim_id": "claim_5",
+        "claim": "CNN特征的计算速度比IFV快约50倍，且更紧凑。",
+        "anchors": [
+          "anc_00178",
+          "anc_00180",
+          "anc_00181",
+          "anc_00182"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "研究主要关注图像分类任务，未深入探讨目标检测等其他任务；实验基于特定数据集（如PASCAL VOC），泛化性需进一步验证；部分实现细节（如具体训练超参数）可能因框架而异。",
+        "anchors": [
+          "anc_00160",
+          "anc_00163",
+          "anc_00167"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "浅层表示（IFV）",
+        "label": "Scenario 1: Shallow representation (IFV)",
+        "summary": "使用Improved Fisher Vector作为浅层图像表示，通过密集采样、SIFT描述符、GMM量化和Fisher向量编码生成特征。",
+        "description": "给定图像I，提取多尺度密集块和局部描述符xi，使用K=256个高斯混合模型分量进行软量化，累积一阶和二阶差异形成Fisher向量φFV(I)，维度为2KD=40,960。后处理包括符号平方根和ℓ2归一化。",
+        "type": "representation",
+        "anchors": [
+          "anc_00025",
+          "anc_00026",
+          "anc_00027",
+          "anc_00028",
+          "anc_00059",
+          "anc_00061"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "预训练CNN表示",
+        "label": "Scenario 2: Deep representation (CNN) with pre-training",
+        "summary": "使用在大型数据集（如ImageNet）上预训练的CNN的倒数第二层活动作为图像描述符。",
+        "description": "采用三种CNN架构（CNN-F、CNN-M、CNN-S）探索准确性/速度权衡。基于Caffe框架训练，使用ℓ2归一化CNN特征φCNN(I)。架构细节见Table 1，包括卷积层、全连接层、ReLU激活、Dropout等。",
+        "type": "representation",
+        "anchors": [
+          "anc_00029",
+          "anc_00030",
+          "anc_00031",
+          "anc_00032",
+          "anc_00034",
+          "anc_00072",
+          "anc_00094"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "微调CNN表示",
+        "label": "Scenario 3: Deep representation (CNN) with pre-training and fine-tuning",
+        "summary": "在目标数据集上微调预训练CNN，使特征更具数据集特异性。",
+        "description": "在VOC-2007/2012或Caltech-101上微调CNN-S架构，使用分类铰链损失或排序铰链损失。微调后网络记为CNN_S_TUNE-CLS或CNN_S_TUNE-RNK。",
+        "type": "representation",
+        "anchors": [
+          "anc_00035",
+          "anc_00036",
+          "anc_00037",
+          "anc_00038",
+          "anc_00039",
+          "anc_00040",
+          "anc_00084",
+          "anc_00086",
+          "anc_00099",
+          "anc_00100",
+          "anc_00101"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "数据增强",
+        "label": "Data augmentation",
+        "summary": "通过裁剪、翻转等变换扰动图像以生成额外训练样本，适用于浅层和深度方法。",
+        "description": "增强可在训练时、测试时或两者应用。增强样本可单独使用或通过求和/最大池化或堆叠组合。实验包括无增强、翻转增强、裁剪+翻转增强等。",
+        "type": "technique",
+        "anchors": [
+          "anc_00045",
+          "anc_00046",
+          "anc_00113",
+          "anc_00114",
+          "anc_00115",
+          "anc_00117",
+          "anc_00118"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "特征归一化与分类器",
+        "label": "Feature normalization and classifier",
+        "summary": "使用ℓ2归一化特征和线性SVM分类器，通过铰链损失训练。",
+        "description": "SVM参数C通过验证集确定。对于CNN特征，ℓ2归一化对性能很重要。分类器为one-vs-rest SVM。",
+        "type": "technique",
+        "anchors": [
+          "anc_00049",
+          "anc_00050",
+          "anc_00051",
+          "anc_00072"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "维度降低",
+        "label": "Dimensionality reduction",
+        "summary": "探索CNN全连接层维度降低对性能的影响。",
+        "description": "训练CNN-M网络的变体，全连接层full7维度为2048、1024和128。发现从4096降至2048对性能影响很小，且特征更紧凑。",
+        "type": "technique",
+        "anchors": [
+          "anc_00105",
+          "anc_00148",
+          "anc_00150"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "颜色信息",
+        "label": "Color information",
+        "summary": "探索颜色信息在浅层和深度方法中的使用。",
+        "description": "对于IFV，结合SIFT和颜色描述符（COL+）可小幅提升性能。对于CNN，灰度输入导致性能下降约3%。",
+        "type": "technique",
+        "anchors": [
+          "anc_00125"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_004",
+        "label": "应用数据增强",
+        "description": "浅层表示IFV可应用数据增强技术以提升性能。",
+        "anchors": [
+          "anc_00045",
+          "anc_00127",
+          "anc_00129"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_004",
+        "label": "应用数据增强",
+        "description": "预训练CNN表示通常与数据增强结合使用。",
+        "anchors": [
+          "anc_00045",
+          "anc_00110"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_002",
+        "label": "基于预训练微调",
+        "description": "微调CNN表示基于预训练CNN架构进行。",
+        "anchors": [
+          "anc_00035",
+          "anc_00036",
+          "anc_00037"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_005",
+        "label": "特征归一化后分类",
+        "description": "CNN特征经过ℓ2归一化后用于SVM分类。",
+        "anchors": [
+          "anc_00072",
+          "anc_00049",
+          "anc_00050"
+        ]
+      },
+      {
+        "source": "node_001",
+        "target": "node_005",
+        "label": "特征归一化后分类",
+        "description": "IFV特征经过后处理（平方根、归一化）后用于SVM分类。",
+        "anchors": [
+          "anc_00028",
+          "anc_00049",
+          "anc_00050"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_006",
+        "label": "维度降低探索",
+        "description": "对CNN全连接层进行维度降低实验。",
+        "anchors": [
+          "anc_00105",
+          "anc_00148"
+        ]
+      },
+      {
+        "source": "node_001",
+        "target": "node_007",
+        "label": "颜色信息整合",
+        "description": "IFV可结合颜色描述符以提升性能。",
+        "anchors": [
+          "anc_00125"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_007",
+        "label": "颜色信息影响",
+        "description": "CNN输入颜色信息对性能有显著影响。",
+        "anchors": [
+          "anc_00125"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00005",
+        "anc_00007",
+        "anc_00009"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00016",
+        "anc_00018",
+        "anc_00019",
+        "anc_00020"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "浅层方法（如IFV）性能相对较低，且未充分利用数据增强等技术。",
+        "after": "通过应用数据增强、颜色信息整合和特征归一化，浅层方法性能得到提升，但仍低于深度方法。",
+        "why_it_matters": "表明数据增强等技术具有通用性，可迁移至浅层方法，缩小性能差距。",
+        "anchors": [
+          "anc_00045",
+          "anc_00125",
+          "anc_00127",
+          "anc_00129",
+          "anc_00138",
+          "anc_00142"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "CNN方法通常使用固定维度（如4096）的全连接层输出作为特征。",
+        "after": "发现CNN输出层维度可显著降低（如至2048）而不损害性能，且特征更紧凑、计算更快。",
+        "why_it_matters": "降低了存储和计算成本，使CNN特征更实用。",
+        "anchors": [
+          "anc_00105",
+          "anc_00148",
+          "anc_00150",
+          "anc_00180",
+          "anc_00181"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "CNN预训练后直接用于目标数据集。",
+        "after": "在目标数据集上微调预训练CNN可进一步提升性能。",
+        "why_it_matters": "微调使特征更适应特定数据集，即使数据量较小也能带来改进。",
+        "anchors": [
+          "anc_00035",
+          "anc_00036",
+          "anc_00037",
+          "anc_00038",
+          "anc_00039",
+          "anc_00156",
+          "anc_00167"
+        ],
+        "delta_id": "delta_3"
+      },
+      {
+        "before": "CNN和浅层方法在实现细节上存在差异，缺乏公平比较。",
+        "after": "通过统一训练协议和实现，公平比较不同CNN架构和浅层方法，识别最佳实践。",
+        "why_it_matters": "提供了可靠的基准和可复现的实验设置，促进未来研究。",
+        "anchors": [
+          "anc_00072",
+          "anc_00110",
+          "anc_00163",
+          "anc_00186"
+        ],
+        "delta_id": "delta_4"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "formula": "\\phi_{FV}(I) = [u_1^\\top, v_1^\\top, \\dots, u_K^\\top, v_K^\\top]^\\top",
+        "variables": [
+          {
+            "name": "\\phi_{FV}(I)",
+            "description": "Improved Fisher Vector 表示",
+            "confidence": "high",
+            "anchors": [
+              "anc_00027"
+            ]
+          },
+          {
+            "name": "u_k, v_k",
+            "description": "一阶和二阶差异向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00026"
+            ]
+          },
+          {
+            "name": "K",
+            "description": "GMM分量数，K=256",
+            "confidence": "high",
+            "anchors": [
+              "anc_00059"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "Fisher向量通过累积局部描述符与GMM聚类中心的差异来编码图像信息，形成高维表示。",
+        "anchors": [
+          "anc_00026",
+          "anc_00027",
+          "anc_00028"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "formula": "w_c \\phi(I_{pos}) > 1 - \\xi, \\quad w_c \\phi(I_{neg}) < -1 + \\xi \\quad \\text{(分类铰链损失)}",
+        "variables": [
+          {
+            "name": "w_c",
+            "description": "最后一层全连接层的第c行，可视为线性分类器",
+            "confidence": "high",
+            "anchors": [
+              "anc_00101"
+            ]
+          },
+          {
+            "name": "\\phi(I)",
+            "description": "深度特征表示",
+            "confidence": "high",
+            "anchors": [
+              "anc_00101"
+            ]
+          },
+          {
+            "name": "\\xi",
+            "description": "松弛变量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00101"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "分类铰链损失约束正样本得分大于1-ξ，负样本得分小于-1+ξ，用于微调CNN时的多标签分类。",
+        "anchors": [
+          "anc_00101"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "formula": "w_c \\phi(I_{pos}) > w_c \\phi(I_{neg}) + 1 - \\xi \\quad \\text{(排序铰链损失)}",
+        "variables": [
+          {
+            "name": "w_c",
+            "description": "最后一层全连接层的第c行",
+            "confidence": "high",
+            "anchors": [
+              "anc_00101"
+            ]
+          },
+          {
+            "name": "\\phi(I)",
+            "description": "深度特征表示",
+            "confidence": "high",
+            "anchors": [
+              "anc_00101"
+            ]
+          },
+          {
+            "name": "\\xi",
+            "description": "松弛变量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00101"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "排序铰链损失约束正样本得分高于负样本得分至少1-ξ，适用于基于排序的评估标准（如VOC）。",
+        "anchors": [
+          "anc_00101"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "formula": "\\text{IFV维度} = 2KD = 40,960 \\quad (K=256, D=80)",
+        "variables": [
+          {
+            "name": "K",
+            "description": "GMM分量数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00059"
+            ]
+          },
+          {
+            "name": "D",
+            "description": "局部描述符维度",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00061"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "IFV维度由GMM分量数和描述符维度决定，通常很高。",
+        "anchors": [
+          "anc_00061"
+        ]
+      },
+      {
+        "formula_id": "formula_005",
+        "formula": "\\text{CNN特征维度} = 4096 \\quad (\\text{full7层})",
+        "variables": [
+          {
+            "name": "full7",
+            "description": "CNN全连接层维度",
+            "confidence": "high",
+            "anchors": [
+              "anc_00105"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "标准CNN架构的全连接层维度为4096，但可降低至2048等而不显著影响性能。",
+        "anchors": [
+          "anc_00105",
+          "anc_00148"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "在PASCAL VOC 2007上，CNN-S微调后达到82.42% mAP，显著优于浅层方法（如IFV最佳约72%）。",
+      "anchors": [
+        "anc_00156",
+        "anc_00177"
+      ]
+    },
+    "ablation": {
+      "description": "消融实验包括：数据增强策略（无增强、翻转、裁剪+翻转）、颜色信息（SIFT vs. 颜色描述符）、特征归一化、CNN维度降低等。",
+      "anchors": [
+        "anc_00110",
+        "anc_00113",
+        "anc_00114",
+        "anc_00125",
+        "anc_00129",
+        "anc_00148"
+      ]
+    },
+    "robustness": {
+      "description": "实验在不同数据集（VOC 2007/2012、Caltech-101/256）上验证方法的泛化性。",
+      "anchors": [
+        "anc_00160",
+        "anc_00163"
+      ]
+    },
+    "scaling": {
+      "description": "探索CNN架构复杂度（CNN-F、CNN-M、CNN-S）和维度（4096、2048、1024、128）对性能的影响。",
+      "anchors": [
+        "anc_00072",
+        "anc_00105",
+        "anc_00143",
+        "anc_00148"
+      ]
+    },
+    "case_study": {
+      "description": "案例研究包括：IFV中空间扩展描述符的使用、CNN微调损失函数选择（分类 vs. 排序）。",
+      "anchors": [
+        "anc_00065",
+        "anc_00101",
+        "anc_00167"
+      ]
+    },
+    "human_eval": {
+      "description": "未提及人工评估。",
+      "anchors": []
+    },
+    "benchmark": {
+      "description": "在PASCAL VOC、ILSVRC-2012、Caltech-101/256等标准基准上评估。",
+      "anchors": [
+        "anc_00054",
+        "anc_00160",
+        "anc_00163"
+      ]
+    },
+    "efficiency": {
+      "description": "CNN-M特征计算速度比IFV快约50倍（2.4秒 vs. 120秒每图像），且更紧凑（84K vs. 2K维度）。",
+      "anchors": [
+        "anc_00178",
+        "anc_00180",
+        "anc_00181",
+        "anc_00182"
+      ]
+    },
+    "experiments": [
+      {
+        "description": "在PASCAL VOC 2007上，CNN-S微调后达到82.42% mAP，显著优于浅层方法（如IFV最佳约72%）。",
+        "anchors": [
+          "anc_00156",
+          "anc_00177"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "main_result_1",
+        "dataset": [
+          "PASCAL VOC 2007"
+        ],
+        "baseline": [
+          "IFV",
+          "CNN-F",
+          "CNN-M"
+        ],
+        "metrics": [
+          "mAP"
+        ],
+        "result_summary": "CNN-S微调后达到82.42% mAP，显著优于浅层方法（如IFV最佳约72%）。",
+        "what_it_tries_to_prove": "证明CNN表示在预训练后显著优于浅层表示，且微调可进一步提升性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "消融实验包括：数据增强策略（无增强、翻转、裁剪+翻转）、颜色信息（SIFT vs. 颜色描述符）、特征归一化、CNN维度降低等。",
+        "anchors": [
+          "anc_00110",
+          "anc_00113",
+          "anc_00114",
+          "anc_00125",
+          "anc_00129",
+          "anc_00148"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "ablation",
+        "name": "ablation_2",
+        "dataset": [
+          "PASCAL VOC 2007"
+        ],
+        "baseline": [
+          "无增强",
+          "翻转增强",
+          "裁剪+翻转增强"
+        ],
+        "metrics": [
+          "mAP"
+        ],
+        "result_summary": "数据增强对浅层和深度方法都能带来类似的性能提升；颜色信息对CNN影响更大；维度降低对性能影响很小。",
+        "what_it_tries_to_prove": "验证通用最佳实践（数据增强、颜色信息、特征归一化）和特定场景最佳实践（维度降低）的有效性。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "实验在不同数据集（VOC 2007/2012、Caltech-101/256）上验证方法的泛化性。",
+        "anchors": [
+          "anc_00160",
+          "anc_00163"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "robustness",
+        "name": "robustness_3",
+        "dataset": [
+          "PASCAL VOC 2007",
+          "PASCAL VOC 2012",
+          "Caltech-101",
+          "Caltech-256"
+        ],
+        "baseline": [
+          "CNN-F",
+          "CNN-M",
+          "CNN-S"
+        ],
+        "metrics": [
+          "mAP",
+          "accuracy"
+        ],
+        "result_summary": "CNN方法在不同数据集上均表现良好，验证了方法的泛化性。",
+        "what_it_tries_to_prove": "验证方法在不同数据集上的泛化能力。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "探索CNN架构复杂度（CNN-F、CNN-M、CNN-S）和维度（4096、2048、1024、128）对性能的影响。",
+        "anchors": [
+          "anc_00072",
+          "anc_00105",
+          "anc_00143",
+          "anc_00148"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "scaling",
+        "name": "scaling_4",
+        "dataset": [
+          "ILSVRC-2012",
+          "PASCAL VOC 2007"
+        ],
+        "baseline": [
+          "CNN-F",
+          "CNN-M",
+          "CNN-S"
+        ],
+        "metrics": [
+          "mAP",
+          "accuracy",
+          "speed"
+        ],
+        "result_summary": "更复杂的架构（CNN-S）性能更好，但速度更慢；维度从4096降至2048对性能影响很小。",
+        "what_it_tries_to_prove": "探索CNN架构复杂度和维度对性能的影响，以找到准确性/速度权衡。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "案例研究包括：IFV中空间扩展描述符的使用、CNN微调损失函数选择（分类 vs. 排序）。",
+        "anchors": [
+          "anc_00065",
+          "anc_00101",
+          "anc_00167"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "case_study",
+        "name": "case_study_5",
+        "dataset": [
+          "PASCAL VOC 2007",
+          "Caltech-101"
+        ],
+        "baseline": [
+          "空间金字塔",
+          "空间扩展描述符"
+        ],
+        "metrics": [
+          "mAP"
+        ],
+        "result_summary": "空间扩展描述符在IFV中表现良好；排序铰链损失在VOC上略优于分类铰链损失。",
+        "what_it_tries_to_prove": "验证特定技术（空间扩展描述符、损失函数选择）的有效性。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "在PASCAL VOC、ILSVRC-2012、Caltech-101/256等标准基准上评估。",
+        "anchors": [
+          "anc_00054",
+          "anc_00160",
+          "anc_00163"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "benchmark",
+        "name": "benchmark_6",
+        "dataset": [
+          "PASCAL VOC 2007",
+          "PASCAL VOC 2012",
+          "ILSVRC-2012",
+          "Caltech-101",
+          "Caltech-256"
+        ],
+        "baseline": [
+          "DeCAF",
+          "OverFeat",
+          "Zeiler and Fergus"
+        ],
+        "metrics": [
+          "mAP",
+          "accuracy"
+        ],
+        "result_summary": "CNN-S在多个基准上达到或接近 state-of-the-art，验证了方法的有效性。",
+        "what_it_tries_to_prove": "在标准基准上评估方法，与现有 state-of-the-art 进行比较。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "CNN-M特征计算速度比IFV快约50倍（2.4秒 vs. 120秒每图像），且更紧凑（84K vs. 2K维度）。",
+        "anchors": [
+          "anc_00178",
+          "anc_00180",
+          "anc_00181",
+          "anc_00182"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "efficiency",
+        "name": "efficiency_7",
+        "dataset": [
+          "PASCAL VOC 2007"
+        ],
+        "baseline": [
+          "IFV"
+        ],
+        "metrics": [
+          "计算时间",
+          "特征维度"
+        ],
+        "result_summary": "CNN-M特征计算速度比IFV快约50倍，且更紧凑。",
+        "what_it_tries_to_prove": "证明CNN特征在计算效率和紧凑性方面优于浅层方法。",
+        "evidence_strength": "strong"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "CNN表示在预训练后显著优于浅层表示（如IFV），即使后者采用了数据增强等改进。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00138",
+          "anc_00142",
+          "anc_00156",
+          "anc_00177"
+        ],
+        "risk_flags": [
+          "实验基于特定数据集（PASCAL VOC），泛化性需验证。"
+        ],
+        "claim_id": "claim_1",
+        "evidence": [
+          {
+            "evidence_id": "evidence_1_1",
+            "description": "在PASCAL VOC 2007上，CNN-S微调后达到82.42% mAP，显著优于浅层方法（如IFV最佳约72%）。",
+            "anchors": [
+              "anc_00156",
+              "anc_00177"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_1_2",
+            "description": "预训练CNN-based方法 consistently outperform the shallow encodings, even after the improvements discussed above, by a large ∼ 10% mAP margin.",
+            "anchors": [
+              "anc_00138",
+              "anc_00142"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "数据增强技术（如裁剪和翻转）对浅层和深度方法都能带来类似的性能提升。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00045",
+          "anc_00113",
+          "anc_00114",
+          "anc_00127",
+          "anc_00129"
+        ],
+        "risk_flags": [
+          "增强效果可能因数据集和任务而异。"
+        ],
+        "claim_id": "claim_2",
+        "evidence": [
+          {
+            "evidence_id": "evidence_2_1",
+            "description": "Data augmentation is a method applicable to shallow and deep representations, but that has been so far mostly applied to the latter.",
+            "anchors": [
+              "anc_00045"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_2_2",
+            "description": "实验显示数据增强对浅层和深度方法都能带来类似的性能提升。",
+            "anchors": [
+              "anc_00113",
+              "anc_00114",
+              "anc_00127",
+              "anc_00129"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "CNN输出层的维度可以显著降低（如从4096降至2048）而不会对性能产生不利影响。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00105",
+          "anc_00148",
+          "anc_00150"
+        ],
+        "risk_flags": [
+          "仅测试了CNN-M架构，其他架构可能不同。"
+        ],
+        "claim_id": "claim_3",
+        "evidence": [
+          {
+            "evidence_id": "evidence_3_1",
+            "description": "Our baseline networks (Table 1) have the same dimensionality of the last hidden layer (full7): 4096. This design choice is in accordance with the state-of-the-art architectures.",
+            "anchors": [
+              "anc_00105"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_3_2",
+            "description": "We further trained three modifications of the CNN-M network, with lower dimensional full7 layers of: 2048, 1024, and 128 dimensions respectively.",
+            "anchors": [
+              "anc_00148"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_3_3",
+            "description": "发现从4096降至2048对性能影响很小，且特征更紧凑。",
+            "anchors": [
+              "anc_00150"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "微调预训练CNN可以进一步提升在目标数据集上的性能。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00035",
+          "anc_00036",
+          "anc_00037",
+          "anc_00156",
+          "anc_00167"
+        ],
+        "risk_flags": [
+          "微调效果依赖于目标数据集大小和领域差异。"
+        ],
+        "claim_id": "claim_4",
+        "evidence": [
+          {
+            "evidence_id": "evidence_4_1",
+            "description": "In Scenario 2 features are trained on one (large) dataset and applied to another (usually smaller). However, it was demonstrated that fine-tuning a pre-trained CNN on the target data can significantly improve the performance.",
+            "anchors": [
+              "anc_00035",
+              "anc_00036",
+              "anc_00037"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_4_2",
+            "description": "We fine-tuned our CNN-S architecture on VOC-2007 using the ranking hinge loss, and achieved a significant improvement: 2.7% ([γ] vs. [n]).",
+            "anchors": [
+              "anc_00156"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_4_3",
+            "description": "Fine-tuning on Caltech-101 also yields a small improvement, but no gain is observed over Caltech-256.",
+            "anchors": [
+              "anc_00167"
+            ],
+            "strength": "medium"
+          }
+        ]
+      },
+      {
+        "claim": "CNN特征的计算速度比IFV快约50倍，且更紧凑。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00178",
+          "anc_00180",
+          "anc_00181",
+          "anc_00182"
+        ],
+        "risk_flags": [
+          "速度比较基于特定硬件和实现，实际部署可能不同。"
+        ],
+        "claim_id": "claim_5",
+        "evidence": [
+          {
+            "evidence_id": "evidence_5_1",
+            "description": "One of our best-performing CNN representations CNN-M-2048 [x] is ∼ 42× more compact than the best performing IFV [i] (84K vs. 2K).",
+            "anchors": [
+              "anc_00180",
+              "anc_00181"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_5_2",
+            "description": "CNN-M features are also ∼ 50× faster to compute (∼ 120s vs. ∼ 2.4s per image with augmentation enabled, over a single CPU core).",
+            "anchors": [
+              "anc_00178",
+              "anc_00182"
+            ],
+            "strength": "strong"
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "IFV": "Improved Fisher Vector，一种基于Fisher核的图像编码方法，通过GMM量化局部描述符生成高维表示。",
+    "CNN": "Convolutional Neural Network，卷积神经网络，一种深度学习架构，通过卷积层提取层次特征。",
+    "数据增强": "通过裁剪、翻转等变换生成额外训练样本的技术，用于提升模型泛化能力。",
+    "微调": "在预训练模型基础上，使用目标数据集进一步训练以适应特定任务。",
+    "SVM": "Support Vector Machine，支持向量机，一种线性分类器，常用于图像分类。",
+    "mAP": "mean Average Precision，平均精度均值，用于评估多类分类性能的指标。",
+    "GMM": "Gaussian Mixture Model，高斯混合模型，用于概率密度估计和聚类。",
+    "ℓ2归一化": "将向量缩放至单位ℓ2范数，常用于特征预处理以稳定训练。",
+    "铰链损失": "SVM中使用的损失函数，用于最大化分类间隔。",
+    "维度降低": "减少特征维度的技术，如通过PCA或调整网络层大小。",
+    "terms": []
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        "PASCAL VOC 2007/2012",
+        "ILSVRC-2012",
+        "Caltech-101",
+        "Caltech-256"
+      ],
+      "required_models": [
+        "CNN-F、CNN-M、CNN-S架构（基于Caffe框架）",
+        "IFV实现（需GMM和SIFT描述符）"
+      ],
+      "compute": "需要GPU进行CNN训练和推理，具体资源未详细说明。",
+      "code_available": "是，作者提供了源代码和模型以复现实验。",
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 下载数据集（PASCAL VOC、ILSVRC-2012等）。",
+          "anchors": [
+            "anc_00054"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 实现或获取IFV编码（使用SIFT描述符和GMM）。",
+          "anchors": [
+            "anc_00025",
+            "anc_00026",
+            "anc_00027",
+            "anc_00028"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 实现CNN架构（CNN-F、CNN-M、CNN-S）并使用ILSVRC-2012预训练。",
+          "anchors": [
+            "anc_00029",
+            "anc_00030",
+            "anc_00031",
+            "anc_00032",
+            "anc_00034",
+            "anc_00072"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "4. 应用数据增强策略（裁剪、翻转等）。",
+          "anchors": [
+            "anc_00045",
+            "anc_00046",
+            "anc_00113",
+            "anc_00114",
+            "anc_00115",
+            "anc_00117",
+            "anc_00118"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "5. 训练SVM分类器（使用ℓ2归一化特征）。",
+          "anchors": [
+            "anc_00049",
+            "anc_00050",
+            "anc_00051",
+            "anc_00072"
+          ]
+        },
+        {
+          "step": "step_6",
+          "description": "6. 在目标数据集上微调CNN（可选）。",
+          "anchors": [
+            "anc_00035",
+            "anc_00036",
+            "anc_00037",
+            "anc_00038",
+            "anc_00039",
+            "anc_00040",
+            "anc_00084",
+            "anc_00086",
+            "anc_00099",
+            "anc_00100",
+            "anc_00101"
+          ]
+        },
+        {
+          "step": "step_7",
+          "description": "7. 评估性能（mAP）并比较不同方法。",
+          "anchors": [
+            "anc_00054",
+            "anc_00110",
+            "anc_00156",
+            "anc_00160",
+            "anc_00163",
+            "anc_00177"
+          ]
+        }
+      ],
+      "missing_details": [],
+      "risk_points": []
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-03T22:02:09+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_cv_139_return_of_the_devil_in_the_details_delving_deep__2014",
+    "title": "Return of the Devil in the Details: Delving Deep into Convolutional Nets",
+    "authors": [
+      "Ken Chatfield",
+      "K. Simonyan",
+      "A. Vedaldi",
+      "Andrew Zisserman"
+    ],
+    "venue": "British Machine Vision Conference",
+    "year": 2014,
+    "arxiv_id": "1405.3531",
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-03T22:00:50+00:00",
+    "paper_type": "Computer Vision / Object Detection / Computer Vision / CNN / Computer Vision / Top-cited Computer Vision paper",
+    "citation_count": 3487,
+    "influential_citation_count": 462,
+    "semantic_scholar_id": "14d9be7962a4ec5a6e55755f4c7588ea00793652",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/14d9be7962a4ec5a6e55755f4c7588ea00793652",
+    "importance_rank": 139,
+    "selection_source": "semantic_scholar_top_cited_cv_open_pdf_2026_05_03",
+    "open_access_pdf_url": "http://www.bmva.org/bmvc/2014/files/abstract054.pdf",
+    "fields_of_study": [
+      "Computer Science"
+    ],
+    "publication_types": [
+      "JournalArticle",
+      "Conference"
+    ],
+    "abstract": "The latest generation of Convolutional Neural Networks (CNN) have achieved impressive results in challenging benchmarks on image recognition and object detection, significantly raising the interest of the community in these methods. Nevertheless, it is still unclear how different CNN methods compare with each other and with previous state-of-the-art shallow representations such as the Bag-of-Visual-Words and the Improved Fisher Vector. This paper conducts a rigorous evaluation of these new techniques, exploring different deep architectures and comparing them on a common ground, identifying and disclosing important implementation details. We identify several useful properties of CNN-based representations, including the fact that the dimensionality of the CNN output layer can be reduced significantly without having an adverse effect on performance. We also identify aspects of deep and shallow methods that can be successfully shared. In particular, we show that the data augmentation techniques commonly applied to CNN-based methods can also be applied to shallow methods, and result in an analogous performance boost. Source code and models to reproduce the experiments in the paper is made publicly available."
+  },
+  "anchors": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "1 Return of the Devil in the Details: Delving Deep into Convolutional Nets Ken Chatﬁeld, Karen Simonyan, Andrea Vedaldi, and Andrew Zisserman Visual Geometry Group, Department of Engineering Science, University of Oxford {ken,karen,vedaldi,az}@robots.ox.ac.uk Abstract—The latest generation of Convolutional Neural Networks (CNN) have achieved impressive results in chal- lenging benchmarks on image recognition and object detection, signiﬁcantly raising the interest of the community in these methods. Nevertheless, it is still unclear how different CNN methods compare with each other and with previous state-of-the-art shallow representations such as the Bag-of-Visual-Words and the Improved Fisher Vector. This paper conducts a rigorous evaluation of these new techniques, exploring different deep architectures and comparing them on a common ground, identifying and disclosing important implementation details. We identify several useful properties of CNN-based representations, including the f...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "CNN-based methods can also be applied to shallow methods, and result in an analogous performance boost. Source",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "code and models to reproduce the experiments in the paper is made publicly available. !",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "1 I NTRODUCTION",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "P ERHAPS the single most important design choice in current state-of-the-art image classiﬁ- cation and object recognition systems is the choice of visual features, or image representation. In fact, most of the quantitative improvements to image understanding obtained in the past dozen years can be ascribed to the introduction of improved repre- sentations, from the Bag-of-Visual-Words (BoVW) [1], [2] to the (Improved) Fisher Vector (IFV) [3]. A common characteristic of these methods is that",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "they are largely handcrafted. They are also relatively",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "simple, comprising dense sampling of local image patches, describing them by means of visual de- scriptors such as SIFT, encoding them into a high- dimensional representation, and then pooling over the image. Recently, these handcrafted approaches have been substantially outperformed by the in- troduction of the latest generation of Convolutional Neural Networks (CNNs) [4] to the computer vision ﬁeld. These networks have a substantially more sophisticated structure than standard representa- tions, comprising several layers of non-linear fea- ture extractors, and are therefore said to be deep (in contrast, classical representation will be referred to as shallow). Furthermore, while their structure",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "is handcrafted, they contain a very large number",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "of parameters learnt from data. When applied to standard image classiﬁcation and object detection benchmark datasets such as ImageNet ILSVRC [5] and PASCAL VOC [6] such networks have demon- strated excellent performance [7], [8], [9], [10], [11], signiﬁcantly better than standard image encod- ings [12]. Despite these impressive results, it remains un- clear how different deep architectures compare to each other and to shallow computer vision meth- ods such as IFV . Most papers did not test these representations extensively on a common ground, so a systematic evaluation of the effect of differ- ent design and implementation choices remains",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "largely missing. As noted in our previous work [12],",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "which compared the performance of various shal- low visual encodings, the performance of computer vision systems depends signiﬁcantly on implementation details. For example, state-of-the-art methods such as [13] not only involve the use of a CNN, but also include other improvements such as the use",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "of very large scale datasets, GPU computation, and",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "data augmentation (also known as data jittering or virtual sampling). These improvements could also transfer to shallow representations such as the IFV , potentially explaining a part of the performance arXiv:1405.3531v4 [cs.CV] 5 Nov 2014",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "2 gap [14]. In this study we analyse and empirically clarify",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "these issues, conducting a large set of rigorous",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "experiments (Sect. 4), in many ways picking up the story where it last ended in [12] with the comparison of shallow encoders. We focus on meth- ods to construct image representations , i.e. encod- ing functions φ mapping an image I to a vector φ(I)∈ Rd suitable for analysis with a linear classi- ﬁer, such as an SVM. We consider three scenarios (Sect. 2, Sect. 3): shallow image representations, deep representations pre-trained on outside data, and deep representation pre-trained and then ﬁne-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "tuned on the target dataset. As part of our tests,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "we explore generally-applicable best practices that are nevertheless more often found in combina- tion with CNNs [13] or, alternatively, with shallow encoders [12], porting them with mutual beneﬁt. These are (Sect. 2): the use of colour information , feature normalisation, and, most importantly, the use of substantial data augmentation . We also de-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "termine scenario-speciﬁc best-practices, improving",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "the ones in [12], [15] and others, including dimen- sionality reduction for deep features. Finally, we achieve performance competitive with the state of the art [16], [17] on PASCAL VOC classiﬁcation using less additional training data and signiﬁcantly simpler techniques. As in [12], the source code and models to reproduce all experiments in this paper is available on the project website 1.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "2 S CENARIOS",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00022",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "This section introduces the three types of image representation φ(I) considered in this paper, de- scribing them within the context of three different scenarios. Having outlined details speciﬁc to each,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "general methodologies which apply to all three",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00024",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "scenarios are reviewed, such as data augmentation and feature normalisation, together with the linear classiﬁer (trained with a standard hinge loss). We also specify here the benchmark datasets used in the evaluation.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "2.1 Scenario 1: Shallow representation (IFV)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "Our reference shallow image representation is the IFV [3]. Our choice is motivated by the fact that IFV usually outperforms related encoding methods such as BoVW, LLC [12], and VLAD [18]. Given an image I, the IFV φFV(I) is obtained by extracting 1. http://www.robots.ox.ac.uk/∼vgg/research/deep eval/ a dense collection of patches and corresponding local descriptors xi∈ RD (e.g. SIFT) from the image at multiple scales. Each descriptor xi is then soft- quantized using a Gaussian Mixture Model with K components. First and second order differences between each descriptor xi and its Gaussian cluster mean µk are accumulated in corresponding blocks uk, vk in the vector φFV(I)∈ R2KD, appropriately weighed by the Gaussian soft-assignments and covariance, leading to a 2KD-dimensional image",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00027",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "representation φFV(I) = [ u⊤",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00028",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "1, v⊤ 1,... u⊤ K, v⊤ K]⊤. The improved version of the Fisher vector involves post- processing φFV by computing the signed square- root of its scalar components and normalising the result to a unit ℓ2 norm. The details of this con- struction can be found in [3]; here we follow the notation of [12].",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "2.2 Scenario 2: Deep representation (CNN) with",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "pre-training Our deep representations are inspired by the suc- cess of the CNN of Krizhevsky et al. [13]. As shown in [7], [19], the vector of activities φCNN(I) of the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00031",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "penultimate layer of a deep CNN, learnt on a large",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "dataset such as ImageNet [5], can be used as a pow- erful image descriptor applicable to other datasets. Numerous CNN architectures that improve the previous state of the art obtained using shallow representations have been proposed, but choosing the best one remains an open question. Many are in- spired by [13]: DeCAF [7], [11], Caffe [20], Oquab et",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00033",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "al. [8]. Others use larger networks with a smaller",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "stride of the ﬁrst convolutional layer: Zeiler and Fergus [19] and OverFeat [10], [9]. Other differences include the CNN pre-training protocols. Here we adopt a single learning framework and experiment with architectures of different complexity exploring their performance-speed trade-off.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00035",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "2.3 Scenario 3: Deep representation (CNN) with",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "pre-training and ﬁne-tuning",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00037",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "In Scenario 2 features are trained on one (large)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00038",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "dataset and applied to another (usually smaller). However, it was demonstrated [11] that ﬁne-tuning",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00039",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "a pre-trained CNN on the target data can sig-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "niﬁcantly improve the performance. We consider this scenario separately from that of Scenario 2, as the image features become dataset-speciﬁc after the ﬁne-tuning.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00041",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "3",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00042",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "2.4 Commonalities",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00043",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "We now turn to what is in common across the scenarios.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "2.4.1 Data augmentation",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00045",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "Data augmentation is a method applicable to shal- low and deep representations, but that has been so far mostly applied to the latter [13], [19]. By augmentation we mean perturbing an image I by transformations that leave the underlying class un- changed ( e.g. cropping and ﬂipping) in order to generate additional examples of the class. Augmen- tation can be applied at training time, at test time, or both. The augmented samples can either be taken as-is or combined to form a single feature, e.g. using",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00046",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "sum/max-pooling or stacking.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00047",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "2.4.2 Linear predictors",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00048",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "All the representations φ(I) in the three scenarios are used to construct linear predictors ⟨w,φ (I)⟩ for each class to be recognized. These predictors are learnt using Support Vector Machines (SVM) by",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "ﬁtting w to the available training data by mini-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00050",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "mizing an objective function balancing a quadratic regularizer and the hinge-loss. The parameter C in the SVM, trading-off regularizer and loss, is",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "determined using an held-off validation subset of",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00052",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "the data. Here we use the same learning framework with all representations. It is common experience that linear classiﬁers are particularly sensitive to the normalisation of the data and that, in particular, SVMs tend to beneﬁt from ℓ2 normalisation [3] (an interpretation is that after normalisation the inner product corresponds to the cosine similarly).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00053",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "2.5 Benchmark data",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "As reference benchmark we use the PASCAL VOC [6] data as already done in [12]. The VOC- 2007 edition contains about 10,000 images split into train, validation, and test sets, and labelled with twenty object classes. A one-vs-rest SVM classiﬁer for each class is learnt and evaluated independently and the performance is measured as mean Average Precision (mAP) across all classes. The VOC-2012 edition contains roughly twice as many images and does not include test labels; instead, evaluation uses the ofﬁcial PASCAL Evaluation Server. To train deep representations we use the ILSVRC-2012 chal- lenge dataset. This contains 1,000 object categories from ImageNet [5] with roughly 1.2M training im- ages, 50,000 validation images, and 100,000 test images. Performance is evaluated using the top-5 classiﬁcation error. Finally, we also evaluate over the Caltech-101 and Caltech-256 image classiﬁca- tion benchmarks [21], [22]. For Caltech-101, we followed the protocol of [12], and considered three ra...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "3 D ETAILS",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "This section gives the implementation details of the methods introduced in Sect. 2.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00057",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "3.1 Improved Fisher Vector details",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00058",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "Our IFV representation uses a slightly improved setting compared to the best result of [12]. Computation starts by upscaling the imageI by a factor of 2 [23], followed by SIFT features extraction with a stride of 3 pixels at 7 different scales with √ 2 scale increments. These features are square-rooted as suggested by [24], and decorrelated and reduced in dimension from 128D to 80D using PCA. A",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00059",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "GMM withK = 256 components is learnt from fea-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00060",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "tures sampled from the training images. Hence the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00061",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "Fisher VectorφFV(I) has dimension 2KD = 40, 960.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00062",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "Before use in classiﬁcation, the vector is signed- square-rooted and l2-normalised (square rooting correspond to the Hellinger’s kernel map [25]). As in [12], square-rooting is applied twice, once to the raw encodings, and once again after sum pooling and normalisation. In order to capture weak geo- metrical information, the IFV representation is used in a spatial pyramid [26]. As in [12], the image is divided into 1×1, 3×1, and 2×2 spatial subdivisions and corresponding IFVs are computed and stacked",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "with an overall dimension of 8× 2KD = 327, 680",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00064",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "elements. In addition to this standard formulation, we ex- periment with a few modiﬁcations. The ﬁrst one is the use of intra-normalisation of the descriptor blocks, an idea recently proposed for the VLAD descriptor [27]. In this case, the ℓ2 normalisation is applied to the individual sub-blocks (uk, vk) of the vector φFV(I), which helps to alleviate the local feature burstiness [28]. In the case of the improved intra-normalised features, it was found",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00065",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "4 that applying the square-rooting only once to the ﬁnal encoding produced the best results. The second modiﬁcation is the use of spatially- extended local descriptors [23] instead of a spatial pyramid. Here descriptors xi are appended with their image location (xi,y i) before quantization with the GMM. Formally, xi is extended, after PCA projection, with its normalised spatial coordinates: [x⊤ i ,x i/W− 0.5,y i/H− 0.5]⊤, where W×H are the dimensions of the image. Since the GMM quantizes both appearance and location, this allows for spatial information to be captured directly by the soft- quantization process. This method is signiﬁcantly more memory-efﬁcient than using a spatial pyra- mid. Speciﬁcally, the PCA-reduced SIFT features are spatially augmented by appending (x,y ) yield-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00066",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "ing D = 82 dimensional descriptors pooled in a",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "2KD = 41, 984 dimensional IFV .",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00068",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "The third modiﬁcation is the use of colour fea- tures in addition to SIFT descriptors. While colour information is used in CNNs [13] and by the orig- inal FV paper [3], it was not explored in our pre- vious comparison [12]. We do so here by adopting the same Local Colour Statistics (LCS) features as used by [3]. LCS is computed by dividing an input patch into a 4× 4 spatial grid (akin to SIFT), and computing the mean and variance of each of the Lab colour channels for each cell of the grid. The",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "LCS dimensionality is thus 4× 4× 2× 3 = 96 . This",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00070",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "is then encoded in a similar manner to SIFT.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00071",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "3.2 Convolutional neural networks details",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00072",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "The CNN-based features are based on three CNN architectures representative of the state of the art (shown in Table 1) each exploring a different accu- racy/speed trade-off. To ensure a fair comparison between them, these networks are trained using the same training protocol and the same implemen- tation, which we developed based on the open- source Caffe framework [20]. ℓ2-normalising the CNN features φCNN(I) before use in the SVM was found to be important for performance. Our Fast (CNN-F) architecture is similar to the one used by Krizhevsky et al . [13]. It comprises 8 learnable layers, 5 of which are convolutional, and the last 3 are fully-connected. The input image size is 224× 224. Fast processing is ensured by the 4 pixel stride in the ﬁrst convolutional layer. The main differences between our architecture and that of [13] are the reduced number of convolutional layers and the dense connectivity between convolu- tional layers ([13] used sparse connections to enable training on t...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00073",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "At the same time, conv2 uses larger stride (2 instead",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00074",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "of 1) to keep the computation time reasonable. The main difference between our net and that of [19] is we use less ﬁlters in the conv4 layer (512 vs. 1024). Our Slow (CNN-S) architecture is related to the ‘accurate’ network from the OverFeat package [10]. It also uses 7× 7 ﬁlters with stride 2 in conv1. Unlike CNN-M and [19], the stride in conv2 is",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00075",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "smaller (1 pixel), but the max-pooling window in",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00076",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "conv1 and conv5 is larger ( 3× 3) to compensate for",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00077",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "the increased spatial resolution. Compared to [10], we use 5 convolutional layers as in the previous architectures ([10] used 6), and less ﬁlters in conv5 (512 instead of 1024); we also incorporate an LRN layer after conv1 ([10] did not use contrast normal- isation).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00078",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "3.2.1 CNN training",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00079",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "In general, our CNN training procedure fol- lows that of [13], learning on ILSVRC-2012 us- ing gradient descent with momentum. The hyper- parameters are the same as used by [13]: momen- tum 0.9; weight decay 5· 10−4; initial learning rate 10−2, which is decreased by a factor of 10, when the validation error stop decreasing. The layers are initialised from a Gaussian distribution with a zero mean and variance equal to 10−2. We also employ similar data augmentation in the form of random crops, horizontal ﬂips, and RGB colour jittering. Test time crop sampling is discussed in Sect. 3.3; at training time, 224× 224 crops are sampled ran-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00080",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "domly, rather than deterministically. Thus, the only",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00081",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "notable difference to [13] is that the crops are taken",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00082",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "from the whole training image P× 256,P ≥ 256,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00083",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "rather than its 256× 256 centre. Training was per- formed on a single NVIDIA GTX Titan GPU and the training time varied from 5 days for CNN-F to 3 weeks for CNN-S.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00084",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "3.2.2 CNN ﬁne-tuning on the target dataset",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00085",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "In our experiments, we ﬁne-tuned CNN-S using",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00086",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "VOC-2007, VOC-2012, or Caltech-101 as the target",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00087",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "data. Fine-tuning was carried out using the same framework (and the same data augmentation), as we used for CNN training on ILSVRC. The last",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00088",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "5 Arch. conv1 conv2 conv3 conv4 conv5 full6 full7 full8 CNN-F 64x11x11 256x5x5 256x3x3 256x3x3 256x3x3 4096 4096 1000 st. 4, pad 0 st. 1, pad 2 st. 1, pad 1 st. 1, pad 1 st. 1, pad 1 drop- drop- soft-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00089",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "LRN, x2 pool LRN, x2 pool - - x2 pool out out max",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00090",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "CNN-M 96x7x7 256x5x5 512x3x3 512x3x3 512x3x3 4096 4096 1000 st. 2, pad 0 st. 2, pad 1 st. 1, pad 1 st. 1, pad 1 st. 1, pad 1 drop- drop- soft-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00091",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "LRN, x2 pool LRN, x2 pool - - x2 pool out out max",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00092",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "CNN-S 96x7x7 256x5x5 512x3x3 512x3x3 512x3x3 4096 4096 1000 st. 2, pad 0 st. 1, pad 1 st. 1, pad 1 st. 1, pad 1 st. 1, pad 1 drop- drop- soft-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00093",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "LRN, x3 pool x2 pool - - x3 pool out out max",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00094",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "TABLE 1",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00095",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "CNN architectures. Each architecture contains 5 convolutional layers (conv 1–5) and three fully-connected layers (full 1–3). The details of each of the convolutional layers are given in three sub-rows: the ﬁrst speciﬁes the number of convolution ﬁlters and their receptive ﬁeld size as “num x size x size”; the second indicates the convolution stride (“st.”) and spatial padding (“pad”); the third indicates if Local",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00096",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "Response Normalisation (LRN) [13] is applied, and the max-pooling downsampling factor. For full 1–3, we",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00097",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "specify their dimensionality, which is the same for all three architectures. Full6 and full7 are regularised",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00098",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "using dropout [13], while the last layer acts as a multi-way soft-max classiﬁer. The activation function for all",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00099",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "weight layers (except for full8) is the REctiﬁcation Linear Unit (RELU) [13]. fully-connected layer (conv8) has output dimen- sionality equal to the number of classes, which differs between datasets, so we initialised it from a Gaussian distribution (as used for CNN training above). Now we turn to dataset-speciﬁc ﬁne-tuning details. VOC-2007 and VOC-2012. Considering that PAS- CAL VOC is a multi-label dataset ( i.e. a single image might have multiple labels), we replaced the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00100",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "softmax regression loss with a more appropriate",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00101",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "loss function, for which we considered two options: one-vs-rest classiﬁcation hinge loss (the same loss as used in the SVM experiments) and ranking hinge loss. Both losses deﬁne constraints on the scores of positive (Ipos) and negative ( Ineg) images for each class: wcφ(Ipos) > 1−ξ,w cφ(Ineg) <−1 +ξ for the classiﬁcation loss, wcφ(Ipos) > wcφ(Ineg) + 1 − ξ for the ranking loss ( wc is the c-th row of the last fully-connected layer, which can be seen as a linear classiﬁer on deep features φ(I); ξ is a slack variable). Our ﬁne-tuned networks are denoted as “CNN S TUNE-CLS” (for the classiﬁcation loss) and “CNN S TUNE-RNK” (for the ranking loss). In the case of both VOC datasets, the training and validation subsets were combined to form a single training set. Given the smaller size of the training data when compared to ILSVRC-2012, we controlled for over-ﬁtting by using lower initial learning rates for the ﬁne-tuned hidden layers. The learning rate schedule for the last layer / hidden la...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00102",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "softmax regression loss. Other settings (including",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00103",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "the learning rate schedule) were the same as used for the VOC ﬁne-tuning experiments.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00104",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "3.2.3 Low-dimensional CNN feature training",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00105",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "Our baseline networks (Table 1) have the same dimensionality of the last hidden layer (full7): 4096. This design choice is in accordance with the state- of-the-art architectures [13], [19], [10], and leads to a 4096-D dimensional image representation, which is already rather compact compared to IFV . We further trained three modiﬁcations of the CNN-M network, with lower dimensional full7 layers of: 2048, 1024, and 128 dimensions respectively. The networks were learnt on ILSVRC-2012. To speed- up training, all layers aside from full7/full8 were set to those of the CNN-M net and a lower initial learning rate of 10−3 was used. The initial learning rate of full7/full8 was set to 10−2.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00106",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "3.3 Data augmentation details",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00107",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "We explore three data augmentation strategies. The ﬁrst strategy is to use no augmentation . In con- trast to IFV , however, CNNs require images to",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00108",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "6 be transformed to a ﬁxed size ( 224× 224) even when no augmentation is used. Hence the image is downsized so that the smallest dimension is equal to 224 pixels and a 224× 224 crop is extracted from the centre. 2 The second strategy is to use ﬂip augmentation , mirroring images about the y- axis producing two samples from each image. The third strategy, termedC+F augmentation, combines cropping and ﬂipping. For CNN-based representa- tions, the image is downsized so that the smallest dimension is equal to 256 pixels. Then 224× 224 crops are extracted from the four corners and the centre of the image. Note that the crops are sampled from the whole image, rather than its 256× 256 centre, as done by [13]. These crops are then ﬂipped about the y-axis, producing 10 perturbed samples per input image. In the case of the IFV encoding, the same crops are extracted, but at the original image resolution.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00109",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "4 A NALYSIS",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00110",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "This section describes the experimental results, comparing different features and data augmenta- tion schemes. The results are given in Table 2 for VOC-2007 and analysed next, starting from gener- ally applicable methods such as augmentation and then discussing the speciﬁcs of each scenario. We then move onto other datasets and the state of the art in Sect. 4.7.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00111",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "4.1 Data augmentation",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00112",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "We experiment with no data augmentation (de-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00113",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "noted Image Aug=– in Tab. 2), ﬂip augmenta-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00114",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "tion ( Image Aug=F ), and C+F augmentation ( Image",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00115",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "Aug=C). Augmented images are used as stand-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00116",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "alone samples ( f ), or by fusing the corresponding",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00117",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "descriptors using sum ( s) or max ( m) pooling or",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00118",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "stacking ( t). So for example Image Aug=(C) f s in",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00119",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "row [f] of Tab. 2 means that C+F augmentation is used to generate additional samples in training ( f ), and is combined with sum-pooling in testing ( s). Augmentation consistently improves perfor- mance by ∼ 3% for both IFV ( e.g. [d] vs. [f]) and CNN (e.g. [o] vs. [p]). Using additional samples for training and sum-pooling for testing works best",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00120",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "([p]) followed by sum-pooling [r], max pooling [q],",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00121",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "and stacking [s]. In terms of the choice of transfor-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00122",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "mations, ﬂipping improves only marginally ([o] vs.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00123",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "2. Extracting a 224 × 224 centre crop from a 256 × 256 image [13] resulted in worse performance. [u]), but using the more expensive C+F sampling improves, as seen, by about 2∼ 3% ([o] vs. [p]). We experimented with sampling more transformations, taking a higher density of crops from the centre of the image, but observed no beneﬁt.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00124",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "4.2 Colour",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00125",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "Colour information can be added and subtracted in CNN and IFV . In IFV replacing SIFT with the colour descriptors of [3] (denoted COL in Method) yields signiﬁcantly worse performance ([j] vs. [h]). How- ever, when SIFT and colour descriptors are com- bined by stacking the corresponding IFVs ( COL+) there is a small but signiﬁcant improvement of around∼ 1% in the non-augmented case ( e.g. [h] vs. [k]) but little impact in the augmented case (e.g. [i] vs. [l]). For CNNs, retraining the network after converting all the input images to grayscale (denoted GS in Methods) has a more signiﬁcant impact, resulting in a performance drop of ∼ 3% ([w] vs. [p], [v] vs. [o]).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00126",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "4.3 Scenario 1: Shallow representation (IFV)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00127",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "The baseline IFV encoding using a spatial pyramid [a] performs slightly better than the results [I] taken",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00128",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "from Chatﬁeld et al. [12], primarily due to a larger",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00129",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "number of spatial scales being used during SIFT feature extraction, and the resultant SIFT features being square-rooted. Intra-normalisation, denoted as IN in the Method column of the table, improves the performance by ∼ 1% (e.g. [c] vs. [d]). More inter- estingly, switching from spatial pooling (denoted spm in the SPool column) to feature spatial aug-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00130",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "mentation (SPool=(x,y)) has either little effect on the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00131",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "performance or results in a marginal increase ([a]vs.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00132",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "[c], [b] vs. [d]), whilst resulting in a representation which is over 10 × smaller. We also experimented with augmenting with scale in addition to position as in [23] but observed no improvement. Finally, we investigate pushing the parameters of the repre-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00133",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "sentation setting K = 512 (rows [h]-[l]). Increasing",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00134",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "the number of GMM centres in the model from",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00135",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "K = 256 to 512 results in a further performance",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00136",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "increase (e.g. [h] vs. [d]), but at the expense of higher-dimensional codes (125K dimensional).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00137",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "4.4 Scenario 2: Deep representation (CNN) with",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00138",
+      "page": 6,
+      "section": null,
+      "bbox": null,
+      "text_span": "pre-training CNN-based methods consistently outperform the shallow encodings, even after the improvements",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00139",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "7 Method SPool Image Aug. Dim mAP (I) FK BL spm – 327K 61.69 79.0 67.4 51.9 70.9 30.8 72.2 (II) DECAF – (C) t t 327K 73.41 87.4 79.3 84.1 78.4 42.3 73.7 (a) FK spm – 327K 63.66 83.4 68.8 59.6 74.1 35.7 71.2 (b) FK IN spm – 327K 64.18 82.1 69.7 59.7 75.2 35.7 71.3 (c) FK (x,y) – 42K 63.51 83.2 69.4 60.6 73.9 36.3 68.6 (d) FK IN (x,y) – 42K 64.36 83.1 70.4 62.4 75.2 37.1 69.1 (e) FK IN (x,y) (F) f - 42K 64.35 83.1 70.5 62.3 75.4 37.1 69.1 (f) FK IN (x,y) (C) f s 42K 67.17 85.5 71.6 64.6 77.2 39.0 70.8 (g) FK IN (x,y) (C) s s 42K 66.68 84.9 70.1 64.7 76.3 39.2 69.8 (h) FK IN 512 (x,y) – 84K 65.36 84.1 70.4 65.0 76.7 37.2 71.3 (i) FK IN 512 (x,y) (C) f s 84K 68.02 85.9 71.8 67.1 77.1 38.8 72.3 (j) FK IN COL 512 – – 82K 52.18 69.5 52.1 47.5 64.0 24.6 49.8 (k) FK IN 512 COL+ (x,y) – 166K 66.37 82.9 70.1 67.0 77.0 36.1 70.0 (l) FK IN 512 COL+ (x,y) (C) f s 166K 67.93 85.1 70.5 67.5 77.4 35.7 71.2 (m) CNN F – (C) f s 4K 77.38 88.7 83.9 87.0 84.7 46.9 77.5 (n) CNN S – (C) f s 4K 79.74 90.7 85....",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00140",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "TABLE 2",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00141",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "VOC 2007 results (continued overleaf). See Sect. 4 for details.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00142",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "discussed above, by a large ∼ 10% mAP margin",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00143",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "([i] vs. [p]). Our small architecture CNN-F, which is similar to DeCAF [7], performs signiﬁcantly better than the latter ([II] vs. [s]), validating our imple- mentation. Both medium CNN-M [m] and slow CNN-S [p] outperform the fast CNN-F [m] by a",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00144",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "signiﬁcant 2 ∼ 3% margin. Since the accuracy",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00145",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "of CNN-S and CNN-M is nearly the same, we",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00146",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "focus on the latter as it is simpler and marginally",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00147",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "(∼ 25%) faster. Remarkably, these good networks work very well even with no augmentation [o]. Another advantage of CNNs compared to IFV is the small dimensionality of the output features, although IFV can be compressed to an extent. We explored retraining the CNNs such that the ﬁnal layer was of a lower dimensionality, and reducing",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00148",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "from 4096 to 2048 actually resulted in a marginal",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00149",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "performance boost ([x] vs. [p]). What is surprising is that we can reduce the output dimensionality further to 1024D [y] and even 128D [z] with only a drop of ∼ 2% for codes that are 32× smaller",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00150",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "(∼ 650× smaller than our best performing IFV [i]).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00151",
+      "page": 7,
+      "section": null,
+      "bbox": null,
+      "text_span": "Note, ℓ2-normalising the features accounted for up to∼ 5% of their performance over VOC 2007; it should be applied before input to the SVM and after pooling the augmented descriptors (where",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00152",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "8 (I) 79.9 61.4 56.0 49.6 58.4 44.8 78.8 70.8 85.0 31.7 51.0 56.4 80.2 57.5 (II) 83.7 83.7 54.3 61.9 70.2 79.5 85.3 77.2 90.9 51.1 73.8 57.0 86.4 68.0 (a) 80.7 64.4 53.8 53.8 60.2 47.8 79.9 68.9 86.1 37.3 51.1 55.8 83.7 56.9 (b) 80.6 64.8 53.9 54.9 60.7 50.5 80.4 69.5 86.2 38.3 54.4 56.3 82.7 56.7 (c) 81.1 64.2 51.1 53.4 61.9 50.0 80.0 67.5 85.3 35.7 51.9 53.8 83.5 58.9 (d) 80.5 66.9 50.9 53.9 62.1 51.5 80.5 68.5 85.9 37.2 55.2 54.3 83.3 59.2 (e) 80.5 66.8 51.0 54.1 62.2 51.5 80.4 68.2 86.0 37.3 55.1 54.2 83.3 59.2 (f) 82.4 71.6 52.8 62.4 63.4 57.1 81.6 70.9 86.9 41.2 61.2 56.9 85.2 61.5 (g) 81.9 71.0 52.8 61.6 62.2 56.8 81.8 70.0 86.5 41.5 61.0 56.5 84.3 60.9 (h) 81.1 67.9 52.6 55.4 61.4 51.2 80.5 69.1 86.4 41.2 56.0 56.2 83.7 59.9 (i) 82.5 73.2 54.7 62.7 64.5 56.6 82.2 71.3 87.5 43.0 62.0 59.3 85.7 62.4 (j) 66.1 46.6 42.5 35.8 41.1 45.5 75.4 58.3 83.9 39.8 47.3 35.6 69.2 49.0 (k) 80.0 65.9 52.8 56.1 61.0 56.9 81.4 69.6 88.4 49.0 59.2 56.4 84.7 62.8 (l) 81.6 70.8 52.9 59.6 63.1 59.9...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00153",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "TABLE 2",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00154",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "VOC 2007 results (continued from previous page) applicable).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00155",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "4.5 Scenario 3: Deep representation (CNN) with",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00156",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "pre-training and ﬁne-tuning We ﬁne-tuned our CNN-S architecture on VOC- 2007 using the ranking hinge loss, and achieved a signiﬁcant improvement: 2.7% ([γ] vs. [n]). This demonstrates that in spite of the small amount of VOC training data (5,011 images), ﬁne-tuning is able to adjust the learnt deep representation to better suit the dataset in question.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00157",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "4.6 Combinations",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00158",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "For the CNN-M 2048 representation [x], stacking deep and shallow representations to form a higher- dimensional descriptor makes little difference ([x] vs. [β]). For the weaker CNN-F it results in a small boost of∼ 0.8% ([m] vs. [ α]).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00159",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "4.7 Comparison with the state of the art",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00160",
+      "page": 8,
+      "section": null,
+      "bbox": null,
+      "text_span": "In Table 3 we report our results on ILSVRC-2012, VOC-2007, VOC-2012, Caltech-101, and Caltech-256 datasets, and compare them to the state of the art. First, we note that the ILSVRC error rates of our CNN-F, CNN-M, and CNN-S networks are better",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00161",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "9 ILSVRC-2012 VOC-2007 VOC-2012 Caltech-101 Caltech-256 (top-5 error) (mAP) (mAP) (accuracy) (accuracy) (a) FK IN 512 - 68.0 – – – (b) CNN F 16.7 77.4 79.9 – – (c) CNN M 13.7 79.9 82.5 87.15 ± 0.80 77.03 ± 0.46 (d) CNN M 2048 13.5 80.1 82.4 86.64 ± 0.53 76.88 ± 0.35 (e) CNN S 13.1 79.7 82.9 87.76 ± 0.66 77.61± 0.12 (f) CNN S TUNE-CLS 13.1 - 83.0 88.35± 0.56 77.33± 0.56 (g) CNN S TUNE-RNK 13.1 82.4 83.2 – – (h) Zeiler & Fergus [19] 16.1 - 79.0 86.5 ± 0.5 74.2 ± 0.3 (i) Razavian et al. [9], [10] 14.7 77.2 – – – (j) Oquab et al. [8] 18 77.7 78.7 (82.8 *) – – (k) Oquab et al. [16] - - 86.3* – – (l) Wei et al. [17] - 81.5 ( 85.2*) 81.7 ( 90.3*) – – (m) He et al. [29] 13.6 80.1 - 91.4± 0.7 –",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00162",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "TABLE 3",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00163",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "Comparison with the state of the art on ILSVRC2012, VOC2007, VOC2012, Caltech-101, and Caltech-256. Results marked with * were achieved using models pre-trained on the extended ILSVRC datasets (1512 classes in [8], [16], 2000 classes in [17]). All other results were achieved using CNNs pre-trained on ILSVRC-2012 (1000 classes). than those reported by [13], [19], and [10] for the related conﬁgurations. This validates our imple- mentation, and the difference is likely to be due to the sampling of image crops from the uncropped image plane (instead of the centre). When using our CNN features on other datasets, the relative performance generally follows the same pattern as on ILSVRC, where the nets are trained – the CNN-F architecture exhibits the worst performance,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00164",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "with CNN-M and CNN-S performing considerably",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00165",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "better. Further ﬁne-tuning of CNN-S on the VOC datasets turns out to be beneﬁcial; on VOC-2012,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00166",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "using the ranking loss is marginally better than",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00167",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "the classiﬁcation loss ([g] vs. [f]), which can be explained by the ranking-based VOC evaluation criterion. Fine-tuning on Caltech-101 also yields a small improvement, but no gain is observed over Caltech-256. Our CNN-S net is competitive with recent CNN- based approaches [19], [9], [8], [16], [17], [29] and on a number of datasets (VOC-2007, VOC-2012, Caltech-101, Caltech-256) and sets the state of the art on VOC-2007 and VOC-2012 across methods pre-trained solely on ILSVRC-2012 dataset. While the CNN-based methods of [16], [17] achieve better performance on VOC (86.3% and 90.3% respec- tively), they were trained using extended ILSVRC datasets, enriched with additional categories se- mantically close to the ones in VOC. Addition- ally, [17] used a signiﬁcantly more complex clas- siﬁcation pipeline, driven by bounding box pro- posals [30], pre-trained on ILSVRC-2013 detection dataset. Their best reported result on VOC-2012 (90.3%) was achieved by the late fusion with a complex hand-cr...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00168",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "4.8 Performance Evolution on VOC-2007",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00169",
+      "page": 9,
+      "section": null,
+      "bbox": null,
+      "text_span": "A comparative plot of the evolution in the per- formance of the methods evaluated in this paper, along with a selection from our earlier review of shallow methods [12] is presented in Fig. 1. Clas- siﬁcation accuracy over PASCAL VOC was 54.48% mAP for the BoVW model in 2008, 61.7% for the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00170",
+      "page": 10,
+      "section": null,
+      "bbox": null,
+      "text_span": "10 BOW 32K – FK-BL 327K – [I] FK 327K – [a] FK-IN 84K f s [i] DeCAF 4K t t [II] CNN-F 4K f s [m] CNN-M 2K 2K f s [y] CNN-S 4K (TN) f s [γ]",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00171",
+      "page": 10,
+      "section": null,
+      "bbox": null,
+      "text_span": "54 56 58 60 62 64 66 68 70 72 74 76 78 80 82 mAP 68.02 54.48 61.69 63.66 73.41 77.15 80.13 2008 2010 2013 2014... 82.42",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00172",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Method",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00173",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Dim. Aug. Ref.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00174",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Fig. 1. Evolution of Performance on PASCAL VOC-2007 over the recent years.Please refer to Table 2",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00175",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "for details and references. IFV in 2010 [12], and 73.41% for DeCAF [7] and similar [8], [9] CNN-based methods introduced in",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00176",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "late 2013. Our best performing CNN-based method",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00177",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "(CNN-S with ﬁne-tuning) achieves 82.42%, compa- rable to the most recent state-of-the-art.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00178",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "4.9 Timings and dimensionality",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00179",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "One of our best-performing CNN representations",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00180",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "CNN-M-2048 [x] is ∼ 42× more compact than the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00181",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "best performing IFV [i] (84K vs. 2K) and CNN-M",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00182",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "features are also ∼ 50× faster to compute (∼ 120s vs.∼ 2.4s per image with augmentation enabled, over a single CPU core). Non-augmented CNN-M features [o] take around 0.3s per image, compared to∼ 0.4s for CNN-S features and∼ 0.13s for CNN- F features.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00183",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "5 C ONCLUSION",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00184",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "In this paper we presented a rigorous empiri- cal evaluation of CNN-based methods for image classiﬁcation, along with a comparison with more traditional shallow feature encoding methods. We have demonstrated that the performance of shal- low representations can be signiﬁcantly improved by adopting data augmentation, typically used in deep learning. In spite of this improvement, deep architectures still outperform the shallow methods",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00185",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "by a large margin. We have shown that the per-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00186",
+      "page": 10,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "formance of deep representations on the ILSVRC dataset is a good indicator of their performance on other datasets, and that ﬁne-tuning can further improve on already very strong results achieved using the combination of deep representations and a linear SVM. Source code and CNN models to reproduce the experiments presented in the paper are available on the project website [32] in the hope that it would provide common ground for future comparisons, and good baselines for image representation research. ACKNOWLEDGEMENTS This work was supported by the EPSRC and ERC grant VisRec no. 228180. We gratefully acknowl- edge the support of NVIDIA Corporation with the donation of the GPUs used for this research.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00187",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "REFERENCES",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00188",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[1] G. Csurka, C. Bray, C. Dance, and L. Fan, “Visual catego- rization with bags of keypoints,” in Workshop on Statistical Learning in Computer Vision, ECCV , 2004, pp. 1–22.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00189",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "11 [2] J. Sivic and A. Zisserman, “Video Google: A text retrieval approach to object matching in videos,” in Proc. ICCV , vol. 2, 2003, pp. 1470–1477. [3] F. Perronnin, J. S ´anchez, and T. Mensink, “Improving the",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00190",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Fisher kernel for large-scale image classiﬁcation,” in Proc.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00191",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "ECCV, 2010. [4] Y. LeCun, B. Boser, J. S. Denker, D. Henderson, R. E. Howard, W. Hubbard, and L. D. Jackel, “Backpropaga- tion applied to handwritten zip code recognition,” Neural Computation, vol. 1, no. 4, pp. 541–551, 1989. [5] J. Deng, W. Dong, R. Socher, L.-J. Li, K. Li, and L. Fei-Fei,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00192",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "“Imagenet: A large-scale hierarchical image database,” in",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00193",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Proc. CVPR, 2009. [6] M. Everingham, L. Van Gool, C. K. I. Williams, J. Winn, and A. Zisserman, “The PASCAL Visual Object Classes (VOC) challenge,” IJCV, vol. 88, no. 2, pp. 303–338, 2010. [7] J. Donahue, Y. Jia, O. Vinyals, J. Hoffman, N. Zhang, E. Tzeng, and T. Darrell, “Decaf: A deep convolutional activation feature for generic visual recognition,” CoRR, vol. abs/1310.1531, 2013. [8] M. Oquab, L. Bottou, I. Laptev, and J. Sivic, “Learning and Transferring Mid-Level Image Representations using Convolutional Neural Networks,” in Proc. CVPR, 2014. [9] A. Razavian, H. Azizpour, J. Sullivan, and S. Carlsson, “CNN Features off-the-shelf: an Astounding Baseline for Recognition,” CoRR, vol. abs/1403.6382, 2014. [10] P . Sermanet, D. Eigen, X. Zhang, M. Mathieu, R. Fergus, and Y. LeCun, “OverFeat: Integrated Recognition, Local- ization and Detection using Convolutional Networks,” in Proc. ICLR, 2014. [11] R. B. Girshick, J. Donahue, T. Darrell, and J. Malik, “Rich feature hierarchies for ac...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00194",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "“Towards good practice in large-scale learning for image",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00195",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "classiﬁcation,” in Proc. CVPR, 2012, pp. 3482–3489. [16] M. Oquab, L. Bottou, I. Laptev, and J. Sivic, “Weakly supervised object recognition with convolutional neural networks,” INRIA, Tech. Rep. HAL-01015140, 2014. [17] Y. Wei, W. Xia, J. Huang, B. Ni, J. Dong, Y. Zhao, and S. Yan, “CNN: Single-label to multi-label,” CoRR, vol. abs/1406.5726, 2014. [18] H. J ´egou, F. Perronnin, M. Douze, J. S´anchez, P . P´erez, and C. Schmid, “Aggregating local images descriptors into compact codes,” IEEE P AMI, 2012. [19] M. D. Zeiler and R. Fergus, “Visualizing and understand- ing convolutional networks,” CoRR, vol. abs/1311.2901, 2013. [20] Y. Jia, “Caffe: An open source convolutional architecture for fast feature embedding,” http://caffe.berkeleyvision. org/, 2013. [21] L. Fei-Fei, R. Fergus, and P . Perona, “Learning generative visual models from few training examples: An incremen- tal bayesian approach tested on 101 object categories,” in IEEE CVPR Workshop of Generative Model Based Vision ,...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00196",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "category dataset,” California Institute of Technology,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00197",
+      "page": 11,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Tech. Rep. 7694, 2007. [Online]. Available: http:// authors.library.caltech.edu/7694 [23] J. S ´anchez, F. Perronnin, and T. Em ´ıdio de Campos, “Modeling the spatial layout of images beyond spatial pyramids,” Pattern Recognition Letters , vol. 33, no. 16, pp. 2216–2223, 2012. [24] R. Arandjelovi ´c and A. Zisserman, “Three things every- one should know to improve object retrieval,” in Proc. CVPR, 2012. [25] A. Vedaldi and A. Zisserman, “Efﬁcient additive kernels via explicit feature maps,” IEEE P AMI, 2011. [26] S. Lazebnik, C. Schmid, and J. Ponce, “Beyond Bags of Features: Spatial Pyramid Matching for Recognizing Natural Scene Categories,” in Proc. CVPR, 2006. [27] R. Arandjelovi ´c and A. Zisserman, “All about VLAD,” in Proc. CVPR, 2013. [28] H. J ´egou, M. Douze, and C. Schmid, “On the burstiness of visual elements,” in Proc. CVPR, Jun 2009. [29] K. He, A. Zhang, S. Ren, and J. Sun, “Spatial pyramid pooling in deep convolutional networks for visual recog- nition,” in Proc. ECCV,...",
+      "source_type": "reference"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "warnings": [
+      {
+        "code": "ok",
+        "message": "Grounding verification passed with current v1 checks.",
+        "target": null,
+        "severity": "info"
+      }
+    ],
+    "anchor_count": 197
+  }
+}

@@ -1,0 +1,866 @@
+{
+  "paper_skeleton": {
+    "problem": "边缘检测中的两个关键问题：(1) 整体图像训练与预测；(2) 多尺度与多层次特征学习。传统方法依赖手工设计特征，CNN方法速度慢且缺乏深度监督。",
+    "motivation": "现有边缘检测方法在特征学习、多尺度融合和推理速度上存在不足。HED旨在通过端到端的深度学习模型，自动学习丰富的层次化表示，解决边缘与物体边界检测中的歧义性。",
+    "core_idea": "提出整体嵌套边缘检测（HED）算法，利用全卷积网络和深度监督网络，通过多侧输出和加权融合层，实现图像到图像的边缘预测。",
+    "method": "基于VGG-16网络，修剪后添加多个侧输出层和深度监督损失，通过加权融合层学习融合权重，最终输出边缘图。",
+    "experiments": "在BSDS500、NYUD、Multicue和PASCAL-Context数据集上进行评估，与多种传统和CNN方法对比，进行消融实验和鲁棒性分析。",
+    "claims": "HED在BSDS500上达到ODS F-score 0.790，在NYUD上达到0.746，推理速度0.4秒/图像，显著优于先前方法。",
+    "limitations": "深度学习特征在高召回率区间表现下降，可能偏向学习全局物体边界而忽略弱边缘；数据增强和训练细节对性能有影响。"
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "输入图像",
+        "label": "Input",
+        "summary": "原始输入图像，用于整体边缘检测。",
+        "description": "输入图像X，尺寸可变，经过预处理后送入网络。",
+        "type": "data",
+        "anchors": [
+          "anc_00033",
+          "anc_00035"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "VGG-16骨干网络",
+        "label": "Backbone",
+        "summary": "基于VGG-16的修剪卷积网络，提取层次化特征。",
+        "description": "使用预训练VGG-16模型，修剪pool5之后的层，保留卷积层以提取多尺度特征。",
+        "type": "module",
+        "anchors": [
+          "anc_00081",
+          "anc_00083",
+          "anc_00085",
+          "anc_00087"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "侧输出层",
+        "label": "Side-output",
+        "summary": "从不同卷积层引出的侧输出，产生多尺度边缘预测。",
+        "description": "在VGG-16的每个阶段后添加侧输出层，通过1x1卷积和sigmoid激活生成边缘概率图。",
+        "type": "module",
+        "anchors": [
+          "anc_00042",
+          "anc_00043",
+          "anc_00054",
+          "anc_00056",
+          "anc_00058"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "深度监督损失",
+        "label": "Deep Supervision",
+        "summary": "对每个侧输出施加监督，引导学习透明特征。",
+        "description": "使用类平衡交叉熵损失函数，对每个侧输出计算损失，权重αm可调。",
+        "type": "loss",
+        "anchors": [
+          "anc_00042",
+          "anc_00043",
+          "anc_00046",
+          "anc_00047",
+          "anc_00048",
+          "anc_00049",
+          "anc_00050",
+          "anc_00051",
+          "anc_00052"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "加权融合层",
+        "label": "Fusion Layer",
+        "summary": "学习融合权重，结合所有侧输出生成最终预测。",
+        "description": "通过可学习权重h对侧输出进行加权求和，再经过sigmoid激活得到融合边缘图。",
+        "type": "module",
+        "anchors": [
+          "anc_00059",
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "融合损失",
+        "label": "Fusion Loss",
+        "summary": "融合层的损失函数，用于优化融合权重。",
+        "description": "使用距离函数Dist计算融合输出与真值之间的损失。",
+        "type": "loss",
+        "anchors": [
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "最终输出",
+        "label": "Output",
+        "summary": "HED的最终边缘预测图，通过平均或融合得到。",
+        "description": "最终输出Y_HED可以是融合输出或侧输出的平均，用于评估。",
+        "type": "output",
+        "anchors": [
+          "anc_00074",
+          "anc_00076"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "特征提取",
+        "anchors": [
+          "anc_00033",
+          "anc_00035"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "多尺度特征",
+        "anchors": [
+          "anc_00042",
+          "anc_00043"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "侧输出监督",
+        "anchors": [
+          "anc_00042",
+          "anc_00043"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_005",
+        "label": "侧输出融合",
+        "anchors": [
+          "anc_00059",
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063"
+        ]
+      },
+      {
+        "source": "node_005",
+        "target": "node_006",
+        "label": "融合监督",
+        "anchors": [
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063"
+        ]
+      },
+      {
+        "source": "node_005",
+        "target": "node_007",
+        "label": "输出生成",
+        "anchors": [
+          "anc_00074",
+          "anc_00076"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "基于CNN的边缘检测方法，如DeepEdge、DeepContour、CSCNN等，通常采用多尺度输入或独立网络，缺乏深度监督，推理速度慢。",
+    "new_method": "HED采用整体嵌套网络架构，通过深度监督和加权融合，实现端到端的多尺度边缘检测。",
+    "deltas": [
+      {
+        "before": "先前CNN方法使用多流、跳层或独立网络进行多尺度学习，但只有单一输出损失，缺乏深度监督。",
+        "after": "HED在每个卷积阶段添加侧输出层，并施加深度监督损失，同时通过加权融合层学习融合权重。",
+        "why_it_matters": "深度监督引导学习更透明的特征，多侧输出提供多尺度预测，加权融合自动优化组合，提升边缘检测精度和一致性。",
+        "anchors": [
+          "anc_00025",
+          "anc_00026",
+          "anc_00028",
+          "anc_00030",
+          "anc_00032",
+          "anc_00042",
+          "anc_00043",
+          "anc_00059",
+          "anc_00060"
+        ]
+      },
+      {
+        "before": "先前方法推理速度慢，从几秒到几小时不等。",
+        "after": "HED推理速度为0.4秒/图像（320x480），显著更快。",
+        "why_it_matters": "快速推理使边缘检测更适用于实时应用。",
+        "anchors": [
+          "anc_00109",
+          "anc_00129",
+          "anc_00130"
+        ]
+      },
+      {
+        "before": "先前方法在BSDS500上ODS F-score约为0.746（SE）。",
+        "after": "HED在BSDS500上达到ODS 0.790，在NYUD上达到0.746。",
+        "why_it_matters": "显著提升边缘检测性能，达到当时最优水平。",
+        "anchors": [
+          "anc_00129",
+          "anc_00130",
+          "anc_00161",
+          "anc_00163",
+          "anc_00190"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "formula": "L_{side}(W, w) = \\sum_{m=1}^{M} \\alpha_m \\ell_{side}^{(m)}(W, w^{(m)})",
+        "variables": [
+          {
+            "name": "L_{side}",
+            "description": "侧输出总损失",
+            "confidence": "high",
+            "anchors": [
+              "anc_00042",
+              "anc_00043"
+            ]
+          },
+          {
+            "name": "W",
+            "description": "共享网络参数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00040"
+            ]
+          },
+          {
+            "name": "w",
+            "description": "侧输出层参数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00040"
+            ]
+          },
+          {
+            "name": "\\alpha_m",
+            "description": "侧输出损失权重",
+            "confidence": "high",
+            "anchors": [
+              "anc_00043"
+            ]
+          },
+          {
+            "name": "\\ell_{side}^{(m)}",
+            "description": "第m个侧输出的损失函数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00043"
+            ]
+          }
+        ],
+        "dependencies": [
+          "侧输出层",
+          "深度监督"
+        ],
+        "intuition": "对每个侧输出计算损失并加权求和，引导网络学习多尺度边缘特征。",
+        "anchors": [
+          "anc_00042",
+          "anc_00043"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "formula": "\\ell_{side}^{(m)}(W, w^{(m)}) = -\\beta \\sum_{j \\in Y^+} \\log \\Pr(y_j=1|X; W, w^{(m)}) - (1-\\beta) \\sum_{j \\in Y^-} \\log \\Pr(y_j=0|X; W, w^{(m)})",
+        "variables": [
+          {
+            "name": "\\beta",
+            "description": "类平衡权重，\\beta = |Y^-|/|Y|",
+            "confidence": "high",
+            "anchors": [
+              "anc_00052"
+            ]
+          },
+          {
+            "name": "Y^+",
+            "description": "边缘像素集合",
+            "confidence": "high",
+            "anchors": [
+              "anc_00052"
+            ]
+          },
+          {
+            "name": "Y^-",
+            "description": "非边缘像素集合",
+            "confidence": "high",
+            "anchors": [
+              "anc_00052"
+            ]
+          },
+          {
+            "name": "\\Pr(y_j=1|X; W, w^{(m)})",
+            "description": "像素j为边缘的概率",
+            "confidence": "high",
+            "anchors": [
+              "anc_00054",
+              "anc_00056"
+            ]
+          }
+        ],
+        "dependencies": [
+          "侧输出激活",
+          "类平衡"
+        ],
+        "intuition": "使用类平衡交叉熵损失处理边缘/非边缘像素的不平衡问题。",
+        "anchors": [
+          "anc_00046",
+          "anc_00047",
+          "anc_00048",
+          "anc_00049",
+          "anc_00050",
+          "anc_00051",
+          "anc_00052"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "formula": "L_{fuse}(W, w, h) = \\text{Dist}(Y, \\hat{Y}_{fuse})",
+        "variables": [
+          {
+            "name": "L_{fuse}",
+            "description": "融合层损失",
+            "confidence": "high",
+            "anchors": [
+              "anc_00060"
+            ]
+          },
+          {
+            "name": "h",
+            "description": "融合权重",
+            "confidence": "high",
+            "anchors": [
+              "anc_00060",
+              "anc_00063"
+            ]
+          },
+          {
+            "name": "\\hat{Y}_{fuse}",
+            "description": "融合输出",
+            "confidence": "high",
+            "anchors": [
+              "anc_00061",
+              "anc_00062",
+              "anc_00063"
+            ]
+          },
+          {
+            "name": "\\text{Dist}",
+            "description": "距离函数（如交叉熵）",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00060"
+            ]
+          }
+        ],
+        "dependencies": [
+          "加权融合层",
+          "侧输出"
+        ],
+        "intuition": "优化融合权重，使融合输出接近真值。",
+        "anchors": [
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "formula": "\\hat{Y}_{fuse} \\equiv \\sigma\\left(\\sum_{m=1}^{M} h_m \\hat{A}_{side}^{(m)}\\right)",
+        "variables": [
+          {
+            "name": "\\sigma",
+            "description": "sigmoid激活函数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00061"
+            ]
+          },
+          {
+            "name": "h_m",
+            "description": "第m个侧输出的融合权重",
+            "confidence": "high",
+            "anchors": [
+              "anc_00063"
+            ]
+          },
+          {
+            "name": "\\hat{A}_{side}^{(m)}",
+            "description": "第m个侧输出的激活",
+            "confidence": "high",
+            "anchors": [
+              "anc_00058",
+              "anc_00062"
+            ]
+          }
+        ],
+        "dependencies": [
+          "侧输出激活",
+          "融合权重"
+        ],
+        "intuition": "通过可学习权重对侧输出进行加权求和，生成融合边缘图。",
+        "anchors": [
+          "anc_00061",
+          "anc_00062",
+          "anc_00063"
+        ]
+      },
+      {
+        "formula_id": "formula_005",
+        "formula": "(W, w, h)^\\star = \\arg\\min (L_{side}(W, w) + L_{fuse}(W, w, h))",
+        "variables": [
+          {
+            "name": "(W, w, h)^\\star",
+            "description": "最优参数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00067"
+            ]
+          }
+        ],
+        "dependencies": [
+          "侧输出损失",
+          "融合损失"
+        ],
+        "intuition": "联合优化侧输出损失和融合损失，得到最优网络参数。",
+        "anchors": [
+          "anc_00065",
+          "anc_00067"
+        ]
+      },
+      {
+        "formula_id": "formula_006",
+        "formula": "\\hat{Y}_{HED} = \\text{Average}(\\hat{Y}_{fuse}, \\hat{Y}^{(1)}, \\ldots, \\hat{Y}^{(M)})",
+        "variables": [
+          {
+            "name": "\\hat{Y}_{HED}",
+            "description": "HED最终输出",
+            "confidence": "high",
+            "anchors": [
+              "anc_00076"
+            ]
+          },
+          {
+            "name": "\\hat{Y}^{(m)}",
+            "description": "第m个侧输出",
+            "confidence": "high",
+            "anchors": [
+              "anc_00076"
+            ]
+          }
+        ],
+        "dependencies": [
+          "融合输出",
+          "侧输出"
+        ],
+        "intuition": "最终输出可以是融合输出或侧输出的平均，用于评估。",
+        "anchors": [
+          "anc_00076"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "dataset": "BSDS500",
+        "metric": "ODS F-score",
+        "value": "0.790",
+        "anchors": [
+          "anc_00190"
+        ]
+      },
+      {
+        "dataset": "NYUD",
+        "metric": "ODS F-score",
+        "value": "0.746",
+        "anchors": [
+          "anc_00161",
+          "anc_00163"
+        ]
+      },
+      {
+        "dataset": "BSDS500",
+        "metric": "推理速度",
+        "value": "0.4秒/图像",
+        "anchors": [
+          "anc_00109"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "experiment": "深度监督的作用",
+        "description": "比较有无深度监督的侧输出性能，深度监督使侧输出预测从粗到细、从局部到全局。",
+        "result": "有深度监督时，侧输出更有序，性能更好。",
+        "anchors": [
+          "anc_00093",
+          "anc_00094",
+          "anc_00096",
+          "anc_00097",
+          "anc_00098"
+        ]
+      },
+      {
+        "experiment": "融合策略比较",
+        "description": "比较单侧输出、平均侧输出和加权融合输出的性能。",
+        "result": "加权融合输出ODS=0.782，平均侧输出ODS=0.774，合并后ODS=0.788。",
+        "anchors": [
+          "anc_00134",
+          "anc_00135",
+          "anc_00136",
+          "anc_00138",
+          "anc_00139"
+        ]
+      },
+      {
+        "experiment": "网络架构比较",
+        "description": "比较FCN、跳层网络和HED架构的性能。",
+        "result": "HED架构优于FCN和跳层网络。",
+        "anchors": [
+          "anc_00089",
+          "anc_00091",
+          "anc_00092",
+          "anc_00095"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "experiment": "数据增强",
+        "description": "通过旋转和缩放增强训练数据，将数据集扩大32倍。",
+        "result": "性能从ODS=0.741提升到ODS=0.782。",
+        "anchors": [
+          "anc_00104",
+          "anc_00106",
+          "anc_00108"
+        ]
+      },
+      {
+        "experiment": "更多训练数据",
+        "description": "从测试集随机抽取100张图像加入训练集，重复5次实验。",
+        "result": "性能从ODS=0.782提升到ODS=0.797（±0.003）。",
+        "anchors": [
+          "anc_00144",
+          "anc_00146",
+          "anc_00147"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "experiment": "训练数据规模",
+        "description": "探索增加训练数据对性能的影响。",
+        "result": "更多训练数据带来性能提升。",
+        "anchors": [
+          "anc_00144",
+          "anc_00146",
+          "anc_00147"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "experiment": "侧输出可视化",
+        "description": "展示有无深度监督时侧输出的差异。",
+        "result": "深度监督使侧输出更有序，保留关键边界。",
+        "anchors": [
+          "anc_00093",
+          "anc_00094"
+        ]
+      }
+    ],
+    "human_eval": [
+      {
+        "experiment": "与人类标注比较",
+        "description": "在BSDS500上与人类标注的F-score（0.800）比较。",
+        "result": "HED达到0.790，接近人类水平。",
+        "anchors": [
+          "anc_00111",
+          "anc_00112",
+          "anc_00129",
+          "anc_00130"
+        ]
+      }
+    ],
+    "benchmark": [
+      {
+        "dataset": "BSDS500",
+        "methods": [
+          "HED",
+          "DeepContour",
+          "CSCNN",
+          "DeepEdge",
+          "OEF",
+          "SE",
+          "SE+multi-ucm",
+          "Human"
+        ],
+        "results": "HED ODS=0.790，优于所有比较方法。",
+        "anchors": [
+          "anc_00111",
+          "anc_00112",
+          "anc_00113",
+          "anc_00114",
+          "anc_00115",
+          "anc_00116",
+          "anc_00117",
+          "anc_00118",
+          "anc_00129",
+          "anc_00130",
+          "anc_00190"
+        ]
+      },
+      {
+        "dataset": "NYUD",
+        "methods": [
+          "HED-RGB",
+          "HED-HHA",
+          "HED-RGB-HHA",
+          "gPb-ucm",
+          "Silberman",
+          "gPb+NG",
+          "SE",
+          "SE+NG+"
+        ],
+        "results": "HED-RGB-HHA ODS=0.746，优于所有比较方法。",
+        "anchors": [
+          "anc_00163",
+          "anc_00164",
+          "anc_00165",
+          "anc_00166"
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "experiment": "训练时间",
+        "description": "在单个NVIDIA K40 GPU上训练约7小时。",
+        "result": "训练时间合理。",
+        "anchors": [
+          "anc_00109"
+        ]
+      },
+      {
+        "experiment": "推理速度",
+        "description": "处理320x480图像需400毫秒。",
+        "result": "比先前CNN方法快几个数量级。",
+        "anchors": [
+          "anc_00109",
+          "anc_00129",
+          "anc_00130"
+        ]
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "HED在BSDS500数据集上达到ODS F-score 0.790，显著优于先前方法。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00129",
+          "anc_00130",
+          "anc_00190"
+        ],
+        "risk_flags": [
+          "结果依赖于特定数据集和评估协议"
+        ]
+      },
+      {
+        "claim": "HED在NYUD数据集上达到ODS F-score 0.746，优于先前方法。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00161",
+          "anc_00163",
+          "anc_00164"
+        ],
+        "risk_flags": [
+          "结果依赖于特定数据集和评估协议"
+        ]
+      },
+      {
+        "claim": "HED推理速度为0.4秒/图像，比先前CNN方法快几个数量级。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00109",
+          "anc_00129",
+          "anc_00130"
+        ],
+        "risk_flags": [
+          "速度依赖于硬件和实现"
+        ]
+      },
+      {
+        "claim": "深度监督引导学习更透明的特征，使侧输出预测从粗到细、从局部到全局。",
+        "evidence_source_type": "消融实验",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00093",
+          "anc_00094",
+          "anc_00096",
+          "anc_00097",
+          "anc_00098"
+        ],
+        "risk_flags": [
+          "可视化结果主观，缺乏定量分析"
+        ]
+      },
+      {
+        "claim": "加权融合层学习融合权重，结合侧输出提升性能。",
+        "evidence_source_type": "消融实验",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00134",
+          "anc_00135",
+          "anc_00136",
+          "anc_00138",
+          "anc_00139"
+        ],
+        "risk_flags": [
+          "融合策略可能过拟合特定数据集"
+        ]
+      },
+      {
+        "claim": "HED架构优于FCN和跳层网络架构。",
+        "evidence_source_type": "消融实验",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00089",
+          "anc_00091",
+          "anc_00092",
+          "anc_00095"
+        ],
+        "risk_flags": [
+          "比较可能不充分，未调整其他架构"
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "HED",
+        "definition": "整体嵌套边缘检测（Holistically-Nested Edge Detection），一种基于深度学习的边缘检测算法。",
+        "anchors": [
+          "anc_00007"
+        ]
+      },
+      {
+        "term": "侧输出",
+        "definition": "从网络不同层引出的输出，用于产生多尺度边缘预测。",
+        "anchors": [
+          "anc_00042",
+          "anc_00043"
+        ]
+      },
+      {
+        "term": "深度监督",
+        "definition": "对网络中间层施加监督信号，引导学习更透明的特征。",
+        "anchors": [
+          "anc_00042",
+          "anc_00043",
+          "anc_00096"
+        ]
+      },
+      {
+        "term": "加权融合层",
+        "definition": "学习融合权重，结合所有侧输出生成最终预测的层。",
+        "anchors": [
+          "anc_00059",
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063"
+        ]
+      },
+      {
+        "term": "类平衡交叉熵",
+        "definition": "用于处理边缘/非边缘像素不平衡的损失函数。",
+        "anchors": [
+          "anc_00046",
+          "anc_00047",
+          "anc_00048",
+          "anc_00049",
+          "anc_00050",
+          "anc_00051",
+          "anc_00052"
+        ]
+      },
+      {
+        "term": "ODS",
+        "definition": "固定轮廓阈值下的F-score，用于评估边缘检测性能。",
+        "anchors": [
+          "anc_00130"
+        ]
+      },
+      {
+        "term": "OIS",
+        "definition": "每图像最佳阈值下的F-score。",
+        "anchors": [
+          "anc_00130"
+        ]
+      },
+      {
+        "term": "AP",
+        "definition": "平均精度。",
+        "anchors": [
+          "anc_00130"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "required_datasets": [
+      "BSDS500",
+      "NYUD",
+      "Multicue",
+      "PASCAL-Context"
+    ],
+    "required_models": [
+      "VGG-16预训练模型"
+    ],
+    "required_compute": "NVIDIA K40 GPU或类似，训练约7小时，推理0.4秒/图像。",
+    "code_available": "是，代码公开在https://github.com/s9xie/hed。",
+    "steps": [
+      "1. 准备数据集：下载BSDS500、NYUD等数据集，进行预处理和增强（旋转、缩放）。",
+      "2. 构建网络：基于VGG-16修剪网络，添加侧输出层和加权融合层。",
+      "3. 定义损失函数：实现类平衡交叉熵损失和融合损失。",
+      "4. 训练模型：使用Caffe框架，从预训练VGG-16微调，设置超参数（学习率1e-6，批量大小10等）。",
+      "5. 评估模型：在测试集上计算ODS、OIS、AP等指标，进行非极大值抑制。",
+      "6. 分析结果：比较不同融合策略，可视化侧输出。"
+    ],
+    "missing_details": [
+      "数据增强的具体实现细节（如旋转角度、缩放比例）",
+      "非极大值抑制的具体参数",
+      "融合损失函数Dist的具体形式（如交叉熵）",
+      "训练过程中的学习率调度细节（除每5000次迭代除以10外）"
+    ],
+    "risk_points": [
+      "结果可能对超参数敏感（如学习率、损失权重）",
+      "数据增强策略可能影响泛化性能",
+      "深度监督的引入可能增加训练复杂度",
+      "推理速度依赖于硬件和实现优化"
+    ]
+  }
+}

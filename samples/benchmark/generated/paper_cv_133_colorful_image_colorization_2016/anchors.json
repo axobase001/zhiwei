@@ -1,0 +1,1866 @@
+[
+  {
+    "anchor_id": "anc_00001",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "text_span": "Colorful Image Colorization Richard Zhang, Phillip Isola, Alexei A. Efros {rich.zhang,isola,efros}@eecs.berkeley.edu University of California, Berkeley Abstract. Given a grayscale photograph as input, this paper attacks the problem of hallucinating a plausible color version of the photograph. This problem is clearly underconstrained, so previous approaches have either relied on signiﬁcant user interaction or resulted in desaturated col- orizations. We propose a fully automatic approach that produces vibrant and realistic colorizations. We embrace the underlying uncertainty of the problem by posing it as a classiﬁcation task and use class-rebalancing at training time to increase the diversity of colors in the result. The sys- tem is implemented as a feed-forward pass in a CNN at test time and is trained on over a million color images. We evaluate our algorithm using a “colorization Turing test,” asking human participants to choose between a generated and ground truth color image. Our m...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00002",
+    "page": 1,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "1 Introduction",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00003",
+    "page": 1,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "Consider the grayscale photographs in Figure 1. At ﬁrst glance, hallucinating their colors seems daunting, since so much of the information (two out of the three dimensions) has been lost. Looking more closely, however, one notices that in many cases, the semantics of the scene and its surface texture provide ample cues for many regions in each image: the grass is typically green, the sky is typically blue, and the ladybug is most deﬁnitely red. Of course, these kinds of semantic priors do not work for everything, e.g., the croquet balls on the grass might not, in reality, be red, yellow, and purple (though it’s a pretty good guess). However, for this paper, our goal is not necessarily to recover the actual ground truth color, but rather to produce a plausible colorization that could potentially fool a human observer. Therefore, our task becomes much more achievable: to model enough of the statistical dependencies between the semantics and the textures of grayscale images and their co...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00004",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "2 Zhang, Isola, Efros",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00005",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "Fig. 1. Example input grayscale photos and output colorizations from our algo-",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00006",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "rithm. These examples are cases where our model works especially well. Please visit http://richzhang.github.io/colorization/ to see the full range of results and to try our model and code. Best viewed in color (obviously).",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00007",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "we leverage large-scale data. Predicting color has the nice property that training",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00008",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "data is practically free: any color photo can be used as a training example, simply by taking the image’s L channel as input and its ab channels as the supervisory signal. Others have noted the easy availability of training data, and previous works have trained convolutional neural networks (CNNs) to predict color on",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00009",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "large datasets [1,2]. However, the results from these previous attempts tend to",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00010",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "look desaturated. One explanation is that [1,2] use loss functions that encourage conservative predictions. These losses are inherited from standard regression",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00011",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "problems, where the goal is to minimize Euclidean error between an estimate",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00012",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "and the ground truth. We instead utilize a loss tailored to the colorization problem. As pointed out by [3], color prediction is inherently multimodal – many objects can take on several plausible colorizations. For example, an apple is typically red, green, or yellow, but unlikely to be blue or orange. To appropriately model the multimodal nature of the problem, we predict a distribution of possible colors for each pixel. Furthermore, we re-weight the loss at training time to emphasize rare colors.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00013",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "This encourages our model to exploit the full diversity of the large-scale data on",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00014",
+    "page": 2,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "which it is trained. Lastly, we produce a ﬁnal colorization by taking theannealed- mean of the distribution. The end result is colorizations that are more vibrant and perceptually realistic than those of previous approaches. Evaluating synthesized images is notoriously diﬃcult [4]. Since our ultimate goal is to make results that are compelling to a human observer, we introduce a novel way of evaluating colorization results, directly testing their perceptual realism. We set up a “colorization Turing test,” in which we show participants real and synthesized colors for an image, and ask them to identify the fake. In this quite diﬃcult paradigm, we are able to fool participants on 32% of the instances (ground truth colorizations would achieve 50% on this metric), signif- icantly higher than prior work [2]. This test demonstrates that in many cases,",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00015",
+    "page": 3,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "Colorful Image Colorization 3 our algorithm is producing nearly photorealistic results (see Figure 1 for selected successful examples from our algorithm). We also show that our system’s col- orizations are realistic enough to be useful for downstream tasks, in particular object classiﬁcation, using an oﬀ-the-shelf VGG network [5]. We additionally explore colorization as a form of self-supervised representa- tion learning, where raw data is used as its own source of supervision. The idea of learning feature representations in this way goes back at least to autoencoders [6]. More recent works have explored feature learning via data imputation, where a held-out subset of the complete data is predicted (e.g., [7,8,9,10,11,12,13]). Our method follows in this line, and can be termed a cross-channel encoder. We test how well our model performs in generalization tasks, compared to pre- vious [14,8,15,10] and concurrent [16] self-supervision algorithms, and ﬁnd that our method performs surpris...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00016",
+    "page": 3,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "automatically) to be used as source data. Then, following the Image Analogies",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00017",
+    "page": 3,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "framework [17], color is transferred onto the input image from analogous regions",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00018",
+    "page": 3,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "of the reference image(s) [18,19,20,21]. Parametric methods, on the other hand,",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00019",
+    "page": 3,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "learn prediction functions from large datasets of color images at training time,",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00020",
+    "page": 3,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "posing the problem as either regression onto continuous color space [22,1,2] or classiﬁcation of quantized color values [3]. Our method also learns to classify",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00021",
+    "page": 3,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "colors, but does so with a larger model, trained on more data, and with several",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00022",
+    "page": 3,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "innovations in the loss function and mapping to a ﬁnal continuous output. Concurrent work on colorization Concurrently with our paper, Larsson et al. [23] and Iizuka et al. [24] have developed similar systems, which leverage",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00023",
+    "page": 3,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "large-scale data and CNNs. The methods diﬀer in their CNN architectures and",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00024",
+    "page": 3,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "loss functions. While we use a classiﬁcation loss, with rebalanced rare classes, Larsson et al. use an un-rebalanced classiﬁcation loss, and Iizuka et al. use a regression loss. In Section 3.1, we compare the eﬀect of each of these types of loss function in conjunction with our architecture. The CNN architectures are also somewhat diﬀerent: Larsson et al. use hypercolumns [25] on a VGG network [5], Iizuka et al. use a two-stream architecture in which they fuse global and local features, and we use a single-stream, VGG-styled network with added depth and dilated convolutions [26,27]. In addition, while we and Larsson et al. train our models on ImageNet [28], Iizuka et al. train their model on Places",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00025",
+    "page": 4,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "4 Zhang, Isola, Efros",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00026",
+    "page": 4,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "Fig. 2. Our network architecture. Each conv layer refers to a block of 2 or 3 repeated",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00027",
+    "page": 4,
+    "section": "Introduction",
+    "bbox": null,
+    "text_span": "conv and ReLU layers, followed by a BatchNorm [30] layer. The net has no pool layers. All changes in resolution are achieved through spatial downsampling or upsampling between conv blocks. [29]. In Section 3.1, we provide quantitative comparisons to Larsson et al., and encourage interested readers to investigate both concurrent papers.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00028",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "2 Approach",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00029",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "We train a CNN to map from a grayscale input to a distribution over quantized color value outputs using the architecture shown in Figure 2. Architectural de- tails are described in the supplementary materials on our project webpage 1, and the model is publicly available. In the following, we focus on the design of the objective function, and our technique for inferring point estimates of color from the predicted color distribution.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00030",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "2.1 Objective Function",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00031",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Given an input lightness channel X ∈ RH×W ×1, our objective is to learn a",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00032",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "mapping ˆY =F(X) to the two associated color channels Y∈ RH×W ×2, where",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00033",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "H,W are image dimensions. (We denote predictions with aˆ· symbol and ground truth without.) We per- form this task in CIE Lab color space. Because distances in this space model perceptual distance, a natural objective function, as used in [1,2], is the Eu- clidean loss L 2(·,·) between predicted and ground truth colors:",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00034",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "L2(ˆY, Y) = 1",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00035",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "2 ∑ h,w ∥Yh,w−ˆYh,w∥2 2 (1) However, this loss is not robust to the inherent ambiguity and multimodal nature of the colorization problem. If an object can take on a set of distinct ab values, the optimal solution to the Euclidean loss will be the mean of the set. In color prediction, this averaging eﬀect favors grayish, desaturated results. Additionally, if the set of plausible colorizations is non-convex, the solution will in fact be out of the set, giving implausible results. 1 http://richzhang.github.io/colorization/",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00036",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Colorful Image Colorization 5",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00037",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Fig. 3. (a) Quantized ab color space with a grid size of 10. A total of 313 ab pairs are",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00038",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "in gamut. (b) Empirical probability distribution of ab values, shown in log scale. (c)",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00039",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Empirical probability distribution of ab values, conditioned on L, shown in log scale.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00040",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Instead, we treat the problem as multinomial classiﬁcation. We quantize the",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00041",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "ab output space into bins with grid size 10 and keep the Q = 313 values which",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00042",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "are in-gamut, as shown in Figure 3(a). For a given input X, we learn a mapping",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00043",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "ˆZ =G(X) to a probability distribution over possible colors ˆZ∈ [0, 1]H×W ×Q,",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00044",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "where Q is the number of quantized ab values.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00045",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "To compare predictedˆZ against ground truth, we deﬁne functionZ =H−1",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00046",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "gt (Y), which converts ground truth color Y to vector Z, using a soft-encoding scheme2. We then use multinomial cross entropy loss Lcl(·,·), deﬁned as:",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00047",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Lcl(ˆZ, Z) =−",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00048",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "∑ h,w v(Zh,w) ∑ q",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00049",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Zh,w,q log(ˆZh,w,q) (2)",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00050",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "where v(·) is a weighting term that can be used to rebalance the loss based on color-class rarity, as deﬁned in Section 2.2 below. Finally, we map probability",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00051",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "distribution ˆZ to color values ˆY with function ˆY =H(ˆZ), which will be further",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00052",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "discussed in Section 2.3.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00053",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "2.2 Class rebalancing",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00054",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "The distribution of ab values in natural images is strongly biased towards val- ues with low ab values, due to the appearance of backgrounds such as clouds, pavement, dirt, and walls. Figure 3(b) shows the empirical distribution of pix- els in ab space, gathered from 1.3M training images in ImageNet [28]. Observe that the number of pixels in natural images at desaturated values are orders of magnitude higher than for saturated values. Without accounting for this, the",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00055",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "2 Each ground truth valueYh,w can be encoded as a 1-hot vectorZh,w by searching for",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00056",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "the nearest quantized ab bin. However, we found that soft-encoding worked well for training, and allowed the network to quickly learn the relationship between elements in the output space [31]. We ﬁnd the 5-nearest neighbors to Yh,w in the output space and weight them proportionally to their distance from the ground truth using",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00057",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "a Gaussian kernel with σ = 5.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00058",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "6 Zhang, Isola, Efros",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00059",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "loss function is dominated by desaturated ab values. We account for the class-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00060",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "imbalance problem by reweighting the loss of each pixel at train time based on the pixel color rarity. This is asymptotically equivalent to the typical approach of resampling the training space [32]. Each pixel is weighed by factor w∈ RQ, based on its closest ab bin.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00061",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "v(Zh,w) = wq∗, where q∗ = arg max",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00062",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "q Zh,w,q (3) w∝ ( (1−λ)˜p + λ Q )−1",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00063",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": ", E[w] =",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00064",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "∑ q ˜pqwq = 1 (4) To obtain smoothed empirical distribution˜p∈∆Q, we estimate the empirical probability of colors in the quantized ab space p∈ ∆Q from the full ImageNet training set and smooth the distribution with a Gaussian kernel Gσ. We then mix the distribution with a uniform distribution with weight λ∈ [0, 1], take the reciprocal, and normalize so the weighting factor is 1 on expectation. We",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00065",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "found that values ofλ = 1",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00066",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "2 andσ = 5 worked well. We compare results with and",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00067",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "without class rebalancing in Section 3.1.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00068",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "2.3 Class Probabilities to Point Estimates",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00069",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Finally, we deﬁneH, which maps the predicted distribution ˆZ to point estimate ˆY in ab space. One choice is to take the mode of the predicted distribution for each pixel, as shown in the right-most column of Figure 4 for two example im- ages. This provides a vibrant but sometimes spatially inconsistent result, e.g., the red splotches on the bus. On the other hand, taking the mean of the predicted distribution produces spatially consistent but desaturated results (left-most col- umn of Figure 4), exhibiting an unnatural sepia tone. This is unsurprising, as",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00070",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "taking the mean after performing classiﬁcation suﬀers from some of the same",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00071",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "issues as optimizing for a Euclidean loss in a regression framework. To try to get the best of both worlds, we interpolate by re-adjusting the temperature T of the",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00072",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "softmax distribution, and taking the mean of the result. We draw inspiration",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00073",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "from the simulated annealing technique [33], and thus refer to the operation as taking the annealed-mean of the distribution:",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00074",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "H(Zh,w) = E",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00075",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "[ fT (Zh,w) ]",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00076",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": ", f T (z) = exp(log(z)/T )∑",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00077",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "q exp(log(zq)/T ) (5)",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00078",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Setting T = 1 leaves the distribution unchanged, lowering the temperature",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00079",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "T produces a more strongly peaked distribution, and setting T→ 0 results in a",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00080",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "1-hot encoding at the distribution mode. We found that temperature T = 0.38,",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00081",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "shown in the middle column of Figure 4, captures the vibrancy of the mode while maintaining the spatial coherence of the mean. Our ﬁnal systemF is the composition of CNNG, which produces a predicted distribution over all pixels, and the annealed-mean operationH, which produces a ﬁnal prediction. The system is not quite end-to-end trainable, but note that the mappingH operates on each pixel independently, with a single parameter, and can be implemented as part of a feed-forward pass of the CNN.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00082",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Colorful Image Colorization 7",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00083",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Fig. 4. The eﬀect of temperature parameterT on the annealed-mean output (Equation",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00084",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "5). The left-most images show the means of the predicted color distributions and the",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00085",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "right-most show the modes. We use T = 0.38 in our system.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00086",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "3 Experiments",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00087",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "In Section 3.1, we assess the graphics aspect of our algorithm, evaluating the perceptual realism of our colorizations, along with other measures of accuracy. We compare our full algorithm to several variants, along with recent [2] and concurrent work [23]. In Section 3.2, we test colorization as a method for self- supervised representation learning. Finally, in Section 10.1, we show qualitative examples on legacy black and white images.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00088",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "3.1 Evaluating colorization quality",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00089",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "We train our network on the 1.3M images from the ImageNet training set [28], validate on the ﬁrst 10k images in the ImageNet validation set, and test on a separate 10k images in the validation set, same as in [23]. We show quantitative results in Table 1 on three metrics. A qualitative comparison for selected success and failure cases is shown in Figure 5. For a comparison on a full selection of random images, please see our project webpage. To speciﬁcally test the eﬀect of diﬀerent loss functions, we train our CNN with various losses. We also compare to previous [2] and concurrent methods [23], which both use CNNs trained on ImageNet, along with naive baselines: 1. Ours (full) Our full method, with classiﬁcation loss, deﬁned in Equation 2, and class rebalancing, as described in Section 2.2. The network was trained from scratch with k-means initialization [36], using the ADAM solver for approximately 450k iterations 3. 2. Ours (class) Our network on classiﬁcation loss but no class reb...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00090",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "(λ = 1 in Equation 4).",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00091",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "3 β1 =.9, β2 =.99, and weight decay = 10 −3. Initial learning rate was 3 × 10−5 and",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00092",
+    "page": 7,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "dropped to 10 −5 and 3× 10−6 when loss plateaued, at 200k and 375k iterations, respectively. Other models trained from scratch followed similar training protocol.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00093",
+    "page": 8,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "8 Zhang, Isola, Efros",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00094",
+    "page": 8,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "Ground truthRegression Classiﬁcation w/ rebalInput Classiﬁcation Success casesFailure cases",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00095",
+    "page": 8,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "Fig. 5. Example results from our ImageNet test set. Our classiﬁcation loss with re-",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00096",
+    "page": 8,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "balancing produces more accurate and vibrant results than a regression loss or a clas- siﬁcation loss without rebalancing. Successful colorizations are above the dotted line. Common failures are below. These include failure to capture long-range consistency, frequent confusions between red and blue, and a default sepia tone on complex indoor scenes. Please visit http://richzhang.github.io/colorization/ to see the full range of results.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00097",
+    "page": 9,
+    "section": "Experiments",
+    "bbox": null,
+    "text_span": "Colorful Image Colorization 9 Colorization Results on ImageNet",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00098",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Model AuC VGG Top-1 AMT",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00099",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Method Params Feats Runtime non-rebal rebal Class Acc Labeled (MB) (MB) (ms) (%) (%) (%) Real (%) Ground Truth – – – 100 100 68.3 50 Gray – – – 89.1 58.0 52.7 – Random – – – 84.2 57.3 41.0 13.0 ±4.4 Dahl [2] – – – 90.4 58.9 48.7 18.3 ±2.8 Larsson et al. [23] 588 495 122.1 91.7 65.9 59.4 27.2 ±2.7 Ours (L2) 129 127 17.8 91.2 64.4 54.9 21.2 ±2.5 Ours (L2, ft) 129 127 17.8 91.5 66.2 56.5 23.9 ±2.8 Ours (class) 129 142 22.1 91.6 65.1 56.6 25.2 ±2.7 Ours (full) 129 142 22.1 89.5 67.3 56.0 32.3±2.2",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00100",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Table 1. Colorization results on 10k images in the ImageNet validation set [28], as",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00101",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "used in [23]. AuC refers to the area under the curve of the cumulative error distribution over ab space [22]. Results column 2 shows the class-balanced variant of this metric. Column 3 is the classiﬁcation accuracy after colorization using the VGG-16 [5] network. Column 4 shows results from our AMT real vs. fake test (with mean and standard error reported, estimated by bootstrap [34]). Note that an algorithm that produces ground truth images would achieve 50% performance in expectation. Higher is better for all metrics. Rows refer to diﬀerent algorithms; see text for a description of each. Parameter and feature memory, and runtime, were measured on a Titan X GPU using Caﬀe [35]. 3. Ours (L2) Our network trained from scratch, with L2 regression loss, de- scribed in Equation 1, following the same training protocol. 4. Ours (L2, ft) Our network trained with L2 regression loss, ﬁne-tuned from our full classiﬁcation with rebalancing network. 5. Larsson et al. [23] A CNN method that also ap...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00102",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "7. Gray Colors every pixel gray, with (a,b ) = 0.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00103",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "8. Random Copies the colors from a random image from the training set. Evaluating the quality of synthesized images is well-known to be a diﬃcult task, as simple quantitative metrics, like RMS error on pixel values, often fail to",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00104",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "capture visual realism. To address the shortcomings of any individual evaluation,",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00105",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "we test three that measure diﬀerent senses of quality, shown in Table 1. 1. Perceptual realism (AMT): For many applications, such as those in graphics, the ultimate test of colorization is how compelling the colors look to a human observer. To test this, we ran a real vs. fake two-alternative forced choice experiment on Amazon Mechanical Turk (AMT). Participants in the experiment were shown a series of pairs of images. Each pair consisted of a color photo next to a re-colorized version, produced by either our algorithm or a baseline. Par- ticipants were asked to click on the photo they believed contained fake colors generated by a computer program. Individual images of resolution 256×256 were shown for one second each, and after each pair, participants were given unlim- ited time to respond. Each experimental session consisted of 10 practice trials",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00106",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "10 Zhang, Isola, Efros",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00107",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Ground truthOurs 82% 67% 64% 64% 60% 58% 55% 55% 55% 55% 55% 50% 0% 0% 0% 0% Fooled more often Fooled less often Ground truthOurs Ground truthOurs Ground truthOurs",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00108",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Fig. 6.Images sorted by how often AMT participants chose our algorithm’s colorization",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00109",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "over the ground truth. In all pairs to the left of the dotted line, participants believed",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00110",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "our colorizations to be more real than the ground truth on≥ 50% of the trials. In some",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00111",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "cases, this may be due to poor white balancing in the ground truth image, corrected by our algorithm, which predicts a more prototypical appearance. Right of the dotted line are examples where participants were never fooled. (excluded from subsequent analysis), followed by 40 test pairs. On the practice trials, participants were given feedback as to whether or not their answer was correct. No feedback was given during the 40 test pairs. Each session tested only a single algorithm at a time, and participants were only allowed to com- plete at most one session. A total of 40 participants evaluated each algorithm. To ensure that all algorithms were tested in equivalent conditions (i.e. time of day, demographics, etc.), all experiment sessions were posted simultaneously and distributed to Turkers in an i.i.d. fashion. To check that participants were competent at this task, 10% of the trials pitted the ground truth image against the Random baseline described above. Participants successfull...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00112",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Figure 6 gives a better sense of the participants’ competency at detecting",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00113",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "subtle errors made by our algorithm. The far right column shows example pairs where participants identiﬁed the fake image successfully in 100% of the trials. Each of these pairs was scored by at least 10 participants. Close inspection reveals that on these images, our colorizations tend to have giveaway artifacts, such as the yellow blotches on the two trucks, which ruin otherwise decent results. Nonetheless, our full algorithm fooled participants on 32% of trials, as shown in Table 1. This number is signiﬁcantly higher than all compared algorithms (p < 0.05 in each case) except for Larsson et al., against which the diﬀerence",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00114",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "was not signiﬁcant (p = 0.10; all statistics estimated by bootstrap [34]). These",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00115",
+    "page": 10,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "results validate the eﬀectiveness of using both a classiﬁcation loss and class- rebalancing.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00116",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Colorful Image Colorization 11 Note that if our algorithm exactly reproduced the ground truth colors, the forced choice would be between two identical images, and participants would be fooled 50% of the time on expectation. Interestingly, we can identify cases where participants were fooled more often than 50% of the time, indicating our results were deemed more realistic than the ground truth. Some examples are shown in the ﬁrst three columns of Figure 6. In many case, the ground truth image is poorly white balanced or has unusual colors, whereas our system produces a more prototypical appearance. 2. Semantic interpretability (VGG classiﬁcation): Does our method produce realistic enough colorizations to be interpretable to an oﬀ-the-shelf ob- ject classiﬁer? We tested this by feeding our fake colorized images to a VGG network [5] that was trained to predict ImageNet classes from real color photos. If the classiﬁer performs well, that means the colorizations are accurate enough to be...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00117",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "method achieves slightly higher accuracy. Note that this metric is dominated by",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00118",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "desaturated pixels, due to the distribution of ab values in natural images (Figure 3(b)). As a result, even predicting gray for every pixel does quite well, and our full method with class rebalancing achieves approximately the same score. Perceptually interesting regions of images, on the other hand, tend to have a distribution of ab values with higher values of saturation. As such, we compute a class-balanced variant of the AuC metric by re-weighting the pixels inversely",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00119",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "by color class probability (Equation 4, setting λ = 0). Under this metric, our",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00120",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "full method outperforms all variants and compared algorithms, indicating that class-rebalancing in the training objective achieved its desired eﬀect.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00121",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "12 Zhang, Isola, Efros",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00122",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Fig. 7. ImageNet Linear Classiﬁcation",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00123",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Dataset and Task Generalization on PASCAL [37] Class. Det. Seg. (%mAP) (%mAP) (%mIU) ﬁne-tune layers [Ref] fc8 fc6-8 all [Ref] all [Ref] all ImageNet [38] - 76.8 78.9 79.9 [36] 56.8 [42] 48.0 Gaussian [10] – – 53.3 [10] 43.4 [10] 19.8 Autoencoder [16] 24.8 16.0 53.8 [10] 41.9 [10] 25.2 k-means [36] [16] 32.0 39.2 56.6 [36] 45.6 [16] 32.6 Agrawal et al. [8] [16] 31.2 31.0 54.2 [36] 43.9 – – Wang & Gupta [15] – 28.1 52.2 58.7 [36] 47.4 – – *Doersch et al. [14] [16] 44.7 55.165.3[36]51.1 – – *Pathak et al. [10] [10] – – 56.5 [10] 44.5 [10] 29.7 *Donahue et al. [16] – 38.2 50.2 58.6 [16] 46.2 [16] 34.9 Ours (gray) – 52.4 61.5 65.9– 46.1 – 35.0 Ours (color) – 52.4 61.5 65.6– 46.9 – 35.6",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00124",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Table 2. PASCAL Tests",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00125",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Fig. 7. Task Generalization on ImageNet We freeze pre-trained networks and",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00126",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "learn linear classiﬁers on internal layers for ImageNet [28] classiﬁcation. Features are average-pooled, with equal kernel and stride sizes, until feature dimensionality is below 10k. ImageNet [38], k-means [36], and Gaussian initializations were run with grayscale inputs, shown with dotted lines, as well as color inputs, shown with solid lines. Previous [14,10] and concurrent [16] self-supervision methods are shown. Tab. 2. Task and Dataset Generalization on PASCAL Classiﬁcation and detection on PASCAL VOC 2007 [39] and segmentation on PASCAL VOC 2012 [40], using standard mean average precision (mAP) and mean intersection over union (mIU) metrics for each task. We ﬁne-tune our network with grayscale inputs (gray) and color inputs (color). Methods noted with a * only pre-trained a subset of the AlexNet layers. The remaining layers were initialized with [36]. Column Ref indicates the source for a value obtained from a previous paper.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00127",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "3.2 Cross-Channel Encoding as Self-Supervised Feature Learning",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00128",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "In addition to making progress on the graphics task of colorization, we evaluate how colorization can serve as a pretext task for representation learning. Our model is akin to an autoencoder, except that the input and output are diﬀerent image channels, suggesting the term cross-channel encoder. To evaluate the feature representation learned through this kind of cross- channel encoding, we run two sets of tests on our network. First, we test the task generalization capability of the features by ﬁxing the learned representa- tion and training linear classiﬁers to perform object classiﬁcation on already seen data (Figure 7). Second, we ﬁne-tune the network on the PASCAL dataset [37] for the tasks of classiﬁcation, detection, and segmentation. Here, in addition to testing on held-out tasks, this group of experiments tests the learned represen- tation on dataset generalization. To fairly compare to previous feature learning algorithms, we retrain an AlexNet [38] network on the colorizatio...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00129",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Colorful Image Colorization 13 the learned features represent the object-level semantics. To do this, we freeze the weights of the network, provide semantic labels, and train linear classiﬁers on each convolutional layer. The results are shown in Figure 7. AlexNet directly trained on ImageNet classiﬁcation achieves the highest per- formance, and serves as the ceiling for this test. Random initialization, with Gaussian weights or the k-means scheme implemented in [36], peak in the mid- dle layers. Because our representation is learned on grayscale images, the network is handicapped at the input. To quantify the eﬀect of this loss of information, we ﬁne-tune AlexNet on grayscale image classiﬁcation, and also run the random initialization schemes on grayscale images. Interestingly, for all three methods, there is a 6% performance gap between color and grayscale inputs, which remains approximately constant throughout the network. We compare our model to other recent self-supervised method...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00130",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "14 Zhang, Isola, Efros",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00131",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Fig. 8. Applying our method to legacy black and white photos. Left to right: photo",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00132",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "by David Fleay of a Thylacine, now extinct, 1936; photo by Ansel Adams of Yosemite; amateur family photo from 1956; Migrant Mother by Dorothea Lange, 1936.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00133",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "3.3 Legacy Black and White Photos",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00134",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "text_span": "Since our model was trained using “fake” grayscale images generated by strip- pingab channels from color photos, we also ran our method on real legacy black and white photographs, as shown in Figure 8 (additional results can be viewed on our project webpage). One can see that our model is still able to produce good colorizations, even though the low-level image statistics of the legacy pho- tographs are quite diﬀerent from those of the modern-day photos on which it was trained.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00135",
+    "page": 14,
+    "section": "Conclusion",
+    "bbox": null,
+    "text_span": "4 Conclusion",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00136",
+    "page": 14,
+    "section": "Conclusion",
+    "bbox": null,
+    "text_span": "While image colorization is a boutique computer graphics task, it is also an in- stance of a diﬃcult pixel prediction problem in computer vision. Here we have shown that colorization with a deep CNN and a well-chosen objective function can come closer to producing results indistinguishable from real color photos. Our method not only provides a useful graphics output, but can also be viewed as a pretext task for representation learning. Although only trained to color, our network learns a representation that is surprisingly useful for object clas-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00137",
+    "page": 14,
+    "section": "Conclusion",
+    "bbox": null,
+    "text_span": "siﬁcation, detection, and segmentation, performing strongly compared to other",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00138",
+    "page": 14,
+    "section": "Conclusion",
+    "bbox": null,
+    "text_span": "self-supervised pre-training methods. Acknowledgements This research was supported, in part, by ONR MURI N000141010934, NSF SMA- 1514512, an Intel research grant, and a hardware donation by NVIDIA Corp. We thank members of the Berkeley Vision Lab and Aditya Deshpande for helpful discussions, Philipp Kr¨ ahenb¨ uhl and Jeﬀ Donahue for help with self-supervision experiments, and Gustav Larsson for providing images for comparison to [23].",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00139",
+    "page": 15,
+    "section": "Conclusion",
+    "bbox": null,
+    "text_span": "Colorful Image Colorization 15",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00140",
+    "page": 15,
+    "section": "References",
+    "bbox": null,
+    "text_span": "References",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00141",
+    "page": 15,
+    "section": "References",
+    "bbox": null,
+    "text_span": "1. Cheng, Z., Yang, Q., Sheng, B.: Deep colorization. In: Proceedings of the IEEE International Conference on Computer Vision. (2015) 415–423 2. Dahl, R.: Automatic colorization. In: http://tinyclouds.org/colorize/. (2016) 3. Charpiat, G., Hofmann, M., Sch¨ olkopf, B.: Automatic image colorization via mul- timodal predictions. In: Computer Vision–ECCV 2008. Springer (2008) 126–139 4. Ramanarayanan, G., Ferwerda, J., Walter, B., Bala, K.: Visual equivalence: to- wards a new standard for image ﬁdelity. ACM Transactions on Graphics (TOG) 26(3) (2007) 76",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00142",
+    "page": 15,
+    "section": "References",
+    "bbox": null,
+    "text_span": "5. Simonyan, K., Zisserman, A.: Very deep convolutional networks for large-scale",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00143",
+    "page": 15,
+    "section": "References",
+    "bbox": null,
+    "text_span": "image recognition. arXiv preprint arXiv:1409.1556 (2014) 6. Bengio, Y., Courville, A., Vincent, P.: Representation learning: A review and new perspectives. IEEE transactions on pattern analysis and machine intelligence35(8) (2013) 1798–1828 7. Ngiam, J., Khosla, A., Kim, M., Nam, J., Lee, H., Ng, A.Y.: Multimodal deep learning. In: Proceedings of the 28th international conference on machine learning (ICML-11). (2011) 689–696 8. Agrawal, P., Carreira, J., Malik, J.: Learning to see by moving. In: Proceedings of the IEEE International Conference on Computer Vision. (2015) 37–45 9. Jayaraman, D., Grauman, K.: Learning image representations tied to ego-motion. In: Proceedings of the IEEE International Conference on Computer Vision. (2015) 1413–1421 10. Pathak, D., Kr¨ ahenb¨ uhl, P., Donahue, J., Darrell, T., Efros, A.: Context encoders: Feature learning by inpainting. In: CVPR. (2016) 11. Lotter, W., Kreiman, G., Cox, D.: Deep predictive coding networks for video prediction and unsupervi...",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00144",
+    "page": 15,
+    "section": "References",
+    "bbox": null,
+    "text_span": "18. Welsh, T., Ashikhmin, M., Mueller, K.: Transferring color to greyscale images.",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00145",
+    "page": 15,
+    "section": "References",
+    "bbox": null,
+    "text_span": "ACM Transactions on Graphics (TOG) 21(3) (2002) 277–280 19. Gupta, R.K., Chia, A.Y.S., Rajan, D., Ng, E.S., Zhiyong, H.: Image colorization using similar images. In: Proceedings of the 20th ACM international conference on Multimedia, ACM (2012) 369–378 20. Liu, X., Wan, L., Qu, Y., Wong, T.T., Lin, S., Leung, C.S., Heng, P.A.: Intrinsic colorization. In: ACM Transactions on Graphics (TOG). Volume 27., ACM (2008) 152",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00146",
+    "page": 16,
+    "section": "References",
+    "bbox": null,
+    "text_span": "16 Zhang, Isola, Efros",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00147",
+    "page": 16,
+    "section": "References",
+    "bbox": null,
+    "text_span": "21. Chia, A.Y.S., Zhuo, S., Gupta, R.K., Tai, Y.W., Cho, S.Y., Tan, P., Lin, S.: Seman- tic colorization with internet images. In: ACM Transactions on Graphics (TOG). Volume 30., ACM (2011) 156",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00148",
+    "page": 16,
+    "section": "References",
+    "bbox": null,
+    "text_span": "22. Deshpande, A., Rock, J., Forsyth, D.: Learning large-scale automatic image col-",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00149",
+    "page": 16,
+    "section": "References",
+    "bbox": null,
+    "text_span": "orization. In: Proceedings of the IEEE International Conference on Computer Vision. (2015) 567–575 23. Larsson, G., Maire, M., Shakhnarovich, G.: Learning representations for automatic colorization. European Conference on Computer Vision (2016) 24. Iizuka, S., Simo-Serra, E., Ishikawa, H.: Let there be Color!: Joint End-to-end Learning of Global and Local Image Priors for Automatic Image Colorization with Simultaneous Classiﬁcation. ACM Transactions on Graphics (Proc. of SIGGRAPH 2016) 35(4) (2016) 25. Hariharan, B., Arbel´ aez, P., Girshick, R., Malik, J.: Hypercolumns for object segmentation and ﬁne-grained localization. In: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition. (2015) 447–456 26. Chen, L.C., Papandreou, G., Kokkinos, I., Murphy, K., Yuille, A.L.: Deeplab: Semantic image segmentation with deep convolutional nets, atrous convolution, and fully connected crfs. arXiv preprint arXiv:1606.00915 (2016) 27. Yu, F., Koltun, V.: Multi-scale context ag...",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00150",
+    "page": 16,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Karpathy, A., Khosla, A., Bernstein, M., et al.: Imagenet large scale visual recog-",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00151",
+    "page": 16,
+    "section": "References",
+    "bbox": null,
+    "text_span": "nition challenge. International Journal of Computer Vision 115(3) (2015) 211–252 29. Zhou, B., Lapedriza, A., Xiao, J., Torralba, A., Oliva, A.: Learning deep features for scene recognition using places database. In: Advances in neural information processing systems. (2014) 487–495 30. Ioﬀe, S., Szegedy, C.: Batch normalization: Accelerating deep network training by reducing internal covariate shift. arXiv preprint arXiv:1502.03167 (2015) 31. Hinton, G., Vinyals, O., Dean, J.: Distilling the knowledge in a neural network. arXiv preprint arXiv:1503.02531 (2015) 32. Farabet, C., Couprie, C., Najman, L., LeCun, Y.: Learning hierarchical features for scene labeling. Pattern Analysis and Machine Intelligence, IEEE Transactions on 35(8) (2013) 1915–1929 33. Kirkpatrick, S., Vecchi, M.P., et al.: Optimization by simmulated annealing. science 220(4598) (1983) 671–680 34. Efron, B.: Bootstrap methods: another look at the jackknife. In: Breakthroughs in Statistics. Springer (1992) 569–593 35. J...",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00152",
+    "page": 17,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Colorful Image Colorization 17 40. Everingham, M., Van Gool, L., Williams, C.K.I., Winn, J., Zisserman, A.: The PASCAL Visual Object Classes Challenge 2012 (VOC2012) Results. http://www.pascal-network.org/challenges/VOC/voc2012/workshop/index.html 41. Girshick, R.: Fast r-cnn. In: Proceedings of the IEEE International Conference on Computer Vision. (2015) 1440–1448 42. Long, J., Shelhamer, E., Darrell, T.: Fully convolutional networks for semantic segmentation. In: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition. (2015) 3431–3440 43. Noroozi, M., Favaro, P.: Unsupervised learning of visual representations by solving jigsaw puzzles. arXiv preprint arXiv:1603.09246 (2016) 44. Chakrabarti, A.: Color constancy by learning to predict chromaticity from lumi- nance. In: Advances in Neural Information Processing Systems. (2015) 163–171",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00153",
+    "page": 17,
+    "section": "References",
+    "bbox": null,
+    "text_span": "45. Xiao, J., Hays, J., Ehinger, K.A., Oliva, A., Torralba, A.: Sun database: Large-scale",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00154",
+    "page": 17,
+    "section": "References",
+    "bbox": null,
+    "text_span": "scene recognition from abbey to zoo. In: Computer vision and pattern recognition (CVPR), 2010 IEEE conference on, IEEE (2010) 3485–3492 46. Ratliﬀ, N.D., Silver, D., Bagnell, J.A.: Learning to search: Functional gradient techniques for imitation learning. Autonomous Robots 27(1) (2009) 25–53 47. Patterson, G., Hays, J.: Sun attribute database: Discovering, annotating, and rec- ognizing scene attributes. In: Computer Vision and Pattern Recognition (CVPR), 2012 IEEE Conference on, IEEE (2012) 2751–2758 Appendix The main paper is our ECCV 2016 camera ready submission. All networks were re- trained from scratch, and are referred to as the v2 model. Due to space constraints, we were unable to include many of the analyses presented in our original arXiv v1 paper. We include these analyses in this Appendix, which were generated from a previous v1 version of the model. All models are publicly available on our website. Section 5 contains additional representation learning experiments. Section...",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00155",
+    "page": 17,
+    "section": "References",
+    "bbox": null,
+    "text_span": "explore how low-level queues aﬀect the output. Section 8 examines the multi-modality",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00156",
+    "page": 17,
+    "section": "References",
+    "bbox": null,
+    "text_span": "learned in the network. Section 9 deﬁnes the network architecture used. In Section 10, we compare our algorithm to previous approaches [22] and [1], and show additional examples on legacy grayscale images.",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00157",
+    "page": 17,
+    "section": "References",
+    "bbox": null,
+    "text_span": "5 Cross-Channel Encoding as Self-Supervised Feature",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00158",
+    "page": 17,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Learning (continued) In Section 3.2, we discussed using colorization as a pretext task for representation learn- ing. In addition to learning linear classiﬁers on internal layers for ImageNet classiﬁers, we run the additional experiment of learning non-linear classiﬁers, as proposed in [43]. Each internal layer is frozen, along with all preceding layers, and the layers on top are randomly reinitialized and trained for classiﬁcation. Performance is summarized in",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00159",
+    "page": 17,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Table 3. Of the unsupervised models, Noroozi et al. [43] have the highest performance",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00160",
+    "page": 17,
+    "section": "References",
+    "bbox": null,
+    "text_span": "across all layers. The architectural modiﬁcations result in 5 .6× feature map size and 7.35× model run-time, up to the pool5 layer, relative to an unmodiﬁed Alexnet. Of the remaining methods, Donahue et al. [16] performs best at conv2 and Doersch et al. performs best at conv3 and conv4. Our method performs strongly throughout, and best across methods at the conv5 layer.",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00161",
+    "page": 18,
+    "section": "References",
+    "bbox": null,
+    "text_span": "18 Zhang, Isola, Efros",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00162",
+    "page": 18,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Author Training Input Model [Ref] Layers Params Feats Runtime conv2 conv3 conv4 conv5 Krizhevsky et al. [38] labels rgb 1.00 1.00 1.00 – 56.5 56.5 56.5 56.5 Krizhevsky et al. [38] labels L 0.99 1.00 0.92 – 50.5 50.5 50.5 50.5 Noroozi & Favaro [43] imagenet rgb 1.00 5.60 7.35 [43] 56.0 52.4 48.3 38.1 Gaussian imagenet rgb 1.00 1.00 1.00 [43] 41.0 34.8 27.1 12.0 Doersch et al. [14] imagenet rgb 1.61 1.00 2.82 [43] 47.6 48.7 45.6 30.4 Wang & Gupta [15] videos rgb 1.00 1.00 1.00 [43] 46.9 42.8 38.8 29.8 Donahue et al. [16] imagenet rgb 1.00 0.87 0.96 [16] 51.9 47.3 41.9 31.1 Ours imagenet L 0.99 0.87 0.84 – 46.6 43.5 40.7 35.2",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00163",
+    "page": 18,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Table 3. ImageNet classiﬁcation with nonlinear layers, as proposed in [43]. Note",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00164",
+    "page": 18,
+    "section": "References",
+    "bbox": null,
+    "text_span": "that some models have architectural diﬀerences. We note the eﬀect of these modiﬁca- tions by the number of model parameters, number of features per image, and run-time, as a multiple of Alexnet [38] without modiﬁcations, up to thepool5 layer. Noroozi et al. [43] performs best on all layers, with denser feature maps due to smaller stride in conv1 layer, along with LRN and pool ordering switched. Doersch et al. [14] remove groups in conv layers. Donahue et al. [16] remove LRN layers and change ReLU to leakyReLU units. Ours removes LRN and uses a single channel input. We also note the source of performance numbers. Column Ref indicates the source for a value obtained from a previous paper.",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00165",
+    "page": 18,
+    "section": "References",
+    "bbox": null,
+    "text_span": "6 Semantic Interpretability of Colorizations",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00166",
+    "page": 18,
+    "section": "References",
+    "bbox": null,
+    "text_span": "In Section 3.1, we investigated using the VGG classiﬁer to evaluate the semantic in- terpretability of our colorization results. In Section 6.1, we show the categories which perform well, and the ones which perform poorly, using this metric. In Section 6.2, we show commonly confused categories after recolorization.",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00167",
+    "page": 18,
+    "section": "References",
+    "bbox": null,
+    "text_span": "6.1 Category Performance",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00168",
+    "page": 18,
+    "section": "References",
+    "bbox": null,
+    "text_span": "In Figure 9, we show a selection of classes that have the most improvement in VGG classiﬁcation with respect to grayscale, along with the classes for which our colorizations hurt the most. Interestingly, many of the top classes actually have a color in their name, such as the green snake, orange, and goldﬁnch. The bottom classes show some common errors of our system, such as coloring clothing incorrectly and inconsistently and coloring an animal with a plausible but incorrect color. This analysis was performed using 48k images from the ImageNet validation set, and images in the top and bottom 10 classes are provided on the website. Our process for sorting categories and images is described below. For each cat- egory, we compute the top-5 classiﬁcation performance on grayscale and recolorized",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00169",
+    "page": 18,
+    "section": "References",
+    "bbox": null,
+    "text_span": "images, agray, arecolor ∈ [0, 1]C, where C = 1000 categories. We sort the categories",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00170",
+    "page": 18,
+    "section": "References",
+    "bbox": null,
+    "text_span": "by arecolor− agray. The re-colored vs grayscale performance per category is shown in",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00171",
+    "page": 18,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Figure 11(a), with top and bottom 50 categories highlighted. For the top example cat-",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00172",
+    "page": 18,
+    "section": "References",
+    "bbox": null,
+    "text_span": "egories, the individual images are sorted by ascending rank of the correct classiﬁcation of the recolorizeed image, with tiebreakers on descending rank of the correct classiﬁca- tion of the grayscale image. For the bottom example categories, the images are sorted in reverse, in order to highlight the instances when recolorization results in an errant classiﬁcation relative to the grayscale image.",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00173",
+    "page": 19,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Colorful Image Colorization 19 Green snake (6) Orange (9)Goldﬁnch (10) Lorikeet (2) Rapeseed (1)Pomegranate (5) Rock beauty (26)Jellyﬁsh (43) Military (-1)Modem (-6) Grey fox (-26)Sweatshirt (-15)",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00174",
+    "page": 19,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Fig. 9. Images colorized by our algorithm from selected categories. Categories are",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00175",
+    "page": 19,
+    "section": "References",
+    "bbox": null,
+    "text_span": "sorted by VGG object classiﬁcation accuracy of our colorized images relative to ac- curacy on gracyscale images. Top: example categories where our colorization helps the most. Bottom: example categories where our colorization hurts the most. Number in parentheses indicates category rank amongst all 1000. Notice that the categories most aﬀected by colorization are those for which color information is highly diagnostic, such as birds and fruits. The bottom examples show several kinds of failures: 1) artiﬁcial objects such as modems and clothes have ambiguous colors; color is not very infor- mative for classiﬁcation, and moreover, our algorithm tends to predict an incoherent distribution of red and blue, 2) for certain categories, like the gray fox, our algorithm systematically predicts the wrong color, confusing the species.",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00176",
+    "page": 19,
+    "section": "References",
+    "bbox": null,
+    "text_span": "6.2 Common Confusions",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00177",
+    "page": 19,
+    "section": "References",
+    "bbox": null,
+    "text_span": "To further investigate the biases in our system, we look at the common classiﬁcation confusions that often occur after image recolorization, but not with the original ground truth image. Examples for some top confusions are shown in Figure 10. An image of a",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00178",
+    "page": 19,
+    "section": "References",
+    "bbox": null,
+    "text_span": "“minibus” is often colored yellow, leading to a misclassiﬁcation as “school bus”. Animal",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00179",
+    "page": 19,
+    "section": "References",
+    "bbox": null,
+    "text_span": "classes are sometimes colored diﬀerently than ground truth, leading to misclassiﬁcation to related species. Note that the colorizations are often visually realistic, even though they lead to a misclassiﬁcation. To ﬁnd common confusions, we compute the rate of top-5 confusionCorig, Crecolor∈",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00180",
+    "page": 19,
+    "section": "References",
+    "bbox": null,
+    "text_span": "[0, 1]C×C, with ground truth colors and after recolorization. A value of Cc,d = 1 means",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00181",
+    "page": 19,
+    "section": "References",
+    "bbox": null,
+    "text_span": "that every image in category c was classiﬁed as category d in the top-5. We ﬁnd the",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00182",
+    "page": 19,
+    "section": "References",
+    "bbox": null,
+    "text_span": "class-confusion added after recolorization by computing A = Crecolor− Corig, and",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00183",
+    "page": 19,
+    "section": "References",
+    "bbox": null,
+    "text_span": "sort the oﬀ-diagonal entries. Figure 11(b) shows all C× (C− 1) oﬀ-diagonal entries of Crecolor vs Corig, with the top 100 entries from A highlighted. For each category pair (c,d ), we extract the images that contained the confusion after recolorization, but",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00184",
+    "page": 20,
+    "section": "References",
+    "bbox": null,
+    "text_span": "20 Zhang, Isola, Efros",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00185",
+    "page": 20,
+    "section": "References",
+    "bbox": null,
+    "text_span": "not with the original colorization. We then sort the images in descending order of the classiﬁcation score of the confused category.",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00186",
+    "page": 20,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Fig. 10. Examples of some most-confused categories. Top rows show ground truth im-",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00187",
+    "page": 20,
+    "section": "References",
+    "bbox": null,
+    "text_span": "age. Bottom rows show recolorized images. Rank of common confusion in parentheses. Ground truth and confused categories after recolorization are labeled.",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00188",
+    "page": 21,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Colorful Image Colorization 21",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00189",
+    "page": 21,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Fig. 11.(a) Performance of VGG top-5 classiﬁcation on recolorized images vs grayscale",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00190",
+    "page": 21,
+    "section": "References",
+    "bbox": null,
+    "text_span": "images per category (b) Top-5 confusion rates with recolorizations and original colors. Test was done on last 48,000 images in ImageNet validation set. 7 Is the network exploiting low-level cues? Unlike many computer vision tasks that can be roughly categorized as low, mid or high-level vision, color prediction requires understanding an image at both the pixel and the semantic-level. We have investigated how colorization generalizes to high-level semantic tasks in Section 3.2. Studies of natural image statistics have shown that the lightness value of a single pixel can highly constrain the likely color of that pixel: darker lightness values tend to be correlated with more saturated colors [44]. Could our network be exploiting a simple, low-level relationship like this, in order to predict color?4 We tested this hypothesis with the simple demonstration in Figure 12. Given a grayscale Macbeth color chart as input, our network was unable to recover its colors. This is true, despite the f...",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00191",
+    "page": 21,
+    "section": "References",
+    "bbox": null,
+    "text_span": "vegetables that are roughly isoluminant, the system is able to recover their color.",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00192",
+    "page": 21,
+    "section": "References",
+    "bbox": null,
+    "text_span": "In Figure 12, we also demonstrate that the prediction is somewhat stable with respect to low-level lightness and contrast changes. Blurring, on the other hand, has a bigger eﬀect on the predictions in this example, possibly because the operation removes the diagnostic texture pattern of the zucchini. 8 Does our model learn multimodal color distributions? As discussed in Section 2.1, formulating color prediction as a multinomial classiﬁcation problem allows the system to predict multimodal distributions, and can capture the inherent ambiguity in the color of natural objects. In Figure 13, we illustrate the 4 E.g., previous work showed that CNNs can learn to use chromatic aberration cues to predict, given an image patch, its (x,y) location within an image [14].",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00193",
+    "page": 22,
+    "section": "References",
+    "bbox": null,
+    "text_span": "22 Zhang, Isola, Efros",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00194",
+    "page": 22,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Fig. 12. Left: pixel lightness on its own does not reveal color, as shown by the color",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00195",
+    "page": 22,
+    "section": "References",
+    "bbox": null,
+    "text_span": "chart. In contrast, two vegetables that are nearly isoluminant are recognized as having",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00196",
+    "page": 22,
+    "section": "References",
+    "bbox": null,
+    "text_span": "diﬀerent colors. Right: stability of the network predictions with respect to low-level image transformations. probability outputs ˆZ and demonstrate that the network does indeed learn multimodal distributions. The system output ˆY is shown in the top-left of Figure 13. Each block illustrates the probability map ˆZq∈ [0, 1]H,W given ab bin q in the output space. For clarity, we show a subsampling of the Q total output bins and coarsely quantize the probability values. In Figure 13(a), the system clearly predicts a diﬀerent distribution for the background vegetation and the foreground bird. The background is predicted to be green, yellow, or brown, while the foreground bird is predicted to be red or blue. Figure 13(b) shows that oranges can be predicted to be diﬀerent colors. Lastly, in Figure 13(c), the man’s sarong is predicted to be either red, pink, or purple, while his shirt is classiﬁed as turquoise, cyan or light orange. Note that despite the multi- modality of the prediction, ta...",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00197",
+    "page": 22,
+    "section": "References",
+    "bbox": null,
+    "text_span": "9 Network architecture",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00198",
+    "page": 22,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Figure 2 showed a diagram of our network architecture. Table 4 in this document thor-",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00199",
+    "page": 22,
+    "section": "References",
+    "bbox": null,
+    "text_span": "oughly lists the layers used in our architecture during training time. During testing,",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00200",
+    "page": 22,
+    "section": "References",
+    "bbox": null,
+    "text_span": "the temperature adjustment, softmax, mean, and bilinear upsampling are all imple-",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00201",
+    "page": 22,
+    "section": "References",
+    "bbox": null,
+    "text_span": "mented as subsequent layers in a feed-forward network. Note the column showing the",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00202",
+    "page": 23,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Colorful Image Colorization 23",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00203",
+    "page": 23,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Fig. 13. The output probability distributions per image. The top-left image is ﬁnal",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00204",
+    "page": 23,
+    "section": "References",
+    "bbox": null,
+    "text_span": "prediction of our system. The black sub-images are quantized blocks of the ab gamut.",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00205",
+    "page": 23,
+    "section": "References",
+    "bbox": null,
+    "text_span": "High probabilities are shown as higher luminance and are quantized for clarity. (a)",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00206",
+    "page": 23,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Background of bird is predicted to be green or brown. Foreground bird has distri- bution across blue and red colors. (b) Oranges are predicted to be diﬀerent colors. (c) The person’s shirt and sarong has uncertainty across turqoise/cyan/orange and red/pink/purple colors, respectively. Note that despite the multimodality of the per- pixel distributions, the results after taking the annealed-mean are typically spatially consistent. eﬀective dilation. The eﬀective dilation is the spacing at which consecutive elements of the convolutional kernel are evaluated, relative to the input pixels, and is computed by the product of the accumulated stride and the layer dilation. Through each convo- lutional block from conv1 to conv5, the eﬀective dilation of the convolutional kernel is increased. From conv6 to conv8, the eﬀective dilation is decreased.",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00207",
+    "page": 23,
+    "section": "References",
+    "bbox": null,
+    "text_span": "10 Colorization comparisons on held-out datasets",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00208",
+    "page": 23,
+    "section": "References",
+    "bbox": null,
+    "text_span": "10.1 Comparison to LEARCH [22] Though our model was trained on object-centric ImageNet dataset, we demonstrate that it nonetheless remains eﬀective for photos from the scene-centric SUN dataset [45] selected by Deshpande et al. [22]. Deshpande et al. recently established a benchmark for colorization using a subset of the SUN dataset and reported top results using an algorithm based on LEARCH [46]. Table 5 provides a quantitative comparison of our method to Deshpande et al.. For fair comparison, we use the same grayscale input as [22], which is R+G+B 3 . Note that this input space is non-linearly related to the L channel on which we trained. Despite diﬀerences in grayscale space and training dataset, our method outperforms Deshpande et al. in both the raw accuracy AuC CMF and perceptual realism AMT metrics. Figure 14 shows qualitative comparisons between our method and Deshpande et al., one from each of the six scene categories. A complete comparison on all 240 images are included in t...",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00209",
+    "page": 24,
+    "section": "References",
+    "bbox": null,
+    "text_span": "24 Zhang, Isola, Efros",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00210",
+    "page": 24,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Layer X C S D Sa De BN L data 224 3 - - - - - - conv11 224 64 1 1 1 1 - - conv12 112 64 2 1 1 1 ✓ - conv21 112 128 1 1 2 2 - - conv21 56 128 2 1 2 2 ✓ - conv31 56 256 1 1 4 4 - - conv32 56 256 1 1 4 4 - - conv33 28 256 2 1 4 4 ✓ - conv41 28 512 1 1 8 8 - - conv42 28 512 1 1 8 8 - - conv43 28 512 1 1 8 8 ✓ - conv51 28 512 1 2 8 16 - - conv52 28 512 1 2 8 16 - - conv53 28 512 1 2 8 16 ✓ - conv61 28 512 1 2 8 16 - - conv62 28 512 1 2 8 16 - - conv63 28 512 1 2 8 16 ✓ - conv71 28 256 1 1 8 8 - - conv72 28 256 1 1 8 8 - - conv73 28 256 1 1 8 8 ✓ - conv81 56 128 .5 1 4 4 - - conv82 56 128 1 1 4 4 - - conv83 56 128 1 1 4 4 - ✓",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00211",
+    "page": 24,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Table 4. Our network architecture. X spatial resolution of output, C number of chan-",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00212",
+    "page": 24,
+    "section": "References",
+    "bbox": null,
+    "text_span": "nels of output; S computation stride, values greater than 1 indicate downsampling following convolution, values less than 1 indicate upsampling preceding convolution; D kernel dilation; Sa accumulated stride across all preceding layers (product over all strides in previous layers); De eﬀective dilation of the layer with respect to the input (layer dilation times accumulated stride); BN whether BatchNorm layer was used after layer; L whether a 1x1 conv and cross-entropy loss layer was imposed qualitative level as [1]. Note that Deep Colorization [1] has several advantages in this setting: (1) the test images are from the SUN dataset [47], which we did not train on and (2) the 23 images were hand-selected from 1344 by the authors, and is not necessarily representative of algorithm performance. We were unable to obtain the 1344 test set results through correspondence with the authors. Additionally, we compare the methods on several important dimensions in Table 6: algorithm pipeline, lea...",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00213",
+    "page": 24,
+    "section": "References",
+    "bbox": null,
+    "text_span": "10.3 Additional Examples on Legacy Grayscale Images",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00214",
+    "page": 24,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Here, we show additional qualitative examples of applying our model to legacy black and white photographs. Figures 16, 17, and 18 show examples including work of renowned photographers, such as Ansel Adams and Henri Cartier-Bresson, photographs of politicians and celebrities, and old family photos. One can see that our model is often able to produce good colorizations, even though the low-level image statistics of old legacy photographs are quite diﬀerent from those of modern-day photos.",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00215",
+    "page": 25,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Colorful Image Colorization 25 Results on LEARCH [22] dataset AuC AMT Algorithm CMF Labeled (%) Real (%) Ours 90.1 17.2±1.9 Deshpande et al. [22] 88.8 9.8 ±1.5 Grayscale 89.3 – Ground Truth 100 50",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00216",
+    "page": 25,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Table 5. Results on LEARCH [22] test set, containing 240 images from 6 categories",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00217",
+    "page": 25,
+    "section": "References",
+    "bbox": null,
+    "text_span": "beach, outdoor, castle, bedroom, kitchen, and living room. Results column 1 shows the AuC of thresholded CMF over ab space. Results column 2 are from our AMT real vs. fake test.",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00218",
+    "page": 25,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Fig. 14. CMF on the LEARCH [22] test set",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00219",
+    "page": 25,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Deep Colorization [1] Ours (1) Extract feature sets (a) 7x7 patch (b) DAISY Algorithm (c) FCN on 47 categories Feed-forward CNN (2) 3-layer NN regressor (3) Joint-bilateral ﬁlter Extract features. Train FCN [42] Train CNN from pixels to Learning on pre-deﬁned categories. color distribution. Tune single Train 3-layer NN regressor. parameter on validation. 2688/1344 images from 1.3M/10k images from Dataset SUN [47] for train/test. ImageNet [28] for train/test. Limited variety with Broad and diverse only scenes. set of objects and scenes. 4.9s/image on 21.1ms/image in Caﬀe Run-time Matlab implementation on K40 GPU",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00220",
+    "page": 25,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Table 6. Comparison to Deep Colorization [1]",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00221",
+    "page": 26,
+    "section": "References",
+    "bbox": null,
+    "text_span": "26 Zhang, Isola, Efros",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00222",
+    "page": 26,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Ground truth Deshpande et al. 2015 OursInput BeachBedroomCastleKitchenLiving roomOutdoor",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00223",
+    "page": 26,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Fig. 15. Our model generalizes well to datasets on which it was not trained. Here",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00224",
+    "page": 26,
+    "section": "References",
+    "bbox": null,
+    "text_span": "we show results on the dataset from [22], which consists of six scene categories from SUN [45]. Compared to the state of the art algorithm on this dataset [22], our method produces more perceptually plausible colorization (see also Table 5 and Figure 14). Please visit http://richzhang.github.io/colorization/ to see the results on all 240 images.",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00225",
+    "page": 27,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Colorful Image Colorization 27",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00226",
+    "page": 27,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Fig. 16. Applying our method to black and white photographs by Ansel Adams.",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00227",
+    "page": 28,
+    "section": "References",
+    "bbox": null,
+    "text_span": "28 Zhang, Isola, Efros",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00228",
+    "page": 28,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Fig. 17. Applying our method to black and white photographs by Henri Cartier-",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00229",
+    "page": 28,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Bresson.",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00230",
+    "page": 29,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Colorful Image Colorization 29",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00231",
+    "page": 29,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Fig. 18. Applying our method to legacy black and white photographs. Top to bottom,",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00232",
+    "page": 29,
+    "section": "References",
+    "bbox": null,
+    "text_span": "left to right: photo of Elvis Presley, photo ofMigrant Mother by Dorothea Lange, photo of Marilyn Monroe, an amateur family photo, photo by Henri Cartier-Bresson, photo",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00233",
+    "page": 29,
+    "section": "References",
+    "bbox": null,
+    "text_span": "by Dr. David Fleay of Benjamin, the last captive thylacine which went extinct in 1936.",
+    "source_type": "reference"
+  }
+]

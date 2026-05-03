@@ -1,0 +1,2982 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "深度神经网络在图像分类任务中表现出色，但对微小的、精心设计的对抗性扰动不稳定。目前缺乏有效的方法来准确计算大规模数据集上最先进深度分类器对此类扰动的鲁棒性。",
+      "anchors": [
+        "anc_00003",
+        "anc_00005"
+      ]
+    },
+    "motivation": {
+      "summary": "对抗性扰动的存在对深度学习模型的安全性和可靠性构成威胁。准确计算最小对抗性扰动对于理解模型弱点、比较不同分类器的鲁棒性以及设计更鲁棒的模型至关重要。现有方法要么计算成本高昂，要么只能提供次优的近似解。",
+      "anchors": [
+        "anc_00022",
+        "anc_00027"
+      ]
+    },
+    "core_idea": {
+      "summary": "提出DeepFool算法，通过迭代地线性化分类器边界并计算到当前点最近的分类边界距离，高效地计算出能够欺骗深度神经网络的最小扰动，从而可靠地量化分类器的鲁棒性。",
+      "anchors": [
+        "anc_00005",
+        "anc_00049",
+        "anc_00051"
+      ]
+    },
+    "method": {
+      "summary": "对于二分类器，算法迭代地在当前点线性化分类器函数，计算到线性化边界的最小扰动并更新点，直到分类结果改变。对于多分类器，算法将问题转化为寻找最近的分类边界（由其他类别的决策函数定义），并采用类似的迭代线性化方法。算法可扩展至不同的ℓp范数。",
+      "anchors": [
+        "anc_00044",
+        "anc_00048",
+        "anc_00051",
+        "anc_00068",
+        "anc_00070",
+        "anc_00114",
+        "anc_00119",
+        "anc_00121"
+      ]
+    },
+    "experiments": {
+      "summary": "在MNIST、CIFAR-10和ImageNet数据集上，使用多种深度神经网络架构（如全连接网络、LeNet、NIN等）进行实验。将DeepFool与快速梯度符号法（FGSM）和基于优化的方法进行比较，评估指标包括平均扰动大小、计算时间和分类器鲁棒性。实验还包括使用DeepFool生成的对抗样本进行微调以增强模型鲁棒性。",
+      "anchors": [
+        "anc_00125",
+        "anc_00129",
+        "anc_00130",
+        "anc_00131",
+        "anc_00134",
+        "anc_00139",
+        "anc_00141",
+        "anc_00155",
+        "anc_00156"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "DeepFool能够计算出比现有方法（如FGSM和基于优化的方法）更小的对抗性扰动，因此更接近理论上的最小扰动。",
+        "anchors": [
+          "anc_00135",
+          "anc_00136",
+          "anc_00139",
+          "anc_00148"
+        ]
+      },
+      {
+        "claim_id": "claim_2",
+        "claim": "DeepFool在计算效率上显著优于基于优化的方法，同时比FGSM更准确。",
+        "anchors": [
+          "anc_00142",
+          "anc_00143",
+          "anc_00144",
+          "anc_00145"
+        ]
+      },
+      {
+        "claim_id": "claim_3",
+        "claim": "使用DeepFool生成的对抗样本进行微调可以显著提高分类器对对抗性扰动的鲁棒性。",
+        "anchors": [
+          "anc_00155",
+          "anc_00156",
+          "anc_00157",
+          "anc_00164"
+        ]
+      },
+      {
+        "claim_id": "claim_4",
+        "claim": "使用近似方法（如FGSM）评估鲁棒性可能导致错误的结论，而DeepFool提供了更可靠的评估。",
+        "anchors": [
+          "anc_00176",
+          "anc_00177",
+          "anc_00178",
+          "anc_00179",
+          "anc_00180",
+          "anc_00181"
+        ]
+      },
+      {
+        "claim_id": "claim_5",
+        "claim": "DeepFool算法能够高效地扩展到大规模数据集（如ImageNet）和深度网络。",
+        "anchors": [
+          "anc_00125",
+          "anc_00136",
+          "anc_00145",
+          "anc_00147",
+          "anc_00148"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "算法是贪心的，不保证收敛到全局最优扰动（尽管实践中效果很好）。算法依赖于分类器的可微性。对于非常深的网络，迭代次数可能增加。微调实验中，使用放大后的扰动（α>1）可能带来类似数据增强的效果，但其长期影响和泛化能力需要进一步研究。",
+        "anchors": [
+          "anc_00097",
+          "anc_00098",
+          "anc_00161",
+          "anc_00163",
+          "anc_00168",
+          "anc_00169"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "问题定义：最小对抗性扰动",
+        "label": "问题形式化",
+        "summary": "将寻找最小对抗性扰动的问题形式化为一个优化问题，目标是找到最小的ℓ2范数扰动r，使得分类器对x+r的预测与对x的预测不同。",
+        "description": "定义鲁棒性Δ(x; ˆk)为最小扰动的范数，并定义分类器的整体鲁棒性ρ_adv(ˆk)为数据分布上的期望。这是评估分类器对抗鲁棒性的基础。",
+        "type": "概念定义",
+        "anchors": [
+          "anc_00006",
+          "anc_00007",
+          "anc_00008",
+          "anc_00009",
+          "anc_00010",
+          "anc_00011",
+          "anc_00017",
+          "anc_00018"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "二分类器DeepFool算法",
+        "label": "核心算法（二分类）",
+        "summary": "针对二分类可微分类器，通过迭代线性化分类器边界并计算到该线性化边界的最小扰动来逼近最小对抗性扰动。",
+        "description": "算法从初始点x0开始，在每次迭代i，计算当前点xi处的梯度∇f(xi)，并求解线性化问题（公式4）得到扰动ri。更新点xi+1 = xi + ri。当分类结果改变时停止。最终扰动乘以(1+η)以确保越过边界。",
+        "type": "算法步骤",
+        "anchors": [
+          "anc_00028",
+          "anc_00029",
+          "anc_00030",
+          "anc_00031",
+          "anc_00032",
+          "anc_00036",
+          "anc_00038",
+          "anc_00039",
+          "anc_00040",
+          "anc_00042",
+          "anc_00044",
+          "anc_00046",
+          "anc_00048",
+          "anc_00049",
+          "anc_00050"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "多分类器DeepFool算法",
+        "label": "核心算法（多分类）",
+        "summary": "将DeepFool扩展到多分类情况，通过迭代地线性化多个分类边界（由其他类别的决策函数定义）并计算到最近边界的扰动来寻找最小扰动。",
+        "description": "对于多分类器，定义当前预测类别ˆk(x0)对应的凸多面体P（公式7）。算法迭代地用线性化多面体˜Pi近似P，并计算到˜Pi补集的最近距离对应的扰动。选择最近的边界（类别ˆl）进行更新。",
+        "type": "算法步骤",
+        "anchors": [
+          "anc_00051",
+          "anc_00068",
+          "anc_00070",
+          "anc_00072",
+          "anc_00074",
+          "anc_00076",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081",
+          "anc_00082",
+          "anc_00084",
+          "anc_00086",
+          "anc_00087",
+          "anc_00089",
+          "anc_00091",
+          "anc_00093",
+          "anc_00094",
+          "anc_00095",
+          "anc_00096",
+          "anc_00097",
+          "anc_00098",
+          "anc_00100",
+          "anc_00101",
+          "anc_00102",
+          "anc_00105",
+          "anc_00106",
+          "anc_00108",
+          "anc_00110"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "ℓp范数扩展",
+        "label": "方法扩展",
+        "summary": "将DeepFool算法推广到任意ℓp范数（p≥1），通过修改扰动计算公式来适应不同的范数约束。",
+        "description": "对于ℓp范数，扰动ri的计算公式（公式13, 14）涉及对梯度进行逐点操作和范数计算。特别地，对于ℓ∞范数，扰动计算有特定形式。",
+        "type": "方法扩展",
+        "anchors": [
+          "anc_00114",
+          "anc_00119",
+          "anc_00121"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "实验设置与评估",
+        "label": "实验框架",
+        "summary": "在多个数据集和网络架构上评估DeepFool，并与基线方法比较。评估指标包括平均扰动大小、计算时间和鲁棒性度量。",
+        "description": "使用MNIST、CIFAR-10、ImageNet数据集。网络包括全连接网络、LeNet、NIN等。比较方法：快速梯度符号法（FGSM）和基于优化的方法（[18]）。评估指标：平均鲁棒性ρ_adv（公式2），ℓ∞鲁棒性，计算时间。",
+        "type": "实验设计",
+        "anchors": [
+          "anc_00125",
+          "anc_00128",
+          "anc_00129",
+          "anc_00130",
+          "anc_00131",
+          "anc_00134",
+          "anc_00139",
+          "anc_00141"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "结果分析与微调应用",
+        "label": "结果与应用",
+        "summary": "DeepFool生成更小的扰动，计算效率高。使用DeepFool生成的对抗样本进行微调可以显著提高模型鲁棒性。使用近似方法评估鲁棒性可能导致错误结论。",
+        "description": "结果表明DeepFool扰动比FGSM小一个数量级，比基于优化的方法略小且更快。微调实验显示，使用DeepFool扰动进行微调能快速提升鲁棒性。使用FGSM评估微调效果会夸大鲁棒性提升。",
+        "type": "结果分析",
+        "anchors": [
+          "anc_00135",
+          "anc_00136",
+          "anc_00142",
+          "anc_00143",
+          "anc_00144",
+          "anc_00145",
+          "anc_00147",
+          "anc_00148",
+          "anc_00150",
+          "anc_00151",
+          "anc_00152",
+          "anc_00153",
+          "anc_00155",
+          "anc_00156",
+          "anc_00157",
+          "anc_00159",
+          "anc_00161",
+          "anc_00163",
+          "anc_00164",
+          "anc_00166",
+          "anc_00168",
+          "anc_00169",
+          "anc_00172",
+          "anc_00174",
+          "anc_00176",
+          "anc_00177",
+          "anc_00178",
+          "anc_00179",
+          "anc_00180",
+          "anc_00181",
+          "anc_00182"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "问题驱动算法设计",
+        "description": "最小对抗性扰动的优化问题定义（node_001）是设计二分类DeepFool算法（node_002）的直接动机和目标。",
+        "anchors": []
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "算法扩展",
+        "description": "二分类DeepFool算法（node_002）是多分类DeepFool算法（node_003）的基础，多分类版本是其自然扩展。",
+        "anchors": []
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "范数泛化",
+        "description": "多分类DeepFool算法（node_003）的核心扰动计算步骤被推广以支持不同的ℓp范数（node_004）。",
+        "anchors": []
+      },
+      {
+        "source": "node_002",
+        "target": "node_005",
+        "label": "算法实现与评估",
+        "description": "二分类DeepFool算法（node_002）是实验评估（node_005）中实现和测试的核心方法之一。",
+        "anchors": []
+      },
+      {
+        "source": "node_003",
+        "target": "node_005",
+        "label": "算法实现与评估",
+        "description": "多分类DeepFool算法（node_003）是实验评估（node_005）中实现和测试的核心方法。",
+        "anchors": []
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "label": "方法扩展评估",
+        "description": "ℓp范数扩展（node_004）在实验评估（node_005）中被测试（例如ℓ∞鲁棒性评估）。",
+        "anchors": []
+      },
+      {
+        "source": "node_005",
+        "target": "node_006",
+        "label": "结果支撑结论",
+        "description": "实验设置与评估（node_005）的结果直接支撑了结果分析与微调应用（node_006）中的结论和发现。",
+        "anchors": []
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00027",
+        "anc_00129",
+        "anc_00130",
+        "anc_00131",
+        "anc_00134"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00005",
+        "anc_00049",
+        "anc_00051",
+        "anc_00135",
+        "anc_00136"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "FGSM进行单次梯度步，扰动方向固定为梯度符号，扰动大小由超参数ε控制。",
+        "after": "DeepFool进行多次迭代，每次根据当前点的梯度自适应地计算扰动方向和大小，直到越过分类边界。",
+        "why_it_matters": "DeepFool的自适应迭代使其能够找到比FGSM小得多的扰动（实验中小一个数量级），从而更准确地逼近理论最小扰动，为鲁棒性评估提供更可靠的基准。",
+        "anchors": [
+          "anc_00027",
+          "anc_00131",
+          "anc_00134",
+          "anc_00135",
+          "anc_00136"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "基于优化的方法（如[18]）需要求解复杂的优化问题，计算成本高。",
+        "after": "DeepFool通过简单的线性化和闭式解更新，通常只需几次迭代（<3次）即可收敛。",
+        "why_it_matters": "DeepFool在保持甚至提高准确性的同时，大幅提升了计算效率，使其能够应用于大规模数据集（如ImageNet）和深度网络，这是之前方法难以做到的。",
+        "anchors": [
+          "anc_00129",
+          "anc_00130",
+          "anc_00142",
+          "anc_00143",
+          "anc_00144",
+          "anc_00145"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "使用FGSM等近似方法评估模型鲁棒性或进行对抗训练。",
+        "after": "使用DeepFool生成更准确的对抗样本进行微调，或使用DeepFool作为鲁棒性评估工具。",
+        "why_it_matters": "使用更准确的扰动能更真实地反映模型的脆弱性。实验表明，用DeepFool扰动微调能显著提升鲁棒性，而用FGSM评估微调效果会夸大提升，可能导致错误结论。",
+        "anchors": [
+          "anc_00155",
+          "anc_00156",
+          "anc_00157",
+          "anc_00176",
+          "anc_00177",
+          "anc_00178",
+          "anc_00179",
+          "anc_00180",
+          "anc_00181"
+        ],
+        "delta_id": "delta_3"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\Delta(x; \\hat{k}) := \\min_{r} \\|r\\|_2 \\quad \\text{subject to} \\quad \\hat{k}(x+r) \\neq \\hat{k}(x)",
+        "description": "定义在点x处分类器\\hat{k}的鲁棒性，即最小ℓ2范数对抗性扰动。",
+        "variables": [
+          {
+            "symbol": "x",
+            "description": "输入图像",
+            "confidence": "high",
+            "anchors": [
+              "anc_00010"
+            ]
+          },
+          {
+            "symbol": "r",
+            "description": "扰动向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00010"
+            ]
+          },
+          {
+            "symbol": "\\hat{k}(x)",
+            "description": "分类器对x的预测标签",
+            "confidence": "high",
+            "anchors": [
+              "anc_00010"
+            ]
+          },
+          {
+            "symbol": "\\|\\cdot\\|_2",
+            "description": "ℓ2范数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00010"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "这是对抗鲁棒性的核心度量，目标是找到能够改变分类结果的最小扰动。DeepFool算法旨在高效地近似求解这个优化问题。",
+        "anchors": [
+          "anc_00006",
+          "anc_00007",
+          "anc_00008",
+          "anc_00009",
+          "anc_00010"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "\\rho_{adv}(\\hat{k}) = \\mathbb{E}_x \\left[ \\frac{\\Delta(x; \\hat{k})}{\\|x\\|_2} \\right]",
+        "description": "分类器\\hat{k}的整体鲁棒性，是数据分布上归一化鲁棒性的期望。",
+        "variables": [
+          {
+            "symbol": "\\mathbb{E}_x",
+            "description": "关于数据分布的期望",
+            "confidence": "high",
+            "anchors": [
+              "anc_00017",
+              "anc_00018"
+            ]
+          },
+          {
+            "symbol": "\\Delta(x; \\hat{k})",
+            "description": "点x处的鲁棒性（公式1）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00017",
+              "anc_00018"
+            ]
+          },
+          {
+            "symbol": "\\|x\\|_2",
+            "description": "输入图像的ℓ2范数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00018"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "将单个点的鲁棒性归一化后在整个数据集上平均，得到一个衡量分类器整体对抗鲁棒性的标量指标。值越大表示越鲁棒。",
+        "anchors": [
+          "anc_00017",
+          "anc_00018"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "r^*(x_0) = -\\frac{f(x_0)}{\\|\\nabla f(x_0)\\|_2^2} \\nabla f(x_0)",
+        "description": "对于二元线性分类器f(x)=w^Tx+b，从点x0到分类边界F={x:f(x)=0}的最小扰动（ℓ2范数）的闭式解。",
+        "variables": [
+          {
+            "symbol": "f(x_0)",
+            "description": "分类器在x0处的输出值",
+            "confidence": "high",
+            "anchors": [
+              "anc_00038",
+              "anc_00039",
+              "anc_00040"
+            ]
+          },
+          {
+            "symbol": "\\nabla f(x_0)",
+            "description": "分类器在x0处的梯度",
+            "confidence": "high",
+            "anchors": [
+              "anc_00038",
+              "anc_00039",
+              "anc_00040"
+            ]
+          },
+          {
+            "symbol": "\\|\\cdot\\|_2",
+            "description": "ℓ2范数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00038"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "这是DeepFool算法在二元线性情况下的核心计算步骤。它直接给出了到线性边界的最短距离向量。对于非线性分类器，算法通过迭代线性化来逼近这个解。",
+        "anchors": [
+          "anc_00036",
+          "anc_00038",
+          "anc_00039",
+          "anc_00040"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "latex": "\\text{arg min}_{r_i} \\|r_i\\|_2 \\quad \\text{subject to} \\quad f(x_i) + \\nabla f(x_i)^T r_i = 0",
+        "description": "在迭代i，对非线性二元分类器f在点xi处进行线性化后，求解到线性化边界的最小扰动。这是公式3的线性近似版本。",
+        "variables": [
+          {
+            "symbol": "x_i",
+            "description": "第i次迭代的当前点",
+            "confidence": "high",
+            "anchors": [
+              "anc_00044",
+              "anc_00046",
+              "anc_00048"
+            ]
+          },
+          {
+            "symbol": "r_i",
+            "description": "第i次迭代计算的扰动",
+            "confidence": "high",
+            "anchors": [
+              "anc_00044",
+              "anc_00046",
+              "anc_00048"
+            ]
+          },
+          {
+            "symbol": "f(x_i)",
+            "description": "分类器在xi处的输出值",
+            "confidence": "high",
+            "anchors": [
+              "anc_00048"
+            ]
+          },
+          {
+            "symbol": "\\nabla f(x_i)",
+            "description": "分类器在xi处的梯度",
+            "confidence": "high",
+            "anchors": [
+              "anc_00048"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "这是DeepFool算法迭代过程的核心。每次迭代都假设分类器在局部是线性的，并求解这个线性问题得到扰动ri，然后更新点xi+1 = xi + ri。这个过程重复直到分类结果改变。",
+        "anchors": [
+          "anc_00044",
+          "anc_00046",
+          "anc_00048"
+        ]
+      },
+      {
+        "formula_id": "formula_005",
+        "latex": "\\hat{r}(x) = (1+\\eta) \\sum_{i} r_i",
+        "description": "DeepFool算法最终返回的扰动向量，是所有迭代扰动ri之和，并乘以一个略大于1的系数(1+η)以确保越过分类边界。",
+        "variables": [
+          {
+            "symbol": "\\eta",
+            "description": "一个小的正数（实验中为0.02）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00049",
+              "anc_00050"
+            ]
+          },
+          {
+            "symbol": "r_i",
+            "description": "第i次迭代计算的扰动",
+            "confidence": "high",
+            "anchors": [
+              "anc_00049"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "由于迭代过程可能收敛到边界上（f(x)=0）而不是越过它，乘以(1+η)是一个简单的启发式方法，确保最终扰动能成功欺骗分类器。",
+        "anchors": [
+          "anc_00049",
+          "anc_00050"
+        ]
+      },
+      {
+        "formula_id": "formula_006",
+        "latex": "r_i = -\\frac{f_{\\hat{l}}'(x_i)}{\\|w_{\\hat{l}}'\\|_2^2} w_{\\hat{l}}'",
+        "description": "多分类DeepFool算法中，在第i次迭代，计算到最近类别边界（由类别\\hat{l}定义）的最小扰动。其中f_{\\hat{l}}'和w_{\\hat{l}}'是线性化后的函数和梯度。",
+        "variables": [
+          {
+            "symbol": "\\hat{l}",
+            "description": "当前迭代中距离最近的其他类别",
+            "confidence": "high",
+            "anchors": [
+              "anc_00110"
+            ]
+          },
+          {
+            "symbol": "f_{\\hat{l}}'(x_i)",
+            "description": "线性化后的类别\\hat{l}与当前类别决策函数的差值在xi处的值",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00108"
+            ]
+          },
+          {
+            "symbol": "w_{\\hat{l}}'",
+            "description": "线性化后的梯度向量",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00108"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "这是多分类DeepFool的核心计算。算法在每次迭代中，计算到所有其他类别边界的距离，选择最近的一个（\\hat{l}），并计算到该线性化边界的扰动。",
+        "anchors": [
+          "anc_00105",
+          "anc_00106",
+          "anc_00108",
+          "anc_00110"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "在MNIST、CIFAR-10和ImageNet数据集上，使用多种网络架构，比较DeepFool、FGSM和基于优化的方法[18]生成的平均扰动大小（ρ_adv）和计算时间。",
+      "findings": "DeepFool生成的扰动比FGSM小一个数量级（例如在ImageNet上），比基于优化的方法略小且计算速度快得多。DeepFool通常在几次迭代内收敛。",
+      "anchors": [
+        "anc_00125",
+        "anc_00134",
+        "anc_00135",
+        "anc_00136",
+        "anc_00139",
+        "anc_00141",
+        "anc_00142",
+        "anc_00143",
+        "anc_00144",
+        "anc_00145",
+        "anc_00147",
+        "anc_00148"
+      ]
+    },
+    "ablation": {
+      "description": "微调实验中，比较使用DeepFool扰动、FGSM扰动以及原始数据进行微调的效果。还比较了使用不同放大系数α（1,2,3）的DeepFool扰动进行微调。",
+      "findings": "使用DeepFool扰动微调能显著提升鲁棒性。使用FGSM扰动微调效果较差。放大扰动（α>1）能带来类似数据增强的效果，进一步提升鲁棒性。",
+      "anchors": [
+        "anc_00155",
+        "anc_00156",
+        "anc_00157",
+        "anc_00159",
+        "anc_00161",
+        "anc_00163",
+        "anc_00164",
+        "anc_00166",
+        "anc_00168",
+        "anc_00169"
+      ]
+    },
+    "robustness": {
+      "description": "评估不同分类器在ℓ2和ℓ∞范数下的鲁棒性。使用DeepFool（p=∞）和FGSM计算ℓ∞鲁棒性。",
+      "findings": "DeepFool在ℓ∞范数下也能计算出比FGSM更小的扰动（表2）。使用DeepFool评估能更准确地反映模型的真实鲁棒性。",
+      "anchors": [
+        "anc_00150",
+        "anc_00151",
+        "anc_00152",
+        "anc_00153"
+      ]
+    },
+    "scaling": {
+      "description": "在ImageNet（ILSVRC2012）大规模数据集上评估DeepFool的性能和效率。",
+      "findings": "DeepFool能够高效地处理大规模数据集，计算出的扰动比FGSM小一个数量级，证明了其可扩展性。",
+      "anchors": [
+        "anc_00136",
+        "anc_00145",
+        "anc_00147",
+        "anc_00148"
+      ]
+    },
+    "case_study": {
+      "description": "展示DeepFool和FGSM生成的对抗样本的视觉对比（图1）。展示从“1”扰动到“7”的案例（图8）。",
+      "findings": "DeepFool生成的扰动在视觉上几乎不可察觉，而FGSM的扰动更明显。案例展示了微小扰动能导致语义上完全不同的分类结果。",
+      "anchors": [
+        "anc_00012",
+        "anc_00013",
+        "anc_00014",
+        "anc_00015",
+        "anc_00016",
+        "anc_00172"
+      ]
+    },
+    "human_eval": {
+      "description": "未提及正式的人类评估实验。",
+      "findings": "未知。",
+      "anchors": []
+    },
+    "benchmark": {
+      "description": "在MNIST、CIFAR-10、ImageNet标准图像分类基准上进行评估。",
+      "findings": "DeepFool在所有基准上都表现出优越性。",
+      "anchors": [
+        "anc_00125"
+      ]
+    },
+    "efficiency": {
+      "description": "报告计算单个对抗样本所需的时间（表1）。比较DeepFool、FGSM和基于优化的方法[18]的运行时间。",
+      "findings": "DeepFool比基于优化的方法快得多，与FGSM相比，虽然单次迭代计算稍复杂，但总迭代次数少（<3），总体效率高。",
+      "anchors": [
+        "anc_00139",
+        "anc_00141",
+        "anc_00142",
+        "anc_00143",
+        "anc_00144"
+      ]
+    },
+    "experiments": [
+      {
+        "description": "在MNIST、CIFAR-10和ImageNet数据集上，使用多种网络架构，比较DeepFool、FGSM和基于优化的方法[18]生成的平均扰动大小（ρ_adv）和计算时间。",
+        "findings": "DeepFool生成的扰动比FGSM小一个数量级（例如在ImageNet上），比基于优化的方法略小且计算速度快得多。DeepFool通常在几次迭代内收敛。",
+        "anchors": [
+          "anc_00125",
+          "anc_00134",
+          "anc_00135",
+          "anc_00136",
+          "anc_00139",
+          "anc_00141",
+          "anc_00142",
+          "anc_00143",
+          "anc_00144",
+          "anc_00145",
+          "anc_00147",
+          "anc_00148"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "main_result_1",
+        "dataset": [
+          "MNIST",
+          "CIFAR-10",
+          "ImageNet"
+        ],
+        "baseline": [
+          "FGSM",
+          "基于优化的方法[18]"
+        ],
+        "metrics": [
+          "平均鲁棒性ρ_adv",
+          "计算时间"
+        ],
+        "result_summary": "DeepFool生成的扰动比FGSM小一个数量级（例如在ImageNet上），比基于优化的方法略小且计算速度快得多。DeepFool通常在几次迭代内收敛。",
+        "what_it_tries_to_prove": "DeepFool在扰动大小和计算效率上优于现有方法。",
+        "evidence_strength": "强"
+      },
+      {
+        "description": "微调实验中，比较使用DeepFool扰动、FGSM扰动以及原始数据进行微调的效果。还比较了使用不同放大系数α（1,2,3）的DeepFool扰动进行微调。",
+        "findings": "使用DeepFool扰动微调能显著提升鲁棒性。使用FGSM扰动微调效果较差。放大扰动（α>1）能带来类似数据增强的效果，进一步提升鲁棒性。",
+        "anchors": [
+          "anc_00155",
+          "anc_00156",
+          "anc_00157",
+          "anc_00159",
+          "anc_00161",
+          "anc_00163",
+          "anc_00164",
+          "anc_00166",
+          "anc_00168",
+          "anc_00169"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "ablation",
+        "name": "ablation_2",
+        "dataset": [
+          "MNIST",
+          "CIFAR-10"
+        ],
+        "baseline": [
+          "原始数据微调",
+          "FGSM扰动微调"
+        ],
+        "metrics": [
+          "鲁棒性ρ_adv",
+          "测试准确率"
+        ],
+        "result_summary": "使用DeepFool扰动微调能显著提升鲁棒性。使用FGSM扰动微调效果较差。放大扰动（α>1）能带来类似数据增强的效果，进一步提升鲁棒性。",
+        "what_it_tries_to_prove": "使用更准确的对抗样本进行微调能更有效地提升模型鲁棒性。",
+        "evidence_strength": "强"
+      },
+      {
+        "description": "评估不同分类器在ℓ2和ℓ∞范数下的鲁棒性。使用DeepFool（p=∞）和FGSM计算ℓ∞鲁棒性。",
+        "findings": "DeepFool在ℓ∞范数下也能计算出比FGSM更小的扰动（表2）。使用DeepFool评估能更准确地反映模型的真实鲁棒性。",
+        "anchors": [
+          "anc_00150",
+          "anc_00151",
+          "anc_00152",
+          "anc_00153"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "robustness",
+        "name": "robustness_3",
+        "dataset": [
+          "MNIST",
+          "CIFAR-10"
+        ],
+        "baseline": [
+          "FGSM"
+        ],
+        "metrics": [
+          "ℓ∞鲁棒性ρ_∞"
+        ],
+        "result_summary": "DeepFool在ℓ∞范数下也能计算出比FGSM更小的扰动（表2）。使用DeepFool评估能更准确地反映模型的真实鲁棒性。",
+        "what_it_tries_to_prove": "DeepFool在不同范数下均能提供更准确的鲁棒性评估。",
+        "evidence_strength": "强"
+      },
+      {
+        "description": "在ImageNet（ILSVRC2012）大规模数据集上评估DeepFool的性能和效率。",
+        "findings": "DeepFool能够高效地处理大规模数据集，计算出的扰动比FGSM小一个数量级，证明了其可扩展性。",
+        "anchors": [
+          "anc_00136",
+          "anc_00145",
+          "anc_00147",
+          "anc_00148"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "scaling",
+        "name": "scaling_4",
+        "dataset": [
+          "ImageNet (ILSVRC2012)"
+        ],
+        "baseline": [
+          "FGSM"
+        ],
+        "metrics": [
+          "平均鲁棒性ρ_adv",
+          "计算时间"
+        ],
+        "result_summary": "DeepFool能够高效地处理大规模数据集，计算出的扰动比FGSM小一个数量级，证明了其可扩展性。",
+        "what_it_tries_to_prove": "DeepFool能够扩展到大规模数据集和深度网络。",
+        "evidence_strength": "强"
+      },
+      {
+        "description": "展示DeepFool和FGSM生成的对抗样本的视觉对比（图1）。展示从“1”扰动到“7”的案例（图8）。",
+        "findings": "DeepFool生成的扰动在视觉上几乎不可察觉，而FGSM的扰动更明显。案例展示了微小扰动能导致语义上完全不同的分类结果。",
+        "anchors": [
+          "anc_00012",
+          "anc_00013",
+          "anc_00014",
+          "anc_00015",
+          "anc_00016",
+          "anc_00172"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "case_study",
+        "name": "case_study_5",
+        "dataset": [
+          "MNIST",
+          "ImageNet"
+        ],
+        "baseline": [
+          "FGSM"
+        ],
+        "metrics": [
+          "视觉感知"
+        ],
+        "result_summary": "DeepFool生成的扰动在视觉上几乎不可察觉，而FGSM的扰动更明显。案例展示了微小扰动能导致语义上完全不同的分类结果。",
+        "what_it_tries_to_prove": "DeepFool生成的扰动更小、更隐蔽。",
+        "evidence_strength": "中"
+      },
+      {
+        "description": "在MNIST、CIFAR-10、ImageNet标准图像分类基准上进行评估。",
+        "findings": "DeepFool在所有基准上都表现出优越性。",
+        "anchors": [
+          "anc_00125"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "benchmark",
+        "name": "benchmark_6",
+        "dataset": [
+          "MNIST",
+          "CIFAR-10",
+          "ImageNet"
+        ],
+        "baseline": [
+          "FGSM",
+          "基于优化的方法[18]"
+        ],
+        "metrics": [
+          "平均鲁棒性ρ_adv",
+          "计算时间"
+        ],
+        "result_summary": "DeepFool在所有基准上都表现出优越性。",
+        "what_it_tries_to_prove": "DeepFool在不同数据集和网络架构上均有效。",
+        "evidence_strength": "强"
+      },
+      {
+        "description": "报告计算单个对抗样本所需的时间（表1）。比较DeepFool、FGSM和基于优化的方法[18]的运行时间。",
+        "findings": "DeepFool比基于优化的方法快得多，与FGSM相比，虽然单次迭代计算稍复杂，但总迭代次数少（<3），总体效率高。",
+        "anchors": [
+          "anc_00139",
+          "anc_00141",
+          "anc_00142",
+          "anc_00143",
+          "anc_00144"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "efficiency",
+        "name": "efficiency_7",
+        "dataset": [
+          "MNIST",
+          "CIFAR-10",
+          "ImageNet"
+        ],
+        "baseline": [
+          "FGSM",
+          "基于优化的方法[18]"
+        ],
+        "metrics": [
+          "计算时间（秒/样本）"
+        ],
+        "result_summary": "DeepFool比基于优化的方法快得多，与FGSM相比，虽然单次迭代计算稍复杂，但总迭代次数少（<3），总体效率高。",
+        "what_it_tries_to_prove": "DeepFool在计算效率上优于基于优化的方法，与FGSM相当。",
+        "evidence_strength": "强"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "DeepFool计算出的对抗性扰动比FGSM和基于优化的方法更小，因此更接近理论最小扰动。",
+        "evidence_source_type": "实验结果（表1，图1）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00135",
+          "anc_00136",
+          "anc_00139",
+          "anc_00148"
+        ],
+        "risk_flags": [
+          "算法是贪心的，不保证全局最优（anc_00097, anc_00098）。扰动大小的比较依赖于具体的数据集和网络架构。"
+        ],
+        "claim_id": "claim_1",
+        "evidence": [
+          {
+            "evidence_id": "evidence_1_1",
+            "description": "在MNIST、CIFAR-10和ImageNet数据集上，DeepFool生成的平均扰动大小（ρ_adv）比FGSM小一个数量级，比基于优化的方法略小（表1）。",
+            "anchors": [
+              "anc_00135",
+              "anc_00136",
+              "anc_00139"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_1_2",
+            "description": "在ImageNet数据集上，DeepFool生成的扰动比FGSM小一个数量级（anc_00136）。",
+            "anchors": [
+              "anc_00136"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_1_3",
+            "description": "视觉对比显示DeepFool生成的扰动几乎不可察觉，而FGSM的扰动更明显（图1）。",
+            "anchors": [
+              "anc_00012",
+              "anc_00013",
+              "anc_00014",
+              "anc_00015",
+              "anc_00016"
+            ],
+            "strength": "中"
+          }
+        ]
+      },
+      {
+        "claim": "DeepFool在计算效率上显著优于基于优化的方法，同时比FGSM更准确。",
+        "evidence_source_type": "实验结果（表1运行时间，迭代次数描述）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00142",
+          "anc_00143",
+          "anc_00144",
+          "anc_00145"
+        ],
+        "risk_flags": [
+          "效率比较基于特定硬件（GTX 750 Ti GPU，anc_00141）。对于非常深的网络，迭代次数可能增加。"
+        ],
+        "claim_id": "claim_2",
+        "evidence": [
+          {
+            "evidence_id": "evidence_2_1",
+            "description": "DeepFool比基于优化的方法[18]快得多，因为后者涉及一系列代价高昂的优化问题（anc_00142, anc_00143）。",
+            "anchors": [
+              "anc_00142",
+              "anc_00143"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_2_2",
+            "description": "DeepFool通常在几次迭代（<3次）内收敛，计算效率高（anc_00144）。",
+            "anchors": [
+              "anc_00144"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_2_3",
+            "description": "DeepFool在保持高准确性的同时，计算效率使其适用于大规模数据集（anc_00145）。",
+            "anchors": [
+              "anc_00145"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim": "使用DeepFool生成的对抗样本进行微调可以显著提高分类器对对抗性扰动的鲁棒性。",
+        "evidence_source_type": "微调实验结果（图6，表3）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00155",
+          "anc_00156",
+          "anc_00157",
+          "anc_00164"
+        ],
+        "risk_flags": [
+          "微调实验仅进行了5个额外epoch。使用放大扰动（α>1）的效果类似于数据增强，其长期影响和泛化能力需要进一步研究。"
+        ],
+        "claim_id": "claim_3",
+        "evidence": [
+          {
+            "evidence_id": "evidence_3_1",
+            "description": "使用DeepFool扰动进行微调（5个额外epoch）能显著提升模型的鲁棒性ρ_adv（图6a-6d）。",
+            "anchors": [
+              "anc_00155",
+              "anc_00156"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_3_2",
+            "description": "使用FGSM扰动进行微调的效果较差（anc_00157）。",
+            "anchors": [
+              "anc_00157"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_3_3",
+            "description": "放大DeepFool扰动（α=2,3）进行微调能带来类似数据增强的效果，进一步提升鲁棒性（anc_00161, anc_00163）。",
+            "anchors": [
+              "anc_00161",
+              "anc_00163"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_3_4",
+            "description": "微调后的网络测试准确率见表3（anc_00164）。",
+            "anchors": [
+              "anc_00164"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim": "使用近似方法（如FGSM）评估鲁棒性可能导致错误的结论，而DeepFool提供了更可靠的评估。",
+        "evidence_source_type": "对比实验（图9）",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00176",
+          "anc_00177",
+          "anc_00178",
+          "anc_00179",
+          "anc_00180",
+          "anc_00181"
+        ],
+        "risk_flags": [
+          "该结论基于一个特定的微调实验（NIN分类器，anc_00177）。需要更多实验来验证其普遍性。"
+        ],
+        "claim_id": "claim_4",
+        "evidence": [
+          {
+            "evidence_id": "evidence_4_1",
+            "description": "使用FGSM扰动微调NIN分类器后，用FGSM评估鲁棒性会夸大提升效果，而用DeepFool评估则更准确（图9）。",
+            "anchors": [
+              "anc_00176",
+              "anc_00177",
+              "anc_00178",
+              "anc_00179",
+              "anc_00180",
+              "anc_00181"
+            ],
+            "strength": "中"
+          }
+        ]
+      },
+      {
+        "claim": "DeepFool算法能够高效地扩展到大规模数据集（如ImageNet）和深度网络。",
+        "evidence_source_type": "实验设置与结果（ImageNet实验）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00125",
+          "anc_00136",
+          "anc_00145",
+          "anc_00147",
+          "anc_00148"
+        ],
+        "risk_flags": [
+          "ImageNet实验中使用的具体网络架构和深度未在提供的文本片段中明确说明。"
+        ],
+        "claim_id": "claim_5",
+        "evidence": [
+          {
+            "evidence_id": "evidence_5_1",
+            "description": "在ImageNet（ILSVRC2012）数据集上，DeepFool能够高效地计算对抗扰动，扰动大小比FGSM小一个数量级（anc_00136, anc_00147, anc_00148）。",
+            "anchors": [
+              "anc_00136",
+              "anc_00147",
+              "anc_00148"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_5_2",
+            "description": "DeepFool的计算效率使其适用于大规模数据集（anc_00145）。",
+            "anchors": [
+              "anc_00145"
+            ],
+            "strength": "强"
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "对抗性扰动",
+        "definition": "对输入数据（如图像）添加的微小、精心设计的扰动，旨在导致机器学习模型（如深度神经网络）产生错误的输出（如错误分类）。",
+        "anchors": [
+          "anc_00003",
+          "anc_00005",
+          "anc_00012"
+        ],
+        "appears_in": [
+          "anc_00003",
+          "anc_00005",
+          "anc_00012"
+        ]
+      },
+      {
+        "term": "鲁棒性",
+        "definition": "在本文中，特指分类器对抗对抗性扰动的稳定性。定义为最小对抗性扰动的范数（Δ(x; ˆk)）或其归一化期望（ρ_adv(ˆk)）。",
+        "anchors": [
+          "anc_00011",
+          "anc_00017",
+          "anc_00018"
+        ],
+        "appears_in": [
+          "anc_00011",
+          "anc_00017",
+          "anc_00018"
+        ]
+      },
+      {
+        "term": "DeepFool",
+        "definition": "本文提出的算法，通过迭代线性化分类器边界来高效计算近似最小对抗性扰动。",
+        "anchors": [
+          "anc_00005",
+          "anc_00049",
+          "anc_00051"
+        ],
+        "appears_in": [
+          "anc_00005",
+          "anc_00049",
+          "anc_00051"
+        ]
+      },
+      {
+        "term": "快速梯度符号法（FGSM）",
+        "definition": "一种计算对抗性扰动的基线方法，通过计算损失函数关于输入的梯度符号，并进行单步扰动。计算高效但扰动粗糙。",
+        "anchors": [
+          "anc_00027",
+          "anc_00131",
+          "anc_00134"
+        ],
+        "appears_in": [
+          "anc_00027",
+          "anc_00131",
+          "anc_00134"
+        ]
+      },
+      {
+        "term": "ℓp范数",
+        "definition": "向量范数的一种，用于衡量扰动的大小。本文主要考虑ℓ2范数和ℓ∞范数。",
+        "anchors": [
+          "anc_00010",
+          "anc_00114",
+          "anc_00119",
+          "anc_00121",
+          "anc_00150"
+        ],
+        "appears_in": [
+          "anc_00010",
+          "anc_00114",
+          "anc_00119",
+          "anc_00121",
+          "anc_00150"
+        ]
+      },
+      {
+        "term": "线性化",
+        "definition": "在DeepFool算法中，指在当前点xi处用一阶泰勒展开（梯度）近似分类器函数，从而将非线性问题转化为局部线性问题求解。",
+        "anchors": [
+          "anc_00044",
+          "anc_00048",
+          "anc_00095",
+          "anc_00096"
+        ],
+        "appears_in": [
+          "anc_00044",
+          "anc_00048",
+          "anc_00095",
+          "anc_00096"
+        ]
+      },
+      {
+        "term": "微调",
+        "definition": "在预训练模型的基础上，使用新的数据（如对抗样本）进行额外训练，以调整模型参数，通常旨在提高模型在特定任务（如对抗鲁棒性）上的性能。",
+        "anchors": [
+          "anc_00155",
+          "anc_00156"
+        ],
+        "appears_in": [
+          "anc_00155",
+          "anc_00156"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        "MNIST",
+        "CIFAR-10",
+        "ImageNet (ILSVRC2012)"
+      ],
+      "required_models": [
+        "两层全连接网络（MNIST）",
+        "LeNet卷积神经网络（MNIST, CIFAR-10）",
+        "NIN（CIFAR-10）",
+        "其他深度卷积神经网络（ImageNet，具体架构未明确说明）"
+      ],
+      "compute": "需要GPU进行高效训练和扰动计算。论文提到使用GTX 750 Ti GPU进行计时（anc_00141）。对于ImageNet实验，可能需要更强的计算资源。",
+      "code_available": "是，论文提供了代码链接：http://github.com/lts4/deepfool (anc_00011)。",
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 准备数据集：下载并预处理MNIST、CIFAR-10、ImageNet数据集。",
+          "anchors": [
+            "anc_00125"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 训练或加载基线模型：按照论文描述训练或获取预训练的深度神经网络模型。",
+          "anchors": [
+            "anc_00125"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 实现DeepFool算法：根据论文中的算法1（二分类）和算法2（多分类）实现核心迭代过程。注意ℓp范数的扩展（公式13,14）。",
+          "anchors": [
+            "anc_00049",
+            "anc_00051",
+            "anc_00114",
+            "anc_00119",
+            "anc_00121"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "4. 实现基线方法：实现快速梯度符号法（FGSM）作为比较基线。",
+          "anchors": [
+            "anc_00027",
+            "anc_00131",
+            "anc_00134"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "5. 计算对抗性扰动：对测试集中的每个样本，使用DeepFool和FGSM计算扰动，并记录扰动大小（ℓ2, ℓ∞范数）和计算时间。",
+          "anchors": [
+            "anc_00128",
+            "anc_00129",
+            "anc_00130",
+            "anc_00131",
+            "anc_00134",
+            "anc_00139",
+            "anc_00141"
+          ]
+        },
+        {
+          "step": "step_6",
+          "description": "6. 评估鲁棒性：计算平均鲁棒性ρ_adv（公式2）和ℓ∞鲁棒性（公式15）。",
+          "anchors": [
+            "anc_00017",
+            "anc_00018",
+            "anc_00150",
+            "anc_00151",
+            "anc_00152",
+            "anc_00153"
+          ]
+        },
+        {
+          "step": "step_7",
+          "description": "7. 进行微调实验：使用DeepFool（和FGSM）生成的对抗样本对模型进行微调（5个额外epoch，学习率降低50%）。评估微调后模型的鲁棒性和准确率。",
+          "anchors": [
+            "anc_00155",
+            "anc_00156",
+            "anc_00157",
+            "anc_00159",
+            "anc_00161",
+            "anc_00163",
+            "anc_00164",
+            "anc_00166",
+            "anc_00168",
+            "anc_00169"
+          ]
+        },
+        {
+          "step": "step_8",
+          "description": "8. 分析结果：比较不同方法的扰动大小、计算时间和微调效果。生成类似论文中的图表（如图1,6,9）进行可视化分析。",
+          "anchors": [
+            "anc_00012",
+            "anc_00013",
+            "anc_00014",
+            "anc_00015",
+            "anc_00016",
+            "anc_00159",
+            "anc_00172",
+            "anc_00176",
+            "anc_00177",
+            "anc_00178",
+            "anc_00179",
+            "anc_00180",
+            "anc_00181"
+          ]
+        }
+      ],
+      "missing_details": [],
+      "risk_points": []
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-03T18:10:53+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_cv_085_deepfool_a_simple_and_accurate_method_to_fool_de_2015",
+    "title": "DeepFool: A Simple and Accurate Method to Fool Deep Neural Networks",
+    "authors": [
+      "Seyed-Mohsen Moosavi-Dezfooli",
+      "Alhussein Fawzi",
+      "P. Frossard"
+    ],
+    "venue": "Computer Vision and Pattern Recognition",
+    "year": 2015,
+    "arxiv_id": "1511.04599",
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-03T18:08:44+00:00",
+    "paper_type": "Computer Vision / Pose Estimation / Computer Vision / Top-cited Computer Vision paper",
+    "citation_count": 5377,
+    "influential_citation_count": 572,
+    "semantic_scholar_id": "52693bcf4627bdbc31734e7f3dbcf5ea7eef4d35",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/52693bcf4627bdbc31734e7f3dbcf5ea7eef4d35",
+    "importance_rank": 85,
+    "selection_source": "semantic_scholar_top_cited_cv_open_pdf_2026_05_03",
+    "open_access_pdf_url": "https://arxiv.org/pdf/1511.04599",
+    "fields_of_study": [
+      "Computer Science"
+    ],
+    "publication_types": [
+      "JournalArticle",
+      "Conference"
+    ],
+    "abstract": "State-of-the-art deep neural networks have achieved impressive results on many image classification tasks. However, these same architectures have been shown to be unstable to small, well sought, perturbations of the images. Despite the importance of this phenomenon, no effective methods have been proposed to accurately compute the robustness of state-of-the-art deep classifiers to such perturbations on large-scale datasets. In this paper, we fill this gap and propose the DeepFool algorithm to efficiently compute perturbations that fool deep networks, and thus reliably quantify the robustness of these classifiers. Extensive experimental results show that our approach outperforms recent methods in the task of computing adversarial perturbations and making classifiers more robust."
+  },
+  "anchors": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "DeepFool: a simple and accurate method to fool deep neural networks Seyed-Mohsen Moosavi-Dezfooli, Alhussein Fawzi, Pascal Frossard ´Ecole Polytechnique F´ed´erale de Lausanne {seyed.moosavi,alhussein.fawzi,pascal.frossard} at epfl.ch",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Abstract",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "State-of-the-art deep neural networks have achieved im- pressive results on many image classiﬁcation tasks. How- ever, these same architectures have been shown to be un- stable to small, well sought, perturbations of the images. Despite the importance of this phenomenon, no effective methods have been proposed to accurately compute the ro- bustness of state-of-the-art deep classiﬁers to such pertur-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "bations on large-scale datasets. In this paper, we ﬁll this",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "gap and propose the DeepFool algorithm to efﬁciently com- pute perturbations that fool deep networks, and thus reli- ably quantify the robustness of these classiﬁers. Extensive experimental results show that our approach outperforms recent methods in the task of computing adversarial pertur- bations and making classiﬁers more robust.1 1. Introduction Deep neural networks are powerful learning models that achieve state-of-the-art pattern recognition performance in many research areas such as bioinformatics [1, 16], speech [12, 6], and computer vision [10, 8]. Though deep net- works have exhibited very good performance in classiﬁca- tion tasks, they have recently been shown to be particularly unstable to adversarial perturbations of the data [18]. In fact, very small and often imperceptible perturbations of the data samples are sufﬁcient to fool state-of-the-art classiﬁers and result in incorrect classiﬁcation. (e.g., Figure 1). For- mally, for a given classiﬁer, we deﬁne an adversarial...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "turbation as the minimal perturbationr that is sufﬁcient to",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "change the estimated label ˆk(x):",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "∆(x; ˆk) := min",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "r",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "∥r∥2 subject to ˆk(x +r) ̸= ˆk(x), (1)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "wherex is an image and ˆk(x) is the estimated label. We call ∆(x; ˆk) the robustness of ˆk at pointx. The robustness of classiﬁerˆk is then deﬁned as 1To encourage reproducible research, the code of DeepFool is made available at http://github.com/lts4/deepfool",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 1: An example of adversarial perturbations.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "First row: the original image x that is classiﬁed as",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ˆk(x)=“whale”. Second row: the image x +r classiﬁed",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "as ˆk(x +r)=“turtle” and the corresponding perturbation r",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "computed by DeepFool. Third row: the image classiﬁed as “turtle” and the corresponding perturbation computed by the fast gradient sign method [4]. DeepFool leads to a smaller perturbation. arXiv:1511.04599v3 [cs.LG] 4 Jul 2016",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ρadv(ˆk) = Ex",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "∆(x; ˆk) ∥x∥2 , (2) where Ex is the expectation over the distribution of data. The study of adversarial perturbations helps us understand what features are used by a classiﬁer. The existence of such",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "examples is seemingly in contradiction with the generaliza-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tion ability of the learning algorithms. While deep networks achieve state-of-the-art performance in image classiﬁcation tasks, they are not robust at all to small adversarial pertur-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "bations and tend to misclassify minimally perturbed data",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00022",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "that looks visually similar to clean samples. Though adver- sarial attacks are speciﬁc to the classiﬁer, it seems that the adversarial perturbations are generalizable across different models [18]. This can actually become a real concern from a security point of view. An accurate method for ﬁnding the adversarial perturba- tions is thus necessary to study and compare the robustness of different classiﬁers to adversarial perturbations. It might be the key to a better understanding of the limits of cur- rent architectures and to design methods to increase robust- ness. Despite the importance of the vulnerability of state-of- the-art classiﬁers to adversarial instability, no well-founded method has been proposed to compute adversarial perturba- tions and we ﬁll this gap in this paper. Our main contributions are the following: • We propose a simple yet accurate method for comput- ing and comparing the robustness of different classi- ﬁers to adversarial perturbations. • We perform an extens...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "employed in [18] is time-consuming and therefore does not",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00024",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "scale to large datasets. In [14], the authors showed that con-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "volutional networks are not invariant to some sort of trans- formations based on the experiments done on Pascal3D+ annotations. Recently, Tsai et al. [19] provided a software to misclassify a given image in a speciﬁed class, without necessarily ﬁnding the smallest perturbation. Nguyen et al. [13] generated synthetic unrecognizable images, which are classiﬁed with high conﬁdence. The authors of [3] also",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "studied a related problem of ﬁnding the minimal geomet-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00027",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ric transformation that fools image classiﬁers, and provided quantitative measure of the robustness of classiﬁers to geo- metric transformations. Closer to our work, the authors of [4] introduced the “fast gradient sign” method, which com- putes the adversarial perturbations for a given classiﬁer very efﬁciently. Despite its efﬁciency, this method provides only a coarse approximation of the optimal perturbation vectors. In fact, it performs a unique gradient step, which often leads to sub-optimal solutions. Then in an attempt to build more robust classiﬁers to adversarial perturbations, [5] introduced a smoothness penalty in the training procedure that allows to boost the robustness of the classiﬁer. Notably, the method in [18] was applied in order to generate adversarial pertur- bations. We should ﬁnally mention that the phenomenon of adversarial instability also led to theoretical work in [2] that studied the problem of adversarial perturbations on some families of classiﬁers, and p...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00028",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "classiﬁers. That is, we assume here ˆk(x) = sign(f(x)),",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "where f is an arbitrary scalar-valued image classiﬁcation function f : Rn → R. We also denote by F ≜ {x :",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "f(x) = 0} the level set at zero off. We begin by analyzing",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00031",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the case where f is an afﬁne classiﬁerf(x) = wTx +b,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "and then derive the general algorithm, which can be applied to any differentiable binary classiﬁerf. In the case where the classiﬁer f is afﬁne, it can easily",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00033",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "F f (x) < 0 f (x) > 0 r∗(x)∆( x 0;f) x0",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 2: Adversarial examples for a linear binary classiﬁer.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00035",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "be seen that the robustness of f at pointx0, ∆(x0;f)2, is equal to the distance fromx0 to the separating afﬁne hyper-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "plane F = {x :wTx +b = 0} (Figure 2). The minimal",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00037",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "perturbation to change the classiﬁer’s decision corresponds to the orthogonal projection of x0 onto F . It is given by the closed-form formula:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00038",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "r∗(x0) := arg min∥r∥2 (3)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00039",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "subject to sign (f(x0 +r)) ̸= sign(f(x0))",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "= −f(x0)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00041",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "∥w∥2 2 w.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00042",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Assuming now thatf is a general binary differentiable clas-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00043",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "siﬁer, we adopt an iterative procedure to estimate the robust- ness ∆(x0;f). Speciﬁcally, at each iteration,f is linearized",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "around the current pointxi and the minimal perturbation of",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00045",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the linearized classiﬁer is computed as",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00046",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "arg min",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00047",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ri",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00048",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "∥ri∥2 subject tof(xi) + ∇f(xi)Tri = 0. (4)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "The perturbation ri at iteration i of the algorithm is com- puted using the closed form solution in Eq. (3), and the next iterate xi+1 is updated. The algorithm stops when xi+1 changes sign of the classiﬁer. The DeepFool algorithm for binary classiﬁers is summarized in Algorithm 1 and a geo- metric illustration of the method is shown in Figure 3. In practice, the above algorithm can often converge to a point on the zero level setF . In order to reach the other side of the classiﬁcation boundary, the ﬁnal perturbation vector ˆr is multiplied by a constant 1 +η, with η ≪ 1. In our",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00050",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "experiments, we have usedη = 0.02.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "3. DeepFool for multiclass classiﬁers We now extend the DeepFool method to the multiclass case. The most common used scheme for multiclass clas- siﬁers is one-vs-all. Hence, we also propose our method 2From now on, we refer to a classiﬁer either by f or its correspond-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00052",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "ing discrete mapping ˆk. Therefore, ρadv(ˆk) = ρadv(f) and ∆(x; ˆk) =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00053",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "∆(x;f). Algorithm 1 DeepFool for binary classiﬁers 1: input: Imagex, classiﬁerf. 2: output: Perturbation ˆr. 3: Initializex0 ←x,i ← 0.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "4: while sign(f(xi)) = sign(f(x0)) do",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "5: ri ← − f (xi)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "∥∇f (xi)∥2",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00057",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "2",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00058",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "∇f(xi),",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00059",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "6: xi+1 ←xi +ri, 7: i ←i + 1. 8: end while",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00060",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "9: return ˆr =∑",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00061",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "iri. x0 x1 F Rn",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00062",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Figure 3: Illustration of Algorithm 1 for n = 2 . As-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "sume x0 ∈ Rn. The green plane is the graph of x ↦→",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00064",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "f(x0)+∇f(x0)T (x−x0), which is tangent to the classiﬁer",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00065",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "function (wire-framed graph) x ↦→ f(x). The orange line",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00066",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "indicates wheref(x0) +∇f(x0)T (x −x0) = 0.x1 is ob-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "tained fromx0 by projectingx0 on the orange hyperplane of Rn. based on this classiﬁcation scheme. In this scheme, the classiﬁer hasc outputs where c is the number of classes. Therefore, a classiﬁer can be deﬁned asf : Rn → Rc and the classiﬁcation is done by the following mapping:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00068",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "ˆk(x) = arg max",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "k fk(x), (5) wherefk(x) is the output of f(x) that corresponds to the kth class. Similarly to the binary case, we ﬁrst present the proposed approach for the linear case and then we general- ize it to other classiﬁers. 3.1. Afﬁne multiclass classiﬁer",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00070",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Letf(x) be an afﬁne classiﬁer, i.e.,f(x) = W⊤x +b",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00071",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "for a givenW andb. Since the mapping ˆk is the outcome of",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00072",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "a one-vs-all classiﬁcation scheme, the minimal perturbation",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00073",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "to fool the classiﬁer can be rewritten as follows",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00074",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "arg min",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00075",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "r ∥r∥2 s.t. ∃k :w⊤",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00076",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "k (x0 +r) +bk ≥w⊤",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00077",
+      "page": 3,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "ˆk(x0)(x0 +r) +bˆk(x0), (6)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00078",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "x0 F1 F2 F3",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00079",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Figure 4: For x0 belonging to class 4, let Fk = {x :",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00080",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "fk(x) −f4(x) = 0 }. These hyperplanes are depicted in",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00081",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "solid lines and the boundary of P is shown in green dotted line. wherewk is thekth column of W. Geometrically, the above problem corresponds to the computation of the distance be- tweenx0 and the complement of the convex polyhedronP , P = c⋂ k=1",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00082",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "{x :fˆk(x0)(x) ≥fk(x)}, (7)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00083",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "wherex0 is located inside P . We denote this distance by dist(x0,P c). The polyhedron P deﬁnes the region of the space where f outputs the label ˆk(x0). This setting is de- picted in Figure 4. The solution to the problem in Eq. (6) can be computed in closed form as follows. Deﬁne ˆl(x0) to be the closest hyperplane of the boundary of P (e.g.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00084",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "ˆl(x0) = 3 in Figure 4). Formally, ˆl(x0) can be computed",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00085",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "as follows",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00086",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "ˆl(x0) = arg min",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00087",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "k̸=ˆk(x0)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00088",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "⏐⏐⏐fk(x0) −fˆk(x0)(x0) ⏐⏐⏐ ∥wk −wˆk(x0)∥2 . (8)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00089",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "The minimum perturbation r∗(x0) is the vector that",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00090",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "projectsx0 on the hyperplane indexed by ˆl(x0), i.e.,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00091",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "r∗(x0) =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00092",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "⏐⏐⏐fˆl(x0)(x0) −fˆk(x0)(x0) ⏐⏐⏐ ∥wˆl(x0) −wˆk(x0)∥2 2 (wˆl(x0) −wˆk(x0)). (9) In other words, we ﬁnd the closest projection ofx0 on faces ofP . 3.2. General classiﬁer We now extend the DeepFool algorithm to the general case of multiclass differentiable classiﬁers. For general non-linear classiﬁers, the setP in Eq. (7) that describes the region of the space where the classiﬁer outputs label ˆk(x0) is no longer a polyhedron. Following the explained iterative linearization procedure in the binary case, we approximate x0 F1 F2 F3",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00093",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Figure 5: For x0 belonging to class 4, let Fk = {x :",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00094",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "fk(x) −f4(x) = 0 }. The linearized zero level sets are",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00095",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "shown in dashed lines and the boundary of the polyhedron ˜P0 in green. the setP at iterationi by a polyhedron ˜Pi ˜Pi = c⋂ k=1 { x :fk(xi) −fˆk(x0)(xi) (10)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00096",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "+ ∇fk(xi)⊤x − ∇fˆk(x0)(xi)⊤x ≤ 0",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00097",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "} . We then approximate, at iteration i, the distance between xi and the complement ofP , dist(xi,P c), by dist(xi, ˜P c i ). Speciﬁcally, at each iteration of the algorithm, the perturba- tion vector that reaches the boundary of the polyhedron˜Pi is computed, and the current estimate updated. The method is given in Algorithm 2. It should be noted that the proposed algorithm operates in a greedy way and is not guaranteed to converge to the optimal perturbation in (1). However, we have observed in practice that our algorithm yields very small perturbations which are believed to be good approxi-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00098",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "mations of the minimal perturbation.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00099",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "It should be noted that the optimization strategy of Deep- Fool is strongly tied to existing optimization techniques. In the binary case, it can be seen as Newton’s iterative algo- rithm for ﬁnding roots of a nonlinear system of equations in",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00100",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "the underdetermined case [15]. This algorithm is known as",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00101",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "the normal ﬂow method. The convergence analysis of this optimization technique can be found for example in [21]. Our algorithm in the binary case can alternatively be seen as a gradient descent algorithm with an adaptive step size that is automatically chosen at each iteration. The lineariza- tion in Algorithm 2 is also similar to a sequential convex",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00102",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "programming where the constraints are linearized at each",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00103",
+      "page": 4,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "step. 3.3. Extension toℓp norm In this paper, we have measured the perturbations using theℓ2 norm. Our framework is however not limited to this choice, and the proposed algorithm can simply be adapted",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00104",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Algorithm 2 DeepFool: multi-class case 1: input: Imagex, classiﬁerf. 2: output: Perturbation ˆr. 3: 4: Initializex0 ←x,i ← 0.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00105",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "5: while ˆk(xi) = ˆk(x0) do",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00106",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "6: fork ̸= ˆk(x0) do",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00107",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "7: w′",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00108",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "k ← ∇fk(xi) − ∇fˆk(x0)(xi)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00109",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "8: f′ k ←fk(xi) −fˆk(x0)(xi) 9: end for",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00110",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "10: ˆl ← arg mink̸=ˆk(x0)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00111",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "|f ′ k| ∥w′ k∥2 11: ri ← |f ′ ˆl | ∥w′ ˆl∥2 2 w′ ˆl 12: xi+1 ←xi +ri 13: i ←i + 1 14: end while",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00112",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "15: return ˆr =∑",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00113",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "iri",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00114",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "to ﬁnd minimal adversarial perturbations for any ℓp norm",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00115",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "(p ∈ [1, ∞)). To do so, the update steps in line 10 and 11 in Algorithm 2 must be respectively substituted by the following updates",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00116",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "ˆl ← arg min",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00117",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "k̸=ˆk(x0)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00118",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "|f′ k| ∥w′ k∥q , (11) ri ← |f′ ˆl | ∥w′ ˆl∥q q |w′ ˆl|q−1 ⊙ sign(w′ ˆl), (12)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00119",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "where ⊙ is the pointwise product and q = p",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00120",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "p−1.3 In par-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00121",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "ticular, when p = ∞ (i.e., the supremum norm ℓ∞), these",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00122",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "update steps become",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00123",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "ˆl ← arg min",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00124",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "k̸=ˆk(x0)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00125",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "|f′ k| ∥w′ k∥1 , (13) ri ← |f′ ˆl | ∥w′ ˆl∥1 sign(w′ ˆl). (14) 4. Experimental results 4.1. Setup We now test our DeepFool algorithm on deep convo- lutional neural networks architectures applied to MNIST, CIFAR-10, and ImageNet image classiﬁcation datasets. We consider the following deep neural network architectures: • MNIST: A two-layer fully connected network, and a two-layer LeNet convoluational neural network archi- tecture [9]. Both networks are trained with SGD with momentum using the MatConvNet [20] package. 3To see this, one can apply Holder’s inequality to obtain a lower bound on theℓp norm of the perturbation. • CIFAR-10: We trained a three-layer LeNet architec- ture, as well as a Network In Network (NIN) architec- ture [11]. • ILSVRC 2012: We used CaffeNet [7] and GoogLeNet [17] pre-trained models. In order to evaluate the robustness to adversarial pertur- bations of a classiﬁerf, we compute the average robustness ˆρadv(f), deﬁned by",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00126",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "ˆρadv(f) = 1",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00127",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "|D| ∑ x∈D ∥ˆr(x)∥2 ∥x∥2 , (15)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00128",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "where ˆr(x) is the estimated minimal perturbation obtained",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00129",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "using DeepFool, and D denotes the test set4. We compare the proposed DeepFool approach to state- of-the-art techniques to compute adversarial perturbations in [18] and [4]. The method in [18] solves a series of pe-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00130",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "nalized optimization problems to ﬁnd the minimal pertur-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00131",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "bation, whereas [4] estimates the minimal perturbation by",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00132",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "taking the sign of the gradient",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00133",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "ˆr(x) =ϵ sign (∇xJ(θ,x,y )),",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00134",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "with J the cost used to train the neural network, θ is the model parameters, and y is the label of x. The method is called fast gradient sign method. In practice, in the absence of general rules to choose the parameter ϵ, we chose the smallestϵ such that 90% of the data are misclassiﬁed after perturbation.5 4.2. Results We report in Table 1 the accuracy and average robustness ˆρadv of each classiﬁer computed using different methods. We also show the running time required for each method to compute one adversarial sample. It can be seen that Deep-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00135",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Fool estimates smaller perturbations (hence closer to min-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00136",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "imal perturbation deﬁned in (1)) than the ones computed using the competitive approaches. For example, the aver- age perturbation obtained using DeepFool is 5 times lower than the one estimated with [4]. On the ILSVRC2012 chal- lenge dataset, the average perturbation is one order of mag- nitude smaller compared to the fast gradient method. It should be noted moreover that the proposed approach also yields slightly smaller perturbation vectors than the method in [18]. The proposed approach is hence more accurate in detecting directions that can potentially fool neural net- works. As a result, DeepFool can be used as a valuable tool to accurately assess the robustness of classiﬁers. On 4For ILSVRC2012, we used the validation data. 5Using this method, we observed empirically that one cannot reach 100% misclassiﬁcation rate on some datasets. In fact, even by increas-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00137",
+      "page": 5,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "ingϵ to be very large, this method can fail in misclassifying all samples.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00138",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Classiﬁer Test error ˆρadv [DeepFool] time ˆρadv [4] time ˆρadv [18] time LeNet (MNIST) 1% 2.0 × 10−1 110 ms 1.0 20 ms 2.5 × 10−1 > 4 s FC500-150-10 (MNIST) 1.7% 1.1 × 10−1 50 ms 3.9 × 10−1 10 ms 1.2 × 10−1 > 2 s NIN (CIFAR-10) 11.5% 2.3 × 10−2 1100 ms 1.2 × 10−1 180 ms 2.4 × 10−2 >50 s LeNet (CIFAR-10) 22.6% 3.0 × 10−2 220 ms 1.3 × 10−1 50 ms 3.9 × 10−2 >7 s CaffeNet (ILSVRC2012) 42.6% 2.7 × 10−3 510 ms* 3.5 × 10−2 50 ms* - - GoogLeNet (ILSVRC2012) 31.3% 1.9 × 10−3 800 ms* 4.7 × 10−2 80 ms* - -",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00139",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Table 1: The adversarial robustness of different classiﬁers on different datasets. The time required to compute one sample",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00140",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "for each method is given in the time columns. The times are computed on a Mid-2015 MacBook Pro without CUDA support.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00141",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "The asterisk marks determines the values computed using a GTX 750 Ti GPU.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00142",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "the complexity aspect, the proposed approach is substan- tially faster than the standard method proposed in [18]. In",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00143",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "fact, while the approach [18] involves a costly minimization",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00144",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "of a series of objective functions, we observed empirically that DeepFool converges in a few iterations (i.e., less than 3) to a perturbation vector that fools the classiﬁer. Hence, the proposed approach reaches a more accurate perturba- tion vector compared to state-of-the-art methods, while be- ing computationally efﬁcient. This makes it readily suitable to be used as a baseline method to estimate the robustness",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00145",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "of very deep neural networks on large-scale datasets. In that",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00146",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "context, we provide the ﬁrst quantitative evaluation of the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00147",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "robustness of state-of-the-art classiﬁers on the large-scale",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00148",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "ImageNet dataset. It can be seen that despite their very good test accuracy, these methods are extremely unstable to ad- versarial perturbations: a perturbation that is 1000 smaller in magnitude than the original image is sufﬁcient to fool state-of-the-art deep neural networks. We illustrate in Figure 1 perturbed images generated by the fast gradient sign and DeepFool. It can be observed that the proposed method generates adversarial perturba- tions which are hardly perceptible, while the fast gradient sign method outputs a perturbation image with higher norm. It should be noted that, when perturbations are mea- sured using theℓ∞ norm, the above conclusions remain un- changed: DeepFool yields adversarial perturbations that are smaller (hence closer to the optimum) compared to other methods for computing adversarial examples. Table 2 re- ports the ℓ∞ robustness to adversarial perturbations mea- sured by ˆρ∞",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00149",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "adv(f) = 1",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00150",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "|D| ∑ x∈D ∥ ˆr(x)∥∞ ∥x∥∞ , where ˆr(x) is",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00151",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "computed respectively using DeepFool (with p = ∞, see",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00152",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Section 3.3), and the Fast gradient sign method for MNIST and CIFAR-10 tasks. Fine-tuning using adversarial examples In this sec- tion, we ﬁne-tune the networks of Table 1 on adversarial examples to build more robust classiﬁers for the MNIST Classiﬁer DeepFool Fast gradient sign LeNet (MNIST) 0.10 0.26 FC500-150-10 (MNIST) 0.04 0.11 NIN (CIFAR-10) 0.008 0.024 LeNet (CIFAR-10) 0.015 0.028",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00153",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Table 2: Values of ˆρ∞",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00154",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "adv for four different networks based on DeepFool (smallestl∞ perturbation) and fast gradient sign method with 90% of misclassiﬁcation. and CIFAR-10 tasks. Speciﬁcally, for each network, we performed two experiments: (i) Fine-tuning the network on DeepFool’s adversarial examples, (ii) Fine-tuning the net- work on the fast gradient sign adversarial examples. We",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00155",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "ﬁne-tune the networks by performing 5 additional epochs,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00156",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "with a 50% decreased learning rate only on the perturbed training set. For each experiment, the same training data was used through all 5 extra epochs. For the sake of com- pleteness, we also performed 5 extra epochs on the origi- nal data. The evolution of ˆρadv for the different ﬁne-tuning strategies is shown in Figures 6a to 6d, where the robust- ness ˆρadv is estimated using DeepFool, since this is the most accurate method, as shown in Table 1. Observe that ﬁne- tuning with DeepFool adversarial examples signiﬁcantly in- creases the robustness of the networks to adversarial pertur- bations even after one extra epoch. For example, the ro- bustness of the networks on MNIST is improved by 50% and NIN’s robustness is increased by about 40%. On the other hand, quite surprisingly, the method in [4] can lead to a decreased robustness to adversarial perturbations of the network. We hypothesize that this behavior is due to the fact that perturbations estimated using the fast gradient",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00157",
+      "page": 6,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "sign method are much larger than minimal adversarial per-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00158",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "0 1 2 3 4 5 Number of extra epochs 0.12 0.14 0.16 0.18 0.2 0.22 0.24 0.26 0.28ˆρadv DeepFool Fast gradient sign Clean (a) Effect of ﬁne-tuning on adversarial examples com- puted by two different methods for LeNet on MNIST. 0 1 2 3 4 5 Number of extra epochs 0.06 0.07 0.08 0.09 0.1 0.11 0.12 0.13 0.14 0.15 0.16 ˆρadv DeepFool Fast gradient sign Clean (b) Effect of ﬁne-tuning on adversarial examples com- puted by two different methods for a fully-connected network on MNIST. 0 1 2 3 4 5 Number of extra epochs 0.022 0.024 0.026 0.028 0.03 0.032 0.034 0.036 0.038 0.04 0.042ˆρadv DeepFool Fast gradient sign Clean (c) Effect of ﬁne-tuning on adversarial examples com- puted by two different methods for NIN on CIFAR-10. 0 1 2 3 4 5 Number of extra epochs 0.025 0.03 0.035 0.04 ˆρadv DeepFool Fast gradient sign Clean (d) Effect of ﬁne-tuning on adversarial examples com- puted by two different methods for LeNet on CIFAR-10.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00159",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Figure 6",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00160",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "turbations. Fine-tuning the network with overly perturbed images decreases the robustness of the networks to adver- sarial perturbations. To verify this hypothesis, we com- pare in Figure 7 the adversarial robustness of a network that is ﬁne-tuned with the adversarial examples obtained using DeepFool, where norms of perturbations have been deliber-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00161",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "ately multiplied by α = 1, 2, 3. Interestingly, we see that",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00162",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "by magnifying the norms of the adversarial perturbations, the robustness of the ﬁne-tuned network isdecreased. This might explain why overly perturbed images decrease the ro- bustness of MNIST networks: these perturbations can re- ally change the class of the digits, hence ﬁne-tuning based on these examples can lead to a drop of the robustness (for an illustration, see Figure 8). This lends credence to our hypothesis, and further shows the importance of designing",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00163",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "accurate methods to compute minimal perturbations.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00164",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Table 3 lists the accuracies of the ﬁne-tuned networks. It",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00165",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "can be seen that ﬁne-tuning with DeepFool can improve the accuracy of the networks. Conversely, ﬁne-tuning with the approach in [4] has led to a decrease of the test accuracy in all our experiments. This conﬁrms the explanation that the fast gradient sign method outputs overly perturbed images 0 1 2 3 4 5 Number of extra epochs 0.05 0.1 0.15 0.2 0.25 0.3 ˆρadv α = 1 α = 2 α = 3",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00166",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Figure 7: Fine-tuning based on magniﬁed DeepFool’s ad-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00167",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "versarial perturbations. that lead to images that are unlikely to occur in the test data. Hence, it decreases the performance of the method as it acts as a regularizer that does not represent the distribution of",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00168",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "the original data. This effect is analogous to geometric data",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00169",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "augmentation schemes, where large transformations of the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00170",
+      "page": 7,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "original samples have a counter-productive effect on gener-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00171",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "α =1 α =2 α =3 α =4",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00172",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Figure 8: From “1” to “7” : original image classiﬁed as “1”",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00173",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "and the DeepFool perturbed images classiﬁed as “7” using different values ofα. Classiﬁer DeepFool Fast gradient sign Clean LeNet (MNIST) 0.8% 4.4% 1% FC500-150-10 (MNIST) 1.5% 4.9% 1.7% NIN (CIFAR-10) 11.2% 21.2% 11.5% LeNet (CIFAR-10) 20.0% 28.6% 22.6%",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00174",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Table 3: The test error of networks after the ﬁne-tuning on",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00175",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "adversarial examples (after ﬁve epochs). Each columns cor- respond to a different type of augmented perturbation. alization.6 To emphasize the importance of a correct estimation of",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00176",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "the minimal perturbation, we now show that using approxi-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00177",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "mate methods can lead to wrong conclusions regarding the adversarial robustness of networks. We ﬁne-tune the NIN classiﬁer on the fast gradient sign adversarial examples. We follow the procedure described earlier but this time, we de- creased the learning rate by 90%. We have evaluated the ad- versarial robustness of this network at different extra epochs using DeepFool and the fast gradient sign method. As one can see in Figure 9, the red plot exaggerates the effect of training on the adversarial examples. Moreover, it is not sensitive enough to demonstrate the loss of robustness at the ﬁrst extra epoch. These observations conﬁrm that using an accurate tool to measure the robustness of classiﬁers is cru- cial to derive conclusions about the robustness of networks. 5. Conclusion In this work, we proposed an algorithm, DeepFool, to compute adversarial examples that fool state-of-the-art clas- siﬁers. It is based on an iterative linearization of the clas-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00178",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "siﬁer to generate minimal perturbations that are sufﬁcient",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00179",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "to change classiﬁcation labels. We provided extensive ex- perimental evidence on three datasets and eight classiﬁers, showing the superiority of the proposed method over state- of-the-art methods to compute adversarial perturbations, as well as the efﬁciency of the proposed approach. Due to 6While the authors of [4] reported an increased generalization perfor- mance on the MNIST task (from 0.94% to 0.84%) using adversarial reg- ularization, it should be noted that the their experimental setup is signiﬁ- cantly different as [4] trained the network based on a modiﬁed cost func- tion, while we performed straightforward ﬁne-tuning. 0 1 2 3 4 5 Number of extra epochs 0.8 0.9 1 1.1 1.2 1.3 1.4 1.5Normalized robustness DeepFool Fast gradient sign",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00180",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Figure 9: How the adversarial robustness is judged by dif-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00181",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "ferent methods. The values are normalized by the corre- sponding ˆρadvs of the original network. its accurate estimation of the adversarial perturbations, the proposed DeepFool algorithm provides an efﬁcient and ac- curate way to evaluate the robustness of classiﬁers and to enhance their performance by proper ﬁne-tuning. The pro- posed approach can therefore be used as a reliable tool to",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00182",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "accurately estimate the minimal perturbation vectors, and",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00183",
+      "page": 8,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "build more robust classiﬁers. Acknowledgements This work has been partly supported by the Hasler Foundation, Switzerland, in the framework of the CORA project.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00184",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "References",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00185",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[1] D. Chicco, P. Sadowski, and P. Baldi. Deep autoencoder",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00186",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "neural networks for gene ontology annotation predictions. In",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00187",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "ACM Conference on Bioinformatics, Computational Biology,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00188",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "and Health Informatics, pages 533–540, 2014. [2] A. Fawzi, O. Fawzi, and P. Frossard. Analysis of clas- siﬁers’ robustness to adversarial perturbations. CoRR, abs/1502.02590, 2015. [3] A. Fawzi and P. Frossard. Manitest: Are classiﬁers really invariant? In British Machine Vision Conference (BMVC) , pages 106.1–106.13, 2015. [4] I. J. Goodfellow, J. Shlens, and C. Szegedy. Explaining and harnessing adversarial examples. In International Confer- ence on Learning Representations, 2015. [5] S. Gu and L. Rigazio. Towards deep neural network architec- tures robust to adversarial examples. CoRR, abs/1412.5068, 2014. [6] G. E. Hinton, L. Deng, D. Yu, G. E. Dahl, A. Mohamed, N. Jaitly, A. Senior, V . Vanhoucke, P. Nguyen, T. N. Sainath, and B. Kingsbury. Deep neural networks for acoustic model- ing in speech recognition: The shared views of four research groups. IEEE Signal Process. Mag., 29(6):82–97, 2012. [7] Y . Jia, E. Shelhamer, J. Donahue, S. Karayev, J. Long, R. Gir- shick, S. Guadarram...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00189",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "national Conference on Multimedia (MM) , pages 675–678. ACM, 2014. [8] A. Krizhevsky, I. Sutskever, and G. E. Hinton. Imagenet classiﬁcation with deep convolutional neural networks. In Advances in neural information processing systems (NIPS) , pages 1097–1105, 2012. [9] Y . LeCun, P. Haffner, L. Bottou, and Y . Bengio. Object recognition with gradient-based learning. In Shape, contour and grouping in computer vision, pages 319–345. 1999. [10] Y . LeCun, K. Kavukcuoglu, C. Farabet, et al. Convolutional networks and applications in vision. In IEEE International Symposium on Circuits and Systems (ISCAS) , pages 253– 256, 2010. [11] M. Lin, Q. Chen, and S. Yan. Network in network. 2014. [12] T. Mikolov, A. Deoras, D. Povey, L. Burget, and J.ˇCernock`y.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00190",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Strategies for training large scale neural network language",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00191",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "models. In IEEE Workshop on Automatic Speech Recogni- tion and Understanding (ASRU), pages 196–201, 2011. [13] A. Nguyen, J. Yosinski, and J. Clune. Deep neural networks are easily fooled: High conﬁdence predictions for unrecog- nizable images. In IEEE Conference on Computer Vision and Pattern Recognition (CVPR), pages 427–436, 2015. [14] B. Pepik, R. Benenson, T. Ritschel, and B. Schiele. What is holding back convnets for detection? InPattern Recognition, pages 517–528. Springer, 2015. [15] A. P. Ruszczy ´nski. Nonlinear optimization , volume 13. Princeton university press, 2006. [16] M. Spencer, J. Eickholt, and J. Cheng. A deep learning net- work approach to ab initio protein secondary structure pre- diction. IEEE/ACM Trans. Comput. Biol. Bioinformatics , 12(1):103–112, 2015. [17] C. Szegedy, W. Liu, Y . Jia, P. Sermanet, S. Reed, D. Anguelov, D. Erhan, V . Vanhoucke, and A. Rabinovich. Going deeper with convolutions. In IEEE Conference on Computer Vision and Pattern Recognition (C...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00192",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "methods for underdetermined systems. SIAM Journal on nu-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00193",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "merical analysis, 27(5):1227–1262, 1990.",
+      "source_type": "reference"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "warnings": [
+      {
+        "code": "ok",
+        "message": "Grounding verification passed with current v1 checks.",
+        "target": null,
+        "severity": "info"
+      }
+    ],
+    "anchor_count": 193
+  }
+}

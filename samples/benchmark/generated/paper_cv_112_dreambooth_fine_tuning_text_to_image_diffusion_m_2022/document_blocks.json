@@ -1,0 +1,1784 @@
+[
+  {
+    "block_id": "blk_00001",
+    "type": "title",
+    "content": "DreamBooth: Fine Tuning Text-to-Image Diffusion Models for Subject-Driven Generation Nataniel Ruiz∗,1,2 Yuanzhen Li1 Varun Jampani1 Yael Pritch1 Michael Rubinstein1 Kﬁr Aberman1",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "anchor_id": "anc_00001"
+  },
+  {
+    "block_id": "blk_00002",
+    "type": "paragraph",
+    "content": "1 Google Research 2 Boston University",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "anchor_id": "anc_00002"
+  },
+  {
+    "block_id": "blk_00003",
+    "type": "caption",
+    "content": "Figure 1. With just a few images (typically 3-5) of a subject (left), DreamBooth—our AI-powered photo booth—can generate a myriad",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "anchor_id": "anc_00003"
+  },
+  {
+    "block_id": "blk_00004",
+    "type": "paragraph",
+    "content": "of images of the subject in different contexts (right), using the guidance of a text prompt. The results exhibit natural interactions with the environment, as well as novel articulations and variation in lighting conditions, all while maintaining high ﬁdelity to the key visual features of the subject.",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "anchor_id": "anc_00004"
+  },
+  {
+    "block_id": "blk_00005",
+    "type": "section_heading",
+    "content": "Abstract",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00005"
+  },
+  {
+    "block_id": "blk_00006",
+    "type": "formula",
+    "content": "Large text-to-image models achieved a remarkable leap",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00006"
+  },
+  {
+    "block_id": "blk_00007",
+    "type": "paragraph",
+    "content": "in the evolution of AI, enabling high-quality and diverse synthesis of images from a given text prompt. However, these models lack the ability to mimic the appearance of subjects in a given reference set and synthesize novel rendi- tions of them in different contexts. In this work, we present a new approach for “personalization” of text-to-image dif- fusion models. Given as input just a few images of a sub- ject, we ﬁne-tune a pretrained text-to-image model such that it learns to bind a unique identiﬁer with that speciﬁc sub- ject. Once the subject is embedded in the output domain of the model, the unique identiﬁer can be used to synthesize novel photorealistic images of the subject contextualized in different scenes. By leveraging the semantic prior embed- ded in the model with a new autogenous class-speciﬁc prior preservation loss, our technique enables synthesizing the subject in diverse scenes, poses, views and lighting condi- tions that do not appear in the reference images. We ap- ply our technique to several previously-unassailable tasks, including subject recontextualization, text-guided view syn- thesis, and artistic rendering, all while preserving the sub- ject’s key features. We also provide a new dataset and eval- uation protocol for this new task of subject-driven genera- tion. Project page: https://dreambooth.github.io/ *This research was performed while Nataniel Ruiz was at Google. 1. Introduction Can you imagine your own dog traveling around the world, or your favorite bag displayed in the most exclusive showroom in Paris? What about your parrot being the main character of an illustrated storybook? Rendering such imag- inary scenes is a challenging task that requires synthesizing instances of speciﬁc subjects (e.g., objects, animals) in new contexts such that they naturally and seamlessly blend into the scene.",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00007"
+  },
+  {
+    "block_id": "blk_00008",
+    "type": "formula",
+    "content": "Recently developed large text-to-image models have",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00008"
+  },
+  {
+    "block_id": "blk_00009",
+    "type": "paragraph",
+    "content": "shown unprecedented capabilities, by enabling high-quality and diverse synthesis of images based on a text prompt writ- ten in natural language [54,61]. One of the main advantages of such models is the strong semantic prior learned from a",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00009"
+  },
+  {
+    "block_id": "blk_00010",
+    "type": "formula",
+    "content": "large collection of image-caption pairs. Such a prior learns,",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00010"
+  },
+  {
+    "block_id": "blk_00011",
+    "type": "paragraph",
+    "content": "for instance, to bind the word “dog” with various instances of dogs that can appear in different poses and contexts in an image. While the synthesis capabilities of these models are unprecedented, they lack the ability to mimic the ap- pearance of subjects in a given reference set, and synthesize novel renditions of the same subjects in different contexts. The main reason is that the expressiveness of their output domain is limited; even the most detailed textual description of an object may yield instances with different appearances. arXiv:2208.12242v2 [cs.CV] 15 Mar 2023",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00011"
+  },
+  {
+    "block_id": "blk_00012",
+    "type": "paragraph",
+    "content": "Furthermore, even models whose text embedding lies in a shared language-vision space [52] cannot accurately recon- struct the appearance of given subjects but only create vari- ations of the image content (Figure 2). In this work, we present a new approach for “personal- ization” of text-to-image diffusion models (adapting them to user-speciﬁc image generation needs). Our goal is to ex- pand the language-vision dictionary of the model such that it binds new words with speciﬁc subjects the user wants to generate. Once the new dictionary is embedded in the model, it can use these words to synthesize novel photo- realistic images of the subject, contextualized in different scenes, while preserving their key identifying features. The effect is akin to a “magic photo booth”—once a few im- ages of the subject are taken, the booth generates photos of the subject in different conditions and scenes, as guided by simple and intuitive text prompts (Figure 1). More formally, given a few images of a subject ( ∼3- 5), our objective is to implant the subject into the out- put domain of the model such that it can be synthesized with a unique identiﬁer. To that end, we propose a tech- nique to represent a given subject with rare token identiﬁers and ﬁne-tune a pre-trained, diffusion-based text-to-image framework. We ﬁne-tune the text-to-image model with the input im- ages and text prompts containing a unique identiﬁer fol- lowed by the class name of the subject (e.g., “A [V] dog”). The latter enables the model to use its prior knowledge on the subject class while the class-speciﬁc instance is bound with the unique identiﬁer. In order to prevent language drift [34, 40] that causes the model to associate the class name (e.g., “dog”) with the speciﬁc instance, we propose an autogenous, class-speciﬁc prior preservation loss, which leverages the semantic prior on the class that is embedded in the model, and encourages it to generate diverse instances of the same class as our subject. We apply our approach to a myriad of text-based im- age generation applications including recontextualization of subjects, modiﬁcation of their properties, original art rendi- tions, and more, paving the way to a new stream of pre- viously unassailable tasks. We highlight the contribution of each component in our method via ablation studies, and compare with alternative baselines and related work. We also conduct a user study to evaluate subject and prompt ﬁdelity in our synthesized images, compared to alternative",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00012"
+  },
+  {
+    "block_id": "blk_00013",
+    "type": "section_heading",
+    "content": "approaches.",
+    "page": 2,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00013"
+  },
+  {
+    "block_id": "blk_00014",
+    "type": "paragraph",
+    "content": "To the best of our knowledge, ours is the ﬁrst technique that tackles this new challenging problem of subject-driven generation, allowing users, from just a few casually cap- tured images of a subject, synthesize novel renditions of the subject in different contexts while maintaining its distinc- tive features. To evaluate this new task, we also construct a new dataset",
+    "page": 2,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00014"
+  },
+  {
+    "block_id": "blk_00015",
+    "type": "caption",
+    "content": "Figure 2. Subject-driven generation. Given a particular clock",
+    "page": 2,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00015"
+  },
+  {
+    "block_id": "blk_00016",
+    "type": "paragraph",
+    "content": "(left), it is hard to generate it while maintaining high ﬁdelity to its key visual features (second and third columns showing DALL- E2 [54] image-guided generation and Imagen [61] text-guided generation; text prompt used for Imagen:“retro style yellow alarm clock with a white clock face and a yellow number three on the right part of the clock face in the jungle” ). Our approach (right) can synthesize the clock with high ﬁdelity and in new contexts (text prompt: “a [V] clock in the jungle”). that contains various subjects captured in different contexts, and propose a new evaluation protocol that measures the subject ﬁdelity and prompt ﬁdelity of the generated results. We make our dataset and evaluation protocol publicly avail- able on the project webpage. 2. Related work Image Composition. Image composition techniques [13, 38, 70] aim to clone a given subject into a new back- ground such that the subject melds into the scene. To consider composition in novel poses, one may apply 3D reconstruction techniques [6, 8, 41, 49, 68] which usually",
+    "page": 2,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00016"
+  },
+  {
+    "block_id": "blk_00017",
+    "type": "formula",
+    "content": "works on rigid objects and require a larger number of views.",
+    "page": 2,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00017"
+  },
+  {
+    "block_id": "blk_00018",
+    "type": "paragraph",
+    "content": "Some drawbacks include scene integration (lighting, shad- ows, contact) and the inability to generate novel scenes. In contrast, our approach enable generation of subjects in novel poses and new contexts. Text-to-Image Editing and Synthesis. Text-driven im- age manipulation has recently achieved signiﬁcant progress using GANs [9, 22, 28–30] combined with image-text rep- resentations such as CLIP [52], yielding realistic manip- ulations using text [2, 7, 21, 43, 48, 71]. These methods",
+    "page": 2,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00018"
+  },
+  {
+    "block_id": "blk_00019",
+    "type": "paragraph",
+    "content": "work well on structured scenarios (e.g. human face edit- ing) and can struggle over diverse datasets where sub- jects are varied. Crowson et al. [14] use VQ-GAN [18] and train over more diverse data to alleviate this concern. Other works [4, 31] exploit the recent diffusion models [25, 25, 45, 58, 60, 62–66], which achieve state-of-the-art generation quality over highly diverse datasets, often sur- passing GANs [15]. While most works that require only text are limited to global editing [14, 33], Bar-Tal et al. [5] proposed a text-based localized editing technique without using masks, showing impressive results. While most of these editing approaches allow modiﬁcation of global prop- erties or local editing of a given image, none enables gener- ating novel renditions of a given subject in new contexts. There also exists work on text-to-image synthesis [14,",
+    "page": 3,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00019"
+  },
+  {
+    "block_id": "blk_00020",
+    "type": "formula",
+    "content": "16, 19, 24, 27, 35, 36, 50, 51, 55, 58, 67, 74]. Recent large",
+    "page": 3,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00020"
+  },
+  {
+    "block_id": "blk_00021",
+    "type": "paragraph",
+    "content": "text-to-image models such as Imagen [61], DALL-E2 [54], Parti [72], CogView2 [17] and Stable Diffusion [58] demon- strated unprecedented semantic generation. These models do not provide ﬁne-grained control over a generated image and use text guidance only. Speciﬁcally, it is challenging or impossible to preserve the identity of a subject consistently across synthesized images. Controllable Generative Models. There are various approaches to control generative models, where some of them might prove to be viable directions for subject-driven prompt-guided image synthesis. Liu et al. [39] propose a diffusion-based technique allowing for image variations guided by reference image or text. To overcome subject modiﬁcation, several works [3, 44] assume a user-provided mask to restrict the modiﬁed area. Inversion [12, 15, 54] can be used to preserve a subject while modifying context. Prompt-to-prompt [23] allows for local and global editing without an input mask. These methods fall short of identity- preserving novel sample generation of a subject. In the context of GANs, Pivotal Tuning [57] allows for real image editing by ﬁnetuning the model with an inverted latent code anchor, and Nitzan et al. [46] extended this work to GAN ﬁnetuning on faces to train a personalized prior, which requires around 100 images and are limited to the face domain. Casanova et al. [11] propose an instance con- ditioned GAN that can generate variations of an instance, although it can struggle with unique subjects and does not preserve all subject details. Finally, the concurrent work of Gal et al. [20] proposes a method to represent visual concepts, like an object or a style, through new tokens in the embedding space of a frozen text-to-image model, resulting in small personalized token embeddings. While this method is limited by the ex- pressiveness of the frozen diffusion model, our ﬁne-tuning approach enables us to embed the subject within the model’s output domain, resulting in the generation of novel images of the subject which preserve its key visual features. 3. Method Given only a few (typically 3-5) casually captured im- ages of a speciﬁc subject, without any textual description, our objective is to generate new images of the subject with high detail ﬁdelity and with variations guided by text prompts. Example variations include changing the subject location, changing subject properties such as color or shape, modifying the subject’s pose, viewpoint, and other semantic modiﬁcations. We do not impose any restrictions on input image capture settings and the subject image can have vary- ing contexts. We next provide some background on text- to-image diffusion models (Sec. 3.1), then present our ﬁne- tuning technique to bind a unique identiﬁer with a subject described in a few images (Sec. 3.2), and ﬁnally propose a class-speciﬁc prior-preservation loss that enables us to over- come language drift in our ﬁne-tuned model (Sec. 3.3). 3.1. Text-to-Image Diffusion Models Diffusion models are probabilistic generative models that are trained to learn a data distribution by the gradual denoising of a variable sampled from a Gaussian distribu- tion. Speciﬁcally, we are interested in a pre-trained text-to- image diffusion model ˆxθ that, given an initial noise map",
+    "page": 3,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00021"
+  },
+  {
+    "block_id": "blk_00022",
+    "type": "formula",
+    "content": "ϵ∼N (0, I) and a conditioning vector c = Γ(P) generated",
+    "page": 3,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00022"
+  },
+  {
+    "block_id": "blk_00023",
+    "type": "paragraph",
+    "content": "using a text encoder Γ and a text prompt P, generates an",
+    "page": 3,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00023"
+  },
+  {
+    "block_id": "blk_00024",
+    "type": "formula",
+    "content": "image xgen = ˆxθ(ϵ, c). They are trained using a squared",
+    "page": 3,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00024"
+  },
+  {
+    "block_id": "blk_00025",
+    "type": "paragraph",
+    "content": "error loss to denoise a variably-noised image or latent code",
+    "page": 3,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00025"
+  },
+  {
+    "block_id": "blk_00026",
+    "type": "formula",
+    "content": "zt :=αtx +σtϵ as follows:",
+    "page": 3,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00026"
+  },
+  {
+    "block_id": "blk_00027",
+    "type": "paragraph",
+    "content": "Ex,c,ϵ,t [ wt∥ˆxθ(αtx +σtϵ, c)− x∥2 2 ] (1) where x is the ground-truth image, c is a conditioning vector (e.g., obtained from a text prompt), and αt,σt,wt are terms that control the noise schedule and sample qual- ity, and are functions of the diffusion process time t ∼ U([0, 1]). A more detailed description is given in the sup- plementary material. 3.2. Personalization of Text-to-Image Models Our ﬁrst task is to implant the subject instance into the output domain of the model such that we can query the model for varied novel images of the subject. One natu- ral idea is to ﬁne-tune the model using the few-shot dataset of the subject. Careful care had to be taken when ﬁne- tuning generative models such as GANs in a few-shot sce- nario as it can cause overﬁtting and mode-collapse - as",
+    "page": 3,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00027"
+  },
+  {
+    "block_id": "blk_00028",
+    "type": "formula",
+    "content": "well as not capturing the target distribution sufﬁciently well.",
+    "page": 3,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00028"
+  },
+  {
+    "block_id": "blk_00029",
+    "type": "paragraph",
+    "content": "There has been research on techniques to avoid these pit- falls [37, 42, 47, 56, 69], although, in contrast to our work, this line of work primarily seeks to generate images that re-",
+    "page": 3,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00029"
+  },
+  {
+    "block_id": "blk_00030",
+    "type": "formula",
+    "content": "semble the target distribution but has no requirement of sub-",
+    "page": 3,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00030"
+  },
+  {
+    "block_id": "blk_00031",
+    "type": "paragraph",
+    "content": "ject preservation. With regards to these pitfalls, we observe the peculiar ﬁnding that, given a careful ﬁne-tuning setup",
+    "page": 3,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00031"
+  },
+  {
+    "block_id": "blk_00032",
+    "type": "caption",
+    "content": "Figure 3. Fine-tuning. Given ∼ 3−5 images of a subject we ﬁne-",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00032"
+  },
+  {
+    "block_id": "blk_00033",
+    "type": "paragraph",
+    "content": "tune a text-to-image diffusion model with the input images paired with a text prompt containing a unique identiﬁer and the name of the class the subject belongs to (e.g., “A [V] dog”), in parallel, we apply a class-speciﬁc prior preservation loss, which leverages the semantic prior that the model has on the class and encourages it to generate diverse instances belong to the subject’s class using the class name in a text prompt (e.g., “A dog”).",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00033"
+  },
+  {
+    "block_id": "blk_00034",
+    "type": "formula",
+    "content": "using the diffusion loss from Eq 1, large text-to-image dif-",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00034"
+  },
+  {
+    "block_id": "blk_00035",
+    "type": "paragraph",
+    "content": "fusion models seem to excel at integrating new information into their domain without forgetting the prior or overﬁtting to a small set of training images. Designing Prompts for Few-Shot Personalization Our goal is to “implant” a new ( unique identiﬁer, subject) pair into the diffusion model’s “dictionary” . In order to by- pass the overhead of writing detailed image descriptions for a given image set we opt for a simpler approach and label all input images of the subject “a [identiﬁer] [class noun]”, where [identiﬁer] is a unique identiﬁer linked to the sub- ject and [class noun] is a coarse class descriptor of the sub- ject (e.g. cat, dog, watch, etc.). The class descriptor can be provided by the user or obtained using a classiﬁer. We use a class descriptor in the sentence in order to tether the prior of the class to our unique subject and ﬁnd that using a wrong class descriptor, or no class descriptor increases training time and language drift while decreasing perfor- mance. In essence, we seek to leverage the model’s prior of the speciﬁc class and entangle it with the embedding of our subject’s unique identiﬁer so we can leverage the visual prior to generate new poses and articulations of the subject in different contexts. Rare-token Identiﬁers We generally ﬁnd existing En- glish words (e.g. “unique”, “special”) suboptimal since the model has to learn to disentangle them from their original meaning and to re-entangle them to reference our subject. This motivates the need for an identiﬁer that has a weak prior in both the language model and the diffusion model. A hazardous way of doing this is to select random characters in the English language and concatenate them to generate a rare identiﬁer (e.g. “xxy5syt00”). In reality, the tokenizer might tokenize each letter separately, and the prior for the diffusion model is strong for these letters. We often ﬁnd that these tokens incur the similar weaknesses as using common English words. Our approach is to ﬁnd rare tokens in the vocabulary, and then invert these tokens into text space, in",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00035"
+  },
+  {
+    "block_id": "blk_00036",
+    "type": "formula",
+    "content": "order to minimize the probability of the identiﬁer having a",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00036"
+  },
+  {
+    "block_id": "blk_00037",
+    "type": "paragraph",
+    "content": "strong prior. We perform a rare-token lookup in the vocab- ulary and obtain a sequence of rare token identiﬁersf( ˆV), where f is a tokenizer; a function that maps character se-",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00037"
+  },
+  {
+    "block_id": "blk_00038",
+    "type": "formula",
+    "content": "quences to tokens and ˆV is the decoded text stemming from",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00038"
+  },
+  {
+    "block_id": "blk_00039",
+    "type": "paragraph",
+    "content": "the tokensf( ˆV). The sequence can be of variable lengthk,",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00039"
+  },
+  {
+    "block_id": "blk_00040",
+    "type": "formula",
+    "content": "and ﬁnd that relatively short sequences of k ={1,..., 3}",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00040"
+  },
+  {
+    "block_id": "blk_00041",
+    "type": "paragraph",
+    "content": "work well. Then, by inverting the vocabulary using the de- tokenizer onf( ˆV) we obtain a sequence of characters that deﬁne our unique identiﬁerˆV. For Imagen, we ﬁnd that us- ing uniform random sampling of tokens that correspond to 3 or fewer Unicode characters (without spaces) and using tokens in the T5-XXL tokenizer range of{5000,..., 10000} works well. 3.3. Class-speciﬁc Prior Preservation Loss",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00041"
+  },
+  {
+    "block_id": "blk_00042",
+    "type": "formula",
+    "content": "In our experience, the best results for maximum subject",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00042"
+  },
+  {
+    "block_id": "blk_00043",
+    "type": "paragraph",
+    "content": "ﬁdelity are achieved by ﬁne-tuning all layers of the model. This includes ﬁne-tuning layers that are conditioned on the text embeddings, which gives rise to the problem of lan- guage drift . Language drift has been an observed prob- lem in language models [34, 40], where a model that is",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00043"
+  },
+  {
+    "block_id": "blk_00044",
+    "type": "formula",
+    "content": "pre-trained on a large text corpus and later ﬁne-tuned for",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00044"
+  },
+  {
+    "block_id": "blk_00045",
+    "type": "paragraph",
+    "content": "a speciﬁc task progressively loses syntactic and semantic knowledge of the language. To the best of our knowledge, we are the ﬁrst to ﬁnd a similar phenomenon affecting diffu- sion models, where to model slowly forgets how to generate",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00045"
+  },
+  {
+    "block_id": "blk_00046",
+    "type": "formula",
+    "content": "subjects of the same class as the target subject.",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00046"
+  },
+  {
+    "block_id": "blk_00047",
+    "type": "paragraph",
+    "content": "Another problem is the possibility of reduced output di- versity. Text-to-image diffusion models naturally posses high amounts of output diversity. When ﬁne-tuning on a small set of images we would like to be able to generate the subject in novel viewpoints, poses and articulations. Yet, there is a risk of reducing the amount of variability in the output poses and views of the subject (e.g. snapping to the few-shot views). We observe that this is often the case, es- pecially when the model is trained for too long. To mitigate the two aforementioned issues, we propose an autogenous class-speciﬁc prior preservation loss that en- courages diversity and counters language drift. In essence, our method is to supervise the model with its own gener- ated samples , in order for it to retain the prior once the",
+    "page": 4,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00047"
+  },
+  {
+    "block_id": "blk_00048",
+    "type": "paragraph",
+    "content": "few-shot ﬁne-tuning begins. This allows it to generate di- verse images of the class prior, as well as retain knowl- edge about the class prior that it can use in conjunction with knowledge about the subject instance. Speciﬁcally,",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00048"
+  },
+  {
+    "block_id": "blk_00049",
+    "type": "formula",
+    "content": "we generate data xpr = ˆx(zt1, cpr) by using the ancestral",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00049"
+  },
+  {
+    "block_id": "blk_00050",
+    "type": "paragraph",
+    "content": "sampler on the frozen pre-trained diffusion model with ran- dom initial noise zt1 ∼ N(0, I) and conditioning vector",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00050"
+  },
+  {
+    "block_id": "blk_00051",
+    "type": "formula",
+    "content": "cpr := Γ(f(”a [class noun]”)). The loss becomes:",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00051"
+  },
+  {
+    "block_id": "blk_00052",
+    "type": "paragraph",
+    "content": "Ex,c,ϵ,ϵ′,t[wt∥ˆxθ(αtx +σtϵ, c)− x∥2 2+ λwt′∥ˆxθ(αt′xpr +σt′ϵ′, cpr)− xpr∥2 2], (2) where the second term is the prior-preservation term that supervises the model with its own generated images, and λ controls for the relative weight of this term. Figure 3 illus- trates the model ﬁne-tuning with the class-generated sam- ples and prior-preservation loss. Despite being simple, we ﬁnd this prior-preservation loss is effective in encouraging",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00052"
+  },
+  {
+    "block_id": "blk_00053",
+    "type": "formula",
+    "content": "output diversity and in overcoming language-drift. We also",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00053"
+  },
+  {
+    "block_id": "blk_00054",
+    "type": "paragraph",
+    "content": "ﬁnd that we can train the model for more iterations with- out risking overﬁtting. We ﬁnd that∼ 1000 iterations with",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00054"
+  },
+  {
+    "block_id": "blk_00055",
+    "type": "formula",
+    "content": "λ = 1 and learning rate 10−5 for Imagen [61] and 5× 10−6",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00055"
+  },
+  {
+    "block_id": "blk_00056",
+    "type": "paragraph",
+    "content": "for Stable Diffusion [59], and with a subject dataset size of 3-5 images is enough to achieve good results. During this process,∼ 1000 “a [class noun]” samples are gener- ated - but less can be used. The training process takes about",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00056"
+  },
+  {
+    "block_id": "blk_00057",
+    "type": "formula",
+    "content": "5 minutes on one TPUv4 for Imagen, and 5 minutes on a",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00057"
+  },
+  {
+    "block_id": "blk_00058",
+    "type": "paragraph",
+    "content": "NVIDIA A100 for Stable Diffusion. 4. Experiments In this section, we show experiments and applications.",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00058"
+  },
+  {
+    "block_id": "blk_00059",
+    "type": "formula",
+    "content": "Our method enables a large expanse of text-guided semantic",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00059"
+  },
+  {
+    "block_id": "blk_00060",
+    "type": "paragraph",
+    "content": "modiﬁcations of our subject instances, including recontex- tualization, modiﬁcation of subject properties such as mate- rial and species, art rendition, and viewpoint modiﬁcation. Importantly, across all of these modiﬁcations, we are able to preserve the unique visual features that give the sub- ject its identity and essence . If the task is recontextual- ization, then the subject features are unmodiﬁed, but ap- pearance (e.g., pose) may change. If the task is a stronger semantic modiﬁcation, such as crossing between our sub- ject and another species/object, then the key features of the subject are preserved after modiﬁcation. In this section, we reference the subject’s unique identiﬁer using [V]. We in- clude speciﬁc Imagen and Stable Diffusion implementation details in the supp. material. 4.1. Dataset and Evaluation Dataset We collected a dataset of 30 subjects, including unique objects and pets such as backpacks, stuffed animals, dogs, cats, sunglasses, cartoons, etc. We separate each sub- ject into two categories: objects and live subjects/pets. 21 of the 30 subjects are objects, and 9 are live subjects/pets.",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00060"
+  },
+  {
+    "block_id": "blk_00061",
+    "type": "caption",
+    "content": "Figure 4. Comparisons with Textual Inversion [20] Given 4",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00061"
+  },
+  {
+    "block_id": "blk_00062",
+    "type": "paragraph",
+    "content": "input images (top row), we compare: DreamBooth Imagen (2nd row), DreamBooth Stable Diffusion (3rd row), Textual Inversion (bottom row). Output images were created with the following prompts (left to right): “a [V] vase in the snow”, “a [V] vase on the beach”, “a [V] vase in the jungle”, “a [V] vase with the Eiffel Tower in the background”. DreamBooth is stronger in both subject and prompt ﬁdelity.",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00062"
+  },
+  {
+    "block_id": "blk_00063",
+    "type": "section_heading",
+    "content": "Method DINO ↑ CLIP-I↑ CLIP-T↑",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00063"
+  },
+  {
+    "block_id": "blk_00064",
+    "type": "paragraph",
+    "content": "Real Images 0.774 0.885 N/A DreamBooth (Imagen) 0.696 0.812 0.306 DreamBooth (Stable Diffusion) 0.668 0.803 0.305 Textual Inversion (Stable Diffusion) 0.569 0.780 0.255",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00064"
+  },
+  {
+    "block_id": "blk_00065",
+    "type": "caption",
+    "content": "Table 1. Subject ﬁdelity (DINO, CLIP-I) and prompt ﬁdelity",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00065"
+  },
+  {
+    "block_id": "blk_00066",
+    "type": "paragraph",
+    "content": "(CLIP-T, CLIP-T-L) quantitative metric comparison. Method Subject Fidelity ↑ Prompt Fidelity↑ DreamBooth (Stable Diffusion) 68% 81% Textual Inversion (Stable Diffusion) 22% 12% Undecided 10% 7%",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00066"
+  },
+  {
+    "block_id": "blk_00067",
+    "type": "caption",
+    "content": "Table 2. Subject ﬁdelity and prompt ﬁdelity user preference.",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00067"
+  },
+  {
+    "block_id": "blk_00068",
+    "type": "paragraph",
+    "content": "We provide one sample image for each of the subjects in",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00068"
+  },
+  {
+    "block_id": "blk_00069",
+    "type": "caption",
+    "content": "Figure 5. Images for this dataset were collected by the",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00069"
+  },
+  {
+    "block_id": "blk_00070",
+    "type": "paragraph",
+    "content": "authors or sourced from Unsplash [1]. We also collected 25 prompts: 20 recontextualization prompts and 5 property modiﬁcation prompts for objects; 10 recontextualization, 10",
+    "page": 5,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00070"
+  },
+  {
+    "block_id": "blk_00071",
+    "type": "caption",
+    "content": "Figure 5. Dataset. Example images for each subject in our proposed dataset.",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00071"
+  },
+  {
+    "block_id": "blk_00072",
+    "type": "paragraph",
+    "content": "accessorization, and 5 property modiﬁcation prompts for live subjects/pets. The full list of prompts can be found in the supplementary material. For the evaluation suite we generate four images per sub- ject and per prompt, totaling 3,000 images. This allows us to robustly measure performances and generalization capa- bilities of a method. We make our dataset and evaluation protocol publicly available on the project webpage for fu- ture use in evaluating subject-driven generation. Evaluation Metrics One important aspect to evaluate is subject ﬁdelity: the preservation of subject details in gener- ated images. For this, we compute two metrics: CLIP-I and DINO [10]. CLIP-I is the average pairwise cosine similarity between CLIP [52] embeddings of generated and real im- ages. Although this metric has been used in other work [20], it is not constructed to distinguish between different sub- jects that could have highly similar text descriptions (e.g. two different yellow clocks). Our proposed DINO metric is the average pairwise cosine similarity between the ViT- S/16 DINO embeddings of generated and real images. This is our preferred metric, since, by construction and in con- trast to supervised networks, DINO is not trained to ignore differences between subjects of the same class. Instead, the self-supervised training objective encourages distinction of unique features of a subject or image. The second impor- tant aspect to evaluate is prompt ﬁdelity, measured as the average cosine similarity between prompt and image CLIP embeddings. We denote this as CLIP-T.",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00072"
+  },
+  {
+    "block_id": "blk_00073",
+    "type": "caption",
+    "content": "Figure 6. Encouraging diversity with prior-preservation loss.",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00073"
+  },
+  {
+    "block_id": "blk_00074",
+    "type": "paragraph",
+    "content": "Naive ﬁne-tuning can result in overﬁtting to input image context and subject appearance (e.g. pose). PPL acts as a regularizer that alleviates overﬁtting and encourages diversity, allowing for more pose variability and appearance diversity. 4.2. Comparisons We compare our results with Textual Inversion, the re- cent concurrent work of Gal et al. [20], using the hyperpa- rameters provided in their work. We ﬁnd that this work is the only comparable work in the literature that is subject- driven, text-guided and generates novel images. We gen- erate images for DreamBooth using Imagen, DreamBooth using Stable Diffusion and Textual Inversion using Stable Diffusion. We compute DINO and CLIP-I subject ﬁdelity metrics and the CLIP-T prompt ﬁdelity metric. In Table 1 we show sizeable gaps in both subject and prompt ﬁdelity metrics for DreamBooth over Textual Inversion. We ﬁnd that DreamBooth (Imagen) achieves higher scores for both subject and prompt ﬁdelity than DreamBooth (Stable Dif- fusion), approaching the upper-bound of subject ﬁdelity for",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00074"
+  },
+  {
+    "block_id": "blk_00075",
+    "type": "formula",
+    "content": "real images. We believe that this is due to the larger expres-",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00075"
+  },
+  {
+    "block_id": "blk_00076",
+    "type": "paragraph",
+    "content": "sive power and higher output quality of Imagen. Further, we compare Textual Inversion (Stable Diffu- sion) and DreamBooth (Stable Diffusion) by conducting a user study. For subject ﬁdelity, we asked 72 users to an- swer questionnaires of 25 comparative questions (3 users per questionnaire), totaling 1800 answers. Samples are ran-",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00076"
+  },
+  {
+    "block_id": "blk_00077",
+    "type": "formula",
+    "content": "domly selected from a large pool. Each question shows the",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00077"
+  },
+  {
+    "block_id": "blk_00078",
+    "type": "paragraph",
+    "content": "set of real images for a subject, and one generated image of that subject by each method (with a random prompt). Users are asked to answer the question: “Which of the two images best reproduces the identity (e.g. item type and details) of",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00078"
+  },
+  {
+    "block_id": "blk_00079",
+    "type": "formula",
+    "content": "the reference item?”, and we include a “Cannot Determine",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00079"
+  },
+  {
+    "block_id": "blk_00080",
+    "type": "paragraph",
+    "content": "/ Both Equally” option. Similarly for prompt ﬁdelity, we Method PRES ↓ DIV↑ DINO↑ CLIP-I↑ CLIP-T↑ DreamBooth (Imagen) w/ PPL0.493 0.391 0.684 0.815 0.308DreamBooth (Imagen) 0.664 0.371 0.712 0.828 0.306",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00080"
+  },
+  {
+    "block_id": "blk_00081",
+    "type": "caption",
+    "content": "Table 3. Prior preservation loss (PPL) ablation displaying a prior",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00081"
+  },
+  {
+    "block_id": "blk_00082",
+    "type": "paragraph",
+    "content": "preservation (PRES) metric, diversity metric (DIV) and subject and prompt ﬁdelity metrics.",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00082"
+  },
+  {
+    "block_id": "blk_00083",
+    "type": "section_heading",
+    "content": "Method DINO ↑ CLIP-I↑",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00083"
+  },
+  {
+    "block_id": "blk_00084",
+    "type": "paragraph",
+    "content": "Correct Class0.744 0.853 No Class 0.303 0.607 Wrong Class 0.454 0.728",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00084"
+  },
+  {
+    "block_id": "blk_00085",
+    "type": "caption",
+    "content": "Table 4. Class name ablation with subject ﬁdelity metrics.",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00085"
+  },
+  {
+    "block_id": "blk_00086",
+    "type": "paragraph",
+    "content": "ask “Which of the two images is best described by the ref- erence text?”. We average results using majority voting and",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00086"
+  },
+  {
+    "block_id": "blk_00087",
+    "type": "formula",
+    "content": "present them in Table 2. We ﬁnd an overwhelming prefer-",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00087"
+  },
+  {
+    "block_id": "blk_00088",
+    "type": "paragraph",
+    "content": "ence for DreamBooth for both subject ﬁdelity and prompt ﬁdelity. This shines a light on results in Table 1, where DINO differences of around 0.1 and CLIP-T differences of 0.05 are signiﬁcant in terms of user preference. Finally, we show qualitative comparisons in Figure 4. We observe that DreamBooth better preserves subject identity, and is more faithful to prompts. We show samples of the user study in the supp. material. 4.3. Ablation Studies Prior Preservation Loss Ablation We ﬁne-tune Imagen on 15 subjects from our dataset, with and without our pro- posed prior preservation loss (PPL). The prior preservation loss seeks to combat language drift and preserve the prior. We compute a prior preservation metric (PRES) by comput- ing the average pairwise DINO embeddings between gener- ated images of random subjects of the prior class and real images of our speciﬁc subject. The higher this metric, the more similar random subjects of the class are to our speciﬁc subject, indicating collapse of the prior. We report results in",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00088"
+  },
+  {
+    "block_id": "blk_00089",
+    "type": "caption",
+    "content": "Table 3 and observe that PPL substantially counteracts lan-",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00089"
+  },
+  {
+    "block_id": "blk_00090",
+    "type": "paragraph",
+    "content": "guage drift and helps retain the ability to generate diverse images of the prior class. Additionally, we compute a di- versity metric (DIV) using the average LPIPS [73] cosine similarity between generated images of same subject with same prompt. We observe that our model trained with PPL",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00090"
+  },
+  {
+    "block_id": "blk_00091",
+    "type": "formula",
+    "content": "achieves higher diversity (with slightly diminished subject",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00091"
+  },
+  {
+    "block_id": "blk_00092",
+    "type": "paragraph",
+    "content": "ﬁdelity), which can also be observed qualitatively in Fig- ure 6, where our model trained with PPL overﬁts less to the environment of the reference images and can generate the dog in more diverse poses and articulations. Class-Prior Ablation We ﬁnetune Imagen on a subset of our dataset subjects (5 subjects) with no class noun, a ran- domly sampled incorrect class noun, and the correct class noun. With the correct class noun for our subject, we are able to faithfully ﬁt to the subject, take advantage of the",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00092"
+  },
+  {
+    "block_id": "blk_00093",
+    "type": "caption",
+    "content": "Figure 7. Recontextualization. We generate images of the subjects in different environments, with high preservation of subject details and",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00093"
+  },
+  {
+    "block_id": "blk_00094",
+    "type": "paragraph",
+    "content": "realistic scene-subject interactions. We show the prompts below each image. class prior, allowing us to generate our subject in various contexts. When an incorrect class noun (e.g. “can” for a backpack) is used, we run into contention between our sub- ject and and the class prior - sometimes obtaining cylindri- cal backpacks, or otherwise misshapen subjects. If we train with no class noun, the model does not leverage the class prior, has difﬁculty learning the subject and converging, and can generate erroneous samples. Subject ﬁdelity results are shown in Table 4, with substantially higher subject ﬁdelity for our proposed approach. 4.4. Applications Recontextualization We can generate novel images for a speciﬁc subject in different contexts (Figure 7) with descrip- tive prompts (“a [V] [class noun] [context description]”). Importantly, we are able to generate the subject in new poses and articulations, with previously unseen scene struc- ture and realistic integration of the subject in the scene (e.g. contact, shadows, reﬂections). Art Renditions Given a prompt “a painting of a [V] [class noun] in the style of [famous painter]” or “a statue of a [V] [class noun] in the style of [famous sculptor]” we are able to generate artistic renditions of our subject. Unlike style transfer, where the source structure is preserved and only the style is transferred, we are able to generate meaning- ful, novel variations depending on the artistic style, while preserving subject identity. E.g, as shown in Figure 8, “Michelangelo”, we generated a pose that is novel and not seen in the input images.",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00094"
+  },
+  {
+    "block_id": "blk_00095",
+    "type": "caption",
+    "content": "Figure 8. Novel view synthesis, art renditions, and property",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00095"
+  },
+  {
+    "block_id": "blk_00096",
+    "type": "paragraph",
+    "content": "modiﬁcations. We are able to generate novel and meaningful images while faithfully preserving subject identity and essence. More applications and examples in the supplementary material. Novel View Synthesis We are able to render the subject under novel viewpoints. In Figure 8, we generate new im-",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00096"
+  },
+  {
+    "block_id": "blk_00097",
+    "type": "caption",
+    "content": "Figure 9. Failure modes. Given a rare prompted context the",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00097"
+  },
+  {
+    "block_id": "blk_00098",
+    "type": "paragraph",
+    "content": "model might fail at generating the correct environment (a). It is possible for context and subject appearance to become entangled (b). Finally, it is possible for the model to overﬁt and generate images similar to the training set, especially if prompts reﬂect the original environment of the training set (c). ages of the input cat (with consistent complex fur patterns) under new viewpoints. We highlight that the model has not seen this speciﬁc cat from behind, below, or above - yet it is able to extrapolate knowledge from the class prior to gen- erate these novel views given only 4 frontal images of the subject. Property Modiﬁcation We are able to modify subject properties. For example, we show crosses between a spe- ciﬁc Chow Chow dog and different animal species in the bottom row of Figure 8. We prompt the model with sen- tences of the following structure: “a cross of a [V] dog and",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00098"
+  },
+  {
+    "block_id": "blk_00099",
+    "type": "formula",
+    "content": "a [target species]”. In particular, we can see in this exam-",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00099"
+  },
+  {
+    "block_id": "blk_00100",
+    "type": "paragraph",
+    "content": "ple that the identity of the dog is well preserved even when the species changes - the face of the dog has certain unique features that are well preserved and melded with the tar- get species. Other property modiﬁcations are possible, such as material modiﬁcation (e.g. “a transparent [V] teapot” in",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00100"
+  },
+  {
+    "block_id": "blk_00101",
+    "type": "caption",
+    "content": "Figure 7). Some are harder than others and depend on the",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00101"
+  },
+  {
+    "block_id": "blk_00102",
+    "type": "paragraph",
+    "content": "prior of the base generation model. 4.5. Limitations We illustrate some failure models of our method in Fig- ure 9. The ﬁrst is related to not being able to accurately generate the prompted context. Possible reasons are a weak prior for these contexts, or difﬁculty in generating both the subject and speciﬁed concept together due to low proba- bility of co-occurrence in the training set. The second is context-appearance entanglement, where the appearance of the subject changes due to the prompted context, exempli- ﬁed in Figure 9 with color changes of the backpack. Third, we also observe overﬁtting to the real images that happen when the prompt is similar to the original setting in which the subject was seen. Other limitations are that some subjects are easier to learn than others (e.g. dogs and cats). Occasionally, with subjects that are rarer, the model is unable to support as many subject variations. Finally, there is also variability in the ﬁdelity of the subject and some generated images might contain hallucinated subject features, depending on the strength of the model prior, and the complexity of the semantic modiﬁcation. 5. Conclusions We presented an approach for synthesizing novel rendi- tions of a subject using a few images of the subject and the guidance of a text prompt. Our key idea is to embed a given subject instance in the output domain of a text-to-image dif- fusion model by binding the subject to a unique identiﬁer. Remarkably - this ﬁne-tuning process can work given only 3-5 subject images, making the technique particularly ac- cessible. We demonstrated a variety of applications with animals and objects in generated photorealistic scenes, in most cases indistinguishable from real images. 6. Acknowledgement We thank Rinon Gal, Adi Zicher, Ron Mokady, Bill Freeman, Dilip Krishnan, Huiwen Chang and Daniel Cohen-Or for their valuable inputs that helped improve this work, and to Mohammad Norouzi, Chitwan Saharia and William Chan for providing us with their support and the pretrained Imagen models. Finally, a special thanks to David Salesin for his feedback, advice and for his support for the project.",
+    "page": 9,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00102"
+  },
+  {
+    "block_id": "blk_00103",
+    "type": "section_heading",
+    "content": "References",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00103"
+  },
+  {
+    "block_id": "blk_00104",
+    "type": "reference",
+    "content": "[1] Unsplash. https://unsplash.com/. [2] Rameen Abdal, Peihao Zhu, John Femiani, Niloy J Mitra, and Peter Wonka. Clip2stylegan: Unsupervised extraction of stylegan edit directions.arXiv preprint arXiv:2112.05219, 2021. [3] Omri Avrahami, Ohad Fried, and Dani Lischinski. Blended latent diffusion. arXiv preprint arXiv:2206.02779, 2022. [4] Omri Avrahami, Dani Lischinski, and Ohad Fried. Blended diffusion for text-driven editing of natural images. In Pro- ceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 18208–18218, 2022. [5] Omer Bar-Tal, Dolev Ofri-Amar, Rafail Fridman, Yoni Kas- ten, and Tali Dekel. Text2live: Text-driven layered image and video editing. arXiv preprint arXiv:2204.02491, 2022.",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00104"
+  },
+  {
+    "block_id": "blk_00105",
+    "type": "reference",
+    "content": "[6] Jonathan T. Barron, Ben Mildenhall, Matthew Tancik, Peter Hedman, Ricardo Martin-Brualla, and Pratul P. Srinivasan. Mip-nerf: A multiscale representation for anti-aliasing neu- ral radiance ﬁelds. InProceedings of the IEEE/CVF Interna- tional Conference on Computer Vision (ICCV), pages 5855– 5864, October 2021. [7] David Bau, Alex Andonian, Audrey Cui, YeonHwan Park, Ali Jahanian, Aude Oliva, and Antonio Torralba. Paint by word, 2021. [8] Mark Boss, Andreas Engelhardt, Abhishek Kar, Yuanzhen Li, Deqing Sun, Jonathan T Barron, Hendrik Lensch, and Varun Jampani. Samurai: Shape and material from un- constrained real-world arbitrary image collections. arXiv preprint arXiv:2205.15768, 2022.",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00105"
+  },
+  {
+    "block_id": "blk_00106",
+    "type": "reference",
+    "content": "[9] Andrew Brock, Jeff Donahue, and Karen Simonyan. Large",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00106"
+  },
+  {
+    "block_id": "blk_00107",
+    "type": "reference",
+    "content": "scale gan training for high ﬁdelity natural image synthesis. arXiv preprint arXiv:1809.11096, 2018. [10] Mathilde Caron, Hugo Touvron, Ishan Misra, Herv ´e J´egou, Julien Mairal, Piotr Bojanowski, and Armand Joulin. Emerg- ing properties in self-supervised vision transformers. In Proceedings of the IEEE/CVF International Conference on Computer Vision, pages 9650–9660, 2021. [11] Arantxa Casanova, Marlene Careil, Jakob Verbeek, Michal Drozdzal, and Adriana Romero Soriano. Instance- conditioned gan. Advances in Neural Information Process- ing Systems, 34:27517–27529, 2021. [12] Jooyoung Choi, Sungwon Kim, Yonghyun Jeong, Youngjune Gwon, and Sungroh Yoon. Ilvr: Conditioning method for denoising diffusion probabilistic models. arXiv preprint arXiv:2108.02938, 2021. [13] Wenyan Cong, Jianfu Zhang, Li Niu, Liu Liu, Zhixin Ling, Weiyuan Li, and Liqing Zhang. Dovenet: Deep image harmonization via domain veriﬁcation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 8394–8403, 2020. [14] Katherine Crowson, Stella Biderman, Daniel Kornis, Dashiell Stander, Eric Hallahan, Louis Castricato, and Ed- ward Raff. Vqgan-clip: Open domain image generation and editing with natural language guidance. arXiv preprint arXiv:2204.08583, 2022. [15] Prafulla Dhariwal and Alexander Nichol. Diffusion models beat gans on image synthesis. Advances in Neural Informa- tion Processing Systems, 34:8780–8794, 2021. [16] Ming Ding, Zhuoyi Yang, Wenyi Hong, Wendi Zheng, Chang Zhou, Da Yin, Junyang Lin, Xu Zou, Zhou Shao, Hongxia Yang, et al. Cogview: Mastering text-to-image gen- eration via transformers. Advances in Neural Information Processing Systems, 34:19822–19835, 2021. [17] Ming Ding, Wendi Zheng, Wenyi Hong, and Jie Tang. Cogview2: Faster and better text-to-image generation via hi- erarchical transformers. arXiv preprint arXiv:2204.14217 , 2022.",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00107"
+  },
+  {
+    "block_id": "blk_00108",
+    "type": "reference",
+    "content": "[18] Patrick Esser, Robin Rombach, and Bjorn Ommer. Taming",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00108"
+  },
+  {
+    "block_id": "blk_00109",
+    "type": "reference",
+    "content": "transformers for high-resolution image synthesis. In Pro- ceedings of the IEEE/CVF conference on computer vision and pattern recognition, pages 12873–12883, 2021. [19] Oran Gafni, Adam Polyak, Oron Ashual, Shelly Sheynin, Devi Parikh, and Yaniv Taigman. Make-a-scene: Scene- based text-to-image generation with human priors. arXiv preprint arXiv:2203.13131, 2022. [20] Rinon Gal, Yuval Alaluf, Yuval Atzmon, Or Patash- nik, Amit H Bermano, Gal Chechik, and Daniel Cohen- Or. An image is worth one word: Personalizing text-to- image generation using textual inversion. arXiv preprint arXiv:2208.01618, 2022. [21] Rinon Gal, Or Patashnik, Haggai Maron, Gal Chechik, and Daniel Cohen-Or. Stylegan-nada: Clip-guided do- main adaptation of image generators. arXiv preprint arXiv:2108.00946, 2021. [22] Ian Goodfellow, Jean Pouget-Abadie, Mehdi Mirza, Bing Xu, David Warde-Farley, Sherjil Ozair, Aaron Courville, and Yoshua Bengio. Generative adversarial nets. Advances in neural information processing systems, 27, 2014. [23] Amir Hertz, Ron Mokady, Jay Tenenbaum, Kﬁr Aberman, Yael Pritch, and Daniel Cohen-Or. Prompt-to-prompt im- age editing with cross attention control. arXiv preprint arXiv:2208.01626, 2022. [24] Tobias Hinz, Stefan Heinrich, and Stefan Wermter. Semantic object accuracy for generative text-to-image synthesis.IEEE transactions on pattern analysis and machine intelligence , 2020. [25] Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising diffu- sion probabilistic models. Advances in Neural Information Processing Systems, 33:6840–6851, 2020. [26] Jonathan Ho, Chitwan Saharia, William Chan, David J Fleet, Mohammad Norouzi, and Tim Salimans. Cascaded diffusion models for high ﬁdelity image generation. J. Mach. Learn. Res., 23:47–1, 2022. [27] Ajay Jain, Ben Mildenhall, Jonathan T. Barron, Pieter Abbeel, and Ben Poole. Zero-shot text-guided object gen- eration with dream ﬁelds. 2022. [28] Tero Karras, Miika Aittala, Samuli Laine, Erik H ¨ark¨onen, Janne Hellsten, Jaakko Lehtinen, and Timo Aila. Alias-free generative adversarial networks. Advances in Neural Infor- mation Processing Systems, 34:852–863, 2021. [29] Tero Karras, Samuli Laine, and Timo Aila. A style-based generator architecture for generative adversarial networks. In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 4401–4410, 2019. [30] Tero Karras, Samuli Laine, Miika Aittala, Janne Hellsten, Jaakko Lehtinen, and Timo Aila. Analyzing and improv- ing the image quality of stylegan. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 8110–8119, 2020. [31] Gwanghyun Kim, Taesung Kwon, and Jong Chul Ye. Dif- fusionclip: Text-guided diffusion models for robust image manipulation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 2426– 2435, 2022. [32] Taku Kudo and John Richardson. Sentencepiece: A sim- ple and language independent subword tokenizer and deto- kenizer for neural text processing. In EMNLP (Demonstra- tion), 2018.",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00109"
+  },
+  {
+    "block_id": "blk_00110",
+    "type": "reference",
+    "content": "[33] Gihyun Kwon and Jong Chul Ye. Clipstyler: Image style transfer with a single text condition. arXiv preprint arXiv:2112.00374, 2021. [34] Jason Lee, Kyunghyun Cho, and Douwe Kiela. Countering language drift via visual grounding. In EMNLP, 2019. [35] Bowen Li, Xiaojuan Qi, Thomas Lukasiewicz, and Philip Torr. Controllable text-to-image generation. Advances in Neural Information Processing Systems, 32, 2019. [36] Wenbo Li, Pengchuan Zhang, Lei Zhang, Qiuyuan Huang, Xiaodong He, Siwei Lyu, and Jianfeng Gao. Object-driven text-to-image synthesis via adversarial training. In Proceed- ings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 12174–12182, 2019. [37] Yijun Li, Richard Zhang, Jingwan Lu, and Eli Shechtman. Few-shot image generation with elastic weight consolida- tion. arXiv preprint arXiv:2012.02780, 2020. [38] Chen-Hsuan Lin, Ersin Yumer, Oliver Wang, Eli Shechtman, and Simon Lucey. St-gan: Spatial transformer generative adversarial networks for image compositing. In Proceed- ings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 9455–9464, 2018. [39] Xihui Liu, Dong Huk Park, Samaneh Azadi, Gong Zhang, Arman Chopikyan, Yuxiao Hu, Humphrey Shi, Anna Rohrbach, and Trevor Darrell. More control for free! im- age synthesis with semantic diffusion guidance. 2021. [40] Yuchen Lu, Soumye Singhal, Florian Strub, Aaron Courville, and Olivier Pietquin. Countering language drift with seeded iterated learning. In International Conference on Machine Learning, pages 6437–6447. PMLR, 2020. [41] Ben Mildenhall, Pratul P Srinivasan, Matthew Tancik, Jonathan T Barron, Ravi Ramamoorthi, and Ren Ng. Nerf: Representing scenes as neural radiance ﬁelds for view syn- thesis. In European conference on computer vision , pages 405–421. Springer, 2020. [42] Sangwoo Mo, Minsu Cho, and Jinwoo Shin. Freeze the dis-",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00110"
+  },
+  {
+    "block_id": "blk_00111",
+    "type": "reference",
+    "content": "criminator: a simple baseline for ﬁne-tuning gans. In CVPR",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00111"
+  },
+  {
+    "block_id": "blk_00112",
+    "type": "reference",
+    "content": "AI for Content Creation Workshop, 2020. [43] Ron Mokady, Omer Tov, Michal Yarom, Oran Lang, Inbar Mosseri, Tali Dekel, Daniel Cohen-Or, and Michal Irani. Self-distilled stylegan: Towards generation from internet photos. In Special Interest Group on Computer Graphics and Interactive Techniques Conference Proceedings , pages 1–9, 2022. [44] Alex Nichol, Prafulla Dhariwal, Aditya Ramesh, Pranav Shyam, Pamela Mishkin, Bob McGrew, Ilya Sutskever, and Mark Chen. Glide: Towards photorealistic image generation and editing with text-guided diffusion models.arXiv preprint arXiv:2112.10741, 2021. [45] Alexander Quinn Nichol and Prafulla Dhariwal. Improved denoising diffusion probabilistic models. In International Conference on Machine Learning, pages 8162–8171. PMLR, 2021. [46] Yotam Nitzan, Kﬁr Aberman, Qiurui He, Orly Liba, Michal Yarom, Yossi Gandelsman, Inbar Mosseri, Yael Pritch, and Daniel Cohen-Or. Mystyle: A personalized generative prior. arXiv preprint arXiv:2203.17272, 2022. [47] Utkarsh Ojha, Yijun Li, Jingwan Lu, Alexei A Efros, Yong Jae Lee, Eli Shechtman, and Richard Zhang. Few-shot image generation via cross-domain correspondence. In Pro- ceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 10743–10752, 2021. [48] Or Patashnik, Zongze Wu, Eli Shechtman, Daniel Cohen-Or, and Dani Lischinski. Styleclip: Text-driven manipulation of stylegan imagery. arXiv preprint arXiv:2103.17249, 2021. [49] Ben Poole, Ajay Jain, Jonathan T Barron, and Ben Milden- hall. Dreamfusion: Text-to-3d using 2d diffusion. arXiv preprint arXiv:2209.14988, 2022. [50] Tingting Qiao, Jing Zhang, Duanqing Xu, and Dacheng Tao. Learn, imagine and create: Text-to-image generation from prior knowledge. Advances in neural information processing systems, 32, 2019. [51] Tingting Qiao, Jing Zhang, Duanqing Xu, and Dacheng Tao. Mirrorgan: Learning text-to-image generation by redescrip- tion. In Proceedings of the IEEE/CVF Conference on Com- puter Vision and Pattern Recognition , pages 1505–1514, 2019. [52] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, et al. Learn- ing transferable visual models from natural language super- vision. arXiv preprint arXiv:2103.00020, 2021. [53] Colin Raffel, Noam Shazeer, Adam Roberts, Katherine Lee, Sharan Narang, Michael Matena, Yanqi Zhou, Wei Li, Pe- ter J Liu, et al. Exploring the limits of transfer learning with a uniﬁed text-to-text transformer.J. Mach. Learn. Res., 21(140):1–67, 2020. [54] Aditya Ramesh, Prafulla Dhariwal, Alex Nichol, Casey Chu, and Mark Chen. Hierarchical text-conditional image gen- eration with clip latents. arXiv preprint arXiv:2204.06125, 2022. [55] Aditya Ramesh, Mikhail Pavlov, Gabriel Goh, Scott Gray, Chelsea V oss, Alec Radford, Mark Chen, and Ilya Sutskever. Zero-shot text-to-image generation. In International Confer- ence on Machine Learning, pages 8821–8831. PMLR, 2021. [56] Esther Robb, Wen-Sheng Chu, Abhishek Kumar, and Jia- Bin Huang. Few-shot adaptation of generative adversarial networks. ArXiv, abs/2010.11943, 2020. [57] Daniel Roich, Ron Mokady, Amit H. Bermano, and Daniel Cohen-Or. Pivotal tuning for latent-based editing of real im- ages. ACM Transactions on Graphics (TOG), 2022.",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00112"
+  },
+  {
+    "block_id": "blk_00113",
+    "type": "reference",
+    "content": "[58] Robin Rombach, Andreas Blattmann, Dominik Lorenz,",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00113"
+  },
+  {
+    "block_id": "blk_00114",
+    "type": "reference",
+    "content": "Patrick Esser, and Bj¨orn Ommer. High-resolution image syn- thesis with latent diffusion models, 2021.",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00114"
+  },
+  {
+    "block_id": "blk_00115",
+    "type": "reference",
+    "content": "[59] Robin Rombach, Andreas Blattmann, Dominik Lorenz,",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00115"
+  },
+  {
+    "block_id": "blk_00116",
+    "type": "reference",
+    "content": "Patrick Esser, and Bj ¨orn Ommer. High-resolution image synthesis with latent diffusion models. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pages 10684–10695, 2022. [60] Chitwan Saharia, William Chan, Huiwen Chang, Chris Lee, Jonathan Ho, Tim Salimans, David Fleet, and Mohammad Norouzi. Palette: Image-to-image diffusion models. In ACM SIGGRAPH 2022 Conference Proceedings , pages 1– 10, 2022. [61] Chitwan Saharia, William Chan, Saurabh Saxena, Lala Li, Jay Whang, Emily Denton, Seyed Kamyar Seyed",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00116"
+  },
+  {
+    "block_id": "blk_00117",
+    "type": "reference",
+    "content": "Ghasemipour, Burcu Karagol Ayan, S Sara Mahdavi, Rapha Gontijo-Lopes, Tim Salimans, Jonathan Ho, David J Fleet, and Mohammad Norouzi. Photorealistic text-to-image dif- fusion models with deep language understanding. arXiv preprint arXiv:2205.11487, 2022. [62] Chitwan Saharia, Jonathan Ho, William Chan, Tim Sali- mans, David J Fleet, and Mohammad Norouzi. Image super- resolution via iterative reﬁnement.arXiv:2104.07636, 2021. [63] Jascha Sohl-Dickstein, Eric Weiss, Niru Maheswaranathan, and Surya Ganguli. Deep unsupervised learning using nonequilibrium thermodynamics. In International Confer- ence on Machine Learning, pages 2256–2265. PMLR, 2015.",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00117"
+  },
+  {
+    "block_id": "blk_00118",
+    "type": "reference",
+    "content": "[64] Jiaming Song, Chenlin Meng, and Stefano Ermon. Denois-",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00118"
+  },
+  {
+    "block_id": "blk_00119",
+    "type": "reference",
+    "content": "ing diffusion implicit models. In International Conference on Learning Representations, 2020. [65] Yang Song and Stefano Ermon. Generative modeling by esti- mating gradients of the data distribution.Advances in Neural Information Processing Systems, 32, 2019. [66] Yang Song and Stefano Ermon. Improved techniques for training score-based generative models. Advances in neural information processing systems, 33:12438–12448, 2020. [67] Ming Tao, Hao Tang, Songsong Wu, Nicu Sebe, Xiao-Yuan Jing, Fei Wu, and Bingkun Bao. Df-gan: Deep fusion gener- ative adversarial networks for text-to-image synthesis. arXiv preprint arXiv:2008.05865, 2020. [68] Dor Verbin, Peter Hedman, Ben Mildenhall, Todd Zickler, Jonathan T. Barron, and Pratul P. Srinivasan. Ref-NeRF: Structured view-dependent appearance for neural radiance ﬁelds. CVPR, 2022. [69] Yaxing Wang, Abel Gonzalez-Garcia, David Berga, Luis Herranz, Fahad Shahbaz Khan, and Joost van de Weijer.",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00119"
+  },
+  {
+    "block_id": "blk_00120",
+    "type": "reference",
+    "content": "Minegan: Effective knowledge transfer from gans to target",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00120"
+  },
+  {
+    "block_id": "blk_00121",
+    "type": "reference",
+    "content": "domains with few images. In The IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , June 2020. [70] Huikai Wu, Shuai Zheng, Junge Zhang, and Kaiqi Huang. Gp-gan: Towards realistic high-resolution image blending. In Proceedings of the 27th ACM international conference on multimedia, pages 2487–2495, 2019. [71] Weihao Xia, Yujiu Yang, Jing-Hao Xue, and Baoyuan Wu. Tedigan: Text-guided diverse face image generation and ma- nipulation. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pages 2256–2265, 2021. [72] Jiahui Yu, Yuanzhong Xu, Jing Yu Koh, Thang Luong, Gun- jan Baid, Zirui Wang, Vijay Vasudevan, Alexander Ku, Yin- fei Yang, Burcu Karagol Ayan, et al. Scaling autoregres- sive models for content-rich text-to-image generation. arXiv preprint arXiv:2206.10789, 2022. [73] Richard Zhang, Phillip Isola, Alexei A Efros, Eli Shechtman, and Oliver Wang. The unreasonable effectiveness of deep features as a perceptual metric. In CVPR, 2018. [74] Zizhao Zhang, Yuanpu Xie, and Lin Yang. Photographic text-to-image synthesis with a hierarchically-nested adver- sarial network. In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 6199–6208, 2018.",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00121"
+  },
+  {
+    "block_id": "blk_00122",
+    "type": "reference",
+    "content": "Supplementary Material",
+    "page": 13,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00122"
+  },
+  {
+    "block_id": "blk_00123",
+    "type": "section_heading",
+    "content": "Background",
+    "page": 13,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00123"
+  },
+  {
+    "block_id": "blk_00124",
+    "type": "paragraph",
+    "content": "Text-to-Image Diffusion Models Diffusion models are probabilistic generative models that are trained to learn a data distribution by the gradual denoising of a variable sam- pled from a Gaussian distribution. Speciﬁcally, this cor- responds to learning the reverse process of a ﬁxed-length Markovian forward process. In simple terms, a conditional diffusion model ˆxθ is trained using a squared error loss to",
+    "page": 13,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00124"
+  },
+  {
+    "block_id": "blk_00125",
+    "type": "formula",
+    "content": "denoise a variably-noised imagezt :=αtx+σtϵ as follows:",
+    "page": 13,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00125"
+  },
+  {
+    "block_id": "blk_00126",
+    "type": "paragraph",
+    "content": "Ex,c,ϵ,t [ wt∥ˆxθ(αtx +σtϵ, c)− x∥2 2 ] (3) where x is the ground-truth image, c is a conditioning vector (e.g., obtained from a text prompt), ϵ ∼ N(0, I) is a noise term and αt,σt,wt are terms that control the noise schedule and sample quality, and are functions of the diffusion process time t ∼ U([0, 1]). At inference time, the diffusion model is sampled by iteratively denois-",
+    "page": 13,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00126"
+  },
+  {
+    "block_id": "blk_00127",
+    "type": "formula",
+    "content": "ing zt1∼N (0, I) using either the deterministic DDIM [64]",
+    "page": 13,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00127"
+  },
+  {
+    "block_id": "blk_00128",
+    "type": "paragraph",
+    "content": "or the stochastic ancestral sampler [25]. Intermediate points",
+    "page": 13,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00128"
+  },
+  {
+    "block_id": "blk_00129",
+    "type": "formula",
+    "content": "zt1,..., ztT , where 1 =t1 >··· >t T = 0, are generated,",
+    "page": 13,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00129"
+  },
+  {
+    "block_id": "blk_00130",
+    "type": "paragraph",
+    "content": "with decreasing noise levels. These points, ˆxt",
+    "page": 13,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00130"
+  },
+  {
+    "block_id": "blk_00131",
+    "type": "formula",
+    "content": "0 := ˆxθ(zt, c),",
+    "page": 13,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00131"
+  },
+  {
+    "block_id": "blk_00132",
+    "type": "paragraph",
+    "content": "are functions of the x-predictions. Recent state-of-the-art text-to-image diffusion models use cascaded diffusion models in order to generate high- resolution images from text [54, 61]. Speciﬁcally, [61] uses a base text-to-image model with 64x64 output resolu- tion, and two text-conditional super-resolution (SR) models 64× 64→ 256× 256 and 256× 256→ 1024× 1024. Ramesh et al. [54] use a similar conﬁguration, with uncon- ditional SR models. A key component of high-quality sam- ple generations from [61] is the use of noise conditioning augmentation [26] for the two SR modules. This consists in corrupting the intermediate image using noise with speciﬁc strength, and then conditioning the SR model on the level of corruption. Saharia et al. [61] select Gaussian noise as the form of augmentation. Other recent state-of-the-art text-to-image diffusion models, such as Stable Diffusion [59], use a single diffusion model to generate high-resolution images. Speciﬁcally, the forward and backward diffusion processes occur in a lower- dimensional latent space and an encoder-decoder architec-",
+    "page": 13,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00132"
+  },
+  {
+    "block_id": "blk_00133",
+    "type": "formula",
+    "content": "ture is trained on a large image dataset to translate images",
+    "page": 13,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00133"
+  },
+  {
+    "block_id": "blk_00134",
+    "type": "paragraph",
+    "content": "into latent codes. At inference time, a random noise latent code goes through the backward diffusion process and the pre-trained decoder is used to generate the ﬁnal image. Our method can be naturally applied to this scenario, where the U-Net (and possibly the text encoder) are trained, and the decoder is ﬁxed. Vocabulary Encoding The details of text-conditioning in text-to-image diffusion models are of high importance for visual quality and semantic ﬁdelity. Ramesh et al. [54] use CLIP text embeddings that are translated into image em- beddings using a learned prior, while Saharia et al. [61] use a pre-trained T5-XXL language model [53]. In our work, we use the latter. Language models like T5-XXL generate embeddings of a tokenized text prompt, and vocabulary en- coding is an important pre-processing step for prompt em- bedding. In order to transform a text prompt P into a con- ditioning embedding c, the text is ﬁrst tokenized using a tokenizerf using a learned vocabulary. Following [61], we use the SentencePiece tokenizer [32]. After tokenizing a prompt P using tokenizerf we obtain a ﬁxed-length vector f(P). The language model Γ is conditioned on this token",
+    "page": 13,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00134"
+  },
+  {
+    "block_id": "blk_00135",
+    "type": "formula",
+    "content": "identiﬁer vector to produce an embedding c := Γ(f(P)).",
+    "page": 13,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00135"
+  },
+  {
+    "block_id": "blk_00136",
+    "type": "paragraph",
+    "content": "Finally, the text-to-image diffusion model is directly condi- tioned on c. Dataset Our dataset includes 30 subjects. We separate each sub- ject into two categories: objects and live subjects/pets. 21 of the 30 subjects are objects, and 9 are live subjects/pets. We provide one sample image for each of the subjects in Fig- ure 5. Images for this dataset were collected by the authors or sourced from Unsplash [1]. We also collected 25 prompts: 20 recontextualization prompts and 5 property modiﬁcation prompts for objects. 10 recontextualization, 10 accessorization, and 5 property modiﬁcation prompts for live subjects/pets. Prompts are shown in Figure 10 For the evaluation suite we generate four images per sub- ject and per prompt, totaling 3,000 images. This allows us to robustly measure performances and generalization capa- bilities of a method. We make our dataset and evaluation protocol publicly available on the project webpage for fu- ture use in evaluating subject-driven generation. Subject Fidelity Metrics In the main paper we comment on the superiority of our proposed DINO metric in terms of subject ﬁdelity. We hy- pothesize that this is because DINO is, in essence, trained in a self-supervised manner to distinguish different images from each other modulo data augmentations. This is in contrast to the CLIP-I metric, where CLIP is trained with text-image pairs and encodes more descriptive information about images - but not necessarily ﬁne details that are not present in the text annotations. We give an example in Fig- ure 11, where the ﬁrst column contains a reference real im- age, the second column a different real image, the third col- umn a DreamBooth generated image and the last column an image generated using Textual Inversion. We compare the 2nd, 3rd and 4th image to the real reference image us- ing the CLIP-I and DINO metrics. We observe that the",
+    "page": 13,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00136"
+  },
+  {
+    "block_id": "blk_00137",
+    "type": "caption",
+    "content": "Figure 10. Prompts. Evaluation prompts for both objects and live subjects.",
+    "page": 14,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00137"
+  },
+  {
+    "block_id": "blk_00138",
+    "type": "paragraph",
+    "content": "2nd real image obtains both the highest CLIP-I and DINO scores. The DreamBooth sample looks much more simi- lar to the reference sample than the Textual Inversion sam- ple, yet the CLIP-I score for the Textual Inversion sample is much higher than the DreamBooth sample. However, we can see that the DINO similarity is higher for the Dream- Booth sample - which more closely tracks human evalua- tion of subject ﬁdelity. In order to quantitatively test this, we compute correlations between DINO/CLIP-I scores and normalized human preference scores. DINO has a Pearson correlation coeff. of 0.32 with human preference (vs. 0.27 for the CLIP-I metric used in [20]), with a very low p-value of 9.44× 10−30. User Study Below we include the full instructions used for our user study. For subject ﬁdelity: • Read the task carefully, inspect the reference items and then inspect the generated items. • Select which of the two generated items (A or B) re- produces the identity (e.g. item type and details) of the reference item. • The subject might be wearing accessories (e.g. hats, outﬁts). These should not affect your answer. Do not take them into account.",
+    "page": 14,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00138"
+  },
+  {
+    "block_id": "blk_00139",
+    "type": "formula",
+    "content": "• If you’re not sure, select Cannot Determine / Both",
+    "page": 14,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00139"
+  },
+  {
+    "block_id": "blk_00140",
+    "type": "paragraph",
+    "content": "Equally. For text ﬁdelity: • Read the task carefully, inspect the reference text and then inspect the generated items. • Select which of the two generated items (A or B) is best described by the reference text.",
+    "page": 14,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00140"
+  },
+  {
+    "block_id": "blk_00141",
+    "type": "formula",
+    "content": "• If you’re not sure, select Cannot Determine / Both",
+    "page": 14,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00141"
+  },
+  {
+    "block_id": "blk_00142",
+    "type": "paragraph",
+    "content": "Equally. For each study we asked 72 users to answer questionnaires of 25 comparative questions (3 users per questionnaire), to- taling 1800 answers - with 600 image pairs evaluated. Additional Applications and Examples",
+    "page": 14,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00142"
+  },
+  {
+    "block_id": "blk_00143",
+    "type": "formula",
+    "content": "Additional Samples We provide a large amount of addi-",
+    "page": 14,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00143"
+  },
+  {
+    "block_id": "blk_00144",
+    "type": "paragraph",
+    "content": "tional random samples in an annex HTML ﬁle. We compare real images, to DreamBooth generated images using Ima- gen and Stable Diffusion as well as images generated using Textual Inversion on Stable Diffusion. Recontextualization We show additional high-quality examples of recontextualization in Figure 12. Art Renditions We show additional examples of original artistic renditions of a personalized model in Figure 13. Expression Manipulation Our method allows for new image generation of the subject with modiﬁed expressions that are not seen in the original set of subject images. We show examples in Figure 14. The range of expressiveness is high, ranging from negative to positive valence emotions and different levels of arousal. In all examples, the unique- ness of the subject dog is preserved - speciﬁcally, the asym- metric white streak on its face remains in all generated im- ages.",
+    "page": 14,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00144"
+  },
+  {
+    "block_id": "blk_00145",
+    "type": "caption",
+    "content": "Figure 11. CLIP-I vs. DINO Metrics. The DreamBooth CLIP-I similarity to the reference image is lower than that of the Textual",
+    "page": 15,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00145"
+  },
+  {
+    "block_id": "blk_00146",
+    "type": "paragraph",
+    "content": "Inversion sample, even though the DreamBooth subject looks more similar to the reference subject. The DINO metric more closely tracks human evaluation of subject ﬁdelity here. Novel View Synthesis We show more viewpoints for novel view synthesis in Figure 15, along with prompts used to generate the samples.",
+    "page": 15,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00146"
+  },
+  {
+    "block_id": "blk_00147",
+    "type": "formula",
+    "content": "Accessorization An interesting capability stemming from",
+    "page": 15,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00147"
+  },
+  {
+    "block_id": "blk_00148",
+    "type": "paragraph",
+    "content": "the strong compositional prior of the generation model is the ability to accessorize subjects. In Figure 16 we show exam- ples of accessorization of a Chow Chow dog. We prompt the model with a sentence of the form: “a [V] [class noun] wearing [accessory]”. In this manner, we are able to ﬁt dif- ferent accessories onto this dog - with aesthetically pleasing results. Note that the identity of the dog is preserved in all frames, and subject-accessory contact and articulation are realistic. Property Modiﬁcation We are able to modify subject in- stance properties. For example we can include a color ad- jective in the prompt sentence “a [color adjective] [V] [class noun]”. In that way, we can generate novel instances of our subject with different colors. The generated scene can be very similar to the original scene, or it can be changed given a descriptive prompt. We show color changes of a car in the ﬁrst row of Figure 17. We select similar view- points for effect, but we can generate different viewpoints of the car with different colors in different scenarios. This is a simple example of property modiﬁcation, but more se- mantically complex property modiﬁcations can be achieved using our method. For example, we show crosses between a speciﬁc Chow Chow dog and different animal species in the bottom row of Figure 17. We prompt the model with sen- tences of the following structure: “a cross of a [V] dog and",
+    "page": 15,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00148"
+  },
+  {
+    "block_id": "blk_00149",
+    "type": "formula",
+    "content": "a [target species]”. In particular, we can see in this example",
+    "page": 15,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00149"
+  },
+  {
+    "block_id": "blk_00150",
+    "type": "paragraph",
+    "content": "that the identity of the dog is well preserved even when the species changes - the face of the dog has certain individual",
+    "page": 15,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00150"
+  },
+  {
+    "block_id": "blk_00151",
+    "type": "formula",
+    "content": "properties that are well preserved and melded with the target",
+    "page": 15,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00151"
+  },
+  {
+    "block_id": "blk_00152",
+    "type": "paragraph",
+    "content": "species. Other property modiﬁcations are possible, such as material modiﬁcation (e.g. a dog made out of stone). Some are harder than others and depend on the prior of the base generation model. Comic Book Generation In addition to photorealistic im- ages, our method is able to capture the appearance of drawn media and more. In Figure 18 we present, to the best of our knowledge, the ﬁrst instance of a full comic with a persis- tent character generated by a generative model. Each comic frame was generated using a descriptive prompt (e.g “a [V] cartoon grabbing a fork and a knife saying “time to eat””). Additional Experiments Prior Preservation Loss Here we show qualitative examples of how our prior preservation loss (PPL) conserves variability in the prior and show sample results in Figure 19. We verify that a",
+    "page": 15,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00152"
+  },
+  {
+    "block_id": "blk_00153",
+    "type": "formula",
+    "content": "vanilla model is able to generate a large variety of dogs,",
+    "page": 15,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00153"
+  },
+  {
+    "block_id": "blk_00154",
+    "type": "paragraph",
+    "content": "while a naively ﬁne-tuned model on the subject dog ex- hibits language drift and generates our subject dog given the prompt “a dog”. Our proposed loss preserves the vari- ability of the prior and the model is able to generate new instances of our dog given a prompt of the style “a [V] dog” but also varied instances of dogs given a “a dog” prompt. Effect of Training Images Here we run an experiment on the effects of the num- ber of input images for model personalization. Speciﬁcally, we train models for two subjects, 5 models per subject with input images ranging from 1 to 5. We generate 4 images for 10 different recontextualization prompts for each sub- ject. We present qualitative results in Figure 20. We can observe that for some subjects that are more common, and lie more strongly in the distribution of the diffusion model, such as the selected Corgi dog, we are able to accurately",
+    "page": 15,
+    "section": "Related Work",
+    "bbox": null,
+    "anchor_id": "anc_00154"
+  },
+  {
+    "block_id": "blk_00155",
+    "type": "section_heading",
+    "content": "Method 1 2 3 4 5",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00155"
+  },
+  {
+    "block_id": "blk_00156",
+    "type": "paragraph",
+    "content": "Backpack 0.494 0.515 0.5960.604 0.597 Dog 0.798 0.851 0.871 0.876 0.864",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00156"
+  },
+  {
+    "block_id": "blk_00157",
+    "type": "caption",
+    "content": "Table 5. Effect of the number of input images on subject ﬁdelity",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00157"
+  },
+  {
+    "block_id": "blk_00158",
+    "type": "paragraph",
+    "content": "(DINO).",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00158"
+  },
+  {
+    "block_id": "blk_00159",
+    "type": "section_heading",
+    "content": "Method 1 2 3 4 5",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00159"
+  },
+  {
+    "block_id": "blk_00160",
+    "type": "paragraph",
+    "content": "Backpack 0.798 0.851 0.8710.876 0.864 Dog 0.646 0.683 0.734 0.740 0.730",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00160"
+  },
+  {
+    "block_id": "blk_00161",
+    "type": "caption",
+    "content": "Table 6. Effect of the number of input images on prompt ﬁdelity",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00161"
+  },
+  {
+    "block_id": "blk_00162",
+    "type": "paragraph",
+    "content": "(CLIP-T). capture the appearance using only two images - and some- times only one, given careful hyperparameter choice. For objects that are more rare, such as the selected backpack, we need more samples to accurately preserve the subject and to recontextualize it to diverse settings. Our quantita- tive results support these conclusions - we present the DINO subject ﬁdelity metric in Table 5 and the CLIP-T prompt ﬁ- delity metric in Table 6. For both subjects we see that the optimal amount of input images for subject and prompt is 4. This number can vary depending on the subject and we settle on 3-5 images for model personalization. Personalized Instance-Speciﬁc Super-Resolution and Low-level Noise Augmentation for Imagen While the text-to-image diffusion model controls for most visual semantics, the super-resolution (SR) models are essential to achieve photorealistic content and to pre- serve subject instance details. We ﬁnd that if SR networks are used without ﬁne-tuning, the generated output can con- tain artifacts since the SR models might not be familiar with certain details or textures of the subject instance, or the subject instance might have hallucinated incorrect fea- tures, or missing details. Figure 21 (bottom row) shows some sample output images with no ﬁne-tuning of SR mod- els, where the model hallucinates some high-frequency de- tails. We ﬁnd that ﬁne-tuning the 64× 64→ 256× 256 SR model is essential for most subjects, and ﬁne-tuning the 256× 256→ 1024× 1024 model can beneﬁt some subject instances with high levels of ﬁne-grained detail. We ﬁnd results to be suboptimal if the training recipes and test parameters of Saharia et al. [61] are used to ﬁne- tune the SR models with the given few shots of a subject instance. Speciﬁcally, we ﬁnd that maintaining the original level of noise augmentation used to train the SR networks leads to the blurring of high-frequency patterns of the sub- ject and of the environment. See Figure 21 (middle row) for sample generations. In order to faithfully reproduce the subject instance, we reduce the level of noise augmentation from 10−3 to 10−5 during ﬁne-tuning of the256× 256 SR model. With this small modiﬁcation, We are able to recover ﬁne-grained details of the subject instance. We show how using lower noise to train the super-resolution models im- proves ﬁdelity. Speciﬁcally, we show in Figure 21 that if the super-resolution models are not ﬁne-tuned, we observe hal- lucination of high-frequency patterns on the subject which hurts identity preservation. Further, if we use the ground- truth noise augmentation level used for training the Imagen 256× 256 model (10−3), we obtain blurred and non-crisp details. If the noise used to train the SR model is reduced",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00162"
+  },
+  {
+    "block_id": "blk_00163",
+    "type": "formula",
+    "content": "to 10−5, then we conserve a large amount of detail without",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00163"
+  },
+  {
+    "block_id": "blk_00164",
+    "type": "paragraph",
+    "content": "pattern hallucination or blurring. Comparisons We include additional qualitative comparisons with Gal et al. [20] in Figure 22. For this comparison, we train our model on the training images of two objects appear in the teaser of their work (headless sculpture and cat toy) kindly provided by Gal et al. [20], and apply the prompts suggested in their paper. For prompts where they present several gen- erated images, we handpicked their best sample (with the",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00164"
+  },
+  {
+    "block_id": "blk_00165",
+    "type": "formula",
+    "content": "highest image quality and morphological similarity to the",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00165"
+  },
+  {
+    "block_id": "blk_00166",
+    "type": "paragraph",
+    "content": "subject). We ﬁnd that our work can generate the same se- mantic variations of these unique objects, with a high em- phasis on preserving the subject identity, as can be seen, for instance, by the detailed patterns of the cat sculpture that are preserved. Next, we show comparisons of recontextualization of a subject clock, with distinctive features using our method and prompt engineering using vanilla Imagen [61] and the public API of DALL-E 2 [54]. After multiple iterations us- ing both models, we settle for the base prompt “retro style yellow alarm clock with a white clock face and a yellow number three on the lower right part of the clock face” to describe all of the important features of the subject clock example. We ﬁnd that while DALL-E 2 and vanilla Imagen are able to generate retro-style yellow alarm clocks, they struggle to represent a number 3 on the clock face, distinct from the clock face numbers. In general, we ﬁnd that it is very hard to control ﬁne-grained details of subject appear- ance, even with exhaustive prompt engineering. Also, we ﬁnd that context can bleed into the appearance of our sub- ject instance. We show the results in Figure 23, and can observe that our method conserves ﬁne-grained details of the subject instance such as the shape, the clock face font,",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00166"
+  },
+  {
+    "block_id": "blk_00167",
+    "type": "formula",
+    "content": "and the large yellow number three on the clock face, among",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00167"
+  },
+  {
+    "block_id": "blk_00168",
+    "type": "paragraph",
+    "content": "others. Societal Impact This project aims to provide users with an effective tool for synthesizing personal subjects (animals, objects) in dif- ferent contexts. While general text-to-image models might be biased towards speciﬁc attributes when synthesizing im-",
+    "page": 16,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00168"
+  },
+  {
+    "block_id": "blk_00169",
+    "type": "paragraph",
+    "content": "ages from text, our approach enables the user to get a bet- ter reconstruction of their desirable subjects. On contrary, malicious parties might try to use such images to mislead viewers. This is a common issue, existing in other genera- tive models approaches or content manipulation techniques. Future research in generative modeling, and speciﬁcally of personalized generative priors, must continue investigating and revalidating these concerns.",
+    "page": 17,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00169"
+  },
+  {
+    "block_id": "blk_00170",
+    "type": "caption",
+    "content": "Figure 12. Additional recontextualization samples of a backpack, vase, and teapot subject instances. We are able to generate images",
+    "page": 18,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00170"
+  },
+  {
+    "block_id": "blk_00171",
+    "type": "paragraph",
+    "content": "of the subject instance in different environments, with high preservation of subject details and realistic interaction between the scene and the subject. We display the conditioning prompts below each image.",
+    "page": 18,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00171"
+  },
+  {
+    "block_id": "blk_00172",
+    "type": "caption",
+    "content": "Figure 13. Additional artistic renderings of a dog instance in the style of famous painters. We remark that many of the generated poses,",
+    "page": 19,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00172"
+  },
+  {
+    "block_id": "blk_00173",
+    "type": "paragraph",
+    "content": "e.g., the Michelangelo renditions, were not seen in the training set. We also note that some renditions seem to have novel compositions and faithfully imitate the style of the painter.",
+    "page": 19,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00173"
+  },
+  {
+    "block_id": "blk_00174",
+    "type": "caption",
+    "content": "Figure 14. Expression manipulation of a dog instance. Our technique can synthesize various expressions that do not appear in the input",
+    "page": 19,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00174"
+  },
+  {
+    "block_id": "blk_00175",
+    "type": "paragraph",
+    "content": "images, demonstrating the extrapolation power of the model. Note the unique asymmetric white streak on the subject dog’s face.",
+    "page": 19,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00175"
+  },
+  {
+    "block_id": "blk_00176",
+    "type": "caption",
+    "content": "Figure 15. Text-guided view synthesis. Our technique can synthesize images with speciﬁed viewpoints for a subject cat (left to right: top,",
+    "page": 20,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00176"
+  },
+  {
+    "block_id": "blk_00177",
+    "type": "paragraph",
+    "content": "bottom, side, and back views). Note that the generated poses are different from the input poses, and the background changes in a realistic manner given a pose change. We also highlight the preservation of complex fur patterns on the subject cat’s forehead.",
+    "page": 20,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00177"
+  },
+  {
+    "block_id": "blk_00178",
+    "type": "caption",
+    "content": "Figure 16. Outﬁtting a dog with accessories . The identity of the subject is preserved and many different outﬁts or accessories can be",
+    "page": 20,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00178"
+  },
+  {
+    "block_id": "blk_00179",
+    "type": "paragraph",
+    "content": "applied to the dog given a prompt of type “a [V] dog wearing a police/chef/witch outﬁt”. We observe a realistic interaction between the",
+    "page": 20,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00179"
+  },
+  {
+    "block_id": "blk_00180",
+    "type": "formula",
+    "content": "subject dog and the outﬁts or accessories, as well as a large variety of possible options.",
+    "page": 20,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00180"
+  },
+  {
+    "block_id": "blk_00181",
+    "type": "caption",
+    "content": "Figure 17. Modiﬁcation of subject properties while preserving their key features. We show color modiﬁcations in the ﬁrst row (using",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00181"
+  },
+  {
+    "block_id": "blk_00182",
+    "type": "paragraph",
+    "content": "prompts “a [color] [V] car”), and crosses between a speciﬁc dog and different animals in the second row (using prompts “a cross of a [V]",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00182"
+  },
+  {
+    "block_id": "blk_00183",
+    "type": "formula",
+    "content": "dog and a [target species]”). We highlight the fact that our method preserves unique visual features that give the subject its identity or",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00183"
+  },
+  {
+    "block_id": "blk_00184",
+    "type": "formula",
+    "content": "essence, while performing the required property modiﬁcation.",
+    "page": 21,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00184"
+  },
+  {
+    "block_id": "blk_00185",
+    "type": "caption",
+    "content": "Figure 18. Generated comic. We present, to the best of our knowledge, the ﬁrst comic comic with a persistent character generated by",
+    "page": 22,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00185"
+  },
+  {
+    "block_id": "blk_00186",
+    "type": "paragraph",
+    "content": "prompting a generative model.",
+    "page": 22,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00186"
+  },
+  {
+    "block_id": "blk_00187",
+    "type": "caption",
+    "content": "Figure 19. Preservation of class semantic priors with prior-preservation loss. Fine-tuning using images of our subject without prior-",
+    "page": 23,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00187"
+  },
+  {
+    "block_id": "blk_00188",
+    "type": "paragraph",
+    "content": "preservation loss results in language drift and the model loses the capability of generating other members of our subject’s class. Using a prior-preservation loss term allows our model to avoid this and to preserve the subject class’ prior.",
+    "page": 23,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00188"
+  },
+  {
+    "block_id": "blk_00189",
+    "type": "caption",
+    "content": "Figure 20. Impact of number of input images. We observe that given only one input image, we are close to capture the identity of some",
+    "page": 23,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00189"
+  },
+  {
+    "block_id": "blk_00190",
+    "type": "paragraph",
+    "content": "subjects (e.g. Corgi dog). More images are usually needed - two images are sufﬁcient to reconstruct the Corgi dog in this example whereas at least 3 are needed for a more rare item such as the backpack.",
+    "page": 23,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00190"
+  },
+  {
+    "block_id": "blk_00191",
+    "type": "caption",
+    "content": "Figure 21. Ablations with ﬁne-tuning the super-resolution (SR) models. Using the normal level of noise augmentation of [61] to",
+    "page": 24,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00191"
+  },
+  {
+    "block_id": "blk_00192",
+    "type": "paragraph",
+    "content": "train the SR models results in blurred high-frequency patterns, while no ﬁne-tuning results in hallucinated high-frequency patterns. Using low-level noise augmentation for SR models improves sample quality and subject ﬁdelity. Image credit (input images): Unsplash.",
+    "page": 24,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00192"
+  },
+  {
+    "block_id": "blk_00193",
+    "type": "caption",
+    "content": "Figure 22. Comparisons with Gal et al. [20] using the subjects, images, and prompts from their work. Our approach is able to generate",
+    "page": 24,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00193"
+  },
+  {
+    "block_id": "blk_00194",
+    "type": "paragraph",
+    "content": "semantically correct variations of unique objects, exhibiting a higher degree of preservation of subject features. Input images provided by Gal et al. [20].",
+    "page": 24,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00194"
+  },
+  {
+    "block_id": "blk_00195",
+    "type": "caption",
+    "content": "Figure 23. Comparison with DALL-E 2 and Imagen with detailed prompt engineering.After several trial-and-error iterations, the base",
+    "page": 25,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00195"
+  },
+  {
+    "block_id": "blk_00196",
+    "type": "paragraph",
+    "content": "prompt used to generate DALL-E 2 and Imagen results was “retro style yellow alarm clock with a white clock face and a yellow number three on the right part of the clock face” , which is highly descriptive of the subject clock. In general, it is hard to control ﬁne-grained",
+    "page": 25,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00196"
+  },
+  {
+    "block_id": "blk_00197",
+    "type": "formula",
+    "content": "details of subject appearance using prompts, even with large amounts of prompt engineering. Also, we can observe how context cues in the",
+    "page": 25,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00197"
+  },
+  {
+    "block_id": "blk_00198",
+    "type": "paragraph",
+    "content": "prompt can bleed into subject appearance (e.g. with a blue number 3 on the clock face when the context is “on top of blue fabric”). Image credit (input images): Unsplash.",
+    "page": 25,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00198"
+  }
+]

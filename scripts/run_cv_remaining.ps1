@@ -59,7 +59,9 @@ foreach ($spec in $queue.papers) {
   Write-Log "[$index/$total] Running $paperId :: $title"
 
   $singleSpecPath = Join-Path $env:TEMP ("zhiwei_cv_single_" + $paperId + ".json")
-  @{ papers = @($spec) } | ConvertTo-Json -Depth 20 | Set-Content -Path $singleSpecPath -Encoding UTF8
+  $singleSpecJson = @{ papers = @($spec) } | ConvertTo-Json -Depth 20
+  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+  [System.IO.File]::WriteAllText($singleSpecPath, $singleSpecJson, $utf8NoBom)
 
   $args = @(
     "-m", "backend.benchmark_pipeline",
@@ -68,7 +70,7 @@ foreach ($spec in $queue.papers) {
     "--sleep", "0"
   )
   $proc = Start-Process -FilePath $python -ArgumentList $args -WorkingDirectory $repo -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $logDir "$paperId.out.log") -RedirectStandardError (Join-Path $logDir "$paperId.err.log")
-  $finished = Wait-Process -Id $proc.Id -Timeout $PerPaperTimeoutSeconds -ErrorAction SilentlyContinue
+  Wait-Process -Id $proc.Id -Timeout $PerPaperTimeoutSeconds -ErrorAction SilentlyContinue
   if (Get-Process -Id $proc.Id -ErrorAction SilentlyContinue) {
     Write-Log "Timeout after $PerPaperTimeoutSeconds seconds; killing $paperId"
     Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
@@ -89,7 +91,51 @@ summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encod
       Remove-Item -LiteralPath $partialDir -Recurse -Force -ErrorAction SilentlyContinue
     }
   } else {
-    Write-Log "Finished $paperId"
+    $proc.Refresh()
+    if ($proc.ExitCode -eq 0) {
+      Write-Log "Finished $paperId"
+      & $python -X utf8 -c @"
+import json
+from pathlib import Path
+paper_id = '$paperId'
+spec_path = Path(r'$singleSpecPath')
+spec_data = json.loads(spec_path.read_text(encoding='utf-8-sig'))
+spec = spec_data['papers'][0]
+summary_path = Path('samples/benchmark/top_cv/top_cv_pipeline_summary.json')
+quality_path = Path('samples/benchmark/generated') / paper_id / 'quality_report.json'
+summary = json.loads(summary_path.read_text(encoding='utf-8')) if summary_path.exists() else {'papers': []}
+items = [item for item in summary.get('papers', []) if item.get('paper_id') != paper_id]
+if quality_path.exists():
+    result = json.loads(quality_path.read_text(encoding='utf-8'))
+    result['status'] = 'ok'
+    result['cached'] = False
+    result['importance_rank'] = spec.get('importance_rank')
+    result['citation_count'] = spec.get('citation_count')
+else:
+    result = {'paper_id': paper_id, 'title': spec.get('title'), 'status': 'failed', 'error': 'Missing quality_report.json after successful subprocess'}
+items.append(result)
+summary['papers'] = items
+summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding='utf-8')
+"@ *>> $log
+    } else {
+      Write-Log "Failed $paperId with exit code $($proc.ExitCode)"
+      & $python -X utf8 -c @"
+import json
+from pathlib import Path
+paper_id = '$paperId'
+title = '''$title'''
+summary_path = Path('samples/benchmark/top_cv/top_cv_pipeline_summary.json')
+summary = json.loads(summary_path.read_text(encoding='utf-8')) if summary_path.exists() else {'papers': []}
+items = [item for item in summary.get('papers', []) if item.get('paper_id') != paper_id]
+items.append({'paper_id': paper_id, 'title': title, 'status': 'failed', 'error': 'Subprocess exited with non-zero status in run_cv_remaining.ps1'})
+summary['papers'] = items
+summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding='utf-8')
+"@ *>> $log
+      $partialDir = Join-Path "samples\benchmark\generated" $paperId
+      if ((Test-Path $partialDir) -and -not (Test-Path (Join-Path $partialDir "paper_ir.json"))) {
+        Remove-Item -LiteralPath $partialDir -Recurse -Force -ErrorAction SilentlyContinue
+      }
+    }
   }
 }
 

@@ -1,0 +1,830 @@
+[
+  {
+    "block_id": "blk_00001",
+    "type": "title",
+    "content": "Learning Deconvolution Network for Semantic Segmentation Hyeonwoo Noh Seunghoon Hong Bohyung Han Department of Computer Science and Engineering, POSTECH, Korea {hyeonwoonoh ,maga33,bhhan}@postech.ac.kr",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "anchor_id": "anc_00001"
+  },
+  {
+    "block_id": "blk_00002",
+    "type": "section_heading",
+    "content": "Abstract",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00002"
+  },
+  {
+    "block_id": "blk_00003",
+    "type": "paragraph",
+    "content": "We propose a novel semantic segmentation algorithm by learning a deconvolution network. We learn the network on top of the convolutional layers adopted from VGG 16- layer net. The deconvolution network is composed of de- convolution and unpooling layers, which identify pixel-wise class labels and predict segmentation masks. We apply the trained network to each proposal in an input image, and construct the ﬁnal semantic segmentation map by combin- ing the results from all proposals in a simple manner. The proposed algorithm mitigates the limitations of the exist- ing methods based on fully convolutional networks by in- tegrating deep deconvolution network and proposal-wise prediction; our segmentation method typically identiﬁes de- tailed structures and handles objects in multiple scales nat- urally. Our network demonstrates outstanding performance in PASCAL VOC 2012 dataset, and we achieve the best ac- curacy (72.5%) among the methods trained with no external data through ensemble with the fully convolutional network. 1. Introduction Convolutional neural networks (CNN) have shown ex- cellent performance in various visual recognition problems such as image classiﬁcation [15, 22, 23], object detec- tion [7, 9], semantic segmentation [6, 18], and action recog- nition [12, 21]. The representation power of CNNs leads to successful results; a combination of feature descriptors extracted from CNNs and simple off-the-shelf classiﬁers works very well in practice. Encouraged by the success in classiﬁcation problems, researchers start to apply CNNs to structured prediction problems, i.e., semantic segmenta- tion [17, 1], human pose estimation [16], and so on. Recent semantic segmentation algorithms are often for- mulated to solve structured pixel-wise labeling problems based on CNN [1, 17]. They convert an existing CNN ar- chitecture constructed for classiﬁcation to a fully convolu- tional network (FCN). They obtain a coarse label map from the network by classifying every local region in image, and perform a simple deconvolution, which is implemented as bus car car bus car train boat bicycle person",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00003"
+  },
+  {
+    "block_id": "blk_00004",
+    "type": "formula",
+    "content": "(a) Inconsistent labels due to large object size",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00004"
+  },
+  {
+    "block_id": "blk_00005",
+    "type": "paragraph",
+    "content": "person person (b) Missing labels due to small object size",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00005"
+  },
+  {
+    "block_id": "blk_00006",
+    "type": "caption",
+    "content": "Figure 1. Limitations of semantic segmentation algorithms based",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00006"
+  },
+  {
+    "block_id": "blk_00007",
+    "type": "paragraph",
+    "content": "on fully convolutional network. (Left) original image. (Center) ground-truth annotation. (Right) segmentations by [17] bilinear interpolation, for pixel-level labeling. Conditional random ﬁeld (CRF) is optionally applied to the output map for ﬁne segmentation [14]. The main advantage of the meth- ods based on FCN is that the network accepts a whole image as an input and performs fast and accurate inference. Semantic segmentation based on FCNs [1, 17] have a couple of critical limitations. First, the network can han- dle only a single scale semantics within image due to the ﬁxed-size receptive ﬁeld. Therefore, the object that is sub-",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00007"
+  },
+  {
+    "block_id": "blk_00008",
+    "type": "formula",
+    "content": "stantially larger or smaller than the receptive ﬁeld may be",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00008"
+  },
+  {
+    "block_id": "blk_00009",
+    "type": "paragraph",
+    "content": "fragmented or mislabeled. In other words, label prediction",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00009"
+  },
+  {
+    "block_id": "blk_00010",
+    "type": "formula",
+    "content": "is done with only local information for large objects and the",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00010"
+  },
+  {
+    "block_id": "blk_00011",
+    "type": "paragraph",
+    "content": "pixels that belong to the same object may have inconsistent labels as shown in Figure 1(a). Also, small objects are often ignored and classiﬁed as background, which is illustrated in",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00011"
+  },
+  {
+    "block_id": "blk_00012",
+    "type": "caption",
+    "content": "Figure 1(b). Although [17] attempts to sidestep this limi-",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00012"
+  },
+  {
+    "block_id": "blk_00013",
+    "type": "paragraph",
+    "content": "tation using skip architecture, this is not a fundamental so- lution and performance gain is not signiﬁcant. Second, the detailed structures of an object are often lost or smoothed because the label map, input to the deconvolutional layer, 1 arXiv:1505.04366v1 [cs.CV] 17 May 2015",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00013"
+  },
+  {
+    "block_id": "blk_00014",
+    "type": "paragraph",
+    "content": "is too coarse and deconvolution procedure is overly sim- ple. Note that, in the original FCN [17], the label map is only 16× 16 in size and is deconvolved to generate seg- mentation result in the original input size through bilinear interpolation. The absence of real deconvolution in [1, 17] makes it difﬁcult to achieve good performance. However, recent methods ameliorate this problem using CRF [14]. To overcome such limitations, we employ a completely different strategy to perform semantic segmentation based on CNN. Our main contributions are summarized below: • We learn a multi-layer deconvolution network, which is composed of deconvolution, unpooling, and rectiﬁed linear unit (ReLU) layers. Learning deconvolution net- work for semantic segmentation is meaningful but no one has attempted to do it yet to our knowledge. • The trained network is applied to individual object pro- posals to obtain instance-wise segmentations, which are combined for the ﬁnal semantic segmentation; it is free from scale issues found in FCN-based methods and identiﬁes ﬁner details of an object. • We achieve outstanding performance using the decon- volution network trained only on PASCAL VOC 2012 dataset, and obtain the best accuracy through the en- semble with [17] by exploiting the heterogeneous and complementary characteristics of our algorithm with respect to FCN-based methods. We believe that all of these three contributions help achieve the state-of-the-art performance in PASCAL VOC 2012 benchmark. The rest of this paper is organized as follows. We ﬁrst review related work in Section 2 and describe the architec- ture of our network in Section 3. The detailed procedure to learn a supervised deconvolution network is discussed in Section 4. Section 5 presents how to utilize the learned deconvolution network for semantic segmentation. Experi- mental results are demonstrated in Section 6. 2. Related Work CNNs are very popular in many visual recognition prob- lems and have also been applied to semantic segmentation actively. We ﬁrst summarize the existing algorithms based on supervised learning for semantic segmentation. There are several semantic segmentation methods based on classiﬁcation. Mostajabiet al. [18] and Farabet et al. [6] classify multi-scale superpixels into predeﬁned categories and combine the classiﬁcation results for pixel-wise label- ing. Some algorithms [3, 9, 10] classify region proposals and reﬁne the labels in the image-level segmentation map to obtain the ﬁnal segmentation. Fully convolutional network (FCN) [17] has driven re- cent breakthrough on deep learning based semantic seg- mentation. In this approach, fully connected layers in the",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00014"
+  },
+  {
+    "block_id": "blk_00015",
+    "type": "formula",
+    "content": "standard CNNs are interpreted as convolutions with large",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00015"
+  },
+  {
+    "block_id": "blk_00016",
+    "type": "paragraph",
+    "content": "receptive ﬁelds, and segmentation is achieved using coarse class score maps obtained by feedforwarding an input im- age. An interesting idea in this work is that a simple inter- polation ﬁlter is employed for deconvolution and only the CNN part of the network is ﬁne-tuned to learn deconvolu- tion indirectly. Surprisingly, the output network illustrates impressive performance on the PASCAL VOC benchmark. Chen et al. [1] obtain denser score maps within the FCN framework to predict pixel-wise labels and reﬁne the label map using the fully connected CRF [14]. In addition to the methods based on supervised learning, several semantic segmentation techniques in weakly super- vised settings have been proposed. When only bounding box annotations are given for input images, [2, 19] reﬁne the annotations through iterative procedures and obtain ac- curate segmentation outputs. On the other hand, [20] per- forms semantic segmentation based only on image-level an- notations in a multiple instance learning framework. Semantic segmentation involves deconvolution concep- tually, but learning deconvolution network is not very com- mon. Deconvolution network is introduced in [25] to re- construct input images. As the reconstruction of an input",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00016"
+  },
+  {
+    "block_id": "blk_00017",
+    "type": "formula",
+    "content": "image is non-trivial due to max pooling layers, it proposes",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00017"
+  },
+  {
+    "block_id": "blk_00018",
+    "type": "paragraph",
+    "content": "the unpooling operation by storing the pooled location. Us- ing the deconvoluton network, the input image can be re- constructed from its feature representation. This approach is also employed to visualize activated features in a trained CNN [24] and update network architecture for performance enhancement. This visualization is useful for understanding the behavior of a trained CNN model. 3. System Architecture This section discusses the architecture of our deconvolu- tion network, and describes the overall semantic segmenta- tion algorithm. 3.1. Architecture",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00018"
+  },
+  {
+    "block_id": "blk_00019",
+    "type": "caption",
+    "content": "Figure 2 illustrates the detailed conﬁguration of the en-",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00019"
+  },
+  {
+    "block_id": "blk_00020",
+    "type": "paragraph",
+    "content": "tire deep network. Our trained network is composed of two parts—convolution and deconvolution networks. The con- volution network corresponds to feature extractor that trans- forms the input image to multidimensional feature represen- tation, whereas the deconvolution network is a shape gen- erator that produces object segmentation from the feature extracted from the convolution network. The ﬁnal output of the network is a probability map in the same size to input image, indicating probability of each pixel that belongs to one of the predeﬁned classes.",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00020"
+  },
+  {
+    "block_id": "blk_00021",
+    "type": "caption",
+    "content": "Figure 2. Overall architecture of the proposed network. On top of the convolution network based on VGG 16-layer net, we put a multi-",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00021"
+  },
+  {
+    "block_id": "blk_00022",
+    "type": "paragraph",
+    "content": "layer deconvolution network to generate the accurate segmentation map of an input proposal. Given a feature representation obtained from the convolution network, dense pixel-wise class prediction map is constructed through multiple series of unpooling, deconvolution and rectiﬁcation operations. We employ VGG 16-layer net [22] for convolutional part with its last classiﬁcation layer removed. Our convolution network has 13 convolutional layers altogether, rectiﬁca- tion and pooling operations are sometimes performed be- tween convolutions, and 2 fully connected layers are aug- mented at the end to impose class-speciﬁc projection. Our deconvolution network is a mirrored version of the convo- lution network, and has multiple series of unpooing, decon- volution, and rectiﬁcation layers. Contrary to convolution network that reduces the size of activations through feed-",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00022"
+  },
+  {
+    "block_id": "blk_00023",
+    "type": "formula",
+    "content": "forwarding, deconvolution network enlarges the activations",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00023"
+  },
+  {
+    "block_id": "blk_00024",
+    "type": "paragraph",
+    "content": "through the combination of unpooling and deconvolution operations. More details of the proposed deconvolution net- work is described in the following subsections. 3.2. Deconvolution Network for Segmentation We now discuss two main operations, unpooling and de- convolution, in our deconvolution network in details.",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00024"
+  },
+  {
+    "block_id": "blk_00025",
+    "type": "paragraph",
+    "content": "3.2.1 Unpooling",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00025"
+  },
+  {
+    "block_id": "blk_00026",
+    "type": "paragraph",
+    "content": "Pooling in convolution network is designed to ﬁlter noisy activations in a lower layer by abstracting activations in a receptive ﬁeld with a single representative value. Although it helps classiﬁcation by retaining only robust activations in upper layers, spatial information within a receptive ﬁeld is lost during pooling, which may be critical for precise local- ization that is required for semantic segmentation. To resolve such issue, we employ unpooling layers in de- convolution network, which perform the reverse operation of pooling and reconstruct the original size of activations as illustrated in Figure 3. To implement the unpooling opera- tion, we follow the similar approach proposed in [24, 25]. It",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00026"
+  },
+  {
+    "block_id": "blk_00027",
+    "type": "formula",
+    "content": "records the locations of maximum activations selected dur-",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00027"
+  },
+  {
+    "block_id": "blk_00028",
+    "type": "paragraph",
+    "content": "ing pooling operation in switch variables, which are em- ployed to place each activation back to its original pooled location. This unpooling strategy is particularly useful to reconstruct the structure of input object as described in [24].",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00028"
+  },
+  {
+    "block_id": "blk_00029",
+    "type": "caption",
+    "content": "Figure 3. Illustration of deconvolution and unpooling operations.",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00029"
+  },
+  {
+    "block_id": "blk_00030",
+    "type": "paragraph",
+    "content": "3.2.2 Deconvolution",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00030"
+  },
+  {
+    "block_id": "blk_00031",
+    "type": "formula",
+    "content": "The output of an unpooling layer is an enlarged, yet sparse",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00031"
+  },
+  {
+    "block_id": "blk_00032",
+    "type": "paragraph",
+    "content": "activation map. The deconvolution layers densify the sparse activations obtained by unpooling through convolution-like operations with multiple learned ﬁlters. However, contrary to convolutional layers, which connect multiple input ac- tivations within a ﬁlter window to a single activation, de- convolutional layers associate a single input activation with multiple outputs, as illustrated in Figure 3. The output of",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00032"
+  },
+  {
+    "block_id": "blk_00033",
+    "type": "formula",
+    "content": "the deconvolutional layer is an enlarged and dense activa-",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00033"
+  },
+  {
+    "block_id": "blk_00034",
+    "type": "formula",
+    "content": "tion map. We crop the boundary of the enlarged activation",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00034"
+  },
+  {
+    "block_id": "blk_00035",
+    "type": "paragraph",
+    "content": "map to keep the size of the output map identical to the one from the preceding unpooling layer. The learned ﬁlters in deconvolutional layers correspond to bases to reconstruct shape of an input object. Therefore, similar to the convolution network, a hierarchical structure of deconvolutional layers are used to capture different level of shape details. The ﬁlters in lower layers tend to cap- ture overall shape of an object while the class-speciﬁc ﬁne- details are encoded in the ﬁlters in higher layers. In this way, the network directly takes class-speciﬁc shape infor-",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00035"
+  },
+  {
+    "block_id": "blk_00036",
+    "type": "paragraph",
+    "content": "(a) (b) (c) (d) (e) (f) (g) (h) (i) (j)",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00036"
+  },
+  {
+    "block_id": "blk_00037",
+    "type": "caption",
+    "content": "Figure 4. Visualization of activations in our deconvolution network. The activation maps from top left to bottom right correspond to the",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00037"
+  },
+  {
+    "block_id": "blk_00038",
+    "type": "paragraph",
+    "content": "output maps from lower to higher layers in the deconvolution network. We select the most representative activation in each layer for effective visualization. The image in (a) is an input, and the rest are the outputs from (b) the last 14× 14 deconvolutional layer, (c) the 28× 28 unpooling layer, (d) the last 28× 28 deconvolutional layer, (e) the 56× 56 unpooling layer, (f) the last 56× 56 deconvolutional layer, (g) the 112× 112 unpooling layer, (h) the last 112× 112 deconvolutional layer, (i) the 224× 224 unpooling layer and (j) the last 224× 224 deconvolutional layer. The ﬁner details of the object are revealed, as the features are forward-propagated through the layers in the deconvolution network. Note that noisy activations from background are suppressed through propagation while the activations closely",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00038"
+  },
+  {
+    "block_id": "blk_00039",
+    "type": "formula",
+    "content": "related to the target classes are ampliﬁed. It shows that the learned ﬁlters in higher deconvolutional layers tend to capture class-speciﬁc",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00039"
+  },
+  {
+    "block_id": "blk_00040",
+    "type": "paragraph",
+    "content": "shape information. mation into account for semantic segmentation, which is often ignored in other approaches based only on convolu- tional layers [1, 17].",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00040"
+  },
+  {
+    "block_id": "blk_00041",
+    "type": "paragraph",
+    "content": "3.2.3 Analysis of Deconvolution Network",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00041"
+  },
+  {
+    "block_id": "blk_00042",
+    "type": "paragraph",
+    "content": "In the proposed algorithm, the deconvolution network is a key component for precise object segmentation. Contrary to the simple deconvolution in [17] performed on coarse ac- tivation maps, our algorithm generates object segmentation masks using deep deconvolution network, where a dense pixel-wise class probability map is obtained by successive operations of unpooling, deconvolution, and rectiﬁcation.",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00042"
+  },
+  {
+    "block_id": "blk_00043",
+    "type": "caption",
+    "content": "Figure 4 visualizes the outputs from the network layer by",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00043"
+  },
+  {
+    "block_id": "blk_00044",
+    "type": "paragraph",
+    "content": "layer, which is helpful to understand internal operations of our deconvolution network. We can observe that coarse-to- ﬁne object structures are reconstructed through the propaga- tion in the deconvolutional layers; lower layers tend to cap- ture overall coarse conﬁguration of an object (e.g. location, shape and region), while more complex patterns are discov- ered in higher layers. Note that unpooling and deconvolu- tion play different roles for the construction of segmentation masks. Unpooling captures example-speciﬁc structures by tracing the original locations with strong activations back to image space. As a result, it effectively reconstructs the detailed structure of an object in ﬁner resolutions. On the other hand, learned ﬁlters in deconvolutional layers tend to capture class-speciﬁc shapes. Through deconvolutions, the",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00044"
+  },
+  {
+    "block_id": "blk_00045",
+    "type": "formula",
+    "content": "activations closely related to the target classes are ampliﬁed",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00045"
+  },
+  {
+    "block_id": "blk_00046",
+    "type": "paragraph",
+    "content": "while noisy activations from other regions are suppressed effectively. By the combination of unpooling and deconvo- lution, our network generates accurate segmentation maps.",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00046"
+  },
+  {
+    "block_id": "blk_00047",
+    "type": "caption",
+    "content": "Figure 5 illustrates examples of outputs from FCN-8s",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00047"
+  },
+  {
+    "block_id": "blk_00048",
+    "type": "paragraph",
+    "content": "and the proposed network. Compared to the coarse acti- vation map of FCN-8s, our network constructs dense and precise activations using the deconvolution network. 3.3. System Overview Our algorithm poses semantic segmentation as instance- wise segmentation problem. That is, the network takes a sub-image potentially containing objects—which we re- fer to as instance(s) afterwards—as an input and produces pixel-wise class prediction as an output. Given our network, semantic segmentation on a whole image is obtained by ap- plying the network to each candidate proposals extracted from the image and aggregating outputs of all proposals to the original image space. Instance-wise segmentation has a few advantages over image-level prediction. It handles objects in various scales",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00048"
+  },
+  {
+    "block_id": "blk_00049",
+    "type": "paragraph",
+    "content": "(a) Input image (b) FCN-8s (c) Ours",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00049"
+  },
+  {
+    "block_id": "blk_00050",
+    "type": "caption",
+    "content": "Figure 5. Comparison of class conditional probability maps from",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00050"
+  },
+  {
+    "block_id": "blk_00051",
+    "type": "paragraph",
+    "content": "FCN and our network (top: dog, bottom: bicycle). effectively and identiﬁes ﬁne details of objects while the ap- proaches with ﬁxed-size receptive ﬁelds have troubles with these issues. Also, it alleviates training complexity by re- ducing search space for prediction and reduces memory re- quirement for training. 4. Training The entire network described in the previous section is very deep (twice deeper than [22]) and contains a lot of as- sociated parameters. In addition, the number of training ex- amples for semantic segmentation is relatively small com- pared to the size of the network—12031 PASCAL training and validation images in total. Training a deep network with a limited number of examples is not trivial and we train the network successfully using the following ideas. 4.1. Batch Normalization It is well-known that a deep neural network is very hard to optimize due to the internal-covariate-shift problem [11]; input distributions in each layer change over iteration during training as the parameters of its previous layers are updated. This is problematic in optimizing very deep networks since the changes in distribution are ampliﬁed through propaga- tion across layers. We perform the batch normalization [11] to reduce the internal-covariate-shift by normalizing input distributions of every layer to the standard Gaussian distribution. For the purpose, a batch normalization layer is added to the out- put of every convolutional and deconvolutional layer. We observe that the batch normalization is critical to optimize our network; it ends up with a poor local optimum without batch normalization. 4.2. Two-stage Training Although batch normalization helps escape local optima,",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00051"
+  },
+  {
+    "block_id": "blk_00052",
+    "type": "formula",
+    "content": "the space of semantic segmentation is still very large com-",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00052"
+  },
+  {
+    "block_id": "blk_00053",
+    "type": "paragraph",
+    "content": "pared to the number of training examples and the beneﬁt to use a deconvolution network for instance-wise segmen- tation would be cancelled. Then, we employ a two-stage training method to address this issue, where we train the network with easy examples ﬁrst and ﬁne-tune the trained network with more challenging examples later. To construct training examples for the ﬁrst stage training, we crop object instances using ground-truth annotations so that an object is centered at the cropped bounding box. By limiting the variations in object location and size, we re- duce search space for semantic segmentation signiﬁcantly and train the network with much less training examples suc- cessfully. In the second stage, we utilize object proposals to construct more challenging examples. Speciﬁcally, can- didate proposals sufﬁciently overlapped with ground-truth segmentations are selected for training. Using the proposals to construct training data makes the network more robust to the misalignment of proposals in testing, but makes training more challenging since the location and scale of an object may be signiﬁcantly different across training examples. 5. Inference The proposed network is trained to perform semantic segmentation for individual instances. Given an input im- age, we ﬁrst generate a sufﬁcient number of candidate pro- posals, and apply the trained network to obtain semantic segmentation maps of individual proposals. Then we ag- gregate the outputs of all proposals to produce semantic segmentation on a whole image. Optionally, we take en- semble of our method with FCN [17] to further improve performance. We describe detailed procedure in the follow- ing. 5.1. Aggregating Instance-wise Segmentation Maps Since some proposals may result in incorrect predictions due to misalignment to object or cluttered background, we should suppress such noises during aggregation. The pixel-",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00053"
+  },
+  {
+    "block_id": "blk_00054",
+    "type": "formula",
+    "content": "wise maximum or average of the score maps corresponding",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00054"
+  },
+  {
+    "block_id": "blk_00055",
+    "type": "paragraph",
+    "content": "all classes turns out to be sufﬁciently effective to obtain ro- bust results. Let gi∈ RW ×H×C be the output score maps of the ith proposal, where W× H and C denote the size of proposal and the number of classes, respectively. We ﬁrst put it on image space with zero padding outside gi; we denote the segmentation map corresponding to gi in the original image size by Gi hereafter. Then we construct the pixel-wise class score map of an image by aggregating the outputs of all proposals by",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00055"
+  },
+  {
+    "block_id": "blk_00056",
+    "type": "formula",
+    "content": "P (x, y, c) = max",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00056"
+  },
+  {
+    "block_id": "blk_00057",
+    "type": "paragraph",
+    "content": "i Gi(x, y, c), ∀i, (1) or",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00057"
+  },
+  {
+    "block_id": "blk_00058",
+    "type": "formula",
+    "content": "P (x, y, c) =",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00058"
+  },
+  {
+    "block_id": "blk_00059",
+    "type": "formula",
+    "content": "∑ i Gi(x, y, c), ∀i. (2)",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00059"
+  },
+  {
+    "block_id": "blk_00060",
+    "type": "paragraph",
+    "content": "Class conditional probability maps in the original image",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00060"
+  },
+  {
+    "block_id": "blk_00061",
+    "type": "formula",
+    "content": "space are obtained by applying softmax function to the ag-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00061"
+  },
+  {
+    "block_id": "blk_00062",
+    "type": "paragraph",
+    "content": "gregated maps obtained by Eq. (1) or (2). Finally, we apply the fully-connected CRF [14] to the output maps for the ﬁ- nal pixel-wise labeling, where unary potential are obtained from the pixel-wise class conditional probability maps. 5.2. Ensemble with FCN Our algorithm based on the deconvolution network has complementary characteristics to the approaches relying on FCN; our deconvolution network is appropriate to capture the ﬁne-details of an object, whereas FCN is typically good at extracting the overall shape of an object. In addition, instance-wise prediction is useful for handling objects with various scales, while fully convolutional network with a coarse scale may be advantageous to capture context within image. Exploiting these heterogeneous properties may lead to better results, and we take advantage of the beneﬁt of both algorithms through ensemble. We develop a simple method to combine the outputs of both algorithms. Given two sets of class conditional prob- ability maps of an input image computed independently by the proposed method and FCN, we compute the mean of both output maps and apply the CRF to obtain the ﬁnal se- mantic segmentation. 6. Experiments This section ﬁrst describes our implementation details and experiment setup. Then, we analyze and evaluate the proposed network in various aspects. 6.1. Implementation Details Network Conﬁguration Table 2 summarizes the detailed conﬁguration of the proposed network presented in Fig- ure 2. Our network has symmetrical conﬁguration of convo- lution and deconvolution network centered around the 2nd fully-connected layer (fc7). The input and output layers correspond to input image and class conditional probabil- ity maps, respectively. The network contains approximately 252M parameters in total. Dataset We employ PASCAL VOC 2012 segmentation dataset [5] for training and testing the proposed deep net- work. For training, we use augmented segmentation annota- tions from [8], where all training and validation images are used to train our network. The performance of our network is evaluated on test images. Note that only the images in PASCAL VOC 2012 datasets are used for training in our ex- periment, whereas some state-of-the-art algorithms [2, 19] employ additional data to improve performance. Training Data Construction We employ a two-stage training strategy and use a separate training dataset in each stage. To construct training examples for the ﬁrst stage, we draw a tight bounding box corresponding to each anno- tated object in training images, and extend the box 1.2 times",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00062"
+  },
+  {
+    "block_id": "blk_00063",
+    "type": "formula",
+    "content": "larger to include local context around the object. Then we",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00063"
+  },
+  {
+    "block_id": "blk_00064",
+    "type": "paragraph",
+    "content": "crop the window using the extended bounding box to obtain a training example. The class label for each cropped region is provided based only on the object located at the center while all other pixels are labeled as background. In the sec- ond stage, each training example is extracted from object proposal [26], where all relevant class labels are used for annotation. We employ the same post-processing as the one used in the ﬁrst stage to include context. For both datasets, we maintain the balance for the number of examples across classes by adding redundant examples for the classes with limited number of examples. To augment training data, we transform an input example to a 250× 250 image and ran- domly crop the image to 224× 224 with optional horizontal ﬂipping in a similar way to [22]. The number of training ex- amples is 0.2M and 2.7M in the ﬁrst and the second stage,",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00064"
+  },
+  {
+    "block_id": "blk_00065",
+    "type": "formula",
+    "content": "respectively, which is sufﬁciently large to train the decon-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00065"
+  },
+  {
+    "block_id": "blk_00066",
+    "type": "paragraph",
+    "content": "volution network from scratch. Optmization We implement the proposed network based on Caffe [13] framework. The standard stochastic gradi- ent descent with momentum is employed for optimization, where initial learning rate, momentum and weight decay are set to 0.01, 0.9 and 0,0005, respectively. We initialize the weights in the convolution network using VGG 16-layer net pre-trained on ILSVRC [4] dataset, while the weights in the deconvolution network are initialized with zero-mean Gaus- sians. We remove the drop-out layers due to batch normal- ization, and reduce learning rate in an order of magnitude whenever validation accuracy does not improve. Although our ﬁnal network is learned with both train and validation datasets, learning rate adjustment based on validation ac- curacy still works well according to our experience. The network converges after approximately 20K and 40K SGD",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00066"
+  },
+  {
+    "block_id": "blk_00067",
+    "type": "formula",
+    "content": "iterations with mini-batch of 64 samples in the ﬁrst and sec-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00067"
+  },
+  {
+    "block_id": "blk_00068",
+    "type": "paragraph",
+    "content": "ond stage training, respectively. Training takes 6 days (2 days for the ﬁrst stage and 4 days for the second stage) in a single Nvidia GTX Titan X GPU with 12G memory. Inference We employ edge-box [26] to generate object proposals. For each testing image, we generate approxi- mately 2000 object proposals, and select top 50 proposals based on their objectness scores. We observe that this num- ber is sufﬁcient to obtain accurate segmentation in practice. To obtain pixel-wise class conditional probability maps for",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00068"
+  },
+  {
+    "block_id": "blk_00069",
+    "type": "formula",
+    "content": "a whole image, we compute pixel-wise maximum to aggre-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00069"
+  },
+  {
+    "block_id": "blk_00070",
+    "type": "paragraph",
+    "content": "gate proposal-wise predictions as in Eq. (1).",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00070"
+  },
+  {
+    "block_id": "blk_00071",
+    "type": "caption",
+    "content": "Table 1. Evaluation results on PASCAL VOC 2012 test set. (Asterisk (∗) denotes the algorithms trained with additional data.)",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00071"
+  },
+  {
+    "block_id": "blk_00072",
+    "type": "paragraph",
+    "content": "Method bkg areo bike bird boat bottle bus car cat chair cow table dog horse mbk person plant sheep sofa train tv mean Hypercolumn [10] 88.9 68.4 27.2 68.2 47.6 61.7 76.9 72.1 71.1 24.3 59.3 44.8 62.7 59.4 73.5 70.6 52.0 63.0 38.1 60.0 54.1 59.2 MSRA-CFM [3] 87.7 75.7 26.7 69.5 48.8 65.6 81.0 69.2 73.3 30.0 68.7 51.5 69.1 68.1 71.7 67.5 50.4 66.5 44.4 58.9 53.5 61.8 FCN8s [17] 91.2 76.8 34.2 68.9 49.4 60.3 75.3 74.7 77.6 21.4 62.5 46.8 71.8 63.9 76.5 73.9 45.2 72.4 37.4 70.9 55.1 62.2 TTI-Zoomout-16 [18] 89.8 81.9 35.1 78.2 57.4 56.5 80.5 74.0 79.8 22.4 69.6 53.7 74.0 76.0 76.6 68.8 44.3 70.2 40.2 68.9 55.3 64.4 DeepLab-CRF [1] 93.1 84.4 54.5 81.5 63.6 65.9 85.1 79.1 83.4 30.7 74.1 59.8 79.0 76.1 83.2 80.8 59.7 82.2 50.4 73.1 63.7 71.6 DeconvNet 92.7 85.9 42.6 78.9 62.5 66.6 87.4 77.8 79.5 26.3 73.4 60.2 70.8 76.5 79.6 77.7 58.2 77.4 52.9 75.2 59.8 69.6 DeconvNet+CRF 92.9 87.8 41.9 80.6 63.9 67.3 88.1 78.4 81.3 25.9 73.7 61.2 72.0 77.0 79.9 78.7 59.5 78.3 55.0 75.2 61.5 70.5 EDeconvNet 92.9 88.4 39.7 79.0 63.0 67.7 87.1 81.5 84.4 27.8 76.1 61.2 78.0 79.3 83.1 79.3 58.0 82.5 52.3 80.1 64.0 71.7 EDeconvNet+CRF 93.1 89.9 39.3 79.7 63.9 68.2 87.4 81.2 86.1 28.5 77.0 62.0 79.0 80.3 83.6 80.2 58.8 83.4 54.3 80.7 65.0 72.5 * WSSL [19] 93.2 85.3 36.2 84.8 61.2 67.5 84.7 81.4 81.0 30.8 73.8 53.8 77.5 76.5 82.3 81.6 56.3 78.9 52.3 76.6 63.3 70.4 * BoxSup [2] 93.6 86.4 35.5 79.7 65.2 65.2 84.3 78.5 83.7 30.5 76.2 62.6 79.3 76.1 82.1 81.3 57.0 78.2 55.0 72.5 68.1 71.0",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00072"
+  },
+  {
+    "block_id": "blk_00073",
+    "type": "caption",
+    "content": "Figure 6. Beneﬁt of instance-wise prediction. We aggregate the proposals in a decreasing order of their sizes. The algorithm identiﬁes",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00073"
+  },
+  {
+    "block_id": "blk_00074",
+    "type": "paragraph",
+    "content": "ﬁner object structures through iterations by handling multi-scale objects effectively. 6.2. Evaluation on Pascal VOC We evaluate our network on PASCAL VOC 2012 bench- mark [5], which contains 1456 test images and involves 20 object categories. We adopt comp6 evaluation protocol that measures scores based on Intersection over Union (IoU) be- tween ground truth and predicted segmentations. The quantitative results of the proposed algorithm and the competitors are presented in Table 11, where our method is denoted by DeconvNet. The performance of DeconvNet is competitive to the state-of-the-art methods. The CRF [14] as post-processing enhances accuracy by approximately 1% point. We further improve performance through an ensem- ble with FCN-8s. It improves mean IoU about 10.3% and 3.1% point with respect to FCN-8s and our DeconvNet, re- spectively, which is notable considering relatively low accu- racy of FCN-8s. We believe that this is because our method and FCN have complementary characteristics as discussed in Section 5.2; this property differentiates our algorithm from the existing ones based on FCN. Our ensemble method with FCN-8s denoted by EDeconvNet achieves the best ac- curacy among methods trained only on PASCAL VOC data.",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00074"
+  },
+  {
+    "block_id": "blk_00075",
+    "type": "caption",
+    "content": "Figure 6 demonstrates effectiveness of instance-wise",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00075"
+  },
+  {
+    "block_id": "blk_00076",
+    "type": "paragraph",
+    "content": "1All numbers in this table are from the ofﬁcially publishedpapers, not from the leaderboard, including the ones in arXiv. prediction for accurate segmentation. We aggregate the pro- posals in a decreasing order of their sizes and observe the progress of segmentation. As the number of aggregated pro- posals increases, the algorithm identiﬁes ﬁner object struc- tures, which are typically captured by small proposals. The qualitative results of DeconvNet, FCN and their en- semble are presented in Figure 7. Overall, DeconvNet pro- duces ﬁne segmentations compared to FCN, and handles multi-scale objects effectively through instance-wise pre-",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00076"
+  },
+  {
+    "block_id": "blk_00077",
+    "type": "formula",
+    "content": "diction. FCN tends to fail in labeling too large or small ob-",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00077"
+  },
+  {
+    "block_id": "blk_00078",
+    "type": "paragraph",
+    "content": "jects (Figure 7(a)) due to its ﬁxed-size receptive ﬁeld. Our network sometimes returns noisy predictions (Figure 7(b)), when the proposals are misaligned or located at background regions. The ensemble with FCN-8s produces much bet- ter results as observed in Figure 7(a) and 7(b). Note that inaccurate predictions from both FCN and DeconvNet are sometimes corrected by ensemble as shown in Figure 7(c). Adding CRF to ensemble improves quantitative perfor- mance, although the improvement is not signiﬁcant. 7. Conclusion We proposed a novel semantic segmentation algorithm by learning a deconvolution network. The proposed de- convolution network is suitable to generate dense and pre-",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00078"
+  },
+  {
+    "block_id": "blk_00079",
+    "type": "paragraph",
+    "content": "Input image Ground-truth FCN DeconvNet EDeconvNet EDeconvNet+CRF (a) Examples that our method produces better results than FCN [17]. (b) Examples that FCN produces better results than our method. (c) Examples that inaccurate predictions from our method and FCN are improved by ensemble.",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00079"
+  },
+  {
+    "block_id": "blk_00080",
+    "type": "caption",
+    "content": "Figure 7. Example of semantic segmentation results on PASCAL VOC 2012 validation images. Note that the proposed method and FCN",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00080"
+  },
+  {
+    "block_id": "blk_00081",
+    "type": "paragraph",
+    "content": "have complementary characteristics for semantic segmentation, and the combination of both methods improves accuracy through ensemble. Although CRF removes some noises, it does not improve quantitative performance of our algorithm signiﬁcantly.",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00081"
+  },
+  {
+    "block_id": "blk_00082",
+    "type": "caption",
+    "content": "Table 2. Detailed conﬁguration of the proposed network. “conv”",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00082"
+  },
+  {
+    "block_id": "blk_00083",
+    "type": "paragraph",
+    "content": "and “deconv” denote layers in convolution and deconvolution net- work, respectively, while numbers next to each layer name mean the order of the corresponding layer in the network. ReLU layers are omitted from the table for brevity. name kernel size stride pad output size input - - - 224 × 224 × 3 conv1-1 3 × 3 1 1 224 × 224 × 64 conv1-2 3 × 3 1 1 224 × 224 × 64 pool1 2 × 2 2 0 112 × 112 × 64 conv2-1 3 × 3 1 1 112 × 112 × 128 conv2-2 3 × 3 1 1 112 × 112 × 128 pool2 2 × 2 2 0 56 × 56 × 128 conv3-1 3 × 3 1 1 56 × 56 × 256 conv3-2 3 × 3 1 1 56 × 56 × 256 conv3-3 3 × 3 1 1 56 × 56 × 256 pool3 2 × 2 2 0 28 × 28 × 256 conv4-1 3 × 3 1 1 28 × 28 × 512 conv4-2 3 × 3 1 1 28 × 28 × 512 conv4-3 3 × 3 1 1 28 × 28 × 512 pool4 2 × 2 2 0 14 × 14 × 512 conv5-1 3 × 3 1 1 14 × 14 × 512 conv5-2 3 × 3 1 1 14 × 14 × 512 conv5-3 3 × 3 1 1 14 × 14 × 512 pool5 2 × 2 2 0 7 × 7 × 512 fc6 7 × 7 1 0 1 × 1 × 4096 fc7 1 × 1 1 0 1 × 1 × 4096 deconv-fc6 7 × 7 1 0 7 × 7 × 512 unpool5 2 × 2 2 0 14 × 14 × 512 deconv5-1 3 × 3 1 1 14 × 14 × 512 deconv5-2 3 × 3 1 1 14 × 14 × 512 deconv5-3 3 × 3 1 1 14 × 14 × 512 unpool4 2 × 2 2 0 28 × 28 × 512 deconv4-1 3 × 3 1 1 28 × 28 × 512 deconv4-2 3 × 3 1 1 28 × 28 × 512 deconv4-3 3 × 3 1 1 28 × 28 × 256 unpool3 2 × 2 2 0 56 × 56 × 256 deconv3-1 3 × 3 1 1 56 × 56 × 256 deconv3-2 3 × 3 1 1 56 × 56 × 256 deconv3-3 3 × 3 1 1 56 × 56 × 128 unpool2 2 × 2 2 0 112 × 112 × 128 deconv2-1 3 × 3 1 1 112 × 112 × 128 deconv2-2 3 × 3 1 1 112 × 112 × 64 unpool1 2 × 2 2 0 224 × 224 × 64 deconv1-1 3 × 3 1 1 224 × 224 × 64 deconv1-2 3 × 3 1 1 224 × 224 × 64 output 1 × 1 1 1 224 × 224 × 21 cise object segmentation masks since coarse-to-ﬁne struc- tures of an object is reconstructed progressively through a sequence of deconvolution operations. Our algorithm based on instance-wise prediction is advantageous to han-",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00083"
+  },
+  {
+    "block_id": "blk_00084",
+    "type": "formula",
+    "content": "dle object scale variations by eliminating the limitation",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00084"
+  },
+  {
+    "block_id": "blk_00085",
+    "type": "paragraph",
+    "content": "of ﬁxed-size receptive ﬁeld in the fully convolutional net- work. We further proposed an ensemble approach, which combines the outputs of the proposed algorithm and FCN- based method, and achieved substantially better perfor- mance thanks to complementary characteristics of both al- gorithms. Our network demonstrated the state-of-the-art performance in PASCAL VOC 2012 segmentation bench- mark among the methods trained with no external data.",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00085"
+  },
+  {
+    "block_id": "blk_00086",
+    "type": "section_heading",
+    "content": "References",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00086"
+  },
+  {
+    "block_id": "blk_00087",
+    "type": "reference",
+    "content": "[1] L.-C. Chen, G. Papandreou, I. Kokkinos, K. Murphy, and A. L. Yuille. Semantic image segmentation with deep con- volutional nets and fully connected CRFs. In ICLR, 2015. 1, 2, 4, 7 [2] J. Dai, K. He, and J. Sun. Boxsup: Exploiting bounding boxes to supervise convolutional networks for semantic seg- mentation. arXiv preprint arXiv:1503.01640, 2015. 2, 6, 7 [3] J. Dai, K. He, and J. Sun. Convolutional feature masking for joint object and stuff segmentation. In CVPR, 2015. 2, 7 [4] J. Deng, W. Dong, R. Socher, L.-J. Li, K. Li, and L. Fei-",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00087"
+  },
+  {
+    "block_id": "blk_00088",
+    "type": "reference",
+    "content": "Fei. Imagenet: A large-scale hierarchical image database. In",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00088"
+  },
+  {
+    "block_id": "blk_00089",
+    "type": "reference",
+    "content": "CVPR, 2009. 6 [5] M. Everingham, L. Van Gool, C. K. Williams, J. Winn, and A. Zisserman. The pascal visual object classes (voc) chal- lenge. IJCV, 88(2):303–338, 2010. 6, 7 [6] C. Farabet, C. Couprie, L. Najman, and Y . LeCun. Learning hierarchical features for scene labeling.TPAMI, 35(8):1915– 1929, 2013. 1, 2 [7] R. Girshick, J. Donahue, T. Darrell, and J. Malik. Rich fea- ture hierarchies for accurate object detection and semantic segmentation. In CVPR, 2014. 1 [8] B. Hariharan, P. Arbel ´aez, L. Bourdev, S. Maji, and J. Malik. Semantic contours from inverse detectors. In ICCV, 2011. 6 [9] B. Hariharan, P. Arbel ´aez, R. Girshick, and J. Malik. Simul- taneous detection and segmentation. In ECCV, 2014. 1, 2 [10] B. Hariharan, P. Arbel ´aez, R. Girshick, and J. Malik. Hyper- columns for object segmentation and ﬁne-grained localiza- tion. In CVPR, 2015. 2, 7 [11] S. Ioffe and C. Szegedy. Batch normalization: Accelerating deep network training by reducing internal covariate shift. arXiv preprint arXiv:1502.03167, 2015. 5 [12] S. Ji, W. Xu, M. Yang, and K. Yu. 3D convolutional neural networks for human action recognition. TPAMI, 35(1):221– 231, 2013. 1 [13] Y . Jia, E. Shelhamer, J. Donahue, S. Karayev, J. Long, R. Gir- shick, S. Guadarrama, and T. Darrell. Caffe: Convolu- tional architecture for fast feature embedding.arXiv preprint arXiv:1408.5093, 2014. 6 [14] P. Kr ¨ahenb¨uhl and V . Koltun. Efﬁcient inference in fully connected crfs with gaussian edge potentials. In NIPS, 2011. 1, 2, 6, 7 [15] A. Krizhevsky, I. Sutskever, and G. E. Hinton. ImageNet classiﬁcation with deep convolutional neural networks. In NIPS, 2012. 1 [16] S. Li and A. B. Chan. 3D human pose estimation from monocular images with deep convolutional neural network. In ACCV, 2014. 1 [17] J. Long, E. Shelhamer, and T. Darrell. Fully convolutional networks for semantic segmentation. In CVPR, 2015. 1, 2, 4, 5, 7, 8 [18] M. Mostajabi, P. Yadollahpour, and G. Shakhnarovich. Feedforward semantic segmentation with zoom-out features. arXiv preprint arXiv:1412.0774, 2014. 1, 2, 7 [19] G. Papandreou, L.-C. Chen, K. Murphy, and A. L. Yuille. Weakly-and semi-supervised learning of a DCNN for seman-",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00089"
+  },
+  {
+    "block_id": "blk_00090",
+    "type": "reference",
+    "content": "tic image segmentation. arXiv preprint arXiv:1502.02734 , 2015. 2, 6, 7 [20] P. O. Pinheiro and R. Collobert. Weakly supervised semantic segmentation with convolutional networks. In CVPR, 2015. 2 [21] K. Simonyan and A. Zisserman. Two-stream convolutional networks for action recognition in videos. In NIPS, 2014. 1 [22] K. Simonyan and A. Zisserman. Very deep convolutional",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00090"
+  },
+  {
+    "block_id": "blk_00091",
+    "type": "reference",
+    "content": "networks for large-scale image recognition. In ICLR, 2015.",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00091"
+  },
+  {
+    "block_id": "blk_00092",
+    "type": "reference",
+    "content": "1, 3, 5, 6 [23] C. Szegedy, W. Liu, Y . Jia, P. Sermanet, S. Reed, D. Anguelov, D. Erhan, V . Vanhoucke, and A. Rabi- novich. Going deeper with convolutions. arXiv preprint arXiv:1409.4842, 2014. 1 [24] M. D. Zeiler and R. Fergus. Visualizing and understanding convolutional networks. In ECCV, 2014. 2, 3 [25] M. D. Zeiler, G. W. Taylor, and R. Fergus. Adaptive decon- volutional networks for mid and high level feature learning. In ICCV, 2011. 2, 3 [26] C. L. Zitnick and P. Doll ´ar. Edge boxes: Locating object proposals from edges. In ECCV, 2014. 6",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00092"
+  }
+]

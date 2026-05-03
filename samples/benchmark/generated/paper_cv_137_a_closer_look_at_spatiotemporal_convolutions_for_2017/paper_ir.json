@@ -1,0 +1,2059 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "视频动作识别中，2D CNN在单帧上表现良好，但缺乏时序建模能力；3D CNN能建模时空信息，但优化困难且计算量大。需要探索更有效的时空卷积形式。",
+      "anchors": [
+        "anc_00003",
+        "anc_00005",
+        "anc_00007"
+      ]
+    },
+    "motivation": {
+      "summary": "观察到2D CNN在动作识别中仍是强劲的基线，而3D CNN的改进并不像图像识别中AlexNet那样显著。这引发了对时序建模必要性的疑问，并促使研究者探索介于2D和3D之间的卷积形式，以平衡性能与优化难度。",
+      "anchors": [
+        "anc_00003",
+        "anc_00005",
+        "anc_00007",
+        "anc_00009"
+      ]
+    },
+    "core_idea": {
+      "summary": "提出将3D卷积分解为独立的空间2D卷积和时间1D卷积，即(2+1)D卷积。这种分解在保持参数量不变的情况下，增加了非线性（额外的ReLU），并使优化更容易，尤其在深层网络中。",
+      "anchors": [
+        "anc_00034",
+        "anc_00041",
+        "anc_00042",
+        "anc_00044"
+      ]
+    },
+    "method": {
+      "summary": "在残差学习框架下，系统比较了多种时空卷积形式：R2D（纯2D）、R3D（纯3D）、MCx/rMCx（混合3D-2D）以及R(2+1)D（分解的(2+1)D）。R(2+1)D将每个3D卷积层替换为一个空间2D卷积层和一个时间1D卷积层，中间加入ReLU。",
+      "anchors": [
+        "anc_00019",
+        "anc_00020",
+        "anc_00021",
+        "anc_00025",
+        "anc_00027",
+        "anc_00028",
+        "anc_00029",
+        "anc_00033",
+        "anc_00034"
+      ]
+    },
+    "experiments": {
+      "summary": "在Kinetics、Sports-1M、UCF101和HMDB51数据集上进行了广泛实验。比较了不同卷积形式的准确率、计算复杂度（FLOPs）、训练时间、输入帧数的影响以及预训练的效果。",
+      "anchors": [
+        "anc_00060",
+        "anc_00064",
+        "anc_00065",
+        "anc_00066",
+        "anc_00081",
+        "anc_00082",
+        "anc_00084",
+        "anc_00085",
+        "anc_00086",
+        "anc_00087",
+        "anc_00093",
+        "anc_00094"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "3D CNN在残差学习框架下优于2D CNN。",
+        "anchors": [
+          "anc_00064",
+          "anc_00068"
+        ]
+      },
+      {
+        "claim_id": "claim_2",
+        "claim": "将3D卷积分解为(2+1)D形式能显著提高准确率。",
+        "anchors": [
+          "anc_00064",
+          "anc_00070",
+          "anc_00081",
+          "anc_00092"
+        ]
+      },
+      {
+        "claim_id": "claim_3",
+        "claim": "R(2+1)D比纯3D卷积更容易优化，尤其在深层网络中。",
+        "anchors": [
+          "anc_00038",
+          "anc_00040",
+          "anc_00046",
+          "anc_00047"
+        ]
+      },
+      {
+        "claim_id": "claim_4",
+        "claim": "R(2+1)D在多个基准数据集上达到了与当时最先进方法相当或更优的性能。",
+        "anchors": [
+          "anc_00081",
+          "anc_00082",
+          "anc_00086",
+          "anc_00087",
+          "anc_00093",
+          "anc_00094"
+        ]
+      },
+      {
+        "claim_id": "claim_5",
+        "claim": "(2+1)D分解通过增加非线性提升了模型表示能力。",
+        "anchors": [
+          "anc_00044"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "论文主要关注残差网络架构，未广泛探索其他网络结构。实验基于特定的数据集和训练设置，泛化性需进一步验证。分解策略的具体最优参数（如Mi的选择）可能依赖于具体任务。",
+        "anchors": [
+          "anc_00051",
+          "anc_00060"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "输入视频片段",
+        "label": "输入",
+        "summary": "输入为视频片段，尺寸为3×L×H×W，其中L为帧数，H和W为帧高和宽，3为RGB通道。",
+        "description": "网络处理的原始输入数据，是一个四维张量。",
+        "type": "data",
+        "anchors": [
+          "anc_00021"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "残差块",
+        "label": "核心模块",
+        "summary": "残差块是网络的基本构建单元，实现恒等映射与残差函数的叠加。",
+        "description": "每个残差块计算 zi = zi−1 + F(zi−1; θi)，其中F是包含两个卷积和ReLU的函数。",
+        "type": "module",
+        "anchors": [
+          "anc_00022",
+          "anc_00023"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "R2D卷积",
+        "label": "基线方法",
+        "summary": "使用2D卷积处理视频，将时间维度视为通道，忽略时序信息。",
+        "description": "将输入4D张量重塑为3D张量（3L×H×W），然后应用2D卷积。滤波器尺寸为Ni-1×d×d，仅在空间维度上卷积。",
+        "type": "method_variant",
+        "anchors": [
+          "anc_00025",
+          "anc_00026",
+          "anc_00027"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "R3D卷积",
+        "label": "基线方法",
+        "summary": "使用完整的3D卷积同时建模空间和时间信息。",
+        "description": "滤波器尺寸为Ni-1×t×d×d，在时间和空间维度上进行3D卷积。",
+        "type": "method_variant",
+        "anchors": [
+          "anc_00028",
+          "anc_00029"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "混合卷积 (MCx/rMCx)",
+        "label": "方法变体",
+        "summary": "在网络的早期层使用3D卷积，后期层使用2D卷积（MCx），或反之（rMCx）。",
+        "description": "MCx假设运动建模是低/中级操作，适合在早期层进行。rMCx是反向的混合卷积。",
+        "type": "method_variant",
+        "anchors": [
+          "anc_00029",
+          "anc_00033",
+          "anc_00034"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "(2+1)D卷积块",
+        "label": "核心创新",
+        "summary": "将3D卷积分解为空间2D卷积和时间1D卷积的串联，中间加入ReLU。",
+        "description": "用Mi个2D滤波器（尺寸Ni-1×1×d×d）和Ni个1D滤波器（尺寸Mi×t×1×1）替换Ni个3D滤波器。参数量与3D卷积块近似相等。",
+        "type": "module",
+        "anchors": [
+          "anc_00034",
+          "anc_00035",
+          "anc_00041",
+          "anc_00042"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "全局时空池化与分类",
+        "label": "输出层",
+        "summary": "对最终卷积层的输出进行全局时空平均池化，然后通过全连接层和softmax进行分类。",
+        "description": "将卷积特征图压缩为固定长度的向量，用于最终分类。",
+        "type": "module",
+        "anchors": [
+          "anc_00024",
+          "anc_00025",
+          "anc_00052",
+          "anc_00055",
+          "anc_00056",
+          "anc_00057"
+        ]
+      },
+      {
+        "node_id": "node_008",
+        "title": "R(2+1)D网络",
+        "label": "提出方法",
+        "summary": "在所有层中使用(2+1)D卷积块的残差网络。",
+        "description": "R(2+1)D是论文提出的主要架构，通过同质的(2+1)D分解实现。",
+        "type": "architecture",
+        "anchors": [
+          "anc_00019",
+          "anc_00020",
+          "anc_00034"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "输入到残差块",
+        "anchors": [
+          "anc_00021",
+          "anc_00022"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "残差块采用R2D卷积",
+        "anchors": [
+          "anc_00025",
+          "anc_00027"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_002",
+        "target": "node_004",
+        "label": "残差块采用R3D卷积",
+        "anchors": [
+          "anc_00028",
+          "anc_00029"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_002",
+        "target": "node_005",
+        "label": "残差块采用混合卷积",
+        "anchors": [
+          "anc_00029",
+          "anc_00033"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_002",
+        "target": "node_006",
+        "label": "残差块采用(2+1)D卷积",
+        "anchors": [
+          "anc_00034",
+          "anc_00042"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_006",
+        "target": "node_008",
+        "label": "构成R(2+1)D网络",
+        "anchors": [
+          "anc_00019",
+          "anc_00020",
+          "anc_00034"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_008",
+        "target": "node_007",
+        "label": "网络输出到分类层",
+        "anchors": [
+          "anc_00024",
+          "anc_00052",
+          "anc_00055"
+        ],
+        "description": ""
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00028",
+        "anc_00029"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00034",
+        "anc_00041",
+        "anc_00042"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "使用单个3D卷积层同时处理空间和时间维度。",
+        "after": "将3D卷积分解为串联的空间2D卷积层和时间1D卷积层，中间加入ReLU激活函数。",
+        "why_it_matters": "这种分解在保持参数量不变的情况下，增加了网络的非线性（额外的ReLU），使函数表示能力更强。同时，它将时空建模解耦，使优化更容易，尤其在深层网络中训练误差更低。",
+        "anchors": [
+          "anc_00034",
+          "anc_00042",
+          "anc_00044",
+          "anc_00038",
+          "anc_00040"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "R3D在深层网络（如34层）中优化困难，训练误差较高。",
+        "after": "R(2+1)D在相同深度下训练误差显著更低，优化更容易。",
+        "why_it_matters": "表明(2+1)D分解有助于缓解深层3D CNN的优化难题，使得训练更深的网络成为可能。",
+        "anchors": [
+          "anc_00038",
+          "anc_00040",
+          "anc_00046",
+          "anc_00047"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "R3D在Kinetics数据集上使用8帧输入时，Clip@1准确率为49.4%。",
+        "after": "R(2+1)D在相同设置下，Clip@1准确率达到52.8%，提升3.4%。",
+        "why_it_matters": "在相同计算成本下，R(2+1)D获得了显著的准确率提升，证明了分解策略的有效性。",
+        "anchors": [
+          "anc_00064",
+          "anc_00070"
+        ],
+        "delta_id": "delta_3"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "z_i = z_{i-1} + \\mathcal{F}(z_{i-1}; \\theta_i)",
+        "variables": [
+          {
+            "name": "z_i",
+            "description": "第i个残差块的输出张量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00022"
+            ]
+          },
+          {
+            "name": "z_{i-1}",
+            "description": "第i个残差块的输入张量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00022"
+            ]
+          },
+          {
+            "name": "\\mathcal{F}",
+            "description": "残差函数，由两个卷积和ReLU组成",
+            "confidence": "high",
+            "anchors": [
+              "anc_00023"
+            ]
+          },
+          {
+            "name": "\\theta_i",
+            "description": "第i个残差块的参数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00022"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "残差块通过学习输入到输出的残差映射，使得网络更容易训练，并允许构建非常深的网络。",
+        "anchors": [
+          "anc_00022",
+          "anc_00023"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "M_i = \\lfloor \\frac{t d^2 N_{i-1} N_i}{d^2 N_{i-1} + t N_i} \\rfloor",
+        "variables": [
+          {
+            "name": "M_i",
+            "description": "(2+1)D块中空间2D卷积的滤波器数量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00041",
+              "anc_00042"
+            ]
+          },
+          {
+            "name": "t",
+            "description": "时间卷积核的尺寸（时间维度）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00041"
+            ]
+          },
+          {
+            "name": "d",
+            "description": "空间卷积核的宽度和高度",
+            "confidence": "high",
+            "anchors": [
+              "anc_00041"
+            ]
+          },
+          {
+            "name": "N_{i-1}",
+            "description": "输入特征图的通道数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00041"
+            ]
+          },
+          {
+            "name": "N_i",
+            "description": "输出特征图的通道数（即3D卷积的滤波器数量）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00041"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "通过此公式选择Mi，使得(2+1)D分解块的参数量与原始的3D卷积块近似相等，从而进行公平比较。",
+        "anchors": [
+          "anc_00041",
+          "anc_00042"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "experiment": "Kinetics数据集上的动作识别准确率比较",
+        "result": "R(2+1)D-18在8帧输入下，Clip@1为52.8%，Video@1为64.8%，显著优于R3D-18（49.4%/61.8%）和其他变体。",
+        "anchors": [
+          "anc_00064",
+          "anc_00065",
+          "anc_00066"
+        ]
+      },
+      {
+        "experiment": "Sports-1M数据集上的动作识别准确率比较",
+        "result": "R(2+1)D-RGB-32frame达到Clip@1 57.0%，Video@1 73.0%，优于C3D和P3D等基线。",
+        "anchors": [
+          "anc_00081",
+          "anc_00082",
+          "anc_00091",
+          "anc_00092"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "experiment": "不同卷积形式（R2D, R3D, MCx, rMCx, R(2+1)D）的对比",
+        "result": "R(2+1)D在所有比较中表现最佳，证明了分解策略的优越性。",
+        "anchors": [
+          "anc_00064",
+          "anc_00065",
+          "anc_00068",
+          "anc_00070"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "experiment": "不同输入帧数（8帧 vs 16帧）的影响",
+        "result": "R(2+1)D在两种设置下均保持领先优势，且优势在16帧输入时更明显。",
+        "anchors": [
+          "anc_00064",
+          "anc_00068",
+          "anc_00070"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "experiment": "网络深度（18层 vs 34层）的影响",
+        "result": "R(2+1)D在34层网络上的训练误差比R3D-34低更多，表明其优化优势随深度增加而增强。",
+        "anchors": [
+          "anc_00038",
+          "anc_00040",
+          "anc_00046",
+          "anc_00047"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "experiment": "R(2+1)D在conv1层学习到的滤波器可视化",
+        "result": "空间滤波器类似于Gabor滤波器，时间滤波器显示了不同的运动模式。",
+        "anchors": [
+          "anc_00096",
+          "anc_00097",
+          "anc_00098",
+          "anc_00107",
+          "anc_00108",
+          "anc_00109"
+        ]
+      }
+    ],
+    "human_eval": [],
+    "benchmark": [
+      {
+        "benchmark": "Kinetics",
+        "result": "R(2+1)D从头训练（RGB）达到72.0% top-1，优于I3D（67.5%）。",
+        "anchors": [
+          "anc_00086",
+          "anc_00087",
+          "anc_00088"
+        ]
+      },
+      {
+        "benchmark": "UCF101 & HMDB51",
+        "result": "R(2+1)D从Kinetics微调后，在UCF101上达到96.8%，在HMDB51上达到74.5%，与使用ImageNet预训练的I3D相当。",
+        "anchors": [
+          "anc_00093",
+          "anc_00094"
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "experiment": "准确率 vs 计算复杂度（FLOPs）",
+        "result": "R(2+1)D在相同FLOPs下比R3D准确率高3-3.8%，在相同准确率下计算成本更低。",
+        "anchors": [
+          "anc_00072",
+          "anc_00073",
+          "anc_00074"
+        ]
+      },
+      {
+        "experiment": "训练时间与准确率的权衡",
+        "result": "先在短片段（8帧）上训练，再在长片段（32帧）上微调，可以在较短总训练时间内获得较高准确率。",
+        "anchors": [
+          "anc_00077",
+          "anc_00078",
+          "anc_00079"
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "experiment": "Kinetics数据集上的动作识别准确率比较",
+        "result": "R(2+1)D-18在8帧输入下，Clip@1为52.8%，Video@1为64.8%，显著优于R3D-18（49.4%/61.8%）和其他变体。",
+        "anchors": [
+          "anc_00064",
+          "anc_00065",
+          "anc_00066"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "Kinetics数据集上的动作识别准确率比较",
+        "dataset": [
+          "Kinetics"
+        ],
+        "baseline": [
+          "R3D-18",
+          "R2D",
+          "f-R2D",
+          "MCx",
+          "rMCx"
+        ],
+        "metrics": [
+          "Clip@1",
+          "Video@1"
+        ],
+        "result_summary": "R(2+1)D-18在8帧输入下，Clip@1为52.8%，Video@1为64.8%，显著优于R3D-18（49.4%/61.8%）和其他变体。",
+        "what_it_tries_to_prove": "R(2+1)D在相同网络深度和输入设置下，比其他卷积形式（包括R3D）具有更高的动作识别准确率。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "Sports-1M数据集上的动作识别准确率比较",
+        "result": "R(2+1)D-RGB-32frame达到Clip@1 57.0%，Video@1 73.0%，优于C3D和P3D等基线。",
+        "anchors": [
+          "anc_00081",
+          "anc_00082",
+          "anc_00091",
+          "anc_00092"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "main_result",
+        "name": "Sports-1M数据集上的动作识别准确率比较",
+        "dataset": [
+          "Sports-1M"
+        ],
+        "baseline": [
+          "C3D",
+          "P3D",
+          "2D ResNet-152"
+        ],
+        "metrics": [
+          "Clip@1",
+          "Video@1",
+          "Video@5"
+        ],
+        "result_summary": "R(2+1)D-RGB-32frame达到Clip@1 57.0%，Video@1 73.0%，优于C3D和P3D等基线。",
+        "what_it_tries_to_prove": "R(2+1)D在大规模数据集上也能取得优异性能，并超越当时的最先进方法。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "不同卷积形式（R2D, R3D, MCx, rMCx, R(2+1)D）的对比",
+        "result": "R(2+1)D在所有比较中表现最佳，证明了分解策略的优越性。",
+        "anchors": [
+          "anc_00064",
+          "anc_00065",
+          "anc_00068",
+          "anc_00070"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "ablation",
+        "name": "不同卷积形式（R2D, R3D, MCx, rMCx, R(2+1)D）的对比",
+        "dataset": [
+          "Kinetics"
+        ],
+        "baseline": [
+          "R2D",
+          "f-R2D",
+          "R3D",
+          "MC2",
+          "MC3",
+          "MC4",
+          "MC5",
+          "rMC2",
+          "rMC3",
+          "rMC4",
+          "rMC5"
+        ],
+        "metrics": [
+          "Clip@1",
+          "Video@1"
+        ],
+        "result_summary": "R(2+1)D在所有比较中表现最佳，证明了分解策略的优越性。",
+        "what_it_tries_to_prove": "将3D卷积分解为(2+1)D形式比其他时空卷积变体（包括纯3D和混合卷积）更有效。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "不同输入帧数（8帧 vs 16帧）的影响",
+        "result": "R(2+1)D在两种设置下均保持领先优势，且优势在16帧输入时更明显。",
+        "anchors": [
+          "anc_00064",
+          "anc_00068",
+          "anc_00070"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "robustness",
+        "name": "不同输入帧数（8帧 vs 16帧）的影响",
+        "dataset": [
+          "Kinetics"
+        ],
+        "baseline": [
+          "R3D",
+          "R2D",
+          "f-R2D",
+          "MCx",
+          "rMCx"
+        ],
+        "metrics": [
+          "Clip@1",
+          "Video@1"
+        ],
+        "result_summary": "R(2+1)D在两种设置下均保持领先优势，且优势在16帧输入时更明显。",
+        "what_it_tries_to_prove": "R(2+1)D的优势在不同输入长度下是稳健的，并且随着输入帧数的增加，其优势可能更加显著。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "网络深度（18层 vs 34层）的影响",
+        "result": "R(2+1)D在34层网络上的训练误差比R3D-34低更多，表明其优化优势随深度增加而增强。",
+        "anchors": [
+          "anc_00038",
+          "anc_00040",
+          "anc_00046",
+          "anc_00047"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "scaling",
+        "name": "网络深度（18层 vs 34层）的影响",
+        "dataset": [
+          "Kinetics"
+        ],
+        "baseline": [
+          "R3D-18",
+          "R3D-34"
+        ],
+        "metrics": [
+          "训练误差"
+        ],
+        "result_summary": "R(2+1)D在34层网络上的训练误差比R3D-34低更多，表明其优化优势随深度增加而增强。",
+        "what_it_tries_to_prove": "(2+1)D分解有助于缓解深层3D CNN的优化难题，使得训练更深的网络成为可能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "R(2+1)D在conv1层学习到的滤波器可视化",
+        "result": "空间滤波器类似于Gabor滤波器，时间滤波器显示了不同的运动模式。",
+        "anchors": [
+          "anc_00096",
+          "anc_00097",
+          "anc_00098",
+          "anc_00107",
+          "anc_00108",
+          "anc_00109"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "case_study",
+        "name": "R(2+1)D在conv1层学习到的滤波器可视化",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "空间滤波器类似于Gabor滤波器，时间滤波器显示了不同的运动模式。",
+        "what_it_tries_to_prove": "R(2+1)D分解确实学习到了有意义的、可解释的空间和时间特征。",
+        "evidence_strength": "moderate"
+      },
+      {
+        "benchmark": "Kinetics",
+        "result": "R(2+1)D从头训练（RGB）达到72.0% top-1，优于I3D（67.5%）。",
+        "anchors": [
+          "anc_00086",
+          "anc_00087",
+          "anc_00088"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "benchmark",
+        "name": "Kinetics基准测试",
+        "dataset": [
+          "Kinetics"
+        ],
+        "baseline": [
+          "I3D-RGB",
+          "I3D-Flow",
+          "I3D-Two-Stream"
+        ],
+        "metrics": [
+          "top-1",
+          "top-5"
+        ],
+        "result_summary": "R(2+1)D从头训练（RGB）达到72.0% top-1，优于I3D（67.5%）。",
+        "what_it_tries_to_prove": "R(2+1)D在Kinetics基准上达到了与当时最先进方法（I3D）相当或更优的性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "benchmark": "UCF101 & HMDB51",
+        "result": "R(2+1)D从Kinetics微调后，在UCF101上达到96.8%，在HMDB51上达到74.5%，与使用ImageNet预训练的I3D相当。",
+        "anchors": [
+          "anc_00093",
+          "anc_00094"
+        ],
+        "experiment_id": "experiment_8",
+        "type": "benchmark",
+        "name": "UCF101 & HMDB51基准测试",
+        "dataset": [
+          "UCF101",
+          "HMDB51"
+        ],
+        "baseline": [
+          "I3D",
+          "其他方法"
+        ],
+        "metrics": [
+          "准确率"
+        ],
+        "result_summary": "R(2+1)D从Kinetics微调后，在UCF101上达到96.8%，在HMDB51上达到74.5%，与使用ImageNet预训练的I3D相当。",
+        "what_it_tries_to_prove": "R(2+1)D具有良好的迁移学习能力，在较小数据集上微调后也能取得优异性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "准确率 vs 计算复杂度（FLOPs）",
+        "result": "R(2+1)D在相同FLOPs下比R3D准确率高3-3.8%，在相同准确率下计算成本更低。",
+        "anchors": [
+          "anc_00072",
+          "anc_00073",
+          "anc_00074"
+        ],
+        "experiment_id": "experiment_9",
+        "type": "efficiency",
+        "name": "准确率 vs 计算复杂度（FLOPs）",
+        "dataset": [
+          "Kinetics"
+        ],
+        "baseline": [
+          "R3D",
+          "R2D",
+          "f-R2D",
+          "MCx",
+          "rMCx"
+        ],
+        "metrics": [
+          "Video@1",
+          "FLOPs"
+        ],
+        "result_summary": "R(2+1)D在相同FLOPs下比R3D准确率高3-3.8%，在相同准确率下计算成本更低。",
+        "what_it_tries_to_prove": "R(2+1)D在准确率和计算效率之间提供了更好的权衡。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "训练时间与准确率的权衡",
+        "result": "先在短片段（8帧）上训练，再在长片段（32帧）上微调，可以在较短总训练时间内获得较高准确率。",
+        "anchors": [
+          "anc_00077",
+          "anc_00078",
+          "anc_00079"
+        ],
+        "experiment_id": "experiment_10",
+        "type": "efficiency",
+        "name": "训练时间与准确率的权衡",
+        "dataset": [
+          "Kinetics"
+        ],
+        "baseline": [],
+        "metrics": [
+          "Clip@1",
+          "Video@1",
+          "训练时间"
+        ],
+        "result_summary": "先在短片段（8帧）上训练，再在长片段（32帧）上微调，可以在较短总训练时间内获得较高准确率。",
+        "what_it_tries_to_prove": "存在一种高效的训练策略，可以在较短的总训练时间内获得较高的准确率。",
+        "evidence_strength": "strong"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "3D CNN在残差学习框架下优于2D CNN。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00064",
+          "anc_00068"
+        ],
+        "risk_flags": [
+          "结论基于特定数据集（Kinetics）和网络架构（ResNet-18）"
+        ],
+        "claim_id": "claim_1",
+        "evidence": [
+          {
+            "evidence_id": "evidence_1_1",
+            "description": "在Kinetics数据集上，使用8帧输入时，R3D-18的Clip@1准确率为49.4%，而R2D-18为46.7%，f-R2D-18为48.1%。R3D显著优于2D变体。",
+            "anchors": [
+              "anc_00064"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_1_2",
+            "description": "在Kinetics数据集上，使用16帧输入时，R3D-18的Clip@1准确率为52.5%，而R2D-18为47.0%，f-R2D-18为50.3%。差距进一步扩大。",
+            "anchors": [
+              "anc_00064"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "将3D卷积分解为(2+1)D形式能显著提高准确率。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00064",
+          "anc_00070",
+          "anc_00081",
+          "anc_00092"
+        ],
+        "risk_flags": [
+          "分解策略的最优参数（Mi）可能依赖于具体任务"
+        ],
+        "claim_id": "claim_2",
+        "evidence": [
+          {
+            "evidence_id": "evidence_2_1",
+            "description": "在Kinetics数据集上，使用8帧输入时，R(2+1)D-18的Clip@1准确率为52.8%，比R3D-18（49.4%）高出3.4%。",
+            "anchors": [
+              "anc_00064"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_2_2",
+            "description": "在Sports-1M数据集上，R(2+1)D-RGB-32frame的Clip@1准确率为57.0%，比C3D（46.1%）高出10.9%，比P3D（47.9%）高出9.1%。",
+            "anchors": [
+              "anc_00081",
+              "anc_00092"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "R(2+1)D比纯3D卷积更容易优化，尤其在深层网络中。",
+        "evidence_source_type": "训练曲线分析",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00038",
+          "anc_00040",
+          "anc_00046",
+          "anc_00047"
+        ],
+        "risk_flags": [
+          "优化容易性的度量（训练误差）可能不完全反映泛化性能"
+        ],
+        "claim_id": "claim_3",
+        "evidence": [
+          {
+            "evidence_id": "evidence_3_1",
+            "description": "图3显示，在18层和34层网络上，R(2+1)D的训练误差（thin lines）均低于R3D。",
+            "anchors": [
+              "anc_00038"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_3_2",
+            "description": "对于34层网络，R(2+1)D与R3D的训练误差差距更大，表明分解策略在深层网络中优化优势更明显。",
+            "anchors": [
+              "anc_00046",
+              "anc_00047"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "R(2+1)D在多个基准数据集上达到了与当时最先进方法相当或更优的性能。",
+        "evidence_source_type": "基准测试结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00081",
+          "anc_00082",
+          "anc_00086",
+          "anc_00087",
+          "anc_00093",
+          "anc_00094"
+        ],
+        "risk_flags": [
+          "比较的基线方法可能使用了不同的预训练数据或训练设置"
+        ],
+        "claim_id": "claim_4",
+        "evidence": [
+          {
+            "evidence_id": "evidence_4_1",
+            "description": "在Sports-1M上，R(2+1)D-RGB-32frame达到Clip@1 57.0%，Video@1 73.0%，是当时报告的最佳结果。",
+            "anchors": [
+              "anc_00081",
+              "anc_00082"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_4_2",
+            "description": "在Kinetics上，R(2+1)D-RGB从头训练达到72.0% top-1，优于I3D-RGB（67.5%）。",
+            "anchors": [
+              "anc_00086",
+              "anc_00087"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_4_3",
+            "description": "在UCF101和HMDB51上，R(2+1)D从Kinetics微调后分别达到96.8%和74.5%，与使用ImageNet预训练的I3D相当。",
+            "anchors": [
+              "anc_00093",
+              "anc_00094"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "(2+1)D分解通过增加非线性提升了模型表示能力。",
+        "evidence_source_type": "理论分析",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00044"
+        ],
+        "risk_flags": [
+          "非线性增加与性能提升之间的因果关系未通过消融实验严格验证"
+        ],
+        "claim_id": "claim_5",
+        "evidence": [
+          {
+            "evidence_id": "evidence_5_1",
+            "description": "论文指出，(2+1)D分解在每个块中增加了额外的ReLU，从而增加了网络中的非线性数量，这可以增加可表示函数的复杂性。",
+            "anchors": [
+              "anc_00044"
+            ],
+            "strength": "moderate"
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "spatiotemporal convolution": "在时间和空间维度上同时进行的卷积操作，用于处理视频数据。",
+    "residual learning": "一种网络训练框架，通过学习残差函数（输入与输出之间的差值）来简化深层网络的训练。",
+    "(2+1)D convolution": "将3D卷积分解为一个空间2D卷积和一个时间1D卷积的串联，中间加入非线性激活函数。",
+    "mixed convolution (MCx)": "一种网络架构，在早期层使用3D卷积，后期层使用2D卷积。",
+    "clip": "从视频中采样的一段连续帧序列，作为网络的输入。",
+    "video-level prediction": "通过对视频中多个clip的预测结果进行平均（或其他聚合）得到的最终视频分类结果。",
+    "FLOPs": "浮点运算次数，用于衡量模型的计算复杂度。",
+    "terms": []
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        "Kinetics",
+        "Sports-1M",
+        "UCF101",
+        "HMDB51"
+      ],
+      "required_models": [
+        "ResNet-18",
+        "ResNet-34",
+        "R(2+1)D",
+        "R3D",
+        "R2D",
+        "MCx",
+        "rMCx"
+      ],
+      "compute": "论文提到使用64个GPU进行分布式训练（anc_00079）。具体GPU型号和总训练时间未详细说明。",
+      "code_available": "论文未明确提及代码是否开源。但基于Caffe2框架（anc_00003）。",
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 准备数据集：下载Kinetics、Sports-1M、UCF101、HMDB51，并按照论文描述进行预处理（缩放至128×171，随机裁剪112×112）。",
+          "anchors": [
+            "anc_00060"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 实现网络架构：根据Table 1（anc_00053）实现R3D-18和R3D-34。实现(2+1)D卷积块，并构建R(2+1)D网络。",
+          "anchors": [
+            "anc_00053",
+            "anc_00034",
+            "anc_00041",
+            "anc_00042"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 训练设置：使用SGD优化器，初始学习率0.01，每10个epoch除以10，总共45个epoch。使用batch normalization。mini-batch大小为32 clips/GPU。",
+          "anchors": [
+            "anc_00061",
+            "anc_00062",
+            "anc_00063"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "4. 训练与评估：在Kinetics上从头训练模型。在Sports-1M上训练。使用训练好的模型在UCF101和HMDB51上进行微调。",
+          "anchors": [
+            "anc_00060",
+            "anc_00084",
+            "anc_00085",
+            "anc_00093",
+            "anc_00094"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "5. 评估指标：报告Clip@1和Video@1准确率。视频级预测通过对10个均匀采样的clip预测取平均得到。",
+          "anchors": [
+            "anc_00063",
+            "anc_00079"
+          ]
+        }
+      ],
+      "missing_details": [],
+      "risk_points": []
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-03T21:55:04+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_cv_137_a_closer_look_at_spatiotemporal_convolutions_for_2017",
+    "title": "A Closer Look at Spatiotemporal Convolutions for Action Recognition",
+    "authors": [
+      "Du Tran",
+      "Heng Wang",
+      "L. Torresani",
+      "Jamie Ray",
+      "Yann LeCun",
+      "Manohar Paluri"
+    ],
+    "venue": "2018 IEEE/CVF Conference on Computer Vision and Pattern Recognition",
+    "year": 2017,
+    "arxiv_id": "1711.11248",
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-03T21:53:48+00:00",
+    "paper_type": "Computer Vision / Video Understanding / Computer Vision / CNN / Top-cited Computer Vision paper",
+    "citation_count": 3535,
+    "influential_citation_count": 402,
+    "semantic_scholar_id": "89c3050522a0bb9820c32dc7444e003ef0d3e2e4",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/89c3050522a0bb9820c32dc7444e003ef0d3e2e4",
+    "importance_rank": 137,
+    "selection_source": "semantic_scholar_top_cited_cv_open_pdf_2026_05_03",
+    "open_access_pdf_url": "http://arxiv.org/pdf/1711.11248",
+    "fields_of_study": [
+      "Computer Science"
+    ],
+    "publication_types": [
+      "JournalArticle",
+      "Conference"
+    ],
+    "abstract": "In this paper we discuss several forms of spatiotemporal convolutions for video analysis and study their effects on action recognition. Our motivation stems from the observation that 2D CNNs applied to individual frames of the video have remained solid performers in action recognition. In this work we empirically demonstrate the accuracy advantages of 3D CNNs over 2D CNNs within the framework of residual learning. Furthermore, we show that factorizing the 3D convolutional filters into separate spatial and temporal components yields significantly gains in accuracy. Our empirical study leads to the design of a new spatiotemporal convolutional block \"R(2+1)D\" which produces CNNs that achieve results comparable or superior to the state-of-the-art on Sports-1M, Kinetics, UCF101, and HMDB51."
+  },
+  "anchors": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "A Closer Look at Spatiotemporal Convolutions for Action Recognition Du Tran1, Heng Wang1, Lorenzo Torresani1,2, Jamie Ray1, Yann LeCun1, Manohar Paluri1 1Facebook Research 2Dartmouth College {trandu,hengwang,torresani,jamieray,yann,mano}@fb.com",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Abstract",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "In this paper we discuss several forms of spatiotemporal convolutions for video analysis and study their effects on action recognition. Our motivation stems from the observa- tion that 2D CNNs applied to individual frames of the video have remained solid performers in action recognition. In this work we empirically demonstrate the accuracy advan- tages of 3D CNNs over 2D CNNs within the framework of residual learning. Furthermore, we show that factorizing the 3D convolutional ﬁlters into separate spatial and tempo- ral components yields signiﬁcantly gains in accuracy. Our empirical study leads to the design of a new spatiotemporal convolutional block “R(2+1)D” which produces CNNs that achieve results comparable or superior to the state-of-the- art on Sports-1M, Kinetics, UCF101, and HMDB51. 1. Introduction Since the introduction of AlexNet [19], deep learning has galvanized the ﬁeld of still-image recognition with a steady sequence of remarkable advances driven by insight- ful design...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "dense connections [14]. Conversely, it may be argued that",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the video domain has not yet witnessed its “AlexNet mo- ment.” While a deep network (I3D [4]) does currently hold",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the best results in action recognition, the margin of improve-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ment over the best hand-crafted approach (iDT [38]) is not as impressive as in the case of image recognition. Further- more, an image-based 2D CNN (ResNet-152 [25]) operat- ing on individual frames of the video achieves performance remarkably close to the state-of-the-art on the challenging Sports-1M benchmark. This result is both surprising and frustrating, given that 2D CNNs are unable to model tem- poral information and motion patterns, which one would deem to be critical aspects for video analysis. Based on such results, one may postulate that temporal reasoning is not essential for accurate action recognition, because of the strong action class information already contained in the static frames of a sequence. In this work, we challenge this view and revisit the role of temporal reasoning in action recognition by means of 3D CNNs, i.e., networks that perform 3D convolutions over the spatiotemporal video volume. While 3D CNNs have been widely explored in the setting of action recog...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the same depth when trained and evaluated on large-scale,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "challenging action recognition benchmarks such as Sports- 1M [16] and Kinetics [17]. Inspired by these results, we introduce two new forms of spatiotemporal convolution that can be viewed as mid- dle grounds between the extremes of 2D (spatial convolu- tion) and full 3D. The ﬁrst formulation is named mixed con- volution (MC) and consists in employing 3D convolutions only in the early layers of the network, with 2D convolu- tions in the top layers. The rationale behind this design is that motion modeling is a low/mid-level operation that can be implemented via 3D convolutions in the early layers of a network, and spatial reasoning over these mid-level mo- tion features (implemented by 2D convolutions in the top layers) leads to accurate action recognition. We show that MC ResNets yield roughly a 3-4% gain in clip-level ac- curacy over 2D ResNets of comparable capacity and they match the performance of 3D ResNets, which have 3 times as many parameters. The second spatiotemporal variant...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "namics are jointly intertwined, the (2+1)D blocks (with fac- torized spatial and temporal components) are easier to opti- mize. Our experiments demonstrate that ResNets adopting (2+1)D blocks homogeneously in all layers achieve state- of-the-art performance on both Kinetics and Sports-1M. 2. Related Work Video understanding is one of the core computer vision problems and has been studied for decades. Many research contributions in video understanding have focused on de- veloping spatiotemporal features for video analysis. Some proposed video representations include spatiotemporal in- terest points (STIPs) [21], SIFT- 3D [27], HOG3D [18], Motion Boundary Histogram [5], Cuboids [6], and Action- Bank [26]. These representations are hand-designed and use different feature encoding schemes such as those based on histograms or pyramids. Among these hand-crafted representations, improved Dense Trajectories (iDT) [38] is widely considered the state-of-the-art, thanks to its strong results on...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tions for recognizing human actions in video were arguably",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ﬁrst proposed by Baccouche et al. [1] and by Ji et al. [15]. But 3D convolutions were also studied in parallel for un- supervised spatiotemporal feature learning with Restricted Boltzmann Machines [35] and stacked ISA [22]. More re- cently, 3D CNNs were shown to lead to strong action recog-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "nition results when trained on large-scale datasets [36]. 3D",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "CNNs features were also demonstrated to generalize well to other tasks, including action detection [28], video caption- ing [24], and hand gesture detection [23]. Another inﬂuential approach to CNN-based video mod- eling is represented by the two-stream framework intro- duced by Simonyan and Zisserman [29], who proposed to fuse deep features extracted from optical ﬂow with the more traditional deep CNN activations computed from color RGB input. Feichtenhofer et al. enhanced these two-stream networks with ResNet architectures [13] and additional con- nections between streams [9]. Additional two-stream ap- proaches include Temporal Segment Networks [39], Action Transformations [40], and Convolutional Fusion [10]. No- tably, Carreira and Zisserman recently introduced a model (I3D) that combines two-stream processing and 3D convo- lutions. I3D currently holds the best action recognition re-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "sults on the large-scale Kinetics dataset.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Our work revisits many of the aforementioned ap- proaches (speciﬁcally 3D CNNs, two-stream networks, and ResNets) in the context of an empirical analysis deeply focused on understanding the effects of different types of spatiotemporal convolutions on action recognition perfor- mance. We include in this study 2D convolution over frames, 2D convolution over clips, 3D convolution, inter- leaved (mixed) 3D-2D convolutions, as well as a decompo- sition of 3D convolution into a 2D spatial convolution fol- lowed by 1D temporal convolution, which we name (2+1)D convolution. We show that when used within a ResNet ar- chitecture [13], (2+1)D convolutions lead to state-of-the- art results on 4 different benchmarks in action recognition. Our architecture, called R(2+1)D, is related to Factorized Spatio-Temporal Convolutional Networks [33] ( FSTCN ) in the way of factorizing spatiotemporal convolutions into spatial and temporal ones. However, FSTCN focuses on network factorization, e.g.FSTCN is im...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "P3D by a margin of 9.1% in Clip@1 accuracy ( 57.0% vs",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "47.9%), despite the fact that P3D uses a 152-layer ResNet, while our model has only 34 layers.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2D conv 2D conv 2D conv 2D conv 2D conv fc (a) R2D 3D conv 3D conv 3D conv 3D conv 3D conv fc (d) R3D (2+1)D conv fc (2+1)D conv (2+1)D conv (2+1)D conv (2+1)D conv (e) R(2+1)D 2D conv 2D conv 2D conv 3D conv 3D conv fc (b) MC 3D conv 3D conv 3D conv 2D conv 2D conv fc (c) rMCx x space-time pool space-time pool space-time pool space-time pool space-time pool clip clip clip clip clip",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 1. Residual network architectures for video classiﬁcation considered in this work . (a) R2D are 2D ResNets; (b) MCx are",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ResNets with mixed convolutions (MC3 is presented in this ﬁgure); (c) rMCx use reversed mixed convolutions (rMC3 is shown here); (d) R3D are 3D ResNets; and (e) R(2+1)D are ResNets with (2+1)D convolutions. For interpretability, residual connections are omitted. 3. Convolutional residual blocks for video In this section we discuss several spatiotemporal convo- lutional variants within the framework of residual learning. Let x denote the input clip of size 3×L×H×W , whereL is the number of frames in the clip,H andW are the frame height and width, and 3 refers to the RGB channels. Let zi be the tensor computed by the i-th convolutional block in the residual network. In this work we consider only “vanilla” residual blocks (i.e., without bottlenecks) [13], with each block consisting of two convolutional layers with a ReLU activation function after each layer. Then the output of thei-th residual block is given by",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00022",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "zi = zi−1 +F(zi−1;θi) (1)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "whereF(;θi) implements the composition of two convo- lutions parameterized by weights θi and the application of the ReLU functions. In this work we consider networks where the sequence of convolutional residual blocks cul-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00024",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "minates into a top layer performing global average pooling",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "over the entire spatiotemporal volume and a fully-connected layer responsible for the ﬁnal classiﬁcation prediction. 3.1. R2D: 2D convolutions over the entire clip 2D CNNs for video [29] ignore the temporal ordering",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "in the video and treat the L frames analogously to chan-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00027",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "nels. Thus, we can think of these models as reshaping the input 4D tensor x into a 3D tensor of size 3L×H×W . The output zi of thei-th residual block is also a 3D tensor. Its size is Ni×Hi×Wi whereNi denotes the number of convolutional ﬁlters applied in the i-th block, and Hi,W i are the spatial dimensions, which may be smaller than the original input frame due to pooling or striding. Each ﬁl- ter is 3D and it has size Ni−1×d×d, where d denotes the spatial width and height. Note that although the ﬁlter is 3-dimensional, it is convolved only in 2D over the spatial dimensions of the preceding tensor zi−1. Each ﬁlter yields a single-channel output. Thus, the very ﬁrst convolutional layer in R2D collapses the entire temporal information of the video in single-channel feature maps, which prevent any temporal reasoning to happen in subsequent layers. This type of CNN architecture is illustrated in Figure 1(a). Note that since the feature maps have no temporal meaning, we do not perform temp...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00028",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "t = 3 , as in [36, 4]). The ﬁlters are convolved in 3D, i.e.,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "over both time and space dimensions. This type of CNN architecture is illustrated in Figure 1(d). 3.4. MCx and rMCx: mixed 3D-2D convolutions One hypothesis is that motion modeling (i.e., 3D convo- lutions) may be particularly useful in the early layers, while at higher levels of semantic abstraction (late layers), motion or temporal modeling is not necessary. Thus a plausible architecture may start with 3D convolutions and switch to",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "t x d x d 1 x d x d t x 1 x 1 Mi a) b)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00031",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 2. (2+1)D vs 3D convolution. The illustration is given for",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the simpliﬁed setting where the input consists of a spatiotemporal volume with a single feature channel. (a) Full 3D convolution is carried out using a ﬁlter of sizet×d×d where t denotes the tem- poral extent and d is the spatial width and height. (b) A (2+1)D convolutional block splits the computation into a spatial 2D con- volution followed by a temporal 1D convolution. We choose the numbers of 2D ﬁlters (Mi) so that the number of parameters in our (2+1)D block matches that of the full 3D convolutional block. using 2D convolutions in the top layers. Since in this work we consider 3D ResNets (R3D) having 5 groups of convo- lutions (see Table 1), our ﬁrst variant consists in replacing all 3D convolutions in group 5 with 2D convolutions. We denote this variant with MC5 (Mixed Convolutions). We design a second variant that uses 2D convolutions in group 4 and 5, and name this model MC4 (meaning from group 4 and deeper layers all convolutions are 2D). Following this pattern, we also creat...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00033",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Following the naming convention of MC models, we de-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "note these models as rMC2, rMC3, rMC4, and rMC5. Thus, rMC3 would include 2D convolutions in block 1 and 2, and 3D convolutions in group 3 and deeper groups. This type of CNN architecture is illustrated in Figure 1(c). 3.5. R(2+1)D: (2+1)D convolutions Another possible theory is that full 3D convolutions may be more conveniently approximated by a 2D convolution followed by a 1D convolution, decomposing spatial and temporal modeling into two separate steps. We thus design a network architecture named R(2+1)D, where we replace the Ni 3D convolutional ﬁlters of size Ni−1×t×d×d with a (2+1)D block consisting ofMi 2D convolutional ﬁl- ters of size Ni−1×1×d×d and Ni temporal convolu- tional ﬁlters of sizeMi×t×1×1. The hyperparameter",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00035",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Mi determines the dimensionality of the intermediate sub-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "space where the signal is projected between the spatial and 01 02 03 04 05 0 epoch 0 0.2 0.4 0.6 0.8 1 error (%) R3D-18 train R3D-18 val R(2+1)D-18 train R(2+1)D-18 val 01 02 03 04 05 0 epoch 0 0.2 0.4 0.6 0.8 1 error (%) R3D-34 train R3D-34 val R(2+1)D-34 train R(2+1)D-34 val",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00037",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 3. Training and testing errors for R(2+1)D and R3D .",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00038",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Results are reported for ResNets of 18 layers (left) and 34 layers (right). It can be observed that the training error (thin lines) is smaller for R(2+1)D compared to R3D, particularly for the net-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00039",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "work with larger depth (right). This suggests that the the spatial-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "temporal decomposition implemented by R(2+1)D eases the opti- mization, especially as depth is increased.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00041",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the temporal convolutions. We chooseMi =⌊td2Ni−1Ni",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00042",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "d2Ni−1+tNi ⌋ so that the number of parameters in the (2+1)D block is approximately equal to that implementing full 3D convolu- tion. We note that this spatiotemporal decomposition can be applied to any 3D convolutional layer. An illustration of this decomposition is given in Figure 2 for the simpliﬁed setting where the input tensorzi−1 contains a single channel",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00043",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(i.e.,Ni−1 = 1 ). If the 3D convolution has spatial or tem-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "poral striding (implementing downsampling), the striding is correspondingly decomposed into its spatial or temporal di- mensions. This architecture is illustrated in Figure 1(e). Compared to full 3D convolution, our (2+1)D decom- position offers two advantages. First, despite not changing the number of parameters, it doubles the number of nonlin- earities in the network due to the additional ReLU between the 2D and 1D convolution in each block. Increasing the number of nonlinearities increases the complexity of func- tions that can be represented, as also noted in VGG net- works [30] which approximate the effect of a big ﬁlter by applying multiple smaller ﬁlters with additional nonlinear- ities in between. The second beneﬁt is that forcing the 3D convolution into separate spatial and temporal components renders the optimization easier. This is manifested in lower training error compared to 3D convolutional networks of the same capacity. This is illustrated in Figure 3 which shows trai...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00045",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "training losses is particularly large for the nets having 34",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00046",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "layers, which suggests that the facilitation in optimization",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00047",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "increases as the depth becomes larger.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00048",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "We note that our factorization is closely related to Pseudo-3D blocks (P3D) [25], which were proposed to adapt the bottleneck block of R2D to video classiﬁcation. Three different pseudo-3D blocks were introduced: P3D-A,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "P3D-B, and P3D-C. The blocks implement different orders of convolution: spatial followed by temporal, spatial and temporal in parallel, and spatial followed by temporal with skip connection from spatial convolution to the output of the block, respectively. Our (2+1)D convolution is most closely related to the P3D-A block, which however contains bottle- necks. Furthermore, the ﬁnal P3D architecture is composed by interleaving these three blocks in sequence throughout the network, with the exception of the ﬁrst layer where 2D convolution is used. We propose instead a homogeneous architecture where the same (2+1)-decomposition is used in all blocks. Another difference is that P3D-A is not pur- posely designed to match the number of parameters with the 3D convolutions. Despite the fact that R(2+1)D is very simple and homogenous in its architecture, our experiments show that it signiﬁcantly outperforms R3D, R2D, and P3D on Sports-1M (see Table 4). 4. Experiments In this section we present...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00050",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Sports-1M [16] as the primary benchmarks, as they are large",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "enough to enable training of deep models from scratch. Since a good video model must also support effective trans- fer learning to other datasets, we include results obtained by pretraining our models on Sports-1M and Kinetics, and ﬁnetuning them on UCF101 [31] and HMDB51 [20]. 4.1. Experimental setup Network architectures. We constrain our experiments to deep residual networks [13] owing to their good perfor- mance and simplicity. Table 1 provides the speciﬁcations of the two R3D architectures (3D ResNets) considered in our experiments. The ﬁrst has 18 layers, while the second variant has 34 layers. Each network takes clips consisting ofL RGB frames with the size of 112×112 as input. We use one spatial downsampling at conv1 implemented by convolutional striding of 1×2×2, and three spatiotempo- ral downsampling at conv3 1, conv4 1, and conv5 1 with convolutional striding of 2×2×2. From these R3D models we obtain architectures R2D, MC x, rMCx, and R(2+1)D by replacing the 3D convolutio...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00052",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1×1×1 spatiotemporal pooling, fc layer with softmax",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00053",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 1. R3D architectures considered in our experiments .",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Convolutional residual blocks are shown in brackets, next to the number of times each block is repeated in the stack. The dimen- sions given for ﬁlters and outputs are time, height, and width, in",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "this order. The series of convolutions culminates with a global",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "spatiotemporal pooling layer that yields a 512-dimensional feature vector. This vector is fed to a fully-connected layer that outputs the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00057",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "class probabilities through a softmax.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00058",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "convolutional tensor has size L 8×7×7. MCx and rMCx models will yield different sizes in the time dimension, de- pending on how many times temporal striding is applied (as shown in the Table 1). Regardless of the size of output pro- duced by the last convolutional layer, each network applies global spatiotemporal average pooling to the ﬁnal convolu- tional tensor, followed by a fully-connected (fc) layer per-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00059",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "forming the ﬁnal classiﬁcation (the output dimension of the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00060",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "fc layer matches the number of classes, e.g., 400 for Kinet- ics). Training and evaluation. We perform our initial evalua- tion on Kinetics, using the training split for training and the validation split for testing. For a fair comparison, we set all of the networks to have 18 layers and we train them from scratch on the same input. Video frames are scaled to the size of 128×171 and then each clip is generated by ran- domly cropping windows of size 112×112. We randomly sample L consecutive frames from the video with tempo- ral jittering while training. In this comparison, we experi- ment with two settings: models are trained on 8-frame clips",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00061",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(L = 8) and 16-frame clips (L = 16). Batch normalization",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00062",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "is applied to all convolutional layers. We use a mini-batch",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "size of 32 clips per GPU. Although Kinetics has only about 240k training videos, we set epoch size to be 1M for tem- poral jittering. The initial learning rate is set to 0.01 and divided by 10 every 10 epochs. We use the ﬁrst 10 epochs for warm-up [12] in our distributed training. Training is done in 45 epochs. We report clip top-1 accuracy and video top-1 accuracy. For video top-1, we use center crops of 10 clips uniformly sampled from the video and average these 10 clip predictions to obtain the video prediction. Training",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00064",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Net # params Clip@1 Video@1 Clip@1 Video@1 Input 8×112×112 16×112×112 R2D 11.4M 46.7 59.5 47.0 58.9 f-R2D 11.4M 48.1 59.4 50.3 60.5 R3D 33.4M 49.4 61.8 52.5 64.2 MC2 11.4M 50.2 62.5 53.1 64.2 MC3 11.7M 50.7 62.9 53.7 64.7 MC4 12.7M 50.5 62.5 53.7 65.1 MC5 16.9M 50.3 62.5 53.7 65.1 rMC2 33.3M 49.8 62.1 53.1 64.9 rMC3 33.0M 49.8 62.3 53.2 65.0 rMC4 32.0M 49.9 62.3 53.4 65.1 rMC5 27.9M 49.4 61.2 52.1 63.1 R(2+1)D 33.3M 52.8 64.8 56.8 68.0",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00065",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 2.Action recognition accuracy for different forms of con-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00066",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "volution on the Kinetics validation set. All models are based on a ResNet of 18 layers, and trained from scratch on either 8-frame or 16-frame clip input. R(2+1)D outperforms all the other models. is done with synchronous distributed SGD on GPU clusters using caffe2 [3]. 4.2. Comparison of spatiotemporal convolutions",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 2 reports the clip top-1 and video top-1 action clas-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00068",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "siﬁcation accuracy on the Kinetics validation set. There are a few ﬁndings that can be inferred from these results. First, there is a noticeable gap between the performance of 2D ResNets (f-R2D and R2D) and that of R3D or mixed con- volutional models (MCx and rMCx). This gap is 1.3−4% in the 8-frame input setting and becomes bigger (i.e. 1.8− 6.7%) when models are trained on 16-frame clips as input. This suggests that motion modeling is important for action recognition. Note that all models (within the same setting) see the same input and process all frames in each clip (ei- ther 8 or 16 frames). The difference is that, compared to 3D or MCx models which perform temporal reasoning through",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the clip, R2D collapses and eliminates temporal information",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00070",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "after the ﬁrst residual block, while f-R2D computes still- image features from the individual frames. Among the dif- ferent 3D convolutional models, R(2+1)D clearly performs the best. It is 2.1−3.4% better than MCx, rMCx, R3D in the 8-frame setting, and 3.1−4.7% better in the 16-frame input setting. This indicates that decomposing 3D convolutions in separate spatial and temporal convolutions is better than modeling spatiotemporal information jointly or via mixed 3D-2D convolutions. It also outperforms 2D ResNets (R2D and f-R2D) by 4.7−6.1% in the 8-frame setting and by 6.3−9.8% in the 16-frame input setting.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00071",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 4 shows video top-1 accuracy on Kinetics valida-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00072",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tion set versus computational complexity (FLOPs) for dif- ferent models. Figure 4(a) plots the models trained on 8- frame clips while Figure 4(b) shows models with 16-frame clip input. The most efﬁcient network is R2D but it has the poorest accuracy. In fact, R2D is about 7x faster than f-R2D because it collapses the temporal dimension after conv1. a) b) 05 10 15 20 25 FLOPs (x 10 9) 59 60 61 62 63 64 65video top-1 accuracy (%) R(2+1)D R2D f-R2D R3D MC2 MC3 MC4 MC5 rMC2 rMC3 rMC4 rMC5 05 10 15 20 25 30 35 40 45 FLOPs (x 10 9) 58 59 60 61 62 63 64 65 66 67 68video top-1 accuracy (%) R(2+1)D R2D f-R2D R3D MC2 MC3 MC4 MC5 rMC2 rMC3 rMC4 rMC5",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00073",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 4. Accuracy vs computational complexity for different",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00074",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "types of convolution on Kinetics. Different models are trained on 8-frame clips (left) and 16-frame clips (right). R(2+1)D achieves the highest accuracy, producing about3−3.8% accuracy gain over R3D for the same computational cost. In terms of accuracy, R2D gets similar performance to f- R2D when trained on 8-frame clips, while it is 1.6% worse than f-R2D in the 16-frame input setting. This is because R2D performs temporal modeling only in the conv1 layer and thus it handles poorly longer clip inputs. Interestingly, rMC3 is more efﬁcient than f-R2D since it performs tem- poral striding in conv3 1, which yields smaller activation tensors in all subsequent 2D convolutional layers. Con- versely, f-R2D processes all frames independently and does not perform any temporal striding. rMC2 is more costly than rMC3, as it uses 2D convolutions in group 2, and does not perform temporal striding in group 3. R(2+1)D has roughly the same computational cost as R3D but it yields higher accuracy. We no...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00075",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "a) b) 51 01 52 02 53 03 54 04 55 0 # of frames 52 54 56 58 60 62 64 66 68 70accuracy (%) clip top-1 accuray video top-1 accuracy 02 04 06 08 0 100 Number of clips 58 60 62 64 66 68 70 72accuracy (%) video top-1 accuracy",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00076",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 5. Video-level accuracy on Kinetics. a) Clip and video ac-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00077",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "curacy of a 18-layer R(2+1)D trained on clips of different lengths. b) Video top-1 accuracy obtained by averaging over different num- ber of clip predictions using the same model with 32 frames. train ﬁnetune test training time Clip@1 Video@1 clip length (in frames) hours (%) (%) 8 none 8 11.8 52.8 64.8 8 none 32 11.8 51.6 59.0 32 none 32 59.8 60.1 69.4 8 32 32 20.5 59.8 68.0",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00078",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 3. Training time/accuracy trade-off . Training and eval-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00079",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "uation of R(2+1)D with 18 layers on clips with different length. Training on shorter clips, then ﬁnetuning on longer clips gives the best trade-off between total training time and accuracy. The train- ing time is measured with 64 GPUs training in parallel. fed to the fully-connected layer. Note that these networks have the same number of parameters (since pooling involves no learnable parameters). They simply see inputs of differ- ent lengths. Figure 5 a) plots the clip-level and video-level accuracy on Kinetics validation set with respect to differ- ent input lengths. Note that video-level prediction is done by averaging the clip-level predictions obtained for10 clips evenly spaced in the video. One interesting ﬁnding is that, although clip accuracy continues to increase when we add more frames, video accuracy peaks at 32 frames. Since all these models have the same numbers of pa- rameters, it is natural to ask “what causes the differences in video-level accuracies?” In order to addr...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00080",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "method Clip@1 Video@1 Video@5",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00081",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "DeepVideo [16] 41.9 60.9 80.2 C3D [36] 46.1 61.1 85.2 2D Resnet-152 [13] 46.5* 64.6* 86.4* Conv pooling [42] - 71.7 90.4 P3D [25] 47.9* 66.4* 87.4* R3D-RGB-8frame 53.8 - - R(2+1)D-RGB-8frame 56.1 72.0 91.2 R(2+1)D-Flow-8frame 44.5 65.5 87.2 R(2+1)D-Two-Stream-8frame - 72.2 91.4 R(2+1)D-RGB-32frame 57.0 73.0 91.5 R(2+1)D-Flow-32frame 46.4 68.4 88.7 R(2+1)D-Two-Stream-32frame - 73.3 91.9",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00082",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 4. Comparison with the state-of-the-art on Sports-1M .",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00083",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "R(2+1)D outperforms C3D by 10.9%, and P3D by 9.1% and it achieves the best reported accuracy on this benchmark to date. *These baseline numbers are taken from [25]. ment cannot be obtained “for free” by simply lengthening the clip input at test time. This is consistent with the ﬁnd- ings in [37]. Table 3 reports the total training time and ac- curacy of R(2+1)D with 18 layers trained and evaluated on clips of varying length. How many clips are needed for accurate video-level pre- diction? Figure 5 b) plots the video top-1 accuracy of R(2+1)D with 18 layers trained on 32-frame clips when we vary the number of clips sampled from each video. Using 20 crops is only about0.5% worse than using 100 crops, but the prediction is 5x faster. 4.4. Action recognition with a 34-layer R(2+1)D net In this section we report results using a 34-layer version of R(2+1)D, which we denote as R(2+1)D-34. The architec- ture is the same as that shown in the right column of Table 1, but with 3D convolutions de...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00084",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "ture on four public benchmarks. Sports-1M is a large-scale",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00085",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "dataset for classiﬁcation of sport videos [16]. It includes 1.1M videos of 487 ﬁne-grained sport categories. It is pro- vided with a train/test split. Kinetics has about 300K videos of 400 human actions. We report results on the valida- tion set as the annotations on the testing set is not pub- lic available. UCF101 and HMDB51 are well-established benchmarks for action recognitions. UCF101 has about 13K videos of 101 categories, whereas HMDB51 is slightly smaller with 6K videos of 51 classes. Both UCF101 and HMDB51 are provided with 3 splits for training and test- ing. We report the accuracy by averaging over all 3 splits. Results on Sports-1M. We train R(2+1)D-34 on Sports- 1M [16] with both 8-frame and 32-frame clip inputs. Train-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00086",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "method pretraining dataset top1 top5 I3D-RGB [4] none 67.5 87.2 I3D-RGB [4] ImageNet 72.1 90.3 I3D-Flow [4] ImageNet 65.3 86.2 I3D-Two-Stream [4] ImageNet 75.7 92.0 R(2+1)D-RGB none 72.0 90.0 R(2+1)D-Flow none 67.5 87.2 R(2+1)D-Two-Stream none 73.9 90.9 R(2+1)D-RGB Sports-1M 74.3 91.4 R(2+1)D-Flow Sports-1M 68.5 88.1 R(2+1)D-Two-Stream Sports-1M 75.4 91.9",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00087",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 5. Comparison with the state-of-the-art on Kinetics .",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00088",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "R(2+1)D outperforms I3D by 4.5% when trained from scratch on RGB. R(2+1)D pretrained on Sports-1M outperforms I3D pre- trained on ImageNet, for both RGB and optical ﬂow. However, it is slightly worse than I3D (0.3%) when fusing the two streams. ing is done with a setup similar to that described in sec- tion 4.1. We also train a R3D-34 baseline for comparison.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00089",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Videos in Sports-1M are very long, over 5 minutes on av-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00090",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "erage. Thus, we uniformly sample 100 clips per video (in- stead of 10 clips on Kinetics) for computing the video top-1 accuracy. Average pooling is used to aggregate the predic- tions over the 100 clips to obtain the video-level predictions.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00091",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 4 shows the results on Sports-1M. Our R(2+1)D",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00092",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "model trained on RGB performs the best among the meth- ods in this comparison. In clip-level accuracy, it outper- forms C3D by 10.9% and P3D by 9.1%. R(2+1)D also out- performs 2D ResNet by10.5%. We note that the 2D ResNet and P3D have 152 layers while R(2+1)D has only 34 lay- ers (or 67 if we count the spatiotemporal decomposition as producing two layers). The R3D baseline is also inferior to R(2+1)D (by 2.3%) when the input is 8 RGB frames, which conﬁrms the beneﬁts of our (2+1)D decomposition. R(2+1)D achieves a video-level accuracy of 73.3% which, to our knowledge, is the best published result on Sports-1M. Results on Kinetics. We assess the performance of R(2+1)D-34 on Kinetics, both when training from scratch on the Kinetics training split, as well as when ﬁnetuning the model pretrained on Sports-1M. When training from scratch, we use the same setup as in section 4.1. When ﬁne- tuning, we start with a base learning rate that is 10 times smaller (i.e., 0.001), and reduce it by a...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00093",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 6. Comparison with the state-of-the-art on UCF101 and",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00094",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "HMDB51. Our R(2+1)D ﬁnetuned from Kinetics is nearly on par with I3D which, however, uses ImageNet in addition to Kinetics for pretraining. We found that Kinetics is better than Sports-1M for pretraining our models. Kinetics. For the models based on Kinetics pretraining, we use the models learned from scratch on Kinetics (not those ﬁnetuned from Sports-1M) in order to understand the effects of pretraining on different datasets. Table 6 reports results of R(2+1)D compared to prior methods. R(2+1)D outper- forms all methods in this comparison, except for I3D which, however, used ImageNet in addition to Kinetics for pretrain- ing. R(2+1)D (with Kinetics pretraining) is comparable to I3D when trained on RGB but it is slightly worse than I3D when trained on optical ﬂow. This can be explained by not- ing that R(2+1)D uses Farneback’s optical ﬂow, while I3D uses a more accurate ﬂow, TV-L1 [43] which is, however, one order of magnitude slower than Farneback’s method. 5. Conclusions We have pr...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00095",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Appendix",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00096",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Figure 6 illustrates the decomposed ﬁlters of our",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00097",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "R(2+1)D model at the conv1 layer. We remind the read-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00098",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "ers that, instead of using 64 3D ﬁlters of size 3×7×7 at conv1 as in R3D, R(2+1)D decomposes conv1 into 45 2D ﬁlters of size1×7×7 and 64 1D ﬁlters of size3×1×1 with non-linear ReLUs in between. This (2+1)D convolu- tional block has the same number of parameters as that of R3D. Figure 6(a) shows the 45 spatial ﬁlters of size 7×7 upscaled by 4x for better visualization. Figure 6(b) presents the 64 temporal ﬁlters from left to right. Each temporal ﬁl- ter is visualized as a 45×3 matrix. Each matrix shows how the temporal ﬁlter combines the 45 channels from the spa- tial ﬁlters across time (3 frames). Some interesting temporal patterns can be seen by looking at the ﬁlter weights along the time dimension.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00099",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "References",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00100",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[1] M. Baccouche, F. Mamalet, C. Wolf, C. Garcia, and A. Baskurt. Sequential Deep Learning for Human Ac- tion Recognition, pages 29–39. Springer Berlin Heidelberg, Berlin, Heidelberg, 2011. 2 [2] N. Ballas, L. Yao, C. Pal, and A. Courville. Delving deeper into convolutional networks for learning video representa- tions. arXiv preprint arXiv:1511.06432, 2015. 2 [3] Caffe2-Team. Caffe2: A new lightweight, modular, and scal- able deep learning framework.https://caffe2.ai/. 6 [4] J. Carreira and A. Zisserman. Quo vadis, action recognition? a new model and the kinetics dataset. In CVPR, 2017. 1, 3, 5, 7, 8 [5] N. Dalal, B. Triggs, and C. Schmid. Human Detection Using Oriented Histograms of Flow and Appearance. In A. Leonardis, H. Bischof, and A. Pinz, editors, European Conference on Computer Vision (ECCV ’06) , volume 3952 of Lecture Notes in Computer Science (LNCS) , pages 428– 441, Graz, Austria, May 2006. Springer-Verlag. 2 [6] P. Dollar, V . Rabaud, G. Cottrell, and S. Belongie. Behav-...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00101",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Accurate, large minibatch sgd: training imagenet in 1 hour.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00102",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "arXiv preprint arXiv:1706.02677, 2017. 5 [13] K. He, X. Zhang, S. Ren, and J. Sun. Deep residual learning for image recognition. In CVPR, 2016. 1, 2, 3, 5, 7 [14] G. Huang, Z. Liu, and K. Q. Weinberger. Densely connected convolutional networks. In CVPR, 2017. 1 [15] S. Ji, W. Xu, M. Yang, and K. Yu. 3d convolutional neu- ral networks for human action recognition. IEEE TPAMI, 35(1):221–231, 2013. 1, 2, 3 [16] A. Karpathy, G. Toderici, S. Shetty, T. Leung, R. Sukthankar,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00103",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "and L. Fei-Fei. Large-scale video classiﬁcation with convo-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00104",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "lutional neural networks. In CVPR, 2014. 1, 2, 5, 7 [17] W. Kay, J. Carreira, K. Simonyan, B. Zhang, C. Hillier, S. Vijayanarasimhan, F. Viola, T. Green, T. Back, P. Natsev, M. Suleyman, and A. Zisserman. The kinetics human action video dataset. CoRR, abs/1705.06950, 2017. 1 [18] A. Kl ¨aser, M. Marszałek, and C. Schmid. A spatio-temporal descriptor based on 3d-gradients. In BMVC, 2008. 2 [19] A. Krizhevsky, I. Sutskever, and G. Hinton. Imagenet clas- siﬁcation with deep convolutional neural networks. InNIPS, 2012. 1, 2 [20] H. Kuehne, H. Jhuang, E. Garrote, T. Poggio, and T. Serre.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00105",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "HMDB: a large video database for human motion recogni-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00106",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "tion. In ICCV, 2011. 5, 8 [21] I. Laptev and T. Lindeberg. Space-time interest points. In ICCV, 2003. 2 [22] Q. V . Le, W. Y . Zou, S. Y . Yeung, and A. Y . Ng. Learn- ing hierarchical invariant spatio-temporal features for action recognition with independent subspace analysis. In CVPR, 2011. 2 [23] P. Molchanov, X. Yang, S. Gupta, K. Kim, S. Tyree, and J. Kautz. Online detection and classiﬁcation of dynamic hand gestures with recurrent 3d convolutional neural network. In CVPR, 2016. 2 [24] Y . Pan, T. Mei, T. Yao, H. Li, and Y . Rui. Jointly modeling embedding and translation to bridge video and language. In CVPR, 2016. 2 [25] Z. Qiu, T. Yao, , and T. Mei. Learning spatio-temporal repre- sentation with pseudo-3d residual networks. In ICCV, 2017. 1, 2, 4, 7, 8 [26] S. Sadanand and J. Corso. Action bank: A high-level repre- sentation of activity in video. In CVPR, 2012. 2 [27] P. Scovanner, S. Ali, and M. Shah. A 3-dimensional sift de- scriptor and its application to action recognition...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00107",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "-1 -0.8 -0.6 -0.4 -0.2 0 0.2 0.4 0.6 0.8 1 1 2 64 1 2 45 (a) R(2+1)D conv1 spatial /f_ilters (b) R(2+1)D conv1 temporal /f_ilters",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00108",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Figure 6. R(2+1)D learned ﬁlters. (a) The 45 spatial 2D ﬁlters learned by R(2+1)D at the conv1 layer. Each ﬁlter has size 1×7×7",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00109",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "(upscaled by 4x for better visualization). (b) The 64 temporal 1D ﬁlters learned by R(2+1)D at the conv1 layer. Each temporal ﬁlter is visualized as a 45×3 matrix (one column in (b)). The ﬁlter weight magnitudes are scaled from[−0.3,0.3] to [−1,1] for better presentation. Best viewed in color. [30] K. Simonyan and A. Zisserman. Very deep convolutional",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00110",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "networks for large-scale image recognition. In ICLR, 2015.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00111",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "1, 4 [31] K. Soomro, A. R. Zamir, and M. Shah. UCF101: A dataset of 101 human action classes from videos in the wild. In CRCV-TR-12-01, 2012. 5, 8 [32] N. Srivastava, E. Mansimov, and R. Salakhudinov. Unsuper- vised learning of video representations using lstms. In Inter- national Conference on Machine Learning , pages 843–852, 2015. 2 [33] L. Sun, K. Jia, D.-Y . Yeung, and B. E. Shi. Human action recognition using factorized spatio-temporal convolutional networks. In ICCV, 2015. 2, 8 [34] C. Szegedy, W. Liu, Y . Jia, P. Sermanet, S. Reed, D. Anguelov, D. Erhan, V . Vanhoucke, and A. Rabinovich. Going deeper with convolutions. In CVPR, 2015. 1 [35] G. W. Taylor, R. Fergus, Y . LeCun, and C. Bregler. Convolu- tional learning of spatio-temporal features. In ECCV, pages 140–153. Springer, 2010. 1, 2 [36] D. Tran, L. Bourdev, R. Fergus, L. Torresani, and M. Paluri. Learning spatiotemporal features with 3d convolutional net- works. In ICCV, 2015. 1, 2, 3, 7 [37] G. Varol, I. Laptev, and C....",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00112",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[41] Z. Xu, Y . Yang, and A. G. Hauptmann. A discriminative",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00113",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "cnn video representation for event detection. In Proceed- ings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 1798–1807, 2015. 2 [42] J. Yue-Hei Ng, M. Hausknecht, S. Vijayanarasimhan, O. Vinyals, R. Monga, and G. Toderici. Beyond short snip- pets: Deep networks for video classiﬁcation. In Proceed- ings of the IEEE conference on computer vision and pattern recognition, pages 4694–4702, 2015. 2, 7, 8 [43] C. Zach, T. Pock, and H. Bischof. A duality based approach for realtime tv-l 1 optical ﬂow. Pattern Recognition, pages 214–223, 2007. 8",
+      "source_type": "reference"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "warnings": [
+      {
+        "code": "ok",
+        "message": "Grounding verification passed with current v1 checks.",
+        "target": null,
+        "severity": "info"
+      }
+    ],
+    "anchor_count": 113
+  }
+}
