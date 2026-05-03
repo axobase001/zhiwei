@@ -1,0 +1,1288 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "大型视觉语言模型（LVLM）中的注意力汇聚（attention sink）现象及其跨模态影响尚不明确，不清楚它们是冗余的伪影还是必要的全局先验。",
+      "anchors": [
+        "anc_00011",
+        "anc_00016",
+        "anc_00017",
+        "anc_00018"
+      ]
+    },
+    "motivation": {
+      "summary": "现有研究主要关注单模态Transformer中的注意力汇聚，但其在LVLM中的起源、功能和影响缺乏系统分析，特别是视觉汇聚与语言汇聚的区分及其对全局推理与局部感知的权衡效应。",
+      "anchors": [
+        "anc_00016",
+        "anc_00017",
+        "anc_00018",
+        "anc_00020"
+      ]
+    },
+    "core_idea": {
+      "summary": "提出统一框架，将LVLM中的视觉汇聚分为两类：ViT涌现的汇聚（V-sinks）和LLM涌现的汇聚（L-sinks），并揭示它们编码全局场景先验但会抑制细粒度视觉证据的权衡关系。基于此，提出轻量级的逐层汇聚门控（LSG）模块，动态调整V-sink与其余视觉token的注意力贡献。",
+      "anchors": [
+        "anc_00011",
+        "anc_00012",
+        "anc_00013",
+        "anc_00020"
+      ]
+    },
+    "method": {
+      "summary": "LSG是一个轻量级MLP门控模块，插入LLM层之间，基于最后一个输入token的隐藏状态预测每层的V-sink与其余视觉token的注意力贡献比例。通过标准的下一token预测损失训练，LVLM主干网络保持冻结。",
+      "anchors": [
+        "anc_00100",
+        "anc_00108",
+        "anc_00112",
+        "anc_00115",
+        "anc_00125"
+      ]
+    },
+    "experiments": {
+      "summary": "在LLaVA-1.5-7B上应用LSG，在MMStar和CVBench等多模态基准上进行评估。实验包括单层结果、多层堆叠、门控轨迹分析、与LoRA基线的对比、设计选择消融以及更广泛的基准评估。",
+      "anchors": [
+        "anc_00128",
+        "anc_00129",
+        "anc_00130",
+        "anc_00131",
+        "anc_00132",
+        "anc_00133",
+        "anc_00134",
+        "anc_00135",
+        "anc_00136"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "1. LVLM中的视觉汇聚可分为V-sinks和L-sinks两类，具有不同计算起源。2. 这些汇聚编码全局场景先验，有利于粗粒度推理但损害细粒度感知。3. LSG能有效平衡全局推理与局部感知，在多数层带来性能提升。4. LSG的改进源于其针对汇聚的特定结构，而非仅来自额外参数。",
+        "anchors": [
+          "anc_00011",
+          "anc_00012",
+          "anc_00013",
+          "anc_00020",
+          "anc_00076",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081",
+          "anc_00082",
+          "anc_00134",
+          "anc_00135",
+          "anc_00136",
+          "anc_00258",
+          "anc_00259",
+          "anc_00261",
+          "anc_00263"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "1. LSG的改进在不同层和任务间存在差异，某些层或任务可能带来负面影响。2. 多层堆叠存在次可加性，联合训练可能进一步提升但未充分探索。3. 实验主要基于LLaVA-1.5-7B，跨架构泛化性需进一步验证。4. 门控信号仅使用最后一个输入token的隐藏状态，可能限制其表达能力。",
+        "anchors": [
+          "anc_00147",
+          "anc_00156",
+          "anc_00157",
+          "anc_00158",
+          "anc_00159",
+          "anc_00160",
+          "anc_00161",
+          "anc_00167",
+          "anc_00263"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "注意力汇聚现象分析",
+        "label": "问题定义",
+        "summary": "分析LVLM中的注意力汇聚现象，区分V-sinks和L-sinks，并研究其功能。",
+        "description": "通过线性探针和网格搜索等方法，研究V-sinks和L-sinks在编码场景信息、影响下游任务方面的差异。",
+        "type": "analysis",
+        "anchors": [
+          "anc_00011",
+          "anc_00016",
+          "anc_00020",
+          "anc_00076",
+          "anc_00079",
+          "anc_00082"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "V-sinks与L-sinks定义",
+        "label": "概念定义",
+        "summary": "定义ViT涌现的汇聚（V-sinks）和LLM涌现的汇聚（L-sinks）。",
+        "description": "V-sinks是在视觉编码器中已满足汇聚标准的token，L-sinks是在LLM深层中涌现的token。使用基于激活范数的阈值标准进行识别。",
+        "type": "definition",
+        "anchors": [
+          "anc_00011",
+          "anc_00054",
+          "anc_00055",
+          "anc_00070"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "线性探针实验",
+        "label": "实验分析",
+        "summary": "在CLEVR数据集上进行线性探针，研究汇聚token编码的场景属性。",
+        "description": "探针任务包括物体计数、颜色、形状和大小，以评估汇聚token在不同LLM层中保留的场景信息粒度。",
+        "type": "experiment",
+        "anchors": [
+          "anc_00076",
+          "anc_00077",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081",
+          "anc_00082"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "关键门控干预实验",
+        "label": "实验分析",
+        "summary": "通过网格搜索关键门控系数，研究调整汇聚注意力对下游任务的影响。",
+        "description": "在MMStar和CVBench上评估不同层和任务下，调整V-sink与其余视觉token注意力比例的效果。",
+        "type": "experiment",
+        "anchors": [
+          "anc_00086",
+          "anc_00088",
+          "anc_00090",
+          "anc_00092",
+          "anc_00094",
+          "anc_00096",
+          "anc_00098"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "逐层汇聚门控（LSG）模块",
+        "label": "方法提出",
+        "summary": "提出轻量级MLP门控模块，动态调整每层V-sink与其余视觉token的注意力贡献。",
+        "description": "LSG基于最后一个输入token的隐藏状态预测每层的注意力分配比例，通过下一token预测损失训练，主干网络冻结。",
+        "type": "method",
+        "anchors": [
+          "anc_00100",
+          "anc_00108",
+          "anc_00112",
+          "anc_00115",
+          "anc_00125"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "LSG训练与评估",
+        "label": "实验验证",
+        "summary": "在LLaVA-1.5-7B上训练LSG，并在多模态基准上评估其效果。",
+        "description": "训练使用10K样本，评估包括单层结果、多层堆叠、门控轨迹分析、与LoRA对比等。",
+        "type": "experiment",
+        "anchors": [
+          "anc_00129",
+          "anc_00130",
+          "anc_00131",
+          "anc_00132",
+          "anc_00133",
+          "anc_00134",
+          "anc_00135",
+          "anc_00136",
+          "anc_00138",
+          "anc_00139",
+          "anc_00140",
+          "anc_00141",
+          "anc_00143",
+          "anc_00144",
+          "anc_00145",
+          "anc_00147",
+          "anc_00149",
+          "anc_00151",
+          "anc_00152",
+          "anc_00154",
+          "anc_00156",
+          "anc_00157",
+          "anc_00158",
+          "anc_00159",
+          "anc_00160",
+          "anc_00161",
+          "anc_00163",
+          "anc_00164",
+          "anc_00165",
+          "anc_00166",
+          "anc_00167"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "基于现象分析提出定义",
+        "anchors": [
+          "anc_00011",
+          "anc_00054"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "定义指导探针实验设计",
+        "anchors": [
+          "anc_00076"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "探针结果启发干预实验",
+        "anchors": [
+          "anc_00082",
+          "anc_00083"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "label": "干预实验结果指导方法设计",
+        "anchors": [
+          "anc_00098",
+          "anc_00100"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_005",
+        "target": "node_006",
+        "label": "方法实现与验证",
+        "anchors": [
+          "anc_00125",
+          "anc_00129"
+        ],
+        "description": ""
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00086",
+        "anc_00088"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00100",
+        "anc_00108",
+        "anc_00112",
+        "anc_00115",
+        "anc_00125"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "基线模型中，注意力汇聚token（V-sinks和L-sinks）的注意力权重固定，无法根据输入内容动态调整。",
+        "after": "LSG根据输入内容预测每层的注意力分配比例，动态调整V-sink与其余视觉token的Key向量缩放。",
+        "why_it_matters": "允许模型在全局推理（依赖汇聚）和局部感知（依赖细粒度视觉证据）之间实现内容感知的平衡，提升多任务性能。",
+        "anchors": [
+          "anc_00100",
+          "anc_00108",
+          "anc_00112",
+          "anc_00115",
+          "anc_00125",
+          "anc_00134",
+          "anc_00135",
+          "anc_00136"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "LoRA等参数高效微调方法对所有token一视同仁，未针对汇聚现象进行专门设计。",
+        "after": "LSG专门针对V-sink与其余视觉token的注意力分配进行门控，结构与汇聚分析一致。",
+        "why_it_matters": "LSG的改进源于其针对汇聚的特定结构，而非仅来自额外参数，在空间推理任务上显著优于LoRA。",
+        "anchors": [
+          "anc_00258",
+          "anc_00259",
+          "anc_00261",
+          "anc_00263"
+        ],
+        "delta_id": "delta_2"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\text{Attention}(Q^{(\\ell)}, K^{(\\ell)}, V^{(\\ell)}) = \\text{SoftMax}\\left(\\frac{Q^{(\\ell)} (\\text{diag}(s) \\cdot K^{(\\ell)})^T}{\\sqrt{d_k}}\\right) V^{(\\ell)}",
+        "variables": [
+          {
+            "name": "Q^{(\\ell)}",
+            "description": "第ℓ层的查询矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00086"
+            ]
+          },
+          {
+            "name": "K^{(\\ell)}",
+            "description": "第ℓ层的键矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00086"
+            ]
+          },
+          {
+            "name": "V^{(\\ell)}",
+            "description": "第ℓ层的值矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00086"
+            ]
+          },
+          {
+            "name": "s",
+            "description": "关键门控缩放向量，用于调整不同token组的注意力贡献",
+            "confidence": "high",
+            "anchors": [
+              "anc_00086",
+              "anc_00088"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "通过缩放键向量K来调整不同token组（如V-sink与其余视觉token）在注意力计算中的相对重要性，从而控制它们对最终表示的影响。",
+        "anchors": [
+          "anc_00086",
+          "anc_00088"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "\\rho_{\\text{vit}}^{(\\ell+1)}, \\rho_{\\text{rest}}^{(\\ell+1)} = \\text{Softmax}(g(h_{\\text{last}}^{(\\ell)}))",
+        "variables": [
+          {
+            "name": "\\rho_{\\text{vit}}^{(\\ell+1)}",
+            "description": "第ℓ+1层中V-sink token的注意力贡献比例",
+            "confidence": "high",
+            "anchors": [
+              "anc_00112",
+              "anc_00115"
+            ]
+          },
+          {
+            "name": "\\rho_{\\text{rest}}^{(\\ell+1)}",
+            "description": "第ℓ+1层中其余视觉token的注意力贡献比例",
+            "confidence": "high",
+            "anchors": [
+              "anc_00112",
+              "anc_00115"
+            ]
+          },
+          {
+            "name": "g(\\cdot)",
+            "description": "轻量级2层MLP门控网络",
+            "confidence": "high",
+            "anchors": [
+              "anc_00108"
+            ]
+          },
+          {
+            "name": "h_{\\text{last}}^{(\\ell)}",
+            "description": "第ℓ层最后一个输入token的隐藏状态",
+            "confidence": "high",
+            "anchors": [
+              "anc_00108",
+              "anc_00263"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "LSG的核心公式，基于当前层的输入信号（最后一个token的隐藏状态）预测下一层中V-sink与其余视觉token的注意力分配比例，实现动态、内容感知的调整。",
+        "anchors": [
+          "anc_00108",
+          "anc_00112",
+          "anc_00115"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "\\tilde{K}_j^{(\\ell+1)} = \\begin{cases} \\rho_{\\text{vit}}^{(\\ell+1)} \\cdot K_j^{(\\ell+1)} & \\text{if } j \\in \\text{V-sink} \\\\ \\rho_{\\text{rest}}^{(\\ell+1)} \\cdot K_j^{(\\ell+1)} & \\text{otherwise} \\end{cases}",
+        "variables": [
+          {
+            "name": "\\tilde{K}_j^{(\\ell+1)}",
+            "description": "缩放后的键向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00115"
+            ]
+          },
+          {
+            "name": "K_j^{(\\ell+1)}",
+            "description": "原始键向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00115"
+            ]
+          },
+          {
+            "name": "\\rho_{\\text{vit}}^{(\\ell+1)}, \\rho_{\\text{rest}}^{(\\ell+1)}",
+            "description": "由LSG预测的注意力贡献比例",
+            "confidence": "high",
+            "anchors": [
+              "anc_00112",
+              "anc_00115"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "将预测的比例应用于实际的键向量缩放，直接改变不同token组在注意力计算中的权重，从而影响模型对全局先验和局部证据的利用。",
+        "anchors": [
+          "anc_00115"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "latex": "\\mathcal{L} = -\\sum_t \\log P(x_t | x_{<t})",
+        "variables": [
+          {
+            "name": "\\mathcal{L}",
+            "description": "下一token预测损失",
+            "confidence": "high",
+            "anchors": [
+              "anc_00125"
+            ]
+          },
+          {
+            "name": "P(x_t | x_{<t})",
+            "description": "给定前文预测下一个token的概率",
+            "confidence": "high",
+            "anchors": [
+              "anc_00125"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "LSG的训练目标，仅使用标准的下一token预测损失，无需任务特定监督，保持LVLM主干网络冻结。",
+        "anchors": [
+          "anc_00125"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "description": "在MMStar和CVBench上，LSG单层最佳配置（L10）相比基线分别提升+0.73和+2.14个百分点。",
+        "anchors": [
+          "anc_00134",
+          "anc_00135",
+          "anc_00136"
+        ]
+      },
+      {
+        "description": "多层堆叠配置{L3, L6, L7, L10, L19}在MMStar和CVBench上分别提升+1.55和+3.08个百分点。",
+        "anchors": [
+          "anc_00152",
+          "anc_00154"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "description": "设计选择消融：比较不同门控信号源（最后一个token隐藏状态、均值池化等）、token分组方式（2组vs3组）以及联合训练与贪心堆叠的效果。",
+        "anchors": [
+          "anc_00263",
+          "anc_00265"
+        ]
+      },
+      {
+        "description": "与参数匹配的LoRA基线对比：LSG在MMStar上与LoRA相当（+0.73 vs +0.70），但在CVBench上显著优于LoRA（+2.14 vs -5.30）。",
+        "anchors": [
+          "anc_00258",
+          "anc_00259",
+          "anc_00261"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "description": "门控轨迹分析：L10层的门控能有效区分不同任务（如CVBench子任务收敛到低汇聚比例，MMStar子任务收敛到中等比例），而L2层门控无法区分。",
+        "anchors": [
+          "anc_00163",
+          "anc_00164",
+          "anc_00165"
+        ]
+      },
+      {
+        "description": "跨架构验证：在LLaVA-OneVision-7B上的关键门控网格搜索确认了任务和层依赖模式的持续存在。",
+        "anchors": [
+          "anc_00167",
+          "anc_00296",
+          "anc_00316"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "description": "多层堆叠实验：从单层最佳（L10）开始贪心添加门控层，性能逐步提升但存在次可加性。",
+        "anchors": [
+          "anc_00151",
+          "anc_00152",
+          "anc_00154",
+          "anc_00156",
+          "anc_00157",
+          "anc_00158"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "description": "线性探针案例：在CLEVR数据集上，汇聚token（V-sink和L-sink）在物体计数等全局属性上显著优于普通视觉token，且信息在深层保持稳定。",
+        "anchors": [
+          "anc_00076",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081",
+          "anc_00082"
+        ]
+      }
+    ],
+    "human_eval": [],
+    "benchmark": [
+      {
+        "name": "MMStar",
+        "description": "多模态基准，包含6个子任务（如计数、深度、推理等）。",
+        "anchors": [
+          "anc_00092",
+          "anc_00094",
+          "anc_00132"
+        ]
+      },
+      {
+        "name": "CVBench",
+        "description": "视觉空间推理基准，包含4个子任务（如计数、深度、距离、关系）。",
+        "anchors": [
+          "anc_00092",
+          "anc_00094",
+          "anc_00132"
+        ]
+      },
+      {
+        "name": "OCRBench",
+        "description": "文本识别基准。",
+        "anchors": [
+          "anc_00278",
+          "anc_00279"
+        ]
+      },
+      {
+        "name": "MathVista",
+        "description": "数学推理基准。",
+        "anchors": [
+          "anc_00278",
+          "anc_00279"
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "description": "LSG每个门控模块仅包含约262K参数，训练时主干网络冻结，仅需10K样本和2个epoch。",
+        "anchors": [
+          "anc_00130",
+          "anc_00131",
+          "anc_00132",
+          "anc_00220"
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "description": "在MMStar和CVBench上，LSG单层最佳配置（L10）相比基线分别提升+0.73和+2.14个百分点。",
+        "anchors": [
+          "anc_00134",
+          "anc_00135",
+          "anc_00136"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "main_result_1",
+        "dataset": [
+          "MMStar",
+          "CVBench"
+        ],
+        "baseline": [
+          "LLaVA-1.5-7B"
+        ],
+        "metrics": [
+          "Accuracy Change (%p)"
+        ],
+        "result_summary": "在MMStar和CVBench上，LSG单层最佳配置（L10）相比基线分别提升+0.73和+2.14个百分点。",
+        "what_it_tries_to_prove": "LSG在单层配置下能有效提升多模态基准性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "多层堆叠配置{L3, L6, L7, L10, L19}在MMStar和CVBench上分别提升+1.55和+3.08个百分点。",
+        "anchors": [
+          "anc_00152",
+          "anc_00154"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "main_result",
+        "name": "main_result_2",
+        "dataset": [
+          "MMStar",
+          "CVBench"
+        ],
+        "baseline": [
+          "LLaVA-1.5-7B"
+        ],
+        "metrics": [
+          "Accuracy Change (%p)"
+        ],
+        "result_summary": "多层堆叠配置{L3, L6, L7, L10, L19}在MMStar和CVBench上分别提升+1.55和+3.08个百分点。",
+        "what_it_tries_to_prove": "多层堆叠LSG能进一步提升性能，但存在次可加性。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "设计选择消融：比较不同门控信号源（最后一个token隐藏状态、均值池化等）、token分组方式（2组vs3组）以及联合训练与贪心堆叠的效果。",
+        "anchors": [
+          "anc_00263",
+          "anc_00265"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "ablation",
+        "name": "ablation_3",
+        "dataset": [
+          "MMStar",
+          "CVBench"
+        ],
+        "baseline": [
+          "LSG default"
+        ],
+        "metrics": [
+          "Accuracy Change (%p)"
+        ],
+        "result_summary": "设计选择消融：比较不同门控信号源（最后一个token隐藏状态、均值池化等）、token分组方式（2组vs3组）以及联合训练与贪心堆叠的效果。",
+        "what_it_tries_to_prove": "LSG设计选择的合理性和最优配置。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "与参数匹配的LoRA基线对比：LSG在MMStar上与LoRA相当（+0.73 vs +0.70），但在CVBench上显著优于LoRA（+2.14 vs -5.30）。",
+        "anchors": [
+          "anc_00258",
+          "anc_00259",
+          "anc_00261"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "ablation",
+        "name": "ablation_4",
+        "dataset": [
+          "MMStar",
+          "CVBench"
+        ],
+        "baseline": [
+          "LoRA rank-8"
+        ],
+        "metrics": [
+          "Accuracy Change (%p)"
+        ],
+        "result_summary": "与参数匹配的LoRA基线对比：LSG在MMStar上与LoRA相当（+0.73 vs +0.70），但在CVBench上显著优于LoRA（+2.14 vs -5.30）。",
+        "what_it_tries_to_prove": "LSG的改进源于其针对汇聚的特定结构，而非仅来自额外参数。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "门控轨迹分析：L10层的门控能有效区分不同任务（如CVBench子任务收敛到低汇聚比例，MMStar子任务收敛到中等比例），而L2层门控无法区分。",
+        "anchors": [
+          "anc_00163",
+          "anc_00164",
+          "anc_00165"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "robustness",
+        "name": "robustness_5",
+        "dataset": [
+          "MMStar",
+          "CVBench"
+        ],
+        "baseline": [
+          "LLaVA-1.5-7B"
+        ],
+        "metrics": [
+          "Gate Ratio (ρ_vit)"
+        ],
+        "result_summary": "门控轨迹分析：L10层的门控能有效区分不同任务（如CVBench子任务收敛到低汇聚比例，MMStar子任务收敛到中等比例），而L2层门控无法区分。",
+        "what_it_tries_to_prove": "LSG在有效层能学习到任务特定的门控策略。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "跨架构验证：在LLaVA-OneVision-7B上的关键门控网格搜索确认了任务和层依赖模式的持续存在。",
+        "anchors": [
+          "anc_00167",
+          "anc_00296",
+          "anc_00316"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "robustness",
+        "name": "robustness_6",
+        "dataset": [
+          "MMStar",
+          "CVBench"
+        ],
+        "baseline": [
+          "LLaVA-OneVision-7B"
+        ],
+        "metrics": [
+          "Accuracy Change (%p)"
+        ],
+        "result_summary": "跨架构验证：在LLaVA-OneVision-7B上的关键门控网格搜索确认了任务和层依赖模式的持续存在。",
+        "what_it_tries_to_prove": "LSG的发现和效果在不同架构上具有泛化性。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "多层堆叠实验：从单层最佳（L10）开始贪心添加门控层，性能逐步提升但存在次可加性。",
+        "anchors": [
+          "anc_00151",
+          "anc_00152",
+          "anc_00154",
+          "anc_00156",
+          "anc_00157",
+          "anc_00158"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "scaling",
+        "name": "scaling_7",
+        "dataset": [
+          "MMStar",
+          "CVBench"
+        ],
+        "baseline": [
+          "LLaVA-1.5-7B"
+        ],
+        "metrics": [
+          "Accuracy Change (%p)"
+        ],
+        "result_summary": "多层堆叠实验：从单层最佳（L10）开始贪心添加门控层，性能逐步提升但存在次可加性。",
+        "what_it_tries_to_prove": "多层堆叠LSG的累积效果和次可加性现象。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "线性探针案例：在CLEVR数据集上，汇聚token（V-sink和L-sink）在物体计数等全局属性上显著优于普通视觉token，且信息在深层保持稳定。",
+        "anchors": [
+          "anc_00076",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081",
+          "anc_00082"
+        ],
+        "experiment_id": "experiment_8",
+        "type": "case_study",
+        "name": "case_study_8",
+        "dataset": [
+          "CLEVR"
+        ],
+        "baseline": [
+          "Ordinary visual tokens"
+        ],
+        "metrics": [
+          "Probing Accuracy"
+        ],
+        "result_summary": "线性探针案例：在CLEVR数据集上，汇聚token（V-sink和L-sink）在物体计数等全局属性上显著优于普通视觉token，且信息在深层保持稳定。",
+        "what_it_tries_to_prove": "汇聚token编码全局场景先验，有利于粗粒度推理。",
+        "evidence_strength": "strong"
+      },
+      {
+        "name": "MMStar",
+        "description": "多模态基准，包含6个子任务（如计数、深度、推理等）。",
+        "anchors": [
+          "anc_00092",
+          "anc_00094",
+          "anc_00132"
+        ],
+        "experiment_id": "experiment_9",
+        "type": "benchmark",
+        "dataset": [
+          "MMStar"
+        ],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "多模态基准，包含6个子任务（如计数、深度、推理等）。",
+        "what_it_tries_to_prove": "评估LSG在多模态理解任务上的性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "name": "CVBench",
+        "description": "视觉空间推理基准，包含4个子任务（如计数、深度、距离、关系）。",
+        "anchors": [
+          "anc_00092",
+          "anc_00094",
+          "anc_00132"
+        ],
+        "experiment_id": "experiment_10",
+        "type": "benchmark",
+        "dataset": [
+          "CVBench"
+        ],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "视觉空间推理基准，包含4个子任务（如计数、深度、距离、关系）。",
+        "what_it_tries_to_prove": "评估LSG在视觉空间推理任务上的性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "name": "OCRBench",
+        "description": "文本识别基准。",
+        "anchors": [
+          "anc_00278",
+          "anc_00279"
+        ],
+        "experiment_id": "experiment_11",
+        "type": "benchmark",
+        "dataset": [
+          "OCRBench"
+        ],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "文本识别基准。",
+        "what_it_tries_to_prove": "评估LSG在文本识别任务上的性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "name": "MathVista",
+        "description": "数学推理基准。",
+        "anchors": [
+          "anc_00278",
+          "anc_00279"
+        ],
+        "experiment_id": "experiment_12",
+        "type": "benchmark",
+        "dataset": [
+          "MathVista"
+        ],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "数学推理基准。",
+        "what_it_tries_to_prove": "评估LSG在数学推理任务上的性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "LSG每个门控模块仅包含约262K参数，训练时主干网络冻结，仅需10K样本和2个epoch。",
+        "anchors": [
+          "anc_00130",
+          "anc_00131",
+          "anc_00132",
+          "anc_00220"
+        ],
+        "experiment_id": "experiment_13",
+        "type": "efficiency",
+        "name": "efficiency_13",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [
+          "Parameter Count",
+          "Training Samples",
+          "Epochs"
+        ],
+        "result_summary": "LSG每个门控模块仅包含约262K参数，训练时主干网络冻结，仅需10K样本和2个epoch。",
+        "what_it_tries_to_prove": "LSG的轻量级和高效训练特性。",
+        "evidence_strength": "strong"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "LVLM中的视觉汇聚可分为V-sinks（ViT涌现）和L-sinks（LLM涌现）两类，具有不同计算起源。",
+        "evidence_source_type": "实验分析（激活范数分析、阈值标准）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00011",
+          "anc_00054",
+          "anc_00055",
+          "anc_00070",
+          "anc_00220"
+        ],
+        "risk_flags": [
+          "分类标准基于阈值，可能存在边界情况。"
+        ],
+        "claim_id": "claim_1",
+        "evidence": [
+          {
+            "evidence_id": "evidence_1_1",
+            "description": "通过激活范数分析和阈值标准，将视觉token分为V-sinks（在ViT中已满足汇聚标准）和L-sinks（在LLM深层中涌现）。",
+            "anchors": [
+              "anc_00011",
+              "anc_00054",
+              "anc_00055",
+              "anc_00070"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim": "汇聚token编码全局场景先验（如物体计数），有利于粗粒度推理，但会抑制细粒度视觉证据（如颜色、形状）。",
+        "evidence_source_type": "线性探针实验、关键门控干预实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00076",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081",
+          "anc_00082",
+          "anc_00092",
+          "anc_00094",
+          "anc_00096",
+          "anc_00098"
+        ],
+        "risk_flags": [
+          "探针任务有限，可能未覆盖所有场景属性。"
+        ],
+        "claim_id": "claim_2",
+        "evidence": [
+          {
+            "evidence_id": "evidence_2_1",
+            "description": "线性探针实验显示，汇聚token在物体计数等全局属性上显著优于普通视觉token，且信息在深层保持稳定。",
+            "anchors": [
+              "anc_00076",
+              "anc_00079",
+              "anc_00080",
+              "anc_00081",
+              "anc_00082"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_2_2",
+            "description": "关键门控干预实验显示，调整汇聚注意力对不同任务有不同影响，表明汇聚编码全局先验但可能抑制细粒度证据。",
+            "anchors": [
+              "anc_00092",
+              "anc_00094",
+              "anc_00096",
+              "anc_00098"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim": "LSG能有效平衡全局推理与局部感知，在多数层和任务上带来性能提升。",
+        "evidence_source_type": "LSG训练与评估实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00134",
+          "anc_00135",
+          "anc_00136",
+          "anc_00152",
+          "anc_00154",
+          "anc_00167"
+        ],
+        "risk_flags": [
+          "改进在不同层和任务间存在差异，某些配置可能带来负面影响。"
+        ],
+        "claim_id": "claim_3",
+        "evidence": [
+          {
+            "evidence_id": "evidence_3_1",
+            "description": "LSG单层最佳配置（L10）在MMStar和CVBench上分别提升+0.73和+2.14个百分点。",
+            "anchors": [
+              "anc_00134",
+              "anc_00135",
+              "anc_00136"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_3_2",
+            "description": "多层堆叠配置{L3, L6, L7, L10, L19}在MMStar和CVBench上分别提升+1.55和+3.08个百分点。",
+            "anchors": [
+              "anc_00152",
+              "anc_00154"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_3_3",
+            "description": "跨架构验证在LLaVA-OneVision-7B上确认了任务和层依赖模式的持续存在。",
+            "anchors": [
+              "anc_00167"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim": "LSG的改进源于其针对汇聚的特定结构，而非仅来自额外参数。",
+        "evidence_source_type": "与LoRA基线的对比实验",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00258",
+          "anc_00259",
+          "anc_00261",
+          "anc_00263"
+        ],
+        "risk_flags": [
+          "仅与一种参数高效方法（LoRA）对比，可能未完全排除其他因素。"
+        ],
+        "claim_id": "claim_4",
+        "evidence": [
+          {
+            "evidence_id": "evidence_4_1",
+            "description": "与参数匹配的LoRA基线对比：LSG在MMStar上与LoRA相当（+0.73 vs +0.70），但在CVBench上显著优于LoRA（+2.14 vs -5.30）。",
+            "anchors": [
+              "anc_00258",
+              "anc_00259",
+              "anc_00261"
+            ],
+            "strength": "中"
+          }
+        ]
+      },
+      {
+        "claim": "LSG的门控在跨模态信息传递活跃的中间层（如LLaVA-1.5的L3-L19）最有效。",
+        "evidence_source_type": "门控轨迹分析、层间性能对比",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00163",
+          "anc_00164",
+          "anc_00165",
+          "anc_00166",
+          "anc_00167"
+        ],
+        "risk_flags": [
+          "结论基于特定模型架构（LLaVA-1.5），跨架构泛化性需进一步验证。"
+        ],
+        "claim_id": "claim_5",
+        "evidence": [
+          {
+            "evidence_id": "evidence_5_1",
+            "description": "门控轨迹分析显示，L10层的门控能有效区分不同任务，而L2层门控无法区分。",
+            "anchors": [
+              "anc_00163",
+              "anc_00164",
+              "anc_00165"
+            ],
+            "strength": "中"
+          },
+          {
+            "evidence_id": "evidence_5_2",
+            "description": "跨模态信息传递集中在LLaVA-1.5的L3-L19层，LSG在这些层最有效。",
+            "anchors": [
+              "anc_00166",
+              "anc_00167"
+            ],
+            "strength": "中"
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "attention_sink": "注意力汇聚，指在Transformer模型中吸引不成比例注意力权重的token。",
+    "V-sink": "ViT涌现的汇聚，指在视觉编码器（ViT）中已满足汇聚标准的token，其激活范数异常大。",
+    "L-sink": "LLM涌现的汇聚，指在大型语言模型（LLM）深层中涌现的token，其激活范数异常大。",
+    "LSG": "逐层汇聚门控，本文提出的轻量级MLP模块，用于动态调整每层V-sink与其余视觉token的注意力贡献比例。",
+    "key_gating": "关键门控，通过缩放键向量（Key）来调整不同token组注意力贡献的技术。",
+    "cross-modal_transfer": "跨模态信息传递，指视觉信息从视觉编码器传递到语言模型的过程。",
+    "global_prior": "全局先验，指汇聚token编码的场景级摘要信息，如物体数量、整体布局等。",
+    "local_perception": "局部感知，指模型对细粒度视觉证据（如颜色、形状、纹理）的利用能力。",
+    "next-token_prediction": "下一token预测，语言模型的标准训练目标，预测序列中的下一个token。",
+    "linear_probing": "线性探针，在冻结的模型表示上训练线性分类器，以评估表示中编码的信息。",
+    "terms": []
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        {
+          "name": "Cambrian-7M",
+          "description": "用于LSG训练的10K分层样本来源。",
+          "anchors": [
+            "anc_00129",
+            "anc_00220"
+          ]
+        },
+        {
+          "name": "CLEVR",
+          "description": "用于线性探针实验的合成数据集。",
+          "anchors": [
+            "anc_00076"
+          ]
+        },
+        {
+          "name": "MMStar",
+          "description": "多模态评估基准。",
+          "anchors": [
+            "anc_00092",
+            "anc_00094",
+            "anc_00132"
+          ]
+        },
+        {
+          "name": "CVBench",
+          "description": "视觉空间推理评估基准。",
+          "anchors": [
+            "anc_00092",
+            "anc_00094",
+            "anc_00132"
+          ]
+        }
+      ],
+      "required_models": [
+        {
+          "name": "LLaVA-1.5-7B",
+          "description": "主要实验使用的大型视觉语言模型。",
+          "anchors": [
+            "anc_00129",
+            "anc_00220"
+          ]
+        },
+        {
+          "name": "LLaVA-OneVision-7B",
+          "description": "用于跨架构验证的模型。",
+          "anchors": [
+            "anc_00167",
+            "anc_00296"
+          ]
+        }
+      ],
+      "compute": [
+        {
+          "description": "训练使用8块RTX 3090 GPU，每设备批量大小8，梯度累积2步。",
+          "anchors": [
+            "anc_00220"
+          ]
+        }
+      ],
+      "code_available": "论文未明确提及代码是否公开。",
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 准备LLaVA-1.5-7B预训练模型并冻结。",
+          "anchors": [
+            "anc_00129",
+            "anc_00220"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 从Cambrian-7M中采样10K分层样本作为训练数据。",
+          "anchors": [
+            "anc_00129",
+            "anc_00220"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 实现LSG门控模块：一个2层MLP（输入维度4096，隐藏层64，输出2），初始化为ρ_vit=0.5。",
+          "anchors": [
+            "anc_00108",
+            "anc_00130",
+            "anc_00131"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "4. 在LLM的每一层（共32层）独立插入LSG模块。",
+          "anchors": [
+            "anc_00132"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "5. 使用下一token预测损失训练LSG模块，主干网络保持冻结。",
+          "anchors": [
+            "anc_00125",
+            "anc_00129"
+          ]
+        },
+        {
+          "step": "step_6",
+          "description": "6. 在MMStar和CVBench上评估单层和多层堆叠配置。",
+          "anchors": [
+            "anc_00132",
+            "anc_00134",
+            "anc_00135",
+            "anc_00136",
+            "anc_00152",
+            "anc_00154"
+          ]
+        },
+        {
+          "step": "step_7",
+          "description": "7. 进行消融实验：比较不同门控信号源、token分组方式、与LoRA基线对比等。",
+          "anchors": [
+            "anc_00258",
+            "anc_00259",
+            "anc_00261",
+            "anc_00263",
+            "anc_00265"
+          ]
+        },
+        {
+          "step": "step_8",
+          "description": "8. 进行门控轨迹分析，研究不同层门控的学习动态。",
+          "anchors": [
+            "anc_00163",
+            "anc_00164",
+            "anc_00165"
+          ]
+        }
+      ],
+      "missing_details": [
+        "论文未提供代码仓库链接。",
+        "Cambrian-7M数据集的具体采样策略细节未完全说明。",
+        "LSG模块的初始化细节（如权重初始化方法）未详细说明。"
+      ],
+      "risk_points": [
+        "LSG的改进在不同层和任务间存在差异，某些配置可能带来负面影响。",
+        "多层堆叠存在次可加性，联合训练可能进一步提升但未充分探索。",
+        "实验主要基于LLaVA-1.5-7B，跨架构泛化性需进一步验证。"
+      ]
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-03T14:09:12+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_attention_sinks_lvlm_2026",
+    "title": "When Sinks Help or Hurt: Unified Framework for Attention Sink in Large Vision-Language Models",
+    "authors": [
+      "Jiho Choi",
+      "Jaemin Kim",
+      "Sanghwan Kim",
+      "Seunghoon Hong",
+      "Jin-Hwi Park"
+    ],
+    "venue": "arXiv",
+    "year": 2026,
+    "arxiv_id": "2604.03316",
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-03T14:07:27+00:00",
+    "paper_type": "Large Vision-Language Model / Attention Sink / Multimodal method paper",
+    "selection_source": "manual_user_requested_2026_05_03",
+    "open_access_pdf_url": "https://arxiv.org/pdf/2604.03316",
+    "fields_of_study": [
+      "Computer Science",
+      "Computer Vision",
+      "Machine Learning"
+    ],
+    "publication_types": [
+      "Preprint"
+    ],
+    "abstract": "This paper analyzes attention sinks in large vision-language models by separating visual sinks that propagate from the vision encoder from sinks that emerge in the language model. It studies when these sinks help global reasoning and when they suppress fine-grained visual evidence, and introduces a lightweight layer-wise gating method."
+  }
+}

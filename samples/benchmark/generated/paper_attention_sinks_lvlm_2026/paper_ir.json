@@ -1,0 +1,3846 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "大型视觉语言模型（LVLM）中的注意力汇聚（attention sink）现象及其跨模态影响尚不明确，不清楚它们是冗余的伪影还是必要的全局先验。",
+      "anchors": [
+        "anc_00011",
+        "anc_00016",
+        "anc_00017",
+        "anc_00018"
+      ]
+    },
+    "motivation": {
+      "summary": "现有研究主要关注单模态Transformer中的注意力汇聚，但其在LVLM中的起源、功能和影响缺乏系统分析，特别是视觉汇聚与语言汇聚的区分及其对全局推理与局部感知的权衡效应。",
+      "anchors": [
+        "anc_00016",
+        "anc_00017",
+        "anc_00018",
+        "anc_00020"
+      ]
+    },
+    "core_idea": {
+      "summary": "提出统一框架，将LVLM中的视觉汇聚分为两类：ViT涌现的汇聚（V-sinks）和LLM涌现的汇聚（L-sinks），并揭示它们编码全局场景先验但会抑制细粒度视觉证据的权衡关系。基于此，提出轻量级的逐层汇聚门控（LSG）模块，动态调整V-sink与其余视觉token的注意力贡献。",
+      "anchors": [
+        "anc_00011",
+        "anc_00012",
+        "anc_00013",
+        "anc_00020"
+      ]
+    },
+    "method": {
+      "summary": "LSG是一个轻量级MLP门控模块，插入LLM层之间，基于最后一个输入token的隐藏状态预测每层的V-sink与其余视觉token的注意力贡献比例。通过标准的下一token预测损失训练，LVLM主干网络保持冻结。",
+      "anchors": [
+        "anc_00100",
+        "anc_00108",
+        "anc_00112",
+        "anc_00115",
+        "anc_00125"
+      ]
+    },
+    "experiments": {
+      "summary": "在LLaVA-1.5-7B上应用LSG，在MMStar和CVBench等多模态基准上进行评估。实验包括单层结果、多层堆叠、门控轨迹分析、与LoRA基线的对比、设计选择消融以及更广泛的基准评估。",
+      "anchors": [
+        "anc_00128",
+        "anc_00129",
+        "anc_00130",
+        "anc_00131",
+        "anc_00132",
+        "anc_00133",
+        "anc_00134",
+        "anc_00135",
+        "anc_00136"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "1. LVLM中的视觉汇聚可分为V-sinks和L-sinks两类，具有不同计算起源。2. 这些汇聚编码全局场景先验，有利于粗粒度推理但损害细粒度感知。3. LSG能有效平衡全局推理与局部感知，在多数层带来性能提升。4. LSG的改进源于其针对汇聚的特定结构，而非仅来自额外参数。",
+        "anchors": [
+          "anc_00011",
+          "anc_00012",
+          "anc_00013",
+          "anc_00020",
+          "anc_00076",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081",
+          "anc_00082",
+          "anc_00134",
+          "anc_00135",
+          "anc_00136",
+          "anc_00258",
+          "anc_00259",
+          "anc_00261",
+          "anc_00263"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "1. LSG的改进在不同层和任务间存在差异，某些层或任务可能带来负面影响。2. 多层堆叠存在次可加性，联合训练可能进一步提升但未充分探索。3. 实验主要基于LLaVA-1.5-7B，跨架构泛化性需进一步验证。4. 门控信号仅使用最后一个输入token的隐藏状态，可能限制其表达能力。",
+        "anchors": [
+          "anc_00147",
+          "anc_00156",
+          "anc_00157",
+          "anc_00158",
+          "anc_00159",
+          "anc_00160",
+          "anc_00161",
+          "anc_00167",
+          "anc_00263"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "注意力汇聚现象分析",
+        "label": "问题定义",
+        "summary": "分析LVLM中的注意力汇聚现象，区分V-sinks和L-sinks，并研究其功能。",
+        "description": "通过线性探针和网格搜索等方法，研究V-sinks和L-sinks在编码场景信息、影响下游任务方面的差异。",
+        "type": "analysis",
+        "anchors": [
+          "anc_00011",
+          "anc_00016",
+          "anc_00020",
+          "anc_00076",
+          "anc_00079",
+          "anc_00082"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "V-sinks与L-sinks定义",
+        "label": "概念定义",
+        "summary": "定义ViT涌现的汇聚（V-sinks）和LLM涌现的汇聚（L-sinks）。",
+        "description": "V-sinks是在视觉编码器中已满足汇聚标准的token，L-sinks是在LLM深层中涌现的token。使用基于激活范数的阈值标准进行识别。",
+        "type": "definition",
+        "anchors": [
+          "anc_00011",
+          "anc_00054",
+          "anc_00055",
+          "anc_00070"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "线性探针实验",
+        "label": "实验分析",
+        "summary": "在CLEVR数据集上进行线性探针，研究汇聚token编码的场景属性。",
+        "description": "探针任务包括物体计数、颜色、形状和大小，以评估汇聚token在不同LLM层中保留的场景信息粒度。",
+        "type": "experiment",
+        "anchors": [
+          "anc_00076",
+          "anc_00077",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081",
+          "anc_00082"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "关键门控干预实验",
+        "label": "实验分析",
+        "summary": "通过网格搜索关键门控系数，研究调整汇聚注意力对下游任务的影响。",
+        "description": "在MMStar和CVBench上评估不同层和任务下，调整V-sink与其余视觉token注意力比例的效果。",
+        "type": "experiment",
+        "anchors": [
+          "anc_00086",
+          "anc_00088",
+          "anc_00090",
+          "anc_00092",
+          "anc_00094",
+          "anc_00096",
+          "anc_00098"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "逐层汇聚门控（LSG）模块",
+        "label": "方法提出",
+        "summary": "提出轻量级MLP门控模块，动态调整每层V-sink与其余视觉token的注意力贡献。",
+        "description": "LSG基于最后一个输入token的隐藏状态预测每层的注意力分配比例，通过下一token预测损失训练，主干网络冻结。",
+        "type": "method",
+        "anchors": [
+          "anc_00100",
+          "anc_00108",
+          "anc_00112",
+          "anc_00115",
+          "anc_00125"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "LSG训练与评估",
+        "label": "实验验证",
+        "summary": "在LLaVA-1.5-7B上训练LSG，并在多模态基准上评估其效果。",
+        "description": "训练使用10K样本，评估包括单层结果、多层堆叠、门控轨迹分析、与LoRA对比等。",
+        "type": "experiment",
+        "anchors": [
+          "anc_00129",
+          "anc_00130",
+          "anc_00131",
+          "anc_00132",
+          "anc_00133",
+          "anc_00134",
+          "anc_00135",
+          "anc_00136",
+          "anc_00138",
+          "anc_00139",
+          "anc_00140",
+          "anc_00141",
+          "anc_00143",
+          "anc_00144",
+          "anc_00145",
+          "anc_00147",
+          "anc_00149",
+          "anc_00151",
+          "anc_00152",
+          "anc_00154",
+          "anc_00156",
+          "anc_00157",
+          "anc_00158",
+          "anc_00159",
+          "anc_00160",
+          "anc_00161",
+          "anc_00163",
+          "anc_00164",
+          "anc_00165",
+          "anc_00166",
+          "anc_00167"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "基于现象分析提出定义",
+        "anchors": [
+          "anc_00011",
+          "anc_00054"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "定义指导探针实验设计",
+        "anchors": [
+          "anc_00076"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "探针结果启发干预实验",
+        "anchors": [
+          "anc_00082",
+          "anc_00083"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "label": "干预实验结果指导方法设计",
+        "anchors": [
+          "anc_00098",
+          "anc_00100"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_005",
+        "target": "node_006",
+        "label": "方法实现与验证",
+        "anchors": [
+          "anc_00125",
+          "anc_00129"
+        ],
+        "description": ""
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00086",
+        "anc_00088"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00100",
+        "anc_00108",
+        "anc_00112",
+        "anc_00115",
+        "anc_00125"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "基线模型中，注意力汇聚token（V-sinks和L-sinks）的注意力权重固定，无法根据输入内容动态调整。",
+        "after": "LSG根据输入内容预测每层的注意力分配比例，动态调整V-sink与其余视觉token的Key向量缩放。",
+        "why_it_matters": "允许模型在全局推理（依赖汇聚）和局部感知（依赖细粒度视觉证据）之间实现内容感知的平衡，提升多任务性能。",
+        "anchors": [
+          "anc_00100",
+          "anc_00108",
+          "anc_00112",
+          "anc_00115",
+          "anc_00125",
+          "anc_00134",
+          "anc_00135",
+          "anc_00136"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "LoRA等参数高效微调方法对所有token一视同仁，未针对汇聚现象进行专门设计。",
+        "after": "LSG专门针对V-sink与其余视觉token的注意力分配进行门控，结构与汇聚分析一致。",
+        "why_it_matters": "LSG的改进源于其针对汇聚的特定结构，而非仅来自额外参数，在空间推理任务上显著优于LoRA。",
+        "anchors": [
+          "anc_00258",
+          "anc_00259",
+          "anc_00261",
+          "anc_00263"
+        ],
+        "delta_id": "delta_2"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\text{Attention}(Q^{(\\ell)}, K^{(\\ell)}, V^{(\\ell)}) = \\text{SoftMax}\\left(\\frac{Q^{(\\ell)} (\\text{diag}(s) \\cdot K^{(\\ell)})^T}{\\sqrt{d_k}}\\right) V^{(\\ell)}",
+        "variables": [
+          {
+            "name": "Q^{(\\ell)}",
+            "description": "第ℓ层的查询矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00086"
+            ]
+          },
+          {
+            "name": "K^{(\\ell)}",
+            "description": "第ℓ层的键矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00086"
+            ]
+          },
+          {
+            "name": "V^{(\\ell)}",
+            "description": "第ℓ层的值矩阵",
+            "confidence": "high",
+            "anchors": [
+              "anc_00086"
+            ]
+          },
+          {
+            "name": "s",
+            "description": "关键门控缩放向量，用于调整不同token组的注意力贡献",
+            "confidence": "high",
+            "anchors": [
+              "anc_00086",
+              "anc_00088"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "通过缩放键向量K来调整不同token组（如V-sink与其余视觉token）在注意力计算中的相对重要性，从而控制它们对最终表示的影响。",
+        "anchors": [
+          "anc_00086",
+          "anc_00088"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "\\rho_{\\text{vit}}^{(\\ell+1)}, \\rho_{\\text{rest}}^{(\\ell+1)} = \\text{Softmax}(g(h_{\\text{last}}^{(\\ell)}))",
+        "variables": [
+          {
+            "name": "\\rho_{\\text{vit}}^{(\\ell+1)}",
+            "description": "第ℓ+1层中V-sink token的注意力贡献比例",
+            "confidence": "high",
+            "anchors": [
+              "anc_00112",
+              "anc_00115"
+            ]
+          },
+          {
+            "name": "\\rho_{\\text{rest}}^{(\\ell+1)}",
+            "description": "第ℓ+1层中其余视觉token的注意力贡献比例",
+            "confidence": "high",
+            "anchors": [
+              "anc_00112",
+              "anc_00115"
+            ]
+          },
+          {
+            "name": "g(\\cdot)",
+            "description": "轻量级2层MLP门控网络",
+            "confidence": "high",
+            "anchors": [
+              "anc_00108"
+            ]
+          },
+          {
+            "name": "h_{\\text{last}}^{(\\ell)}",
+            "description": "第ℓ层最后一个输入token的隐藏状态",
+            "confidence": "high",
+            "anchors": [
+              "anc_00108",
+              "anc_00263"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "LSG的核心公式，基于当前层的输入信号（最后一个token的隐藏状态）预测下一层中V-sink与其余视觉token的注意力分配比例，实现动态、内容感知的调整。",
+        "anchors": [
+          "anc_00108",
+          "anc_00112",
+          "anc_00115"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "\\tilde{K}_j^{(\\ell+1)} = \\begin{cases} \\rho_{\\text{vit}}^{(\\ell+1)} \\cdot K_j^{(\\ell+1)} & \\text{if } j \\in \\text{V-sink} \\\\ \\rho_{\\text{rest}}^{(\\ell+1)} \\cdot K_j^{(\\ell+1)} & \\text{otherwise} \\end{cases}",
+        "variables": [
+          {
+            "name": "\\tilde{K}_j^{(\\ell+1)}",
+            "description": "缩放后的键向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00115"
+            ]
+          },
+          {
+            "name": "K_j^{(\\ell+1)}",
+            "description": "原始键向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00115"
+            ]
+          },
+          {
+            "name": "\\rho_{\\text{vit}}^{(\\ell+1)}, \\rho_{\\text{rest}}^{(\\ell+1)}",
+            "description": "由LSG预测的注意力贡献比例",
+            "confidence": "high",
+            "anchors": [
+              "anc_00112",
+              "anc_00115"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "将预测的比例应用于实际的键向量缩放，直接改变不同token组在注意力计算中的权重，从而影响模型对全局先验和局部证据的利用。",
+        "anchors": [
+          "anc_00115"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "latex": "\\mathcal{L} = -\\sum_t \\log P(x_t | x_{<t})",
+        "variables": [
+          {
+            "name": "\\mathcal{L}",
+            "description": "下一token预测损失",
+            "confidence": "high",
+            "anchors": [
+              "anc_00125"
+            ]
+          },
+          {
+            "name": "P(x_t | x_{<t})",
+            "description": "给定前文预测下一个token的概率",
+            "confidence": "high",
+            "anchors": [
+              "anc_00125"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "LSG的训练目标，仅使用标准的下一token预测损失，无需任务特定监督，保持LVLM主干网络冻结。",
+        "anchors": [
+          "anc_00125"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "description": "在MMStar和CVBench上，LSG单层最佳配置（L10）相比基线分别提升+0.73和+2.14个百分点。",
+        "anchors": [
+          "anc_00134",
+          "anc_00135",
+          "anc_00136"
+        ]
+      },
+      {
+        "description": "多层堆叠配置{L3, L6, L7, L10, L19}在MMStar和CVBench上分别提升+1.55和+3.08个百分点。",
+        "anchors": [
+          "anc_00152",
+          "anc_00154"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "description": "设计选择消融：比较不同门控信号源（最后一个token隐藏状态、均值池化等）、token分组方式（2组vs3组）以及联合训练与贪心堆叠的效果。",
+        "anchors": [
+          "anc_00263",
+          "anc_00265"
+        ]
+      },
+      {
+        "description": "与参数匹配的LoRA基线对比：LSG在MMStar上与LoRA相当（+0.73 vs +0.70），但在CVBench上显著优于LoRA（+2.14 vs -5.30）。",
+        "anchors": [
+          "anc_00258",
+          "anc_00259",
+          "anc_00261"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "description": "门控轨迹分析：L10层的门控能有效区分不同任务（如CVBench子任务收敛到低汇聚比例，MMStar子任务收敛到中等比例），而L2层门控无法区分。",
+        "anchors": [
+          "anc_00163",
+          "anc_00164",
+          "anc_00165"
+        ]
+      },
+      {
+        "description": "跨架构验证：在LLaVA-OneVision-7B上的关键门控网格搜索确认了任务和层依赖模式的持续存在。",
+        "anchors": [
+          "anc_00167",
+          "anc_00296",
+          "anc_00316"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "description": "多层堆叠实验：从单层最佳（L10）开始贪心添加门控层，性能逐步提升但存在次可加性。",
+        "anchors": [
+          "anc_00151",
+          "anc_00152",
+          "anc_00154",
+          "anc_00156",
+          "anc_00157",
+          "anc_00158"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "description": "线性探针案例：在CLEVR数据集上，汇聚token（V-sink和L-sink）在物体计数等全局属性上显著优于普通视觉token，且信息在深层保持稳定。",
+        "anchors": [
+          "anc_00076",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081",
+          "anc_00082"
+        ]
+      }
+    ],
+    "human_eval": [],
+    "benchmark": [
+      {
+        "name": "MMStar",
+        "description": "多模态基准，包含6个子任务（如计数、深度、推理等）。",
+        "anchors": [
+          "anc_00092",
+          "anc_00094",
+          "anc_00132"
+        ]
+      },
+      {
+        "name": "CVBench",
+        "description": "视觉空间推理基准，包含4个子任务（如计数、深度、距离、关系）。",
+        "anchors": [
+          "anc_00092",
+          "anc_00094",
+          "anc_00132"
+        ]
+      },
+      {
+        "name": "OCRBench",
+        "description": "文本识别基准。",
+        "anchors": [
+          "anc_00278",
+          "anc_00279"
+        ]
+      },
+      {
+        "name": "MathVista",
+        "description": "数学推理基准。",
+        "anchors": [
+          "anc_00278",
+          "anc_00279"
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "description": "LSG每个门控模块仅包含约262K参数，训练时主干网络冻结，仅需10K样本和2个epoch。",
+        "anchors": [
+          "anc_00130",
+          "anc_00131",
+          "anc_00132",
+          "anc_00220"
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "description": "在MMStar和CVBench上，LSG单层最佳配置（L10）相比基线分别提升+0.73和+2.14个百分点。",
+        "anchors": [
+          "anc_00134",
+          "anc_00135",
+          "anc_00136"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "main_result_1",
+        "dataset": [
+          "MMStar",
+          "CVBench"
+        ],
+        "baseline": [
+          "LLaVA-1.5-7B"
+        ],
+        "metrics": [
+          "Accuracy Change (%p)"
+        ],
+        "result_summary": "在MMStar和CVBench上，LSG单层最佳配置（L10）相比基线分别提升+0.73和+2.14个百分点。",
+        "what_it_tries_to_prove": "LSG在单层配置下能有效提升多模态基准性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "多层堆叠配置{L3, L6, L7, L10, L19}在MMStar和CVBench上分别提升+1.55和+3.08个百分点。",
+        "anchors": [
+          "anc_00152",
+          "anc_00154"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "main_result",
+        "name": "main_result_2",
+        "dataset": [
+          "MMStar",
+          "CVBench"
+        ],
+        "baseline": [
+          "LLaVA-1.5-7B"
+        ],
+        "metrics": [
+          "Accuracy Change (%p)"
+        ],
+        "result_summary": "多层堆叠配置{L3, L6, L7, L10, L19}在MMStar和CVBench上分别提升+1.55和+3.08个百分点。",
+        "what_it_tries_to_prove": "多层堆叠LSG能进一步提升性能，但存在次可加性。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "设计选择消融：比较不同门控信号源（最后一个token隐藏状态、均值池化等）、token分组方式（2组vs3组）以及联合训练与贪心堆叠的效果。",
+        "anchors": [
+          "anc_00263",
+          "anc_00265"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "ablation",
+        "name": "ablation_3",
+        "dataset": [
+          "MMStar",
+          "CVBench"
+        ],
+        "baseline": [
+          "LSG default"
+        ],
+        "metrics": [
+          "Accuracy Change (%p)"
+        ],
+        "result_summary": "设计选择消融：比较不同门控信号源（最后一个token隐藏状态、均值池化等）、token分组方式（2组vs3组）以及联合训练与贪心堆叠的效果。",
+        "what_it_tries_to_prove": "LSG设计选择的合理性和最优配置。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "与参数匹配的LoRA基线对比：LSG在MMStar上与LoRA相当（+0.73 vs +0.70），但在CVBench上显著优于LoRA（+2.14 vs -5.30）。",
+        "anchors": [
+          "anc_00258",
+          "anc_00259",
+          "anc_00261"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "ablation",
+        "name": "ablation_4",
+        "dataset": [
+          "MMStar",
+          "CVBench"
+        ],
+        "baseline": [
+          "LoRA rank-8"
+        ],
+        "metrics": [
+          "Accuracy Change (%p)"
+        ],
+        "result_summary": "与参数匹配的LoRA基线对比：LSG在MMStar上与LoRA相当（+0.73 vs +0.70），但在CVBench上显著优于LoRA（+2.14 vs -5.30）。",
+        "what_it_tries_to_prove": "LSG的改进源于其针对汇聚的特定结构，而非仅来自额外参数。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "门控轨迹分析：L10层的门控能有效区分不同任务（如CVBench子任务收敛到低汇聚比例，MMStar子任务收敛到中等比例），而L2层门控无法区分。",
+        "anchors": [
+          "anc_00163",
+          "anc_00164",
+          "anc_00165"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "robustness",
+        "name": "robustness_5",
+        "dataset": [
+          "MMStar",
+          "CVBench"
+        ],
+        "baseline": [
+          "LLaVA-1.5-7B"
+        ],
+        "metrics": [
+          "Gate Ratio (ρ_vit)"
+        ],
+        "result_summary": "门控轨迹分析：L10层的门控能有效区分不同任务（如CVBench子任务收敛到低汇聚比例，MMStar子任务收敛到中等比例），而L2层门控无法区分。",
+        "what_it_tries_to_prove": "LSG在有效层能学习到任务特定的门控策略。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "跨架构验证：在LLaVA-OneVision-7B上的关键门控网格搜索确认了任务和层依赖模式的持续存在。",
+        "anchors": [
+          "anc_00167",
+          "anc_00296",
+          "anc_00316"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "robustness",
+        "name": "robustness_6",
+        "dataset": [
+          "MMStar",
+          "CVBench"
+        ],
+        "baseline": [
+          "LLaVA-OneVision-7B"
+        ],
+        "metrics": [
+          "Accuracy Change (%p)"
+        ],
+        "result_summary": "跨架构验证：在LLaVA-OneVision-7B上的关键门控网格搜索确认了任务和层依赖模式的持续存在。",
+        "what_it_tries_to_prove": "LSG的发现和效果在不同架构上具有泛化性。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "多层堆叠实验：从单层最佳（L10）开始贪心添加门控层，性能逐步提升但存在次可加性。",
+        "anchors": [
+          "anc_00151",
+          "anc_00152",
+          "anc_00154",
+          "anc_00156",
+          "anc_00157",
+          "anc_00158"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "scaling",
+        "name": "scaling_7",
+        "dataset": [
+          "MMStar",
+          "CVBench"
+        ],
+        "baseline": [
+          "LLaVA-1.5-7B"
+        ],
+        "metrics": [
+          "Accuracy Change (%p)"
+        ],
+        "result_summary": "多层堆叠实验：从单层最佳（L10）开始贪心添加门控层，性能逐步提升但存在次可加性。",
+        "what_it_tries_to_prove": "多层堆叠LSG的累积效果和次可加性现象。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "线性探针案例：在CLEVR数据集上，汇聚token（V-sink和L-sink）在物体计数等全局属性上显著优于普通视觉token，且信息在深层保持稳定。",
+        "anchors": [
+          "anc_00076",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081",
+          "anc_00082"
+        ],
+        "experiment_id": "experiment_8",
+        "type": "case_study",
+        "name": "case_study_8",
+        "dataset": [
+          "CLEVR"
+        ],
+        "baseline": [
+          "Ordinary visual tokens"
+        ],
+        "metrics": [
+          "Probing Accuracy"
+        ],
+        "result_summary": "线性探针案例：在CLEVR数据集上，汇聚token（V-sink和L-sink）在物体计数等全局属性上显著优于普通视觉token，且信息在深层保持稳定。",
+        "what_it_tries_to_prove": "汇聚token编码全局场景先验，有利于粗粒度推理。",
+        "evidence_strength": "strong"
+      },
+      {
+        "name": "MMStar",
+        "description": "多模态基准，包含6个子任务（如计数、深度、推理等）。",
+        "anchors": [
+          "anc_00092",
+          "anc_00094",
+          "anc_00132"
+        ],
+        "experiment_id": "experiment_9",
+        "type": "benchmark",
+        "dataset": [
+          "MMStar"
+        ],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "多模态基准，包含6个子任务（如计数、深度、推理等）。",
+        "what_it_tries_to_prove": "评估LSG在多模态理解任务上的性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "name": "CVBench",
+        "description": "视觉空间推理基准，包含4个子任务（如计数、深度、距离、关系）。",
+        "anchors": [
+          "anc_00092",
+          "anc_00094",
+          "anc_00132"
+        ],
+        "experiment_id": "experiment_10",
+        "type": "benchmark",
+        "dataset": [
+          "CVBench"
+        ],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "视觉空间推理基准，包含4个子任务（如计数、深度、距离、关系）。",
+        "what_it_tries_to_prove": "评估LSG在视觉空间推理任务上的性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "name": "OCRBench",
+        "description": "文本识别基准。",
+        "anchors": [
+          "anc_00278",
+          "anc_00279"
+        ],
+        "experiment_id": "experiment_11",
+        "type": "benchmark",
+        "dataset": [
+          "OCRBench"
+        ],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "文本识别基准。",
+        "what_it_tries_to_prove": "评估LSG在文本识别任务上的性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "name": "MathVista",
+        "description": "数学推理基准。",
+        "anchors": [
+          "anc_00278",
+          "anc_00279"
+        ],
+        "experiment_id": "experiment_12",
+        "type": "benchmark",
+        "dataset": [
+          "MathVista"
+        ],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "数学推理基准。",
+        "what_it_tries_to_prove": "评估LSG在数学推理任务上的性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "LSG每个门控模块仅包含约262K参数，训练时主干网络冻结，仅需10K样本和2个epoch。",
+        "anchors": [
+          "anc_00130",
+          "anc_00131",
+          "anc_00132",
+          "anc_00220"
+        ],
+        "experiment_id": "experiment_13",
+        "type": "efficiency",
+        "name": "efficiency_13",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [
+          "Parameter Count",
+          "Training Samples",
+          "Epochs"
+        ],
+        "result_summary": "LSG每个门控模块仅包含约262K参数，训练时主干网络冻结，仅需10K样本和2个epoch。",
+        "what_it_tries_to_prove": "LSG的轻量级和高效训练特性。",
+        "evidence_strength": "strong"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "LVLM中的视觉汇聚可分为V-sinks（ViT涌现）和L-sinks（LLM涌现）两类，具有不同计算起源。",
+        "evidence_source_type": "实验分析（激活范数分析、阈值标准）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00011",
+          "anc_00054",
+          "anc_00055",
+          "anc_00070",
+          "anc_00220"
+        ],
+        "risk_flags": [
+          "分类标准基于阈值，可能存在边界情况。"
+        ],
+        "claim_id": "claim_1",
+        "evidence": [
+          {
+            "evidence_id": "evidence_1_1",
+            "description": "通过激活范数分析和阈值标准，将视觉token分为V-sinks（在ViT中已满足汇聚标准）和L-sinks（在LLM深层中涌现）。",
+            "anchors": [
+              "anc_00011",
+              "anc_00054",
+              "anc_00055",
+              "anc_00070"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim": "汇聚token编码全局场景先验（如物体计数），有利于粗粒度推理，但会抑制细粒度视觉证据（如颜色、形状）。",
+        "evidence_source_type": "线性探针实验、关键门控干预实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00076",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081",
+          "anc_00082",
+          "anc_00092",
+          "anc_00094",
+          "anc_00096",
+          "anc_00098"
+        ],
+        "risk_flags": [
+          "探针任务有限，可能未覆盖所有场景属性。"
+        ],
+        "claim_id": "claim_2",
+        "evidence": [
+          {
+            "evidence_id": "evidence_2_1",
+            "description": "线性探针实验显示，汇聚token在物体计数等全局属性上显著优于普通视觉token，且信息在深层保持稳定。",
+            "anchors": [
+              "anc_00076",
+              "anc_00079",
+              "anc_00080",
+              "anc_00081",
+              "anc_00082"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_2_2",
+            "description": "关键门控干预实验显示，调整汇聚注意力对不同任务有不同影响，表明汇聚编码全局先验但可能抑制细粒度证据。",
+            "anchors": [
+              "anc_00092",
+              "anc_00094",
+              "anc_00096",
+              "anc_00098"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim": "LSG能有效平衡全局推理与局部感知，在多数层和任务上带来性能提升。",
+        "evidence_source_type": "LSG训练与评估实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00134",
+          "anc_00135",
+          "anc_00136",
+          "anc_00152",
+          "anc_00154",
+          "anc_00167"
+        ],
+        "risk_flags": [
+          "改进在不同层和任务间存在差异，某些配置可能带来负面影响。"
+        ],
+        "claim_id": "claim_3",
+        "evidence": [
+          {
+            "evidence_id": "evidence_3_1",
+            "description": "LSG单层最佳配置（L10）在MMStar和CVBench上分别提升+0.73和+2.14个百分点。",
+            "anchors": [
+              "anc_00134",
+              "anc_00135",
+              "anc_00136"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_3_2",
+            "description": "多层堆叠配置{L3, L6, L7, L10, L19}在MMStar和CVBench上分别提升+1.55和+3.08个百分点。",
+            "anchors": [
+              "anc_00152",
+              "anc_00154"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_3_3",
+            "description": "跨架构验证在LLaVA-OneVision-7B上确认了任务和层依赖模式的持续存在。",
+            "anchors": [
+              "anc_00167"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim": "LSG的改进源于其针对汇聚的特定结构，而非仅来自额外参数。",
+        "evidence_source_type": "与LoRA基线的对比实验",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00258",
+          "anc_00259",
+          "anc_00261",
+          "anc_00263"
+        ],
+        "risk_flags": [
+          "仅与一种参数高效方法（LoRA）对比，可能未完全排除其他因素。"
+        ],
+        "claim_id": "claim_4",
+        "evidence": [
+          {
+            "evidence_id": "evidence_4_1",
+            "description": "与参数匹配的LoRA基线对比：LSG在MMStar上与LoRA相当（+0.73 vs +0.70），但在CVBench上显著优于LoRA（+2.14 vs -5.30）。",
+            "anchors": [
+              "anc_00258",
+              "anc_00259",
+              "anc_00261"
+            ],
+            "strength": "中"
+          }
+        ]
+      },
+      {
+        "claim": "LSG的门控在跨模态信息传递活跃的中间层（如LLaVA-1.5的L3-L19）最有效。",
+        "evidence_source_type": "门控轨迹分析、层间性能对比",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00163",
+          "anc_00164",
+          "anc_00165",
+          "anc_00166",
+          "anc_00167"
+        ],
+        "risk_flags": [
+          "结论基于特定模型架构（LLaVA-1.5），跨架构泛化性需进一步验证。"
+        ],
+        "claim_id": "claim_5",
+        "evidence": [
+          {
+            "evidence_id": "evidence_5_1",
+            "description": "门控轨迹分析显示，L10层的门控能有效区分不同任务，而L2层门控无法区分。",
+            "anchors": [
+              "anc_00163",
+              "anc_00164",
+              "anc_00165"
+            ],
+            "strength": "中"
+          },
+          {
+            "evidence_id": "evidence_5_2",
+            "description": "跨模态信息传递集中在LLaVA-1.5的L3-L19层，LSG在这些层最有效。",
+            "anchors": [
+              "anc_00166",
+              "anc_00167"
+            ],
+            "strength": "中"
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "attention_sink": "注意力汇聚，指在Transformer模型中吸引不成比例注意力权重的token。",
+    "V-sink": "ViT涌现的汇聚，指在视觉编码器（ViT）中已满足汇聚标准的token，其激活范数异常大。",
+    "L-sink": "LLM涌现的汇聚，指在大型语言模型（LLM）深层中涌现的token，其激活范数异常大。",
+    "LSG": "逐层汇聚门控，本文提出的轻量级MLP模块，用于动态调整每层V-sink与其余视觉token的注意力贡献比例。",
+    "key_gating": "关键门控，通过缩放键向量（Key）来调整不同token组注意力贡献的技术。",
+    "cross-modal_transfer": "跨模态信息传递，指视觉信息从视觉编码器传递到语言模型的过程。",
+    "global_prior": "全局先验，指汇聚token编码的场景级摘要信息，如物体数量、整体布局等。",
+    "local_perception": "局部感知，指模型对细粒度视觉证据（如颜色、形状、纹理）的利用能力。",
+    "next-token_prediction": "下一token预测，语言模型的标准训练目标，预测序列中的下一个token。",
+    "linear_probing": "线性探针，在冻结的模型表示上训练线性分类器，以评估表示中编码的信息。",
+    "terms": []
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        {
+          "name": "Cambrian-7M",
+          "description": "用于LSG训练的10K分层样本来源。",
+          "anchors": [
+            "anc_00129",
+            "anc_00220"
+          ]
+        },
+        {
+          "name": "CLEVR",
+          "description": "用于线性探针实验的合成数据集。",
+          "anchors": [
+            "anc_00076"
+          ]
+        },
+        {
+          "name": "MMStar",
+          "description": "多模态评估基准。",
+          "anchors": [
+            "anc_00092",
+            "anc_00094",
+            "anc_00132"
+          ]
+        },
+        {
+          "name": "CVBench",
+          "description": "视觉空间推理评估基准。",
+          "anchors": [
+            "anc_00092",
+            "anc_00094",
+            "anc_00132"
+          ]
+        }
+      ],
+      "required_models": [
+        {
+          "name": "LLaVA-1.5-7B",
+          "description": "主要实验使用的大型视觉语言模型。",
+          "anchors": [
+            "anc_00129",
+            "anc_00220"
+          ]
+        },
+        {
+          "name": "LLaVA-OneVision-7B",
+          "description": "用于跨架构验证的模型。",
+          "anchors": [
+            "anc_00167",
+            "anc_00296"
+          ]
+        }
+      ],
+      "compute": [
+        {
+          "description": "训练使用8块RTX 3090 GPU，每设备批量大小8，梯度累积2步。",
+          "anchors": [
+            "anc_00220"
+          ]
+        }
+      ],
+      "code_available": "论文未明确提及代码是否公开。",
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 准备LLaVA-1.5-7B预训练模型并冻结。",
+          "anchors": [
+            "anc_00129",
+            "anc_00220"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 从Cambrian-7M中采样10K分层样本作为训练数据。",
+          "anchors": [
+            "anc_00129",
+            "anc_00220"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 实现LSG门控模块：一个2层MLP（输入维度4096，隐藏层64，输出2），初始化为ρ_vit=0.5。",
+          "anchors": [
+            "anc_00108",
+            "anc_00130",
+            "anc_00131"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "4. 在LLM的每一层（共32层）独立插入LSG模块。",
+          "anchors": [
+            "anc_00132"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "5. 使用下一token预测损失训练LSG模块，主干网络保持冻结。",
+          "anchors": [
+            "anc_00125",
+            "anc_00129"
+          ]
+        },
+        {
+          "step": "step_6",
+          "description": "6. 在MMStar和CVBench上评估单层和多层堆叠配置。",
+          "anchors": [
+            "anc_00132",
+            "anc_00134",
+            "anc_00135",
+            "anc_00136",
+            "anc_00152",
+            "anc_00154"
+          ]
+        },
+        {
+          "step": "step_7",
+          "description": "7. 进行消融实验：比较不同门控信号源、token分组方式、与LoRA基线对比等。",
+          "anchors": [
+            "anc_00258",
+            "anc_00259",
+            "anc_00261",
+            "anc_00263",
+            "anc_00265"
+          ]
+        },
+        {
+          "step": "step_8",
+          "description": "8. 进行门控轨迹分析，研究不同层门控的学习动态。",
+          "anchors": [
+            "anc_00163",
+            "anc_00164",
+            "anc_00165"
+          ]
+        }
+      ],
+      "missing_details": [],
+      "risk_points": []
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-03T14:09:12+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_attention_sinks_lvlm_2026",
+    "title": "When Sinks Help or Hurt: Unified Framework for Attention Sink in Large Vision-Language Models",
+    "authors": [
+      "Jiho Choi",
+      "Jaemin Kim",
+      "Sanghwan Kim",
+      "Seunghoon Hong",
+      "Jin-Hwi Park"
+    ],
+    "venue": "arXiv",
+    "year": 2026,
+    "arxiv_id": "2604.03316",
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-03T14:07:27+00:00",
+    "paper_type": "Large Vision-Language Model / Attention Sink / Multimodal method paper",
+    "selection_source": "manual_user_requested_2026_05_03",
+    "open_access_pdf_url": "https://arxiv.org/pdf/2604.03316",
+    "fields_of_study": [
+      "Computer Science",
+      "Computer Vision",
+      "Machine Learning"
+    ],
+    "publication_types": [
+      "Preprint"
+    ],
+    "abstract": "This paper analyzes attention sinks in large vision-language models by separating visual sinks that propagate from the vision encoder from sinks that emerge in the language model. It studies when these sinks help global reasoning and when they suppress fine-grained visual evidence, and introduces a lightweight layer-wise gating method."
+  },
+  "anchors": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "When Sinks Help or Hurt: Unified Framework for",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Attention Sink in Large Vision-Language Models",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Jiho Choi1, Jaemin Kim2",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Sanghwan Kim⋆3, Seunghoon Hong⋆1, and Jin-Hwi Park⋆2",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "1 KAIST, South Korea",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "2 Chung-Ang University, South Korea",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "3 Technical University of Munich, Germany",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "{jiho.choi,seunghoon.hong}@kaist.ac.kr {kimjm1213,jinhwipark}@cau.ac.kr sanghwan.kim@tum.de Abstract.Attention sinks are defined as tokens that attract dispro- portionate attention. While these have been studied in single modality",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "transformers, their cross-modal impact in Large Vision-Language Mod-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "els (LVLM) remains largely unexplored: are they redundant artifacts",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "or essential global priors? This paper first categorizes visual sinks into two distinct categories: ViT-emerged sinks (V-sinks), which propagate from the vision encoder, and LLM-emerged sinks (L-sinks), which arise within deep LLM layers. Based on the new definition, our analysis re- veals a fundamental performance trade-off: while sinks effectively encode",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "global scene-level priors, their dominance can suppress the fine-grained",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "visual evidence required for local perception. Furthermore, we identify specific functional layers where modulating these sinks most significantly impacts downstream performance. To leverage these insights, we propose Layer-wise Sink Gating (LSG), a lightweight, plug-and-play module that dynamically scales the attention contributions of V-sink and the rest visual tokens. LSG is trained via standard next-token prediction, re- quiring no task-specific supervision while keeping the LVLM backbone frozen. In most layers, LSG yields improvements on representative mul- timodal benchmarks, effectively balancing global reasoning and precise local evidence.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Keywords:Attention Sinks·Large Vision-Language Models",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 1,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "1 Introduction",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 1,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "Transformers are widely known to exhibit theattention sinkphenomenon, where",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 1,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "a small subset of tokens attracts disproportionately large attention weights de-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 1,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "spite possessing limited semantic content [6,10,42,45]. In Large Language Models",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 1,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "(LLMs), these sinks often manifest in punctuation or special symbols (e.g.,[BOS] ⋆ Corresponding authors. arXiv:2604.03316v1 [cs.CV] 1 Apr 2026",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 2,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "2 J. Choi et al. [ BOS ]Theskyisblue (a) Sink Phenomenon in LLMand Sink (c) Sink Phenomenon in LVLM Sink by LLM Sink from LLM Sink by ViT ●Where Do Sinks Come From?(V-sink vs L-sink, Sec 3.2)●What Do Sinks Encode?(Linear Probing, Sec 3.3)●How Are Sinks Used?(Grid Search, Sec 3.4) (b) Sink Phenomenon in ViT Sink Sink Fig.1:Attention sink phenomena across model modalities. (a) In LLMs, certain to- kens consistently receive disproportionately high attention scores across layers. (b) In ViTs, a similar pattern appears where background patches accumulate high attention. (c) In LVLMs, visual sink tokens among the vision token sequence arise from two dis- tinct sources: those inherited from the vision encoder and those newly formed within the LLM layers, motivating three questions investigated in this work: (1) where sinks originate, (2) what information sinks encode, and (3) how sinks affect downstream task performance. token) and are often characterized by massive activations in specific h...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 3,
+      "section": "Introduction",
+      "bbox": null,
+      "text_span": "Unified Framework for Attention Sink in LVLMs 3 state of the final input token, which aggregates both visual context and query semantics [18,29,47], LSG predicts layer-specific key scaling factors. This small gating module is trained via standard next-token prediction loss while the LVLM backbone remains frozen, requiring no task-specific supervision. Our framework enables the model to balance global knowledge and local perception in a content- aware manner. We evaluate LSG on representative multimodal benchmarks, demonstrating consistent improvements, particularly in vision-centric tasks. Our contribution can be summarized as follows. (1) We provide a unified analysis of attention sinks in LVLMs, characterizing two distinct categories: ViT-emerged sinks(V-sinks) andLLM-emerged sinks(L-sinks). (2) We reveal a fundamental trade-off in multimodal tasks: while sink tokens facilitate global scene understanding, ordinary tokens are more effective for fine-grained per- ception tasks relying...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00022",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "2 Related Work",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "2.1 Attention Sink in Large Language Models",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00024",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "The attention sink phenomenon has been observed in transformer-based lan-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "guage models, where disproportionately large attention scores are allocated to",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "a small subset of tokens (e.g.,[BOS]token or punctuation tokens) despite their limited semantic significance [3,42,45]. Recent work [36] shows that this prop- erty arises from massive activations of specific dimensions in the hidden states. Additionally, an investigation of the different characteristics of attention sinks is conducted by [10,32], which demonstrates that they behave more like key biases rather than contributing to value computation. Recent works [11,23,35] suggest that sink tokens serve as indispensable structural biases, motivating the performance improvements without additional training.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00027",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "2.2 Attention Sink in Vision Encoders",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00028",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "For ViT-based vision encoders [5,30,38], a similar phenomenon has also been observed, where high-norm tokens tend to emerge in low-informative background regions. Some works [6,14] find that they contain global information across the entire image and propose register tokens to reduce artifacts in the feature maps, which improves dense prediction performance (e.g., semantic segmentation and object detection). In addition, Wanget al. [19] reveals that the[CLS]token tends to rely on these sink tokens, and Luet al. [25] modifies the attention dynamics to take advantage of the different roles of massive and artifact tokens.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "2.3 Attention Sink in LVLMs",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Recent studies [17,27] have explored the attention sink phenomenon in Large",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00031",
+      "page": 3,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Vision-LanguageModels(LVLMs)withconflictinginterpretations.Kanget al.[17]",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "4 J. Choi et al.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00033",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "argue that sink tokens are largely irrelevant to performance and propose redis-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "tributing their attention via threshold-based head selection. Conversely, Luoet al. [27] suggest these tokens encode vital global information, advocating the ac- tive adjustment of sink contributions based on task-specific (global vs. local) re- quirements. From a reliability perspective, Wanget al. [41] investigate how sinks may exacerbate hallucination errors and their potential utility in hallucination- based attacks. Given these divergent perspectives, it remains an open question",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00035",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "whether attention sinks constitute redundant artifacts to be eliminated or func-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "tionalanchorstobestrategicallyutilized.Tobridgethisgap,weprovideaunified analysis of attention sinks across both vision and language modalities. We then propose a layer-wise sink-gating mechanism for task-aware modulation. This ap- proach is motivated by recent findings [33] indicating that LLM layers exhibit distinct functional specializations, such as counting, grounding, and OCR, re- quiring different levels of sink-based information. A structured comparison with Kanget al. [17] and Luoet al. [27] is provided in Appendix B.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00037",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "3 Analysis of Visual Sink Tokens",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00038",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "3.1 Preliminaries",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00039",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Recent Large Vision-Language Model (LVLM) [1,21,22] typically consist of (i)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "avision encoderE[31,46], (ii) a MLP-basedprojectorPthat maps vision",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00041",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "tokens to the language embedding space [22,28], and (iii) aLarge Language",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00042",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Model (LLM)M[39,43]. Given an input imageI, the vision encoder outputs",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00043",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "npatch-level representations of dimensionD v,V= [v 1, . . . ,vn]∈R n×Dv. The",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "projector then maps these representations to match the LLM hidden dimension D, producingvisual tokensX vis ∈R n×D. The LLM takes as input a single concatenated sequence ofsystem tokensXsys,visual tokensX vis, andquery tokensX txt,andoperatesinanautoregressivemanner.Inthispaper,weanalyze how visual tokens—especially those fed into the LLM after the projector—are grouped and utilized across layers within this LVLM architecture. Layer-wise Hidden Representations.Let the hidden states of the entire",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00045",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "input sequence at theℓ-th LLM layer be denoted byHℓ ∈R T×D, whereT=",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00046",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "|Isys|+|I vis|+|I txt|is the total sequence length. Theℓ-th layer hidden state can be written with a residual formulation as:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00047",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Hℓ =H ℓ−1 +F ℓ",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00048",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Hℓ−1\u0001 , (1) whereF ℓ is a transformer block that includes self-attention and an MLP (FFN). All of our layer-wise analyses begin fromHℓ, and we introduce additional nota- tion only as needed based on this definition. Sink Identification and Token Grouping.Recent work [36] observed that",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Transformer-based models can exhibit abnormally large activation values in spe-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00050",
+      "page": 4,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "cific hidden dimensions. Concretely, such behavior appears consistently in a fixed set of dimensions within each model across different modality (e.g., dimension 650 in CLIP-L, or dimensions 1415 and 2533 in LLaMA2-7B). Following [17],",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Unified Framework for Attention Sink in LVLMs 5 we call these dimensions thesink dimensionsDsink. Building on this finding, we identifysink tokensin both the ViT and the LLM by applying threshold- ing to the activation magnitude on sink dimensions (threshold selection and its justification are detailed in Appendix A.1). Leth ℓ j ∈R D be the hidden state of tokenjat layerℓ. Given a thresholdτ, we define the set of sink-token indices at layerℓas: ˆI ℓ = \u001a j∈ I",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00052",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "max d∈Dsink",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00053",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "(hℓ j)[d]",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "≥τ \u001b . (2) Referring to this criterion [17,27], we partitionIvis into three groups: – ViT-emerged sinks[27] (V-sink,ˆIvit): Token indices that are already clas- sified as sinks in the vision encoder (right before the projector), using a cri-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "terion analogous to Eq. (2). After being passed into the LLM, we treat them",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "as a fixed set of indices. – LLM-emerged sinks[17] (L-sink,ˆI ℓ llm): Vision tokens that are ordinary at the ViT output stage, but become sink tokens inside the LLM after passing through attention/MLP computations, i.e., they satisfy Eq. (2) at some LLM layerℓ. These are identified in a layer-wise manner. – Ordinary visual tokens(Iℓ ord): The remaining visual tokens that do not belong to the two sink groups, defined asIℓ",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00057",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "ord =I vis \\( ˆIvit ∪ ˆI ℓ",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00058",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "llm). Token group statistics, including average sink counts per sample, are reported in Appendix A.2. 3.2 Two Sources of Visual Sinks: ViT vs. LLM 0 8 16 24 31 LLM Layer 200 400 600 ℓ2 norm (a) 0 8 16 24 31 LLM Layer 0.0 0.2 0.4 0.6 0.8Attn. mass / token (%) (b) Ordinary V-sink L-sink Fig.2: Layer-wise salience pattern of vi- sual token groups.(a) V-sinks and L-sinks maintain higherℓ 2 norms. (b) They also re-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00059",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "ceive a significantly larger percentage of atten-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00060",
+      "page": 5,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "tion mass compared to ordinary visual tokens. Unless otherwise stated, all anal- yses in this section are con- ducted with LLaVA-1.5-7B [22] (CLIP ViT-L/14@336px + Llama 2-7B). The layer-wise norm and attention patterns (Figure 2) and the group-wise activation pro- files (Figure 3) are replicated on LLaVA-OneVision-7B (SigLIP + Qwen2) in Appendix E, confirm- ing that the V-sink/L-sink tax- onomygeneralizesacrossarchitec- tures. Prior interpretability stud- ies [15,18,29] have shown that the final input token’s attention over visual tokens critically mediates image-to-text information flow in LVLMs. We analyze this attention for the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00061",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "6 J. Choi et al. v505v529v433v77v99v50 v516v51 v444token 650 hidden dim 0 2 4 (a) ViT Early (L2) v505v529v433v77v99v50 v516v51 v444 650 0 150 (b) ViT Late (L22) v505v529v433v77v99v50 v516v51 v444 1415 2533 0 25 (c) LLM Early (L0) v505v529v433v77v99v50 v516v51 v444 1415 2533 0 100 (d) LLM Late (L2) Fig.3:ActivationpatternofvisualtokensacrossLVLMstackatdifferentdepth",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00062",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "level. Each line represents one token, colored by category:orange= ViT-emerged",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "sinks,green= LLM-emerged sinks, gray = ordinary tokens. Sink dimensions: 650 for",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00064",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "CLIP-ViT-L; 1415, 2533 for LLaMA-2-7B. The input image is shown in Figure S3. three token groups (ˆIvit, ˆI ℓ llm,I ℓ ord) using 300 GQA [13] samples, measuring the attention weight from the final input token to each group per layer (with head- wise and sample-wise averaging). As shown in Figure 2, both sink groups receive",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00065",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "significantly larger per-token attention weights than ordinary tokens, consistent",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00066",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "with their abnormally large norms [6,36].",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Although both sink groups attract strong attention from the final input to- ken, their origins differ. Prior work has shown that attention sinks arise from",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00068",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "massive activations in a few fixed hidden dimensions, leading to large key norms",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "and disproportionate attention weight [36]. The same phenomenon has been ob- served in both vision transformers [6] and LVLMs [17].",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00070",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "V-sinks carry large activation values from the vision encoder and enter the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00071",
+      "page": 6,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "LLM with uniformly high norms (Figure 3 (c)) [27]. In the ViT, these tokens develop sharp spikes in a few sink dimensions under bidirectional attention (Fig- ure 3 (a,b)). However, the two-layer MLP projector, which lacks a residual con- nection, applies a linear transformation followed by a nonlinearity, spreading the concentrated activation across output dimensions. As a result, V-sinks arrive in theLLMembeddingspacewithuniformlyelevatednormsratherthandimension- specific spikes. L-sinks, by contrast, appear ordinary at the ViT output but de- velop sharp dimension-specific activations at deeper LLM layers (Figures 3 (b) and 3 (d)). These activations occur in the sameDsink as text sink tokens (e.g., BOS) and are written by early-layer FFNs and maintained through residual connections, mirroring the text-sink formation mechanism [17]. Because V-sinks and L-sinks follow fundamentally different formation mechanisms, one shaped by ViT bidirectional attention and the projector, the other by...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00072",
+      "page": 7,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Unified Framework for Attention Sink in LVLMs 7 (a)Count (b)Size (c)Color (d)Shape Fig.4: Layer-wise linear probing on CLEVR scene attributes.Each panel probes a different property (count, size, color, shape) from pooled hidden states of V- sinks, L-sinks, and 5 randomly sampled ordinary tokens across LLM layers of LLaVA- 1.5-7B. isolating visual tokens through modified attention masks and mapping them to output vocabulary. However, both studies characterize sink tokens only at the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00073",
+      "page": 7,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "ViT output or through indirect decoding, without examining how their informa-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00074",
+      "page": 7,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "tion content changes across LLM layers. Meanwhile, Kanget al. [17] identified L-sinks that emerge within the LLM decoder and showed that masking them causes little performance degradation, yet what these L-sinks actually encode remains uncharacterized. Fuet al. [8] show that vision representations are broadly preserved across LLM layers, while Feuchtet al. [7] demonstrate that token identities can be rapidly erased in early layers. Since visual tokens are projected into the lan- guage embedding space via an MLP connector [28], V-sinks may undergo similar",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00075",
+      "page": 7,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "restructuring, yet no prior work has examined them separately.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00076",
+      "page": 7,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "To address this gap, we design a linear probing study on the CLEVR dataset that tracks V-sinks (ˆIvit), L-sinks (ˆI ℓ llm), and ordinary visual tokens (Iℓ ord) across LLM layers, probing four scene-level properties: objectcount,color,shape, and size. These cover different abstraction levels, from holistic scene understanding (counting) to per-object categorical attributes (color, shape) and spatial reason- ing (relative size), letting us ask: (1) what granularity of scene information do sink tokens retain, and (2) does this information degrade, persist, or strengthen across successive LLM layers? ExperimentalSetup.Wedefinefourtasksspanningdifferentpredictiontypes. Count and Size are multi-class classification problems: Count predicts the total",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00077",
+      "page": 7,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "number of objects in the scene, while Size filters the largest single object by",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00078",
+      "page": 7,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "bounding-box ratio and assigns it to one of 5 bins. Color and Shape are multi- label classification problems: Color predictsy∈ {0,1} 8 indicating the presence of 8 colors, and Shape predictsy∈ {0,1} 3 indicating the presence of 3 shapes. As a baseline, we construct an ordinary sampled group by excluding all tokens identified as ViT sinks or LLM sinks at any layer, then randomly sampling 5 tokens per image (∼1% of 576 patches in CLIP ViT-L/14 336px [31]) from this pool and averaging their hidden states. The same token indices are used across all LLM layers to ensure that layer-wise trends reflect the evolution of identical tokens.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00079",
+      "page": 8,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "8 J. Choi et al. Results.Figure 4 summarizes the layer-wise probing results. For question (1), both V-sink and L-sink groups outperform ordinary visual tokens across all four tasks, with the advantage most evident in early-to-middle layers. The gap is",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00080",
+      "page": 8,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "largest for count prediction (Figure 4a), a holistic property that no single patch",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00081",
+      "page": 8,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "can capture alone, confirming that sink tokens concentrate scene-level summary",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00082",
+      "page": 8,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "information. The advantage also holds for size bin classification (Figure 4b), which requires spatial reasoning about relative object scale. For color and shape (Figures 4c, 4d), sink tokens lead in the early and middle layers, while ordinary tokens gradually close the gap at deeper layers as the LLM’s own processing enriches their representations. For question (2), probing accuracy for sink tokens either remains stable or increasesatdeeperlayersacrossallfourtasks,showingalmostnodegradationde- spite the layer-wise transformations. Unlike the token-identity erasure reported for language tokens in early layers [7], the scene-level information in sink tokens is preserved throughout all LLM layers. Taken together, these results establish that both V-sinks and L-sinks carry rich, multi-granularity scene information that persists throughout the LLM. This confirms that L-sinks, despite following the text-sink formation mechanism, do not lose the visual information present in their representa...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00083",
+      "page": 8,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "ing inference [8]. We therefore turn to attention-level interventions to examine",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00084",
+      "page": 8,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "whether and how the information in each sink type is utilized. 3.4 Layer-wise Intervention on Sink vs. Ordinary Attention Our probing results show that sink tokens stably encode global attributes across LLMlayers.Combinedwithevidencethatvisualprocessingbecomesfunctionally specialized at deeper layers [33], a natural question arises: at which layers, and how, does the global information in sinks actually contribute to visual reasoning? Prior work probes information flow via hard attention knockouts [9,15] or continuous rescaling [40]. The former masks attention connections at selected layers to identify which token-to-token interactions are essential for a correct prediction, whereas the latter multiplies attention weights by learned or fixed scalars and observes the resulting performance change. Since our question con- cerns the balance between sink and ordinary attention rather than which specific interactions are essential, we follow the continuous rescaling approach. Our formulatio...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00085",
+      "page": 9,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Unified Framework for Attention Sink in LVLMs 9 For simplicity, we present the single-head form, but the intervention is applied identically to all heads in the layer. To control token group-wise attention con- tribution, we intervene by multiplying the key vectors by scalar coefficients. Let the token-wise coefficient vector bes∈R T. The intervened attention is defined as: Attn",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00086",
+      "page": 9,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Q(ℓ),diag(s)·K (ℓ),V (ℓ)\u0001 = SoftMax",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00087",
+      "page": 9,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Q(ℓ) diag(s)·K (ℓ)\u0001⊤ √ D ! V(ℓ). (3) Here,diag(s)is a diagonal matrix whose entries correspond to the coefficient assigned to each token according to its group. We choose to intervene on the Key",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00088",
+      "page": 9,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "projection because scaling the keys directly modulates the pre-SoftMax logits,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00089",
+      "page": 9,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "and therefore controls the attention distribution itself: how much probability mass each token group receives. Hereafter, we refer to the per-group scalars in sas gate coefficients, and the resulting relative proportion of attention mass allocated to sink versus ordinary tokens as the attention contribution ratio. Experimental Setup.We sweep all 32 self-attention layers (L0–L31) individ- ually: for each layer, we apply the intervention to that layer alone while keeping all others at the default setting (i.e., no intervention). Within each intervened layer, the same gate coefficients are applied uniformly across all heads. We sweep the coefficients from(0.0,1.0)to(1.0,0.0)in steps of0.1and record task ac- curacy for each setting. For visualization, we group the 32 layers into blocks of",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00090",
+      "page": 9,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "four and report the best-performing layer within each block.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00091",
+      "page": 9,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Token Grouping.In Stage 1, we partition visual tokens into V-sinks (ˆIvit) vs. the rest (L-sinks+ordinary). Our probing shows V-sinks stably encode global information across LLM layers, and Luoet al. [27] confirmed that V-sinks alone can suffice for global reasoning tasks. In Stage 2, we further split L-sinks from ordinary tokens for a finer local sweep.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00092",
+      "page": 9,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Target Tasks.We evaluate on two benchmarks that span fine-grained percep-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00093",
+      "page": 9,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "tion and high-level reasoning. CVBench [37] provides a vision-centric assessment of fine-grained capabilities such as depth, spatial relations, distance estimation, and counting, while MMStar [4] covers a broader set of task categories ranging",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00094",
+      "page": 9,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "from fine-grained perception to logical reasoning.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00095",
+      "page": 9,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Observations.Figure 5 summarizes the layer-wise optimal gate coefficients. We highlight three key findings: – Observation 1: Task-dependency.Rebalancing sink vs. ordinary atten- tion does not uniformly help or hurt; its effect reverses across tasks. For fine-grained perception (Figure 5a), adjusting the ratio improves accuracy at every layer block (up to +6.49%), whereas for coarse perception (Fig- ure 5b), every adjustment degrades performance (up to−4.27%), indicating that the default balance already suits this task and any shift disrupts it. – Observation 2: Layer-dependency.Even within a single task, the ef-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00096",
+      "page": 9,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "fect of sink strengthening can reverse across depths: in logical reasoning",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00097",
+      "page": 9,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "(Figure 5c), early layers benefit substantially (+7.07% at L4–L8) while late layers are hurt by the same direction (L22–L26).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00098",
+      "page": 10,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "10 J. Choi et al. +5.69 +6.49 +3.69 +2.89 +2.89 +2.09 +2.49 +2.89 (a)Fine-grained (MMStar) -3.07 -4.27 -1.87 -2.27 -2.67 -3.87 -4.27 -3.87 (b)Coarse (MMStar) +4.27 +7.07 +3.87 +1.07 -0.13 -0.53 -0.13 -0.93 (c)Logical (MMStar) 0-34-78-1112-1516-1920-2324-2728-31 Accuracy Gain vs Baseline (%p) LLM Layer 1.02.03.04.0 0.01.08%1.69%1.54%1.08%0.77%1.38%2.15%1.38% +0.31%p +1.69%p +0.31%p+0.15%p+0.15%p Ref (Vit, Rest)LLM Sink (Search) (d)Relation (CVBench) Fig.5: Layer-wise optimal gate coefficients from key-gating intervention(a– c) Best sink gate per 4-layer block with accuracy change vs. baseline (positive, nega- tive). (d) Stage-2 sweep splitting Rest into L-sinks and ordinary tokens. – Observation 3: Limited benefit of 3-group decomposition.In Stage 2, splitting the residual group into L-sinks and ordinary tokens and re- sweeping around the Stage-1 optimum yields additional gains only for spe- cific task×layer combinations (Figure 5d), consistent with recent finding [8] that accessible i...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00099",
+      "page": 10,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "4 Layer-wise Sink Gating",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00100",
+      "page": 10,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "We introduce a lightweight gating module inserted between LLM layers, trained solely with the standard next-token prediction loss and no direct supervision from the grid-search oracle coefficients. The module predicts input-dependent, per-layer ratios that a fixed grid search cannot provide. Figure 6 illustrates the architecture.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00101",
+      "page": 11,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Unified Framework for Attention Sink in LVLMs 11 LLMLayer 0 Layer n-2 Gating Layer gℓ Layer 1 Layer ℓ Layer ℓ+1 Layer n-1 Visual TokenswithViT-Emerged Sinks Query Tokens 2 Layer MLP gℓ",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00102",
+      "page": 11,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "z(ℓ#$)Softmaxρ(ℓ#$)K(ℓ#$)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00103",
+      "page": 11,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "h&'()ℓ Layer ℓ Layer ℓ+1 ViTRestScalingText Input ImageInput Vision Encoder Projector Fig.6: Layer-wise Sink Gating (LSG).Left: the pretrained LVLM remains frozen; a gating module (lightweight MLP)g ℓ is inserted between consecutive LLM layers. Right:g ℓ takesh ℓ last and predicts key-scaling ratiosρ (ℓ+1) for V-sink vs. remaining visual tokens.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00104",
+      "page": 11,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "4.1 Gating Signal",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00105",
+      "page": 11,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "The gating module requires a per-layer input that encodes both visual and tex- tual information. As discussed in Section 3.2, the final input token progressively aggregates visual information across layers [18,29], and Zhaoet al. [47] further showed that this hidden state predicts higher-order model judgments via linear probing. We therefore usehℓ last ∈R D as the gating signal at each layer.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00106",
+      "page": 11,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "4.2 Gating Formulation",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00107",
+      "page": 11,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Following Observation 3 in Section 3.4, we adopt a 2-group formulation: V-sinks (ˆIvit) vs. the remaining visual tokens (Iℓ rest), where the rest group includes both L-sinks and ordinary tokens. As shown in Figure 6 (right), the gating modulegℓ,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00108",
+      "page": 11,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "a lightweight 2-layer MLP, maps the gating signal at layerℓto allocation logits",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00109",
+      "page": 11,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "for layerℓ+1:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00110",
+      "page": 11,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "z(ℓ+1) =g ℓ",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00111",
+      "page": 11,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "hℓ last \u0001 ∈R 2 (4)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00112",
+      "page": 11,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "The attention contribution ratio between the two groups is obtained via softmax:",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00113",
+      "page": 11,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "ρ(ℓ+1) vit , ρ (ℓ+1)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00114",
+      "page": 11,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "rest = Softmax",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00115",
+      "page": 11,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "\u0010 z(ℓ+1) \u0011 , ρ (ℓ+1) vit +ρ (ℓ+1) rest = 1 (5) The key vectors of each visual tokenjat layerℓ+1are scaled accordingly: ˜K(ℓ+1)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00116",
+      "page": 11,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "j =ρ (ℓ+1)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00117",
+      "page": 11,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "g(j) ·K (ℓ+1) j (6) whereg(j)∈ {vit,rest}denotes the group membership of tokenj. This ex- tends Eq. 3 from Section 3.4 by replacing the manually swept coefficient with a learned, input-conditioned gate. Ablations on alternative gating signals and token grouping strategies are reported in Appendix D.2.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00118",
+      "page": 12,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "12 J. Choi et al.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00119",
+      "page": 12,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Table 1:Per-layer oracle (best of 11 gate values per task) vs. learned gate (sin-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00120",
+      "page": 12,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "gle layer, NTP-trained).∆(%p) relative to baseline.n ≥0/ n<0: sub-tasks with non-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00121",
+      "page": 12,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "negative/negative∆out of 10 categories. Per-layer Oracle Learned Gate",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00122",
+      "page": 12,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Block Layer MMStar CVBenchn ≥0/ n<0 MMStar CVBenchn ≥0/ n<0",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00123",
+      "page": 12,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "Baseline 33.27 57.29 – – L0–3 L3+3.19 +2.769/1+0.34 +1.678/2 L4–7 L7+2.26 +2.669/1+1.00 +0.498/2 L8–11 L10+2.13 +3.987/3+0.72 +2.148/2 L12–15 L13+1.06 +0.997/3−0.24 +0.336/4 L16–19 L19+0.39 +2.608/2+0.76 +0.5010/0 L20–23 L23−0.14 +1.067/3+0.34 +0.199/1 L24–27 L24−0.54 +0.325/5+0.27−0.027/3 L28–31 L30−0.07 +0.888/2+0.47 +0.108/2",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00124",
+      "page": 12,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "4.3 Training",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00125",
+      "page": 12,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "All parameters of the pretrained LVLM are frozen; only the gating MLPgis trained with the standard next-token prediction loss: L=− X t",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00126",
+      "page": 12,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "logp θ(xt |x <t) (7)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00127",
+      "page": 12,
+      "section": "Related Work",
+      "bbox": null,
+      "text_span": "whereθdenotes the parameters of the gating MLP. No task-specific labels or auxiliary losses are used. Full training configuration is provided in Appendix A.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00128",
+      "page": 12,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "5 Experiment",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00129",
+      "page": 12,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Experimental Setup.We apply the gating module (Section 4) to LLaVA- 1.5-7B and train it on 10K stratified samples from Cambrian-7M for 2 epochs.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00130",
+      "page": 12,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Each gating module contains∼262K parameters (4096→64→2, softmax output)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00131",
+      "page": 12,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "and is initialized toρvit=0.5, allocating equal attention to V-sink and remaining",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00132",
+      "page": 12,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "tokens (Section 4.2). We train a separate gate at each of the 32 LLM layers inde- pendently. All results report accuracy changes (%p) relative to the unmodified baseline on MMStar (6 sub-tasks) and CVBench (4 sub-tasks). 5.1 Single-Layer Results.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00133",
+      "page": 12,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Table 1 reports the best single-layer result within each 4-layer block, along-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00134",
+      "page": 12,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "side the per-layer oracle that selects the best of 11 gate values independently per task at the same layer. Seven of eight blocks yield positive gains under",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00135",
+      "page": 12,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "the learned gate; L10 achieves the largest improvement at+0.72on MMStar",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00136",
+      "page": 12,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "and+2.14on CVBench, while L19 maintains non-negative gains across all 10",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00137",
+      "page": 13,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Unified Framework for Attention Sink in LVLMs 13 0 2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 LLM Layer CP FG IR LR Math ST Count Depth Dist Rel -5 -4 +10 +6 -9 -4 -4 -6 +4 -12 -5 -16 15 10 5 0 5 10 (%p) MMStarCVBench L2 L10 Fig.7:Learned gate∆(%p) across all 32 layers and 10 sub-tasks. Dashed lines mark L2 (red) and L10 (green).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00138",
+      "page": 13,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Table 2:Greedy multi-layer gate stacking. Starting from the single best layer (L10),",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00139",
+      "page": 13,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "gates are added greedily in order of marginal gain, using only the SL checkpoints",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00140",
+      "page": 13,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "without retraining. Added: layer appended at this step. Active layers: full set of stacked",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00141",
+      "page": 13,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "gates. All∆in %p relative to baseline.n ≥0/ n<0: tasks with non-negative/negative∆",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00142",
+      "page": 13,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "out of 10.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00143",
+      "page": 13,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Step Added Active layers∆MMStar∆CVBenchn ≥0/ n<0",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00144",
+      "page": 13,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Baseline 0.00 0.00 (single, L10)+0.73 +2.148/2 1 L10 {L10}+0.73 +2.148/2 2 L3 {L3, L10}+0.60 +2.987/3 3 L7 {L3, L7, L10}+1.17 +2.417/3 4 L19 {L3, L7, L10, L19}+0.74 +2.477/3 5 L6 {L3, L6, L7, L10, L19}+1.55+3.088/2 sub-tasks. Notably, these gains emerge from NTP training on just 10K general- purpose samples, without access to task identifiers. The oracle represents an upper bound, as it selects the best coefficient with access to ground-truth ac- curacy per task; the learned gate, which predicts from hidden states alone, is analyzed against this bound in Appendix C.4. For comparison, we report results of a parameter-matched LoRA baseline in Appendix D.1. We also evaluate on additional benchmarks including OCRBench and MathVista (Appendix D.3).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00145",
+      "page": 13,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Figure 7 expands the per-task accuracy changes of the learned gate to all 32",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00146",
+      "page": 13,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "layers and 10 sub-tasks. Effective layers concentrate in L3–19, while early layers",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00147",
+      "page": 13,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "such as L2 produce large but opposing shifts across sub-tasks that hurt overall",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00148",
+      "page": 13,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "performance. We analyze the source of this layer-level variation in Section 5.3.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00149",
+      "page": 14,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "14 J. Choi et al. 0 30 60 90 120 150 Training step 0.0 0.2 0.4 0.6 0.8 1.0 Sink gate ratio ̂g all 10 sub-tasks (a)LLM Layer 2 0 30 60 90 120 150 Training step 0.0 0.2 0.4 0.6 0.8 1.0 Sink gate ratio ̂g Count Depth IR ST (b)LLM Layer 10 Fig.8: Learned gate trajectory during training.Solid lines: predicted V-sink ratioρ vit averaged over evaluation samples per sub-task (shaded:±1std).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00150",
+      "page": 14,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "5.2 Multi-Layer Stacking",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00151",
+      "page": 14,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "The single-layer results in Table 1 show that multiple layers independently yield positive gains. We test whether these gains compound by stacking independently trained single-layer checkpoints without retraining: starting from L10 (the single best layer), we greedily add gates in descending order of their single-layer gain and evaluate the accumulated set jointly.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00152",
+      "page": 14,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Table 2 reports the results. The final 5-layer configuration {L3, L6, L7, L10,",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00153",
+      "page": 14,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "L19} achieves MMStar+1.55and CVBench+3.08, exceeding L10’s single-layer",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00154",
+      "page": 14,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "best of+0.73/+2.14by a clear margin. At the same time, the stacked gains fall",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00155",
+      "page": 14,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "well below the sum of individual single-layer gains, indicating that the contribu- tions of different layers are not independent. Adding L19 at Step 4, for instance, slightly reduces the combined score relative to Step 3, while the subsequent",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00156",
+      "page": 14,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "addition of L6 produces the largest single-step increase. This sub-additivity re-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00157",
+      "page": 14,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "flects the distribution shift each gating module faces at inference, where hidden states have already been modified by other active gating modules not present during training. Nonetheless, the five-layer configuration achieves a combined",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00158",
+      "page": 14,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "improvement that no single layer reaches alone, confirming that independently",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00159",
+      "page": 14,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "trained gates can be combined effectively. Joint multi-layer training, where gates",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00160",
+      "page": 14,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "co-adapt across layers, could close the remaining gap; preliminary joint training",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00161",
+      "page": 14,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "results are reported in Appendix D.2.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00162",
+      "page": 14,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "5.3 Gate Behavior Across LLM Layers",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00163",
+      "page": 14,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "To examine why gating effectiveness varies across layers, we record the gate’s V-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00164",
+      "page": 14,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "sink ratioρ (ℓ) vit per evaluation sample at each training checkpoint and aggregate by sub-task. Figure 8 contrasts L2 and L10. At L2 (left),ρvit remains near the0.5initialization with negligible cross-task variance throughout training—the gate does not learn to differentiate inputs. At L10 (right), the gate separates into two regimes: CVBench sub-tasks converge to low sink ratios—Count and Relation near0.05, Depth and Distance near0.20— while MMStar sub-tasks settle between0.30and0.45. Within CVBench, these two pairs form well-separated clusters with within-task standard deviation below",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00165",
+      "page": 15,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "Unified Framework for Attention Sink in LVLMs 15 0.01. This contrast aligns with the performance gap: L10, where the gate differ- entiates inputs, achieves 8 non-negative sub-tasks out of 10 (Table 1), whereas L2, where the gate remains near initialization, achieves only 3 non-negative sub- tasks out of 10; as Figure 7 shows, ST shifts by+10%p while Rel drops by −16%p at the same layer. Cross-modal information transfer concentrates in layers 4–20 of LLaVA- 1.5 [15]. L2 falls below this range—at such an early depth, the final input token carries little visual information, leaving the gate no informative signal to differen-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00166",
+      "page": 15,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "tiate inputs. Conversely, beyond L20, cross-modal transfer has largely concluded,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00167",
+      "page": 15,
+      "section": "Experiments",
+      "bbox": null,
+      "text_span": "so adjusting the V-sink-to-rest attention ratio no longer induces meaningful rep- resentational changes. This accounts for the concentration of effective layers in L3–19 visible in Figure 7: the gate is effective in the layers where cross-modal transfer is still underway. An oracle key-gating sweep on LLaVA-OneVision-7B confirms that these task- and layer-dependent patterns persist across architec- tures (Appendix E.3).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00168",
+      "page": 15,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "6 Conclusion",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00169",
+      "page": 15,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "In this work, we analyze attention sinks in LVLMs and identify two categories with distinct computational origins: ViT-emerged sinks (V-sinks) and LLM- emerged sinks (L-sinks). These sinks carry global scene priors that benefit coarse reasoning but degrade local perception. Based on this observation, we introduced Layer-wise Sink Gating, a per-layer MLP that scales the Key contributions of sink versus ordinary visual tokens. LSG is trained with next-token prediction loss alone, requires no task labels, and keeps the backbone frozen. The learned gates concentrate their effects in the mid-layers where cross-modal information transfer is active and yield consistent gains across extensive benchmarks, with the sink taxonomy generalizing across architectures (Appendix E). Acknowledgments This work was supported in part by the National Research Foundation of Korea (RS-2024-00351212 and RS-2024-00436165) and the Institute of Information &",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00170",
+      "page": 15,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "Communications Technology Planning & Evaluation (IITP) (RS-2024-00509279,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00171",
+      "page": 15,
+      "section": "Conclusion",
+      "bbox": null,
+      "text_span": "RS-2022-II220926, and RS-2022-II220959) funded by the Korean government (MSIT).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00172",
+      "page": 15,
+      "section": "References",
+      "bbox": null,
+      "text_span": "References",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00173",
+      "page": 15,
+      "section": "References",
+      "bbox": null,
+      "text_span": "1. Bai, S., Chen, K., Liu, X., Wang, J., Ge, W., Song, S., Dang, K., Wang, P., Wang, S., Tang, J., et al.: others. 2025. qwen2. 5-vl technical report. arXiv preprint arXiv:2502.139234(5) (1) 2. Bai, S., Liu, Y., Han, Y., Zhang, H., Tang, Y., Zhou, J., Lu, J.: Self-calibrated clip for training-free open-vocabulary segmentation. IEEE Transactions on Image Processing (2025)",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00174",
+      "page": 16,
+      "section": "References",
+      "bbox": null,
+      "text_span": "16 J. Choi et al. 3. Cancedda, N.: Spectral filters, dark signals, and attention sinks, 2024. URL https://arxiv. org/abs/2402.09221 (2024) 4. Chen, L., Li, J., Dong, X., Zhang, P., Zang, Y., Chen, Z., Duan, H., Wang, J.,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00175",
+      "page": 16,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Qiao, Y., Lin, D., et al.: Are we on the right way for evaluating large vision-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00176",
+      "page": 16,
+      "section": "References",
+      "bbox": null,
+      "text_span": "language models? Advances in Neural Information Processing Systems37, 27056– 27087 (2024) 5. Cherti, M., Beaumont, R., Wightman, R., Wortsman, M., Ilharco, G., Gordon, C., Schuhmann, C., Schmidt, L., Jitsev, J.: Reproducible scaling laws for contrastive language-image learning. In: Proceedings of the IEEE/CVF conference on com- puter vision and pattern recognition. pp. 2818–2829 (2023) 6. Darcet, T., Oquab, M., Mairal, J., Bojanowski, P.: Vision transformers need regis- ters. In: The Twelfth International Conference on Learning Representations (2024) 7. Feucht, S., Atkinson, D., Wallace, B.C., Bau, D.: Token erasure as a footprint of implicit vocabulary items in llms. In: Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing. pp. 9727–9739 (2024) 8. Fu, S., Guillory, D., Darrell, T., et al.: Hidden in plain sight: Vlms overlook their visual representations. In: Second Conference on Language Modeling (2025) 9. Geva, M., Bastings, J., Filippova, K., Glob...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00177",
+      "page": 16,
+      "section": "References",
+      "bbox": null,
+      "text_span": "initial token’s power to enhance large language models without training. arXiv",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00178",
+      "page": 16,
+      "section": "References",
+      "bbox": null,
+      "text_span": "preprint arXiv:2505.11739 (2025) 12. Hu, E.J., Shen, Y., Wallis, P., Allen-Zhu, Z., Li, Y., Wang, S., Wang, L., Chen,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00179",
+      "page": 16,
+      "section": "References",
+      "bbox": null,
+      "text_span": "W., et al.: Lora: Low-rank adaptation of large language models. Iclr1(2), 3 (2022)",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00180",
+      "page": 16,
+      "section": "References",
+      "bbox": null,
+      "text_span": "13. Hudson, D.A., Manning, C.D.: Gqa: A new dataset for real-world visual reasoning and compositional question answering. In: Proceedings of the IEEE/CVF confer- ence on computer vision and pattern recognition. pp. 6700–6709 (2019) 14. Jiang, N., Dravid, A., Efros, A.A., Gandelsman, Y.: Vision transformers don’t need trained registers. In: The Thirty-ninth Annual Conference on Neural Information Processing Systems (2025) 15. Kaduri, O., Bagon, S., Dekel, T.: What’s in the image? a deep-dive into the vision of vision language models. In: Proceedings of the Computer Vision and Pattern Recognition Conference. pp. 14549–14558 (2025) 16. Kan, Z., Li, X., Liu, Y., Yang, X., Jiang, X., Liu, Y., Jiang, D., Sun, X., Liao, Q., Yang, W.: Rar: Reversing visual attention re-sinking for unlocking potential in",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00181",
+      "page": 16,
+      "section": "References",
+      "bbox": null,
+      "text_span": "multimodal large language models. In: The Fourteenth International Conference",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00182",
+      "page": 16,
+      "section": "References",
+      "bbox": null,
+      "text_span": "on Learning Representations (2026) 17. Kang, S., Kim, J., Kim, J., Hwang, S.J.: See what you are told: Visual attention",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00183",
+      "page": 16,
+      "section": "References",
+      "bbox": null,
+      "text_span": "sink in large multimodal models. In: The Thirteenth International Conference on",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00184",
+      "page": 16,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Learning Representations (2025) 18. Kim, J., Kang, S., Park, J., Kim, J., Hwang, S.J.: Interpreting attention heads for",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00185",
+      "page": 16,
+      "section": "References",
+      "bbox": null,
+      "text_span": "image-to-text information flow in large vision–language models. In: Mechanistic",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00186",
+      "page": 16,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Interpretability Workshop at NeurIPS 2025 (2025) 19. Lappe, A., Giese, M.A.: Register and [cls] tokens induce a decoupling of local and",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00187",
+      "page": 16,
+      "section": "References",
+      "bbox": null,
+      "text_span": "global features in large vits. In: The Thirty-ninth Annual Conference on Neural",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00188",
+      "page": 16,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Information Processing Systems (2025)",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00189",
+      "page": 17,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Unified Framework for Attention Sink in LVLMs 17 20. Li, B., Zhang, Y., Guo, D., Zhang, R., Li, F., Zhang, H., Zhang, K., Zhang, P., Li, Y., Liu, Z., et al.: Llava-onevision: Easy visual task transfer. Transactions on Machine Learning Research (2024) 21. Li, B., Zhang, Y., Guo, D., Zhang, R., Li, F., Zhang, H., Zhang, K., Zhang, P., Li, Y., Liu, Z., et al.: Llava-onevision: Easy visual task transfer. Transactions on Machine Learning Research (2025) 22. Liu, H., Li, C., Wu, Q., Lee, Y.J.: Visual instruction tuning. Advances in neural information processing systems36, 34892–34916 (2023) 23. Liu, X., Chen, G., Wang, W.: Sinktrack: Attention sink based context anchoring for",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00190",
+      "page": 17,
+      "section": "References",
+      "bbox": null,
+      "text_span": "large language models. In: The Fourteenth International Conference on Learning",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00191",
+      "page": 17,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Representations (2026) 24. Liu, Y., Li, Z., Huang, M., Yang, B., Yu, W., Li, C., Yin, X.C., Liu, C.L., Jin,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00192",
+      "page": 17,
+      "section": "References",
+      "bbox": null,
+      "text_span": "L., Bai, X.: Ocrbench: on the hidden mystery of ocr in large multimodal models.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00193",
+      "page": 17,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Science China Information Sciences67(12), 220102 (2024) 25. Lu, A., Liao, W., Wang, L., Yang, H., Shi, J.: Artifacts and attention sinks: Structured approximations for efficient vision transformers. arXiv preprint arXiv:2507.16018 (2025) 26. Lu, P., Bansal, H., Xia, T., Liu, J., Li, C., Hajishirzi, H., Cheng, H., Chang, K.W., Galley, M., Gao, J.: Mathvista: Evaluating mathematical reasoning of foundation models in visual contexts. In: The Twelfth International Conference on Learning Representations (2024) 27. Luo, J., Fan, W.C., Wang, L., He, X., Rahman, T., Abolmaesumi, P., Sigal, L.: To",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00194",
+      "page": 17,
+      "section": "References",
+      "bbox": null,
+      "text_span": "sink or not to sink: Visual information pathways in large vision-language models.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00195",
+      "page": 17,
+      "section": "References",
+      "bbox": null,
+      "text_span": "arXiv preprint arXiv:2510.08510 (2025) 28. Merullo, J., Castricato, L., Eickhoff, C., Pavlick, E.: Linearly mapping from image to text space. In: The Eleventh International Conference on Learning Representa- tions (2023) 29. Neo, C., Ong, L., Torr, P., Geva, M., Krueger, D., Barez, F.: Towards interpret- ing visual information processing in vision-language models. In: The Thirteenth International Conference on Learning Representations (2025) 30. Oquab, M., Darcet, T., Moutakanni, T., Vo, H., Szafraniec, M., Khalidov, V., Fernandez, P., Haziza, D., Massa, F., El-Nouby, A., et al.: Dinov2: Learning robust visual features without supervision. Transactions on Machine Learning Research Journal (2024) 31. Radford, A., Kim, J.W., Hallacy, C., Ramesh, A., Goh, G., Agarwal, S., Sastry, G., Askell, A., Mishkin, P., Clark, J., et al.: Learning transferable visual models from natural language supervision. In: International conference on machine learning. pp. 8748–8763. PmLR (2021) 32. Ruscio, V.,...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00196",
+      "page": 17,
+      "section": "References",
+      "bbox": null,
+      "text_span": "36. Sun, M., Chen, X., Kolter, J.Z., Liu, Z.: Massive activations in large language",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00197",
+      "page": 17,
+      "section": "References",
+      "bbox": null,
+      "text_span": "models. arXiv preprint arXiv:2402.17762 (2024)",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00198",
+      "page": 18,
+      "section": "References",
+      "bbox": null,
+      "text_span": "18 J. Choi et al. 37. Tong, P., Brown, E., Wu, P., Woo, S., Iyer, A.J.V., Akula, S.C., Yang, S., Yang, J., Middepogu, M., Wang, Z., et al.: Cambrian-1: A fully open, vision-centric ex- ploration of multimodal llms. Advances in Neural Information Processing Systems 37, 87310–87356 (2024) 38. Touvron, H., Cord, M., Jégou, H.: Deit iii: Revenge of the vit. In: European con- ference on computer vision. pp. 516–533. Springer (2022) 39. Touvron, H., Martin, L., Stone, K., Albert, P., Almahairi, A., Babaei, Y., Bash-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00199",
+      "page": 18,
+      "section": "References",
+      "bbox": null,
+      "text_span": "lykov, N., Batra, S., Bhargava, P., Bhosale, S., et al.: Llama 2: Open foundation",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00200",
+      "page": 18,
+      "section": "References",
+      "bbox": null,
+      "text_span": "and fine-tuned chat models. arXiv preprint arXiv:2307.09288 (2023) 40. Wang, Q., Hu, J., Jiang, M.: V-seam: Visual semantic editing and attention mod- ulating for causal interpretability of vision-language models. In: Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing. pp. 17407–17431 (2025) 41. Wang, Y., Zhang, M., Sun, J., Wang, C., Yang, M., Xue, H., Tao, J., Duan, R.,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00201",
+      "page": 18,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Liu, J.: Mirage in the eyes: Hallucination attack on multi-modal large language",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00202",
+      "page": 18,
+      "section": "References",
+      "bbox": null,
+      "text_span": "models with only attention sink. In: 34th USENIX Security Symposium (USENIX Security 25). pp. 3707–3726 (2025)",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00203",
+      "page": 18,
+      "section": "References",
+      "bbox": null,
+      "text_span": "42. Xiao, G., Tian, Y., Chen, B., Han, S., Lewis, M.: Efficient streaming language",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00204",
+      "page": 18,
+      "section": "References",
+      "bbox": null,
+      "text_span": "models with attention sinks. arXiv preprint arXiv:2309.17453 (2023) 43. Yang, A., Yang, B., Hui, B., Zheng, B., Yu, B., Zhou, C., Li, C., Li, C., Liu, D., Huang, F., Dong, G., Wei, H., Lin, H., Tang, J., Wang, J., Yang, J., Tu, J., Zhang, J., Ma, J., Xu, J., Zhou, J., Bai, J., He, J., Lin, J., Dang, K., Lu, K., Chen, K., Yang, K., Li, M., Xue, M., Ni, N., Zhang, P., Wang, P., Peng, R., Men, R., Gao, R., Lin, R., Wang, S., Bai, S., Tan, S., Zhu, T., Li, T., Liu, T., Ge, W., Deng, X., Zhou, X., Ren, X., Zhang, X., Wei, X., Ren, X., Fan, Y., Yao, Y., Zhang, Y., Wan, Y., Chu, Y., Liu, Y., Cui, Z., Zhang, Z., Fan, Z.: Qwen2 technical report. arXiv preprint arXiv:2407.10671 (2024) 44. Yang, A., Yang, B., Hui, B., Zheng, B., Yu, B., Zhou, C., Li, C., Li, C., Liu, D., Huang, F., et al.: Qwen2 technical report. arXiv preprint arXiv:2407.10671 (2024) 45. Yu, Z., Wang, Z., Fu, Y., Shi, H., Shaikh, K., Lin, Y.C.: Unveiling and harnessing",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00205",
+      "page": 18,
+      "section": "References",
+      "bbox": null,
+      "text_span": "hidden attention sinks: Enhancing large language models without training through",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00206",
+      "page": 18,
+      "section": "References",
+      "bbox": null,
+      "text_span": "attention calibration. arXiv preprint arXiv:2406.15765 (2024) 46. Zhai, X., Mustafa, B., Kolesnikov, A., Beyer, L.: Sigmoid loss for language im- age pre-training. In: Proceedings of the IEEE/CVF international conference on computer vision. pp. 11975–11986 (2023) 47. Zhao, Q., Xu, M., Gupta, K., Asthana, A., Zheng, L., Gould, S.: The first to know:",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00207",
+      "page": 18,
+      "section": "References",
+      "bbox": null,
+      "text_span": "How token distributions reveal hidden knowledge in large vision-language models?",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00208",
+      "page": 18,
+      "section": "References",
+      "bbox": null,
+      "text_span": "In: European Conference on Computer Vision. pp. 127–142. Springer (2024)",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00209",
+      "page": 19,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Unified Framework for Attention Sink in LVLMs S1 Supplementary Materials This supplement is organized as follows. – Section Aprovides implementation details omitted from the main paper for space, including sink identification criteria, token-group statistics, and training configuration. – Section Bpositions our contributions relative to Kanget al. [17] and Luoet al. [27] via a structured comparison. – Section Cextends the oracle analysis: the full 32-layer×10-task landscape, broad-optimumcharacterization,3-groupvs.2-groupjustification,andoracle- to-learned gap discussion. – Section Dreports additional experiments: a parameter-matched baseline (LoRA), design-choice ablations (gating signal, token grouping, multi-layer training), and broader benchmark evaluation. – Section Ereplicates the sink taxonomy on LLaVA-OneVision-7B (SigLIP + Qwen2), validating cross-architecture generality. A Implementation Details & Reproducibility 25000 50000",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00210",
+      "page": 19,
+      "section": "References",
+      "bbox": null,
+      "text_span": "75000 Non-sink",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00211",
+      "page": 19,
+      "section": "References",
+      "bbox": null,
+      "text_span": "V-sink (782) 0 60 120 180 Activation magnitude 0 50 100 150 τ= 60 (a) ViT, dim 650 25000 50000 75000 Non-sink L-sink (2,744) 0 60 120 180 Activation magnitude 0 300 600 900 τ= 20 (b) LLM L2, dim 2533 10000 20000",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00212",
+      "page": 19,
+      "section": "References",
+      "bbox": null,
+      "text_span": "30000 Non-sink",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00213",
+      "page": 19,
+      "section": "References",
+      "bbox": null,
+      "text_span": "L-sink (2,783) 0 60 120 180 Activation magnitude 0 300 600 900 τ= 20 (c) LLM L10, dim 2533 3000 6000 9000",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00214",
+      "page": 19,
+      "section": "References",
+      "bbox": null,
+      "text_span": "12000 Non-sink",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00215",
+      "page": 19,
+      "section": "References",
+      "bbox": null,
+      "text_span": "L-sink (3,049) 0 60 120 180 Activation magnitude 0 400 800 1200 τ= 20 (d) LLM L31, dim 2533 Token count Fig.S1: Activation distribution at sink dimensions(300×576visual tokens). (a) ViT penultimate layer, dim 650. (b–d) LLM Layers 2, 10, 31, dim 2533.y-axis broken to show both the dense bulk (top) and sparse sink tokens (bottom). Dashed red lines: thresholdτ. A.1 Sink Identification Sink Dimensions.Following Sunet al. [36], we identify massive activation dimensions as those whose absolute magnitudes consistently exceed all oth- ers by orders of magnitude across 300 GQA [13] samples. This yields dimen- sion 650 for CLIP-ViT-L/14 and dimensions 1415, 2533 for LLaMA-2-7B, con- sistent with [36]. We use dimension 2533 as the primary indicator for LLM-side classification.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00216",
+      "page": 19,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Thresholdτ.We setτ vit = 60for V-sink identification at the penultimate",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00217",
+      "page": 19,
+      "section": "References",
+      "bbox": null,
+      "text_span": "ViT layer (dim 650) andτ llm = 20for layer-wise L-sink identification in the",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00218",
+      "page": 20,
+      "section": "References",
+      "bbox": null,
+      "text_span": "S2 J. Choi et al.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00219",
+      "page": 20,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Table S1:Training configuration for LSG.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00220",
+      "page": 20,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Item Value Backbone LLaVA-1.5-7B, fully frozen Trainable paramsg ℓ only (∼262K per layer) Dataset 10K from Cambrian-7M Stratification Equal across 6 categories (OCR, general, counting, code, math, science) Optimizer Adam Learning rate1×10 −3, constant Batch size 128(8×RTX3090, per-device 8, grad. accum. 2) Epochs 2 Per-layer training Independent (32 separate runs) LLM (dim 2533). As shown in Figure S1(a), a clear gap separates non-sink tokens (activations below∼50) from V-sinks (above∼70), placingτ vit in the empty region between the two modes. In the LLM (Figure S1b), the bulk of visual tokens clusters below∼10, while L-sinks exhibit activations well above τllm. The differentτvalues reflect the different activation scales of the ViT and LLM. Figures S1(c,d) confirm that this bimodal separation persists across LLM depths, validating a singleτllm for all layers. A.2 Token Group Statistics We report statistics over 300 GQA samples, each yielding 576 visual tokens (24×24patches). V-sinks...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00221",
+      "page": 20,
+      "section": "References",
+      "bbox": null,
+      "text_span": "layer MLP with LayerNorm:D→64→2, followed by Softmax (Eq. 5). With",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00222",
+      "page": 20,
+      "section": "References",
+      "bbox": null,
+      "text_span": "D=4096(LLaMA-2-7B), the per-layer parameter count is∼262K. The 5-layer",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00223",
+      "page": 20,
+      "section": "References",
+      "bbox": null,
+      "text_span": "stacking configuration adds∼1.3M trainable parameters in total, constituting 0.02%of the 7B frozen backbone.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00224",
+      "page": 20,
+      "section": "References",
+      "bbox": null,
+      "text_span": "The Softmax output is initialized to(ρvit, ρ rest) = (0.5,0.5), equivalent to",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00225",
+      "page": 20,
+      "section": "References",
+      "bbox": null,
+      "text_span": "applying a uniform scaling factor of0.5to all visual token keys. This mirrors the midpoint of our grid search range (Section 3.4) and provides a neutral starting point from which the gate can learn to increase or decrease sink attention in either direction. Training Configuration.The entire pretrained LVLM (vision encoder, pro- jector, and LLM) is frozen; only the gating MLP parameters are updated. Ta-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00226",
+      "page": 21,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Unified Framework for Attention Sink in LVLMs S3",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00227",
+      "page": 21,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Table S2: Comparison with prior attention-sink studies in LVLMs.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00228",
+      "page": 21,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Kanget al. [17] Luoet al. [27] Ours Sink type analyzed LLM-emerged ViT-emergedBoth (unified) Formation mechanism Massive activation High-norm outliersBoth origins (Sec. 3.2) Layer-wise analysis — —32-layer grid search (Obs. 1&2)",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00229",
+      "page": 21,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Intervention target Attention weights Projector embeddings Key vectors",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00230",
+      "page": 21,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Intervention granularity Head-level Model-level Layer-level Task adaptation Fixed threshold External sentence encoderhℓlast(internal, per-layer) Additional module at inference — Sentence encoder Lightweight MLP 0 8 16 24 31 LLM Layer 0 2 4 6 8 10Sink token count",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00231",
+      "page": 21,
+      "section": "References",
+      "bbox": null,
+      "text_span": "L-sink (mean) V-sink (mean = 2.6, fixed)",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00232",
+      "page": 21,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Fig.S2:Sink count across LLM layers. Light lines: individual samples. 505 529 50 77 99 433 516 V-sink L-sink Fig.S3:Sink tokens overlaid on input im- age.Orange: V-sinks;green: L-sinks. ble S1 summarizes the setup. Each of the 32 LLM layers is trained independently as a separate run. The 10K training samples are drawn from Cambrian-7M [37] by sampling equally from six task categories: OCR, general VQA, counting, code, math, and science (∼1,667samples each). B Positioning & Novelty",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00233",
+      "page": 21,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Table S2 contrasts the scope of recent attention-sink studies in LVLMs with our",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00234",
+      "page": 21,
+      "section": "References",
+      "bbox": null,
+      "text_span": "contributions. Since the oracle favors suppressing sinks at some layers but strengthening them at others, even within a single task (Observation 2), a per-input, per- layer gate is necessary. In particular, Kanget al. [17] redistribute attention exclusivelyawayfrom sink tokens, which aligns with our findings for fine-grained perception but conflicts with reasoning tasks where the oracle favors higher sink attention (ρvit>0.5) in 26 of 32 layers. Furthermore, because the LLM’s input RMSNorm re-normalizes token hidden states at every layer, scalar reweighting",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00235",
+      "page": 22,
+      "section": "References",
+      "bbox": null,
+      "text_span": "S4 J. Choi et al. at the projector level [27] has limited capacity to control the relative attention contribution of sink tokens within deeper layers; LSG instead intervenes on key",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00236",
+      "page": 22,
+      "section": "References",
+      "bbox": null,
+      "text_span": "vectors after normalization, where the scaling directly modulates pre-softmax",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00237",
+      "page": 22,
+      "section": "References",
+      "bbox": null,
+      "text_span": "attention logits.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00238",
+      "page": 22,
+      "section": "References",
+      "bbox": null,
+      "text_span": "C Extended Oracle Analysis C.1 Full Oracle Landscape",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00239",
+      "page": 22,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Figure S4 presents the oracle grid search results (top) alongside the learned-gate",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00240",
+      "page": 22,
+      "section": "References",
+      "bbox": null,
+      "text_span": "heatmap (bottom) across all 32 layers and 10 sub-tasks. Each cell in the oracle row reports the best accuracy change (%p) obtainable by key-gating intervention at that single layer.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00241",
+      "page": 22,
+      "section": "References",
+      "bbox": null,
+      "text_span": "The oracle achieves larger absolute gains than the learned gate, since it se-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00242",
+      "page": 22,
+      "section": "References",
+      "bbox": null,
+      "text_span": "lects the best of 11 coefficient values independently per task. In layers L3–19, where the learned gate yields mostly non-negative effects (Section 5.3), the two heatmaps show a similar task-wise trend: ST consistently receives the strongest positive effect, FG and LR show moderate positive effects concentrated in early- to-mid layers, and CP is negative across all depths. The learned gate produces smaller magnitudes overall. We suspect this is because the NTP loss aggregates gradients across all tasks simultaneously, which may push the gate toward con-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00243",
+      "page": 22,
+      "section": "References",
+      "bbox": null,
+      "text_span": "servative coefficients that avoid harming any single task rather than toward the",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00244",
+      "page": 22,
+      "section": "References",
+      "bbox": null,
+      "text_span": "per-task extremes the oracle can afford. C.2 Broad Optimum Across 320 layer×task combinations, 73% have a top-1 to top-2 accuracy gap below0.5%p,and42%below0.2%p(FigureS5).Inotherwords,formostsettings the best gate value and its neighbor yield nearly identical accuracy, so the precise coefficient matters less than selecting the right direction (strengthen or suppress) at the task×layer combinations where the landscape is steep (e.g., ST at L3–10, FG at L3–5). C.3 Why V-sink vs. Rest: 3-Group Oracle Analysis As noted in Section B, the learned gate uses a 2-group partition (V-sinks vs. the rest) despite our analysis identifying three token groups. Here we provide the quantitative rationale. Setup.UsingthehierarchicalsweepdescribedinSection3.4ofthemainpaper, we fix the V-sink coefficient at its 2-group optimum and further split the “rest” groupintoL-sinksandordinarytokens,sweepingtheircoefficientsindependently. This yields a 3-group oracle for 232 layer×task combinations (9 sub-tasks; co...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00245",
+      "page": 23,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Unified Framework for Attention Sink in LVLMs S5 CP FG IR LR Math ST Count Depth Dist Rel Oracle -4 -4 -5 -5 -5 -5 -4 -4 -5 -6 -4 -5 -4 -4 -4 -5 -4 -5 -4 -4 -4 -5 -5 -4 -4 -5 +4 +6 +6 +4 +4 +6 +5 +4 +7 +5 +7 +4 +12 +10 +10 +5 +12 +9 +10 +8 +11 +5 +4 +5 +6 +8 -5 +6 +6 +5 +5 +5 +6 +5 +5 0 2 4 6 8 10 12 14 16 18 20 22 24 26 28 30 LLM Layer CP FG IR LR Math ST Count Depth Dist Rel Learned -5 -3 -2 -4 -3 +2 -2 +2 +2 +2 +3 +2 +10 +3 +6 +4 -9 +3 +3 -4 +2 -4 -2 -3 -6 +4 -12 -2 -5 +4 +4 -2 -16 +2 -2 15 10 5 0 5 10 (%p) Fig.S4: Oracle (top) vs. Learned (bottom) gate heatmapsacross 32 layers and 10 sub-tasks, sharing the same color scale. Within L3–19, the task-wise trends are similar. 82% of layer×task settings, the 2-group gate still recovers over 90% of the 3- group accuracy gain in 69% of all settings. The average additional gain from the third degree of freedom is only 0.195%p (Figure S6). Information redundancy.This is consistent with our probing results (Sec- tion 3.3): both V-sinks and L...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00246",
+      "page": 23,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Table S3 reports the best single-layer gain for each sub-task. Following Sec-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00247",
+      "page": 23,
+      "section": "References",
+      "bbox": null,
+      "text_span": "tion 5.3, L2 is excluded from both columns, as the learned gate at L2 does not differentiate inputs. Excluding L2 provides a fair comparison between the oracle and learned settings. Interpreting the gap.The oracle selects the best of 11 coefficient values independently per task, so it represents a per-task upper bound rather than a",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00248",
+      "page": 24,
+      "section": "References",
+      "bbox": null,
+      "text_span": "S6 J. Choi et al.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00249",
+      "page": 24,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Table S3:Best single-layer accuracy gain (%p) per sub-task: oracle vs. learned gate.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00250",
+      "page": 24,
+      "section": "References",
+      "bbox": null,
+      "text_span": "L2 is excluded from both columns (see Section 5.3). Oracle Layer Learned Layer Recovery FG +6.49 L4 +2.37 L4 36.5% IR +5.94 L10 +2.15 L6 36.2% LR +7.07 L4 +2.32 L7 32.8% Math +3.11 L19 +2.26 L7 72.7% ST +12.02 L6 +5.66 L10 47.1% Count +3.93 L8 +2.54 L10 64.5% Depth +6.17 L19 +4.33 L10 70.2% Dist +5.50 L6 +3.83 L3 69.7% Rel +3.85 L4 +2.46 L9 64.0% 0.0 0.5 1.0 1.5 2.0 2.5 3.0",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00251",
+      "page": 24,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Top-1 minus Top-2 accuracy (%p)",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00252",
+      "page": 24,
+      "section": "References",
+      "bbox": null,
+      "text_span": "0 20 40 60 80 100 120 140 Count 0.5 %p Fig.S5: Distribution of top-1 mi- nus top-2 accuracy gapsacross 320 layer×task oracle settings. 73% fall below 0.5%p (dashed line). FG IR LR Math ST Count Depth Dist Rel 0.0 0.1 0.2 0.3 0.4 Additional gain from 3-group (%p) Fig.S6: Average additional accuracy gain from 3-group over 2-group ora- cle, per sub-task. All below 0.4%p.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00253",
+      "page": 24,
+      "section": "References",
+      "bbox": null,
+      "text_span": "target the learned gate is expected to match. The learned gate predicts a single",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00254",
+      "page": 24,
+      "section": "References",
+      "bbox": null,
+      "text_span": "coefficient per input fromhℓ last, trained with NTP loss on 10K general-purpose samples without task identifiers. Directional agreement.The grid search (Section 3.4) identified task- and layer-dependent trade-offs through exhaustive sweeps. The learned gate, trained with NTP loss alone and without access to oracle coefficients or task labels, reproduces this pattern: it predicts lower sink ratios for fine-grained inputs and higher ratios for reasoning inputs (Figure 8), and its gains concentrate in L3–19",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00255",
+      "page": 24,
+      "section": "References",
+      "bbox": null,
+      "text_span": "(FigureS4),largelyoverlappingwiththecross-modaltransferrange(layers4–20)",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00256",
+      "page": 24,
+      "section": "References",
+      "bbox": null,
+      "text_span": "identified by [15]. This confirms thathℓ last carries sufficient signal for the gate to become task-separable under NTP training alone, without requiring oracle coefficients or task labels. D Additional Experiments Weconductadditionalexperimentsto(i)compareLSGagainstagenericparameter- efficient baseline (Sec. D.1), (ii) ablate key design choices in the gating mech- anism (Sec. D.2), and (iii) evaluate on broader benchmarks beyond those used",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00257",
+      "page": 25,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Unified Framework for Attention Sink in LVLMs S7",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00258",
+      "page": 25,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Table S4: Baseline comparison at L10.∆values are relative to the unmodified",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00259",
+      "page": 25,
+      "section": "References",
+      "bbox": null,
+      "text_span": "LLaVA-1.5-7B baseline. Both methods use 262K trainable parameters with the same 10K NTP setup. LoRA uses rank-8 on{q, k, v, o}projections. Method Params∆MMStar∆CVBench Baseline 0 33.27 57.29 LoRA rank-8 262K+0.70−5.30 LSG (ours)262K+0.73+2.14 in the main paper (Sec. D.3). Unless otherwise stated, all learned variants are trained on a 10K stratified sample from Cambrian-7M with a frozen backbone. D.1 Baseline Comparison A natural question is whether the improvements from LSG arise from the sink- specific gating structure identified in our analysis, or from the additional param- eters alone. To test this, we compare LSG against LoRA [12] applied to a single attention layer (L10), matching the parameter budget as closely as possible. Setup.We consider two conditions beyond the unmodified baseline: (1)LoRA: rank-8 LoRA on all four projections (Wq,W k,W v,W o) at L10, totaling4×2×",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00260",
+      "page": 25,
+      "section": "References",
+      "bbox": null,
+      "text_span": "4096×8 = 262K parameters; (2)LSG: our gating mechanism at L10 with 262K",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00261",
+      "page": 25,
+      "section": "References",
+      "bbox": null,
+      "text_span": "parameters. The parameter counts coincide, providing a controlled comparison. Both conditions use the same training configuration (10K samples, 2 epochs, NTP loss). Results.Table S4 reports deltas against the unmodified baseline. LSG and LoRA show comparable MMStar gains (+0.73vs.+0.70pp), but their effect pro- files diverge on spatial reasoning: LSG improves CVBench by+2.14while LoRA degrades it by−5.30. Despite identical parameter budgets, the two methods",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00262",
+      "page": 25,
+      "section": "References",
+      "bbox": null,
+      "text_span": "produce qualitatively different trade-off patterns, confirming that LSG’s gains",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00263",
+      "page": 25,
+      "section": "References",
+      "bbox": null,
+      "text_span": "stem from the sink-specific structure identified in our analysis rather than from additional parameters alone. D.2 Design Choice Ablations LSG involves three design choices: (A) which hidden state to use as the gating signal, (B) how to partition tokens into groups, and (C) whether jointly training multiple layers improves over greedy stacking. All ablations are conducted at L10, the best single-layer configuration from the main paper, and evaluated on MMStar and CVBench. A. Gating signal.We compare three sources for the gating signal:hlast (the hidden state of the last text token, our default), a mean-pool over all input to- kens, and a mean-pool restricted to visual tokens.hlast is the only variant that yields consistent gains on both MMStar (+0.73pp) and CVBench (+2.14), with 8 out of 10 subtasks showing non-negative change. Both mean-pooled variants",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00264",
+      "page": 26,
+      "section": "References",
+      "bbox": null,
+      "text_span": "S8 J. Choi et al.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00265",
+      "page": 26,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Table S5: Design choice ablations at L10.The first row in each category corre-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00266",
+      "page": 26,
+      "section": "References",
+      "bbox": null,
+      "text_span": "sponds to the default LSG configuration.∆values are relative to the unmodified base-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00267",
+      "page": 26,
+      "section": "References",
+      "bbox": null,
+      "text_span": "line. All variants use the same training setup (10K samples, 2 epochs). Then≥0/n<0",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00268",
+      "page": 26,
+      "section": "References",
+      "bbox": null,
+      "text_span": "column counts non-negative vs. negative subtasks out of 10 (MMStar×6 + CVBench ×4).",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00269",
+      "page": 26,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Category Variant Params∆MMStar∆CVBenchn≥0/n<0",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00270",
+      "page": 26,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Baseline 0 33.27 57.29 — LSG (ours) 262K+0.73+2.148/2 A. Gating signal hlast (ours) 262K+0.73 +2.148/2 Mean-pool (all tokens) 262K−0.28−0.075/5 Mean-pool (visual only) 262K−0.30−0.153/7 B. Token grouping V-sink vs. rest (ours) 262K+0.73 +2.148/2 L-sink vs. rest 262K+1.07 +1.756/4 3-group (V / L / ord)∼262K+0.98 +2.968/2 C. Multi-layer Greedy 5-layer 1.3M+1.56 +3.088/2 Joint 5-layer 1.3M+0.72 +3.677/3 produce near-zero aggregate deltas, but the subtask breakdown reveals a more concerning pattern: mean-pool over visual tokens degrades 7 out of 10 subtasks, while mean-pool over all tokens shows no clear direction (5/5). This is consis- tent with how autoregressive LLMs aggregate context into the final token [18,29]; mean-pooling dilutes this concentrated signal into a position-averaged represen- tation that lacks query specificity. B. Token grouping.We compare our default 2-group partition (V-sink vs. rest) against two alternatives: (i) grouping by LLM-emerged sinks (L-sink vs.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00271",
+      "page": 26,
+      "section": "References",
+      "bbox": null,
+      "text_span": "rest), and (ii) a 3-group formulation that assigns separate softmax-normalized",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00272",
+      "page": 26,
+      "section": "References",
+      "bbox": null,
+      "text_span": "ratios to V-sinks, L-sinks, and ordinary tokens.4 All three groupings produce positive gains on both MMStar and CVBench,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00273",
+      "page": 26,
+      "section": "References",
+      "bbox": null,
+      "text_span": "with no single variant dominating across both metrics: L-sink leads on MMStar",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00274",
+      "page": 26,
+      "section": "References",
+      "bbox": null,
+      "text_span": "(+1.07), 3-group leads on CVBench (+2.96), and V-sink falls between (+0.73, +2.14). The similar overall gains across groupings suggest that, at L10, sepa- ratinganysink set from ordinary tokens modulates access to the same global information. This is consistent with the probing results at this layer (Sec. 3.3), and with Observation 3, where the 2-group partition recovered most of the 3- group oracle gain. We adopt V-sink vs. rest as the default given its subtask consistency (8/2) and the simplicity of a fixed token partition. C. Multi-layer training.In the main paper, the 5-layer configuration (L3, L6, L7, L10, L19) is assembled by greedy stacking of independently trained single-layer gates. Here, we compare this greedy approach against joint training of all five layer gates simultaneously.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00275",
+      "page": 26,
+      "section": "References",
+      "bbox": null,
+      "text_span": "4 The 3-group formulation uses a 3-way softmax, jointly optimizing all three ratios",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00276",
+      "page": 26,
+      "section": "References",
+      "bbox": null,
+      "text_span": "end-to-end. This differs from the hierarchical oracle sweep in Sec. 3.4, which first fixes the V-sink ratio and then subdivides the remainder.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00277",
+      "page": 27,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Unified Framework for Attention Sink in LVLMs S9",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00278",
+      "page": 27,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Table S6: Broader benchmark evaluation.∆from unmodified LLaVA-1.5-7B",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00279",
+      "page": 27,
+      "section": "References",
+      "bbox": null,
+      "text_span": "baseline.↑/↓: benchmarks with positive vs. negative change. Domain Benchmark Base∆L2∆L10∆L19 Spatial CVBench 57.3−7.3+2.1+0.5 Multimodal MMStar 33.3 +0.9 +0.7 +0.8 OCR OCRBench 312−1.0 +2.0+3.0 Math MathVista 22.6−1.2−0.6 +0.1 ↑/↓1/3 3/14/0 Joint training achieves a higher CVBench gain (+3.67vs.+3.08) than greedy stacking, suggesting some benefit from cross-layer co-adaptation. However, MM- Star is lower (+0.72vs.+1.56), and the training trajectory is less stable across",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00280",
+      "page": 27,
+      "section": "References",
+      "bbox": null,
+      "text_span": "epochs. Two factors likely contribute: the5×larger parameter space (1.3M vs.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00281",
+      "page": 27,
+      "section": "References",
+      "bbox": null,
+      "text_span": "262K) relative to the fixed 10K training set increases overfitting risk, and si- multaneous updates to all five gating MLPs shift each layer’s input distribution",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00282",
+      "page": 27,
+      "section": "References",
+      "bbox": null,
+      "text_span": "at every step, creating a moving-target dynamic. Greedy stacking avoids both",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00283",
+      "page": 27,
+      "section": "References",
+      "bbox": null,
+      "text_span": "issues: each layer is trained independently with 262K parameters, and previously learned gates are frozen before adding the next, keeping input distributions sta-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00284",
+      "page": 27,
+      "section": "References",
+      "bbox": null,
+      "text_span": "ble. Scaling joint training to larger datasets may close this gap; we leave this to",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00285",
+      "page": 27,
+      "section": "References",
+      "bbox": null,
+      "text_span": "future work. Epoch stability.As a partial stability check in lieu of full multi-seed evalua- tion, we compare epoch-1 and epoch-2 checkpoints across all single-layer config- urations. Across 320 layer×task combinations from the 32-layer grid search, only",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00286",
+      "page": 27,
+      "section": "References",
+      "bbox": null,
+      "text_span": "5.3% of configurations exhibit a sign flip between epochs. The top-performing",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00287",
+      "page": 27,
+      "section": "References",
+      "bbox": null,
+      "text_span": "layers (L3, L7, L10, L19) remain within the top 8 in both epochs, and L19 converges to nearly identical gate values across checkpoints. We report epoch-1 results throughout as the less overfit checkpoint; the consistency across epochs provides evidence for training stability despite the limited 10K sample size. D.3 Broader Benchmark The main paper evaluates LSG on MMStar and CVBench. Here we extend the evaluation to two additional benchmarks covering complementary capability do- mains: OCRBench [24] (text recognition) and MathVista [26] (mathematical reasoning). We compare L2 (negative control), L10 (best single-layer), and L19 (safest single-layer; 10/10 non-negative subtasks in the main evaluation).",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00288",
+      "page": 27,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Table S6 shows the results. L2 degrades 3 of 4 benchmarks, confirming that",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00289",
+      "page": 27,
+      "section": "References",
+      "bbox": null,
+      "text_span": "early-layer gating without an informative signal is broadly disruptive (consis- tent with Section 5.3). L19 improves all four benchmarks, including OCRBench",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00290",
+      "page": 27,
+      "section": "References",
+      "bbox": null,
+      "text_span": "(+3.0) and MathVista (+0.1). L10 achieves larger gains on CVBench (+2.1) and",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00291",
+      "page": 27,
+      "section": "References",
+      "bbox": null,
+      "text_span": "OCRBench (+2.0) but degrades MathVista (−0.6).",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00292",
+      "page": 28,
+      "section": "References",
+      "bbox": null,
+      "text_span": "S10 J. Choi et al.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00293",
+      "page": 28,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Table S7: Architectural comparison.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00294",
+      "page": 28,
+      "section": "References",
+      "bbox": null,
+      "text_span": "LLaVA-1.5-7B LLaVA-OV-7B Vision encoder CLIP-ViT-L/14 SigLIP-SO400M Resolution Fixed 336px Dynamic (AnyRes)",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00295",
+      "page": 28,
+      "section": "References",
+      "bbox": null,
+      "text_span": "LLM LLaMA-2-7B (32L,D=4096) Qwen2-7B (28L,D=3584)",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00296",
+      "page": 28,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Visual tokens 576 (fixed) 729 base + varies Dsink (ViT) {650} {1076} Dsink (LLM) {1415, 2533} {458, 2570} τvit /τ llm 60 / 20 40 / 50 E Cross-Architecture Analysis 0 6 13 20 27 LLM Layer (a) 50 100 150 200 250 300 350 400 ℓ2 norm 0 6 13 20 27 LLM Layer (b) 0.00 0.01 0.02 0.03 0.04 0.05 0.06 0.07 0.08 Attn. mass / token (%) Ordinary V-sink L-sink Fig.S7: Layer-wise salience on LLaVA-OneVision-7B(cf. Fig. 2). (a)ℓ2 norms; (b) per-token attention mass from the last input token. All analyses in the main paper use LLaVA-1.5-7B (CLIP-ViT-L/14 + LLaMA-2-7B). To test whether the V-sink/L-sink taxonomy general- izes, we replicate the core analyses on LLaVA-OneVision-7B [20], whose architectural differences are summa- rized in Table S7. E.1 Experimental Setup All analyses use 300 GQA [13] samples, matching the protocol for LLaVA-1.5. LLaVA-OneVision employs AnyRes, splitting each image into a base crop and multiple sub-crops, each independently encoded by SigLIP. We identify V-sinks across all...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00297",
+      "page": 28,
+      "section": "References",
+      "bbox": null,
+      "text_span": "above∼40, with a wide gap (∼10to∼40) in between; we setτvit=40. For Qwen2-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00298",
+      "page": 28,
+      "section": "References",
+      "bbox": null,
+      "text_span": "7B [44], dimensions 458 and 2570 serve as the LLM sink dimensions, consistent with Kanget al. [17]; we use dim 458 as the primary indicator for L-sink classi- fication. At early stable layers (e.g., L5; Figure S8b), the bulk stays below∼15",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00299",
+      "page": 28,
+      "section": "References",
+      "bbox": null,
+      "text_span": "and L-sinks appear above∼50, providing a wide gap forτ llm=50. At deeper",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00300",
+      "page": 28,
+      "section": "References",
+      "bbox": null,
+      "text_span": "layers, Qwen2’s growing residual stream norm shifts the bulk distribution right- ward, progressively narrowing the gap. At L14 (Figure S8c), the bulk extends to ∼40and the gap remains sufficient. At L25 (Figure S8d), the bulk reaches∼45,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00301",
+      "page": 28,
+      "section": "References",
+      "bbox": null,
+      "text_span": "leaving insufficient margin for reliable separation; the L-sink count at this layer",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00302",
+      "page": 28,
+      "section": "References",
+      "bbox": null,
+      "text_span": "(1,497) is notably higher than at L5 (407) or L14 (456), confirming that the fixed",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00303",
+      "page": 29,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Unified Framework for Attention Sink in LVLMs S11 60000 120000 180000 Non-sink V-sink (8,256) 0 60 120 180 Activation magnitude 0 800 1600 2400 τ= 40 (a) SigLIP , dim 1076 30000 60000 90000 Non-sink L-sink (407) 0 20 40 60 Activation magnitude 0 100 200 300 τ= 50 (b) Qwen2 L5, dim 458 15000 30000",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00304",
+      "page": 29,
+      "section": "References",
+      "bbox": null,
+      "text_span": "45000 Non-sink",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00305",
+      "page": 29,
+      "section": "References",
+      "bbox": null,
+      "text_span": "L-sink (456) 0 20 40 60 Activation magnitude 0 60 120 180 τ= 50 (c) Qwen2 L14, dim 458 8000 16000 24000 Non-sink L-sink (1,497) 0 20 40 60 Activation magnitude 0 200 400 600 τ= 50 (d) Qwen2 L25, dim 458 Token count Fig.S8: Activation distribution at sink dimensions on LLaVA-OneVision-7B",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00306",
+      "page": 29,
+      "section": "References",
+      "bbox": null,
+      "text_span": "(cf. Figure S1). (a) SigLIP dim 1076 (τvit=40). (b–d) Qwen2 dim 458 at Layers 5, 14,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00307",
+      "page": 29,
+      "section": "References",
+      "bbox": null,
+      "text_span": "25 (τllm=50); the gap between bulk and sink narrows at deeper layers.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00308",
+      "page": 29,
+      "section": "References",
+      "bbox": null,
+      "text_span": "threshold captures many borderline tokens at this depth. We apply Eq. (2) with raw absolute activation magnitudes throughout. Token statistics.Over 300 GQA samples, V-sinks average∼20 per image across all AnyRes crops combined (base crop+sub-crops). L-sinks emerge at L4 and average∼1–5 per layer within L4–L18, where the bimodal gap at dim 458 is wide enough for stable identification. Starting from L19, L-sink counts spike sharply (peak∼50–100 at L20–L22; Figure S10), coinciding with the residual norm growth discussed above. This is a threshold artifact rather than genuine L-sink emergence. Counts decrease at L25–L26 (∼5–8 per layer); L27 shows a modest increase but remains well below the L19–L24 peak. E.2 Sink Taxonomy Replication Salience pattern (Figure S7).V-sinks remain above ordinary tokens in ℓ2 norm across all 28 layers (panel a), though the gap narrows in mid-layers (L13–L18) before widening again as residual norms grow. V-sinks also receive disproportionate attention mass fro...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00309",
+      "page": 30,
+      "section": "References",
+      "bbox": null,
+      "text_span": "S12 J. Choi et al. v569v568v542v5 v618v165v40 v121token 192 833 1076 hidden dim 0 150 (a) SigLIP Early (L0) v569v568v542v5 v618v165v40 v121 192 833 1076 0 150 (b) SigLIP Late (L25) v569v568v542v5 v618v165v40 v121 458 0 40 (c) Qwen2 Early (L0) v569v568v542v5 v618v165v40 v121 458 0 100 (d) Qwen2 Late (L4) Fig.S9: Activation patterns on LLaVA-OneVision-7B(cf. Fig. 3). Orange: V- sink, green: L-sink, gray: ordinary. (a,b) SigLIP first and last encoder layers. (c) Qwen2 layer 0. (d) Qwen2 layer 4. The corresponding spatial overlay is shown in Figure S11. (i) V-sink massive activations from the first encoder layer.In CLIP-ViT-L/14, massive activations at dim 650 emerge at an intermediate encoder layer and grow through subsequent layers [36]. In SigLIP-SO400M, massive activations at dim 1076 are already present at the first encoder layer (panel a) and persist with similar magnitude through the last encoder layer (panel b). (ii) L-sinks with elevated ViT-side norms.In LLaVA-1.5, L-sinks are i...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00310",
+      "page": 30,
+      "section": "References",
+      "bbox": null,
+      "text_span": "layer 0 (panel c), V-sinks (orange) enter with the largest norms, L-sinks (green)",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00311",
+      "page": 30,
+      "section": "References",
+      "bbox": null,
+      "text_span": "enter with intermediate norms, and ordinary tokens (gray) enter with the low- est. By layer 4 (panel d), the FFN has written massive activations at dim 458 for both V-sinks and L-sinks, completing L-sink formation through the same early-layer mechanism as in LLaVA-1.5 [17,36]. Summary.The V-sink/L-sink/ordinary three-group partition and its associ- ated salience hierarchy both generalize to LLaVA-OneVision-7B despite sub- stantial architectural differences. The one notable distinction is that L-sinks in LLaVA-OneVision already carry elevated norms from secondary ViT dimensions, whereas in LLaVA-1.5 they are norm-indistinguishable from ordinary tokens. In both architectures, however, L-sinks ultimately develop massive activations at theLLM’ssinkdimensionsandfunctionasattentionsinkswithinthethree-group taxonomy. The stable identification range (L4–L18) suggests that layer-wise in- tervention, as conducted for LLaVA-1.5 in Section 5, would be feasible within this range. We verify this vi...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00312",
+      "page": 31,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Unified Framework for Attention Sink in LVLMs S13 50 100 V-sink (mean) L-sink (mean) 0 6 13 20 27 LLM Layer 0 5 10 15 20 25 30 Sink token count Fig.S10: Sink count per layer on LLaVA-OneVision-7B(cf. Fig- ure S2). Shaded band: L19–L24 (y-axis broken). 541542543 568569570 595596 5 618 V-sink L-sink Fig.S11: Spatial distribution of sink tokens on LLaVA-OneVision-7B(cf.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00313",
+      "page": 31,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Figure S3).Orange: V-sinks;green: L-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00314",
+      "page": 31,
+      "section": "References",
+      "bbox": null,
+      "text_span": "sinks. E.3 Oracle Intervention on LLaVA-OneVision The oracle grid search in Section 3.4 revealed that the optimal gating direction and magnitude are both task-dependent (Observation 1) and layer-dependent (Observation 2) on LLaVA-1.5. A natural question is whether these patterns are specific to the CLIP-ViT-L/14 + LLaMA-2 combination or reflect a more general property of layer-wise information routing in LVLMs. To answer this, we replicate the oracle key-gating sweep on LLaVA-OneVision-7B.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00315",
+      "page": 31,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Setup.We apply the same intervention as Section 3.4: at each target layer,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00316",
+      "page": 31,
+      "section": "References",
+      "bbox": null,
+      "text_span": "the key vectors of V-sink tokens are scaled byρvit and those of remaining visual tokens by1−ρ vit. We sweepρ vit ∈ {0.0,0.1, . . . ,1.0}at seven layers sampled at approximately uniform intervals (every 3–4 layers) across the 28-layer Qwen2 decoder: L2, L5, L9, L13, L16, L19, and L23. Each configuration is evaluated on MMStar (6 subtasks) and CVBench (4 subtasks), matching the LLaVA-1.5 evaluation protocol. For reference, LLaVA-OneVision’s unmodified baselines are MMStar 61.9% and CVBench 77.2% (vs. 33.3% and 57.3% for LLaVA-1.5; per- subtask breakdown in Table S8). Results.Figure S12 shows the per-subtask oracle results. Despite LLaVA- OneVision’s substantially stronger baseline (Table S8), positive oracle gains exist at every sampled layer (6–8 out of 10 subtasks per layer). The heatmap reveals two patterns consistent with those observed on LLaVA-1.5. First, the effect is task-dependent (Observation 1): even at the same layer, the effect of the optimal gate value differs across subta...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00317",
+      "page": 32,
+      "section": "References",
+      "bbox": null,
+      "text_span": "S14 J. Choi et al.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00318",
+      "page": 32,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Table S8: Baseline accuracy (%) of LLaVA-1.5-7B and LLaVA-OneVision-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00319",
+      "page": 32,
+      "section": "References",
+      "bbox": null,
+      "text_span": "7B. MMStar CVBench CP FG IR LR Math ST Cnt Dep Dist Rel LLaVA-1.5 63.9 24.7 39.3 27.7 26.9 17.2 47.8 67.0 48.0 66.3 LLaVA-OV 74.9 52.8 72.7 58.4 57.6 55.2 69.0 83.2 75.5 80.9 2 5 9 13 16 19 23 Qwen2 Layer CP FG IR LR Math ST Count Depth Distance Relation +2 +3 +2 +2 +2 2 1 0 1 2 ∆ (%p) Fig.S12: Oracle key-gating sweep on LLaVA-OneVision-7B(cf. Figure S4). Each cell reports the best accuracy change (%p) among 11 swept gate values at that layer. Seven layers are sampled at uniform intervals across the 28-layer Qwen2 decoder. from those at which it has little effect. These patterns indicate that the layer-wise utilization of sink tokens and its task- and layer-dependent nature, identified on the CLIP-ViT-L/14 + LLaMA-2 architecture, are generally observable on the SigLIP + Qwen2 combination as well.",
+      "source_type": "reference"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "warnings": [
+      {
+        "code": "ok",
+        "message": "Grounding verification passed with current v1 checks.",
+        "target": null,
+        "severity": "info"
+      }
+    ],
+    "anchor_count": 319
+  }
+}

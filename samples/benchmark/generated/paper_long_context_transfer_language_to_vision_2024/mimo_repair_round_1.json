@@ -1,0 +1,1772 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "现有大型多模态模型（LMMs）在理解极长视频方面存在困难，主要原因是视觉编码器产生的视觉token数量过多，且缺乏高质量的长视频数据集。",
+      "anchors": [
+        "anc_00009",
+        "anc_00013"
+      ]
+    },
+    "motivation": {
+      "summary": "现有方法主要通过减少视觉token数量（如使用视觉重采样器）来应对长视频问题，但效果有限。本文从语言模型的角度出发，提出通过扩展语言骨干的上下文长度来实现长视频理解，无需密集的长视频监督训练。",
+      "anchors": [
+        "anc_00004",
+        "anc_00019"
+      ]
+    },
+    "core_idea": {
+      "summary": "长上下文迁移：将语言模型中学习到的长上下文能力迁移到视觉和视频输入中。通过先扩展语言模型的文本上下文长度，再使用短图像数据进行模态对齐，使模型能够零样本处理极长视频。",
+      "anchors": [
+        "anc_00004",
+        "anc_00032",
+        "anc_00033"
+      ]
+    },
+    "method": {
+      "summary": "1. 长语言模型训练：使用Qwen2-7B-Instruct作为骨干，通过增加RoPE基频进行长上下文继续预训练（上下文长度224K）。2. 视觉对齐：设计UniRes统一编码方案，将图像和视频统一编码，使用短图像数据进行模态对齐和视觉指令微调。",
+      "anchors": [
+        "anc_00036",
+        "anc_00044",
+        "anc_00045"
+      ]
+    },
+    "experiments": {
+      "summary": "在V-NIAH（视觉大海捞针）和Video-MME基准上评估长视觉能力。V-NIAH测试模型检索长范围视觉信息的能力，Video-MME是全面的视频LMM评估套件。还在多个短视频和图像基准上进行了评估。",
+      "anchors": [
+        "anc_00068",
+        "anc_00069",
+        "anc_00084",
+        "anc_00089"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "长上下文能力可以从语言迁移到视觉，即使没有长视频训练。",
+        "anchors": [
+          "anc_00077",
+          "anc_00081",
+          "anc_00083"
+        ]
+      },
+      {
+        "claim_id": "claim_2",
+        "claim": "扩展语言模型骨干的上下文长度是提升LMM长视频理解能力的关键。",
+        "anchors": [
+          "anc_00073",
+          "anc_00076",
+          "anc_00077"
+        ]
+      },
+      {
+        "claim_id": "claim_3",
+        "claim": "UniRes统一编码方案有助于视觉上下文外推。",
+        "anchors": [
+          "anc_00077",
+          "anc_00089",
+          "anc_00093"
+        ]
+      },
+      {
+        "claim_id": "claim_4",
+        "claim": "LongVA在Video-MME上达到了7B参数模型中的最优性能。",
+        "anchors": [
+          "anc_00069",
+          "anc_00070",
+          "anc_00079"
+        ]
+      },
+      {
+        "claim_id": "claim_5",
+        "claim": "V-NIAH是测量LMM视觉上下文长度的有效基准。",
+        "anchors": [
+          "anc_00053",
+          "anc_00060",
+          "anc_00077"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "1. 由于计算和内存限制，实验最多分析384帧。2. 在短视频基准（如VideoChatGPT）上，增加帧数并未带来显著性能提升，且得分低于某些基线。3. 模型在长视频上的性能仍受限于语言模型的上下文长度（尽管有外推）。",
+        "anchors": [
+          "anc_00083",
+          "anc_00086"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "长语言模型训练",
+        "label": "语言模型上下文扩展",
+        "summary": "通过继续预训练扩展语言模型骨干的上下文长度，使其能够处理更长的文本序列。",
+        "description": "使用Qwen2-7B-Instruct作为骨干，通过增加RoPE基频至1B，在900M token上进行继续预训练，将上下文长度扩展至224K。训练数据来自Slimpajama，对长文档进行上采样。训练在8×A100-80G上耗时2天。",
+        "type": "training_stage",
+        "anchors": [
+          "anc_00036",
+          "anc_00037",
+          "anc_00043"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "UniRes统一编码方案",
+        "label": "视觉编码",
+        "summary": "设计统一的图像和视频编码方案，将视频视为扩展的图像，每个帧作为一个网格。",
+        "description": "UniRes将输入图像划分为多个336×336的网格，每个网格使用CLIP-ViT-L-336px编码，通过2层MLP投影，然后进行2×2平均池化，每个网格产生144个token。对于视频，N帧视频被视为336×(336×N)的图像，划分为N个网格，编码为144N个视觉token。",
+        "type": "encoding_scheme",
+        "anchors": [
+          "anc_00045",
+          "anc_00046",
+          "anc_00047",
+          "anc_00048",
+          "anc_00193"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "视觉对齐与指令微调",
+        "label": "多模态对齐",
+        "summary": "使用短图像数据对扩展后的语言模型进行模态对齐和视觉指令微调，无需长视频数据。",
+        "description": "采用与LLaVA-1.6相同的视觉编码器和训练数据，使用UniRes编码图像，通过MLP投影对齐视觉和语言特征。图像文本对齐训练耗时1.5天。",
+        "type": "alignment_training",
+        "anchors": [
+          "anc_00044",
+          "anc_00049",
+          "anc_00051"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "V-NIAH评估基准",
+        "label": "评估方法",
+        "summary": "提出视觉大海捞针（V-NIAH）测试，用于测量LMM的视觉上下文长度。",
+        "description": "V-NIAH将5个视觉问答问题作为“针”，插入小时级的视频“大海”中。问题设计为反事实或反常识，确保模型不能仅凭语言知识回答。测试模型在长视频中定位和检索视觉信息的能力。",
+        "type": "evaluation_benchmark",
+        "anchors": [
+          "anc_00053",
+          "anc_00054",
+          "anc_00060",
+          "anc_00198",
+          "anc_00201"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "长上下文迁移现象",
+        "label": "核心发现",
+        "summary": "语言模型的长上下文能力可以迁移到视觉模态，使模型能够零样本处理极长视频。",
+        "description": "实验表明，LongVA在V-NIAH测试中，对于少于2000帧的输入几乎能完美检索信息，尽管训练上下文长度仅为224K（约1555帧）。在Video-MME上，随着采样帧数增加，LongVA在长子集上的性能提升。",
+        "type": "phenomenon",
+        "anchors": [
+          "anc_00077",
+          "anc_00081",
+          "anc_00083"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_003",
+        "label": "提供扩展的语言骨干",
+        "description": "长语言模型训练为视觉对齐提供了具有长上下文能力的语言骨干。",
+        "anchors": [
+          "anc_00036",
+          "anc_00044"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "提供视觉编码方案",
+        "description": "UniRes统一编码方案用于在视觉对齐阶段编码图像和视频。",
+        "anchors": [
+          "anc_00045",
+          "anc_00049"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_005",
+        "label": "产生长上下文迁移",
+        "description": "通过视觉对齐，语言模型的长上下文能力迁移到视觉模态，形成长上下文迁移现象。",
+        "anchors": [
+          "anc_00032",
+          "anc_00033",
+          "anc_00077"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "label": "验证迁移现象",
+        "description": "V-NIAH基准用于评估和验证长上下文迁移现象。",
+        "anchors": [
+          "anc_00053",
+          "anc_00077"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00014",
+        "anc_00045"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00036",
+        "anc_00045",
+        "anc_00049"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "语言骨干上下文长度有限（如32K），限制了可处理的视觉token数量。",
+        "after": "通过长上下文继续预训练，将语言骨干上下文长度扩展至224K。",
+        "why_it_matters": "扩展语言骨干的上下文长度是提升长视频理解能力的关键，使模型能够处理更多视觉token。",
+        "anchors": [
+          "anc_00014",
+          "anc_00036",
+          "anc_00073"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "使用AnyRes等编码方案，可能包含基础图像，且图像和视频编码不统一。",
+        "after": "采用UniRes统一编码方案，移除基础图像，将视频视为扩展的图像，每个帧作为一个网格。",
+        "why_it_matters": "统一编码方案有助于视觉上下文外推，在InfoVQA等高分辨率图像基准上表现更好。",
+        "anchors": [
+          "anc_00045",
+          "anc_00048",
+          "anc_00093",
+          "anc_00189",
+          "anc_00193"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "需要长视频监督数据来训练长视频理解能力。",
+        "after": "仅使用短图像数据进行模态对齐和指令微调，零样本处理长视频。",
+        "why_it_matters": "避免了收集和标注长视频数据的困难，降低了训练成本。",
+        "anchors": [
+          "anc_00004",
+          "anc_00019",
+          "anc_00044"
+        ],
+        "delta_id": "delta_3"
+      },
+      {
+        "before": "缺乏专门测量视觉上下文长度的基准。",
+        "after": "提出V-NIAH基准，用于评估LMM的视觉上下文长度。",
+        "why_it_matters": "提供了标准化的评估方法，便于比较不同模型的长视觉能力。",
+        "anchors": [
+          "anc_00053",
+          "anc_00060"
+        ],
+        "delta_id": "delta_4"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "formula": "\\text{Visual Tokens per Frame} = 144",
+        "variables": [
+          {
+            "name": "Visual Tokens per Frame",
+            "description": "每个视频帧编码后产生的视觉token数量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00047"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "UniRes编码方案将每个336×336的网格编码为144个token，这是通过CLIP编码、MLP投影和平均池化实现的。",
+        "anchors": [
+          "anc_00047"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "formula": "\\text{Total Visual Tokens for N-frame Video} = 144N",
+        "variables": [
+          {
+            "name": "N",
+            "description": "视频帧数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00047"
+            ]
+          },
+          {
+            "name": "Total Visual Tokens",
+            "description": "N帧视频的总视觉token数量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00047"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "对于N帧视频，每帧产生144个token，因此总token数为144N。这使得视频可以被视为长图像序列。",
+        "anchors": [
+          "anc_00047"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "formula": "\\text{Training Context Length} = 224K \\text{ tokens}",
+        "variables": [
+          {
+            "name": "Training Context Length",
+            "description": "长语言模型训练时使用的上下文长度",
+            "confidence": "high",
+            "anchors": [
+              "anc_00036",
+              "anc_00037"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "这是长上下文继续预训练中使用的最大序列长度，受限于GPU内存和优化后的代码库。",
+        "anchors": [
+          "anc_00036",
+          "anc_00037"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "在Video-MME基准上，LongVA（7B参数）达到了7B模型中的最优性能，与更大的模型（如LLaVA-NeXT-Video-34B）竞争。",
+      "anchors": [
+        "anc_00069",
+        "anc_00070",
+        "anc_00079",
+        "anc_00080"
+      ]
+    },
+    "ablation": {
+      "description": "通过比较LongVA（使用UniRes）和LongVA（AnyRes）在V-NIAH和图像基准上的性能，验证了UniRes统一编码方案的有效性。",
+      "anchors": [
+        "anc_00066",
+        "anc_00067",
+        "anc_00077",
+        "anc_00089",
+        "anc_00093"
+      ]
+    },
+    "robustness": {
+      "description": "在V-NIAH测试中，LongVA在训练上下文长度（224K，约1555帧）内表现完美，并能外推至3000帧，保持满意性能。",
+      "anchors": [
+        "anc_00077"
+      ]
+    },
+    "scaling": {
+      "description": "在Video-MME上，随着采样帧数从8增加到128，LongVA在长子集上的性能持续提升，但进一步增加到384帧时性能略有下降。",
+      "anchors": [
+        "anc_00069",
+        "anc_00081",
+        "anc_00083"
+      ]
+    },
+    "case_study": {
+      "description": "定性结果展示了LongVA-DPO在短视频和长视频（长达34分51秒）中准确描述和检索视觉细节的能力。",
+      "anchors": [
+        "anc_00095",
+        "anc_00096",
+        "anc_00097",
+        "anc_00098",
+        "anc_00099"
+      ]
+    },
+    "human_eval": {
+      "description": "未明确提及人工评估。",
+      "anchors": []
+    },
+    "benchmark": {
+      "description": "在多个基准上评估：V-NIAH（长上下文检索）、Video-MME（长视频理解）、短视频基准（NeXTQA、ActivityNetQA等）、图像基准（AI2D、ChartQA、DocVQA等）。",
+      "anchors": [
+        "anc_00068",
+        "anc_00084",
+        "anc_00089"
+      ]
+    },
+    "efficiency": {
+      "description": "长上下文训练在8×A100-80G上耗时2天，图像文本对齐训练耗时1.5天，总训练成本3.5天。",
+      "anchors": [
+        "anc_00043",
+        "anc_00049"
+      ]
+    },
+    "experiments": [
+      {
+        "description": "在Video-MME基准上，LongVA（7B参数）达到了7B模型中的最优性能，与更大的模型（如LLaVA-NeXT-Video-34B）竞争。",
+        "anchors": [
+          "anc_00069",
+          "anc_00070",
+          "anc_00079",
+          "anc_00080"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "main_result_1",
+        "dataset": [
+          "Video-MME"
+        ],
+        "baseline": [
+          "LLaVA-NeXT-Video-34B",
+          "InternVL-Chat-V1.5",
+          "VILA-1.5"
+        ],
+        "metrics": [
+          "Overall Score",
+          "Short",
+          "Medium",
+          "Long"
+        ],
+        "result_summary": "LongVA（7B）在Video-MME上达到52.4的总体得分，优于所有7B基线，并与34B模型竞争。",
+        "what_it_tries_to_prove": "证明LongVA在长视频理解任务上达到了7B参数模型的最优性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "通过比较LongVA（使用UniRes）和LongVA（AnyRes）在V-NIAH和图像基准上的性能，验证了UniRes统一编码方案的有效性。",
+        "anchors": [
+          "anc_00066",
+          "anc_00067",
+          "anc_00077",
+          "anc_00089",
+          "anc_00093"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "ablation",
+        "name": "ablation_2",
+        "dataset": [
+          "V-NIAH",
+          "InfoVQA",
+          "AI2D",
+          "ChartQA"
+        ],
+        "baseline": [
+          "LongVA (AnyRes)"
+        ],
+        "metrics": [
+          "V-NIAH Accuracy",
+          "InfoVQA Score",
+          "AI2D Score",
+          "ChartQA Score"
+        ],
+        "result_summary": "UniRes在V-NIAH上表现更好，在InfoVQA（高分辨率图像）上显著提升，但在AI2D和ChartQA（低分辨率图像）上略有下降。",
+        "what_it_tries_to_prove": "验证UniRes统一编码方案在视觉上下文外推和高分辨率图像处理上的优势。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "在V-NIAH测试中，LongVA在训练上下文长度（224K，约1555帧）内表现完美，并能外推至3000帧，保持满意性能。",
+        "anchors": [
+          "anc_00077"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "robustness",
+        "name": "robustness_3",
+        "dataset": [
+          "V-NIAH"
+        ],
+        "baseline": [
+          "LLaVA-NeXT-Video-32K",
+          "LLaVA-NeXT-Video-32K (extrapolated)"
+        ],
+        "metrics": [
+          "V-NIAH Accuracy"
+        ],
+        "result_summary": "LongVA在2000帧内几乎完美检索信息，在3000帧内保持满意性能，远超基线模型。",
+        "what_it_tries_to_prove": "证明长上下文迁移现象，即语言模型的长上下文能力可以迁移到视觉模态。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "在Video-MME上，随着采样帧数从8增加到128，LongVA在长子集上的性能持续提升，但进一步增加到384帧时性能略有下降。",
+        "anchors": [
+          "anc_00069",
+          "anc_00081",
+          "anc_00083"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "scaling",
+        "name": "scaling_4",
+        "dataset": [
+          "Video-MME"
+        ],
+        "baseline": [],
+        "metrics": [
+          "Long Subset Score",
+          "Overall Score"
+        ],
+        "result_summary": "从8帧到128帧，LongVA在长子集上的得分从42.1提升到46.2，但384帧时略降至45.8。",
+        "what_it_tries_to_prove": "研究采样帧数对长视频理解性能的影响，验证模型处理更多帧的能力。",
+        "evidence_strength": "moderate"
+      },
+      {
+        "description": "定性结果展示了LongVA-DPO在短视频和长视频（长达34分51秒）中准确描述和检索视觉细节的能力。",
+        "anchors": [
+          "anc_00095",
+          "anc_00096",
+          "anc_00097",
+          "anc_00098",
+          "anc_00099"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "case_study",
+        "name": "case_study_5",
+        "dataset": [
+          "自定义短视频",
+          "自定义长视频"
+        ],
+        "baseline": [],
+        "metrics": [
+          "定性描述准确性"
+        ],
+        "result_summary": "LongVA-DPO准确描述了短视频中的幽默互动，并在长视频中检索到特定视觉细节（如火车颜色、雨伞颜色）。",
+        "what_it_tries_to_prove": "展示模型在真实场景中理解短视频和长视频的能力。",
+        "evidence_strength": "qualitative"
+      },
+      {
+        "description": "在多个基准上评估：V-NIAH（长上下文检索）、Video-MME（长视频理解）、短视频基准（NeXTQA、ActivityNetQA等）、图像基准（AI2D、ChartQA、DocVQA等）。",
+        "anchors": [
+          "anc_00068",
+          "anc_00084",
+          "anc_00089"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "benchmark",
+        "name": "benchmark_6",
+        "dataset": [
+          "V-NIAH",
+          "Video-MME",
+          "NeXTQA",
+          "ActivityNetQA",
+          "VideoChatGPT",
+          "Video-DD",
+          "AI2D",
+          "ChartQA",
+          "DocVQA",
+          "InfoVQA",
+          "RealworldQA",
+          "MMMU"
+        ],
+        "baseline": [
+          "LLaVA-NeXT-Video",
+          "LLaVA-1.6-Vicuna",
+          "LLaVA-NeXT-LLaMA3",
+          "LLaVA-NeXT-Qwen2"
+        ],
+        "metrics": [
+          "各基准特定指标"
+        ],
+        "result_summary": "LongVA在多个基准上表现具有竞争力，在Video-MME和InfoVQA上表现突出，在短视频基准上与基线相当或略低。",
+        "what_it_tries_to_prove": "全面评估LongVA在长视频、短视频和图像理解任务上的性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "长上下文训练在8×A100-80G上耗时2天，图像文本对齐训练耗时1.5天，总训练成本3.5天。",
+        "anchors": [
+          "anc_00043",
+          "anc_00049"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "efficiency",
+        "name": "efficiency_7",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [
+          "训练时间（天）"
+        ],
+        "result_summary": "总训练成本为3.5天（8×A100-80G），其中长上下文训练2天，视觉对齐1.5天。",
+        "what_it_tries_to_prove": "说明LongVA的训练成本相对较低，适合学术预算。",
+        "evidence_strength": "strong"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "长上下文能力可以从语言迁移到视觉，即使没有长视频训练。",
+        "evidence_source_type": "实验结果（V-NIAH和Video-MME）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00077",
+          "anc_00081",
+          "anc_00083"
+        ],
+        "risk_flags": [
+          "外推性能可能随帧数进一步增加而下降"
+        ],
+        "claim_id": "claim_1",
+        "evidence": [
+          {
+            "evidence_id": "evidence_1_1",
+            "description": "在V-NIAH测试中，LongVA对于少于2000帧的输入几乎能完美检索信息，尽管训练上下文长度仅为224K（约1555帧）。",
+            "anchors": [
+              "anc_00077"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_1_2",
+            "description": "在Video-MME上，随着采样帧数增加，LongVA在长子集上的性能提升，表明模型能处理更多视觉token。",
+            "anchors": [
+              "anc_00081",
+              "anc_00083"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "扩展语言模型骨干的上下文长度是提升LMM长视频理解能力的关键。",
+        "evidence_source_type": "对比实验（与LLaVA-NeXT-Video-32K比较）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00073",
+          "anc_00076",
+          "anc_00077"
+        ],
+        "claim_id": "claim_2",
+        "evidence": [
+          {
+            "evidence_id": "evidence_2_1",
+            "description": "LLaVA-NeXT-Video-32K的视觉上下文长度受限于其32K语言骨干，在约200帧后V-NIAH准确率显著下降。",
+            "anchors": [
+              "anc_00073"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_2_2",
+            "description": "LongVA通过扩展语言骨干至224K，在V-NIAH上表现远超基线，证明扩展语言骨干是关键。",
+            "anchors": [
+              "anc_00076",
+              "anc_00077"
+            ],
+            "strength": "strong"
+          }
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "UniRes统一编码方案有助于视觉上下文外推。",
+        "evidence_source_type": "消融实验（LongVA (AnyRes) vs LongVA (UniRes)）",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00077",
+          "anc_00089",
+          "anc_00093"
+        ],
+        "risk_flags": [
+          "在AI2D和ChartQA等低分辨率图像基准上性能略有下降"
+        ],
+        "claim_id": "claim_3",
+        "evidence": [
+          {
+            "evidence_id": "evidence_3_1",
+            "description": "在V-NIAH测试中，LongVA（UniRes）比LongVA（AnyRes）表现更好，表明统一编码有助于视觉上下文外推。",
+            "anchors": [
+              "anc_00077"
+            ],
+            "strength": "moderate"
+          },
+          {
+            "evidence_id": "evidence_3_2",
+            "description": "在InfoVQA（高分辨率图像）上，LongVA（UniRes）得分显著高于LongVA（AnyRes），但在AI2D和ChartQA上略有下降。",
+            "anchors": [
+              "anc_00089",
+              "anc_00093"
+            ],
+            "strength": "moderate"
+          }
+        ]
+      },
+      {
+        "claim": "LongVA在Video-MME上达到了7B参数模型中的最优性能。",
+        "evidence_source_type": "基准测试结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00069",
+          "anc_00070",
+          "anc_00079"
+        ],
+        "claim_id": "claim_4",
+        "evidence": [
+          {
+            "evidence_id": "evidence_4_1",
+            "description": "在Video-MME基准上，LongVA（7B）达到52.4的总体得分，优于所有7B基线模型，并与34B模型竞争。",
+            "anchors": [
+              "anc_00069",
+              "anc_00070",
+              "anc_00079"
+            ],
+            "strength": "strong"
+          }
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "V-NIAH是测量LMM视觉上下文长度的有效基准。",
+        "evidence_source_type": "基准设计和实验验证",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00053",
+          "anc_00060",
+          "anc_00077"
+        ],
+        "claim_id": "claim_5",
+        "evidence": [
+          {
+            "evidence_id": "evidence_5_1",
+            "description": "V-NIAH设计了反事实或反常识的视觉问答问题，确保模型不能仅凭语言知识回答，从而有效测量视觉上下文长度。",
+            "anchors": [
+              "anc_00053",
+              "anc_00054"
+            ],
+            "strength": "moderate"
+          },
+          {
+            "evidence_id": "evidence_5_2",
+            "description": "V-NIAH成功区分了不同模型的视觉上下文长度，如LongVA与LLaVA-NeXT-Video-32K的差异。",
+            "anchors": [
+              "anc_00060",
+              "anc_00077"
+            ],
+            "strength": "moderate"
+          }
+        ],
+        "risk_flags": []
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "长上下文迁移",
+        "definition": "语言模型中学习到的长上下文能力迁移到视觉和视频输入的现象，使模型能够零样本处理极长视频。",
+        "anchors": [
+          "anc_00004",
+          "anc_00032",
+          "anc_00033"
+        ],
+        "appears_in": [
+          "anc_00004",
+          "anc_00032",
+          "anc_00033"
+        ]
+      },
+      {
+        "term": "V-NIAH（视觉大海捞针）",
+        "definition": "一种评估LMM视觉上下文长度的基准，将视觉问答问题作为“针”插入长视频“大海”中，测试模型检索信息的能力。",
+        "anchors": [
+          "anc_00053",
+          "anc_00060"
+        ],
+        "appears_in": [
+          "anc_00053",
+          "anc_00060"
+        ]
+      },
+      {
+        "term": "UniRes",
+        "definition": "一种统一的图像和视频编码方案，将视频视为扩展的图像，每个帧作为一个网格，使用CLIP编码、MLP投影和平均池化。",
+        "anchors": [
+          "anc_00045",
+          "anc_00048",
+          "anc_00193"
+        ],
+        "appears_in": [
+          "anc_00045",
+          "anc_00048",
+          "anc_00193"
+        ]
+      },
+      {
+        "term": "RoPE基频",
+        "definition": "旋转位置编码中的基频参数，增加基频可以扩展模型的上下文长度。",
+        "anchors": [
+          "anc_00036"
+        ],
+        "appears_in": [
+          "anc_00036"
+        ]
+      },
+      {
+        "term": "视觉token",
+        "definition": "视觉编码器（如CLIP）将图像或视频帧编码后产生的向量表示，作为语言模型的输入。",
+        "anchors": [
+          "anc_00009",
+          "anc_00047"
+        ],
+        "appears_in": [
+          "anc_00009",
+          "anc_00047"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        "Slimpajama（用于长上下文训练）",
+        "LLaVA-1.6的训练数据（用于视觉对齐）",
+        "V-NIAH测试数据（5个视觉问答问题）",
+        "Video-MME、NeXTQA、ActivityNetQA等评估基准"
+      ],
+      "required_models": [
+        "Qwen2-7B-Instruct（语言骨干）",
+        "CLIP-ViT-L-336px（视觉编码器）"
+      ],
+      "required_compute": "8×A100-80G GPU，总训练时间约3.5天（长上下文训练2天，视觉对齐1.5天）。",
+      "code_available": "论文未明确提及代码是否开源。",
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 长语言模型训练：使用Qwen2-7B-Instruct，在Slimpajama上继续预训练，上下文长度224K，RoPE基频1B。",
+          "anchors": [
+            "anc_00036",
+            "anc_00037",
+            "anc_00043"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 视觉对齐：使用UniRes编码图像，通过MLP投影对齐视觉和语言特征，使用LLaVA-1.6的训练数据进行指令微调。",
+          "anchors": [
+            "anc_00044",
+            "anc_00045",
+            "anc_00049"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 评估：在V-NIAH和Video-MME等基准上测试长视频理解能力。",
+          "anchors": [
+            "anc_00053",
+            "anc_00068",
+            "anc_00069"
+          ]
+        }
+      ],
+      "missing_details": [
+        "具体的训练超参数（如学习率调度、批大小）",
+        "UniRes编码中MLP投影的具体架构",
+        "V-NIAH测试中视频“大海”的具体构建方法",
+        "代码是否开源及具体实现细节"
+      ],
+      "risk_points": [
+        "长上下文训练需要大量GPU内存，可能不适合资源有限的实验室",
+        "UniRes编码在低分辨率图像基准上可能表现不佳",
+        "外推性能可能随帧数进一步增加而下降"
+      ]
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-03T14:16:11+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_long_context_transfer_language_to_vision_2024",
+    "title": "Long Context Transfer from Language to Vision",
+    "authors": [
+      "Peiyuan Zhang",
+      "Kaichen Zhang",
+      "Bo Li",
+      "Guangtao Zeng",
+      "Jingkang Yang",
+      "Yuanhan Zhang",
+      "Ziyue Wang",
+      "Haoran Tan",
+      "Chunyuan Li",
+      "Ziwei Liu"
+    ],
+    "venue": "arXiv",
+    "year": 2024,
+    "arxiv_id": "2406.16852",
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-03T14:14:57+00:00",
+    "paper_type": "Large Multimodal Model / Long Context / Video Understanding method paper",
+    "selection_source": "manual_user_requested_2026_05_03",
+    "open_access_pdf_url": "https://arxiv.org/pdf/2406.16852",
+    "fields_of_study": [
+      "Computer Science",
+      "Computer Vision",
+      "Machine Learning"
+    ],
+    "publication_types": [
+      "Preprint"
+    ],
+    "abstract": "This paper studies how long-context capability learned by a language backbone can transfer to visual and video inputs. It presents LongVA, a large multimodal model that extends context length for long video understanding without requiring dense long-video supervised training."
+  },
+  "document_blocks": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "type": "title",
+      "content": "Long Context Transfer from Language to Vision Peiyuan Zhang∗,†,1,2 Kaichen Zhang∗,1,2 Bo Li∗,1,2 Guangtao Zeng3 Jingkang Yang1,2 Yuanhan Zhang1,2 Ziyue Wang2 Haoran Tan2 Chunyuan Li1 Ziwei Liu1,2,B 1LMMs-Lab Team 2S-Lab, NTU, Singapore 3SUTD, Singapore {peiyuan.zhang, zhan0564, libo0013, ziwei.liu}@ntu.edu.sg"
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": "Abstract",
+      "type": "section_heading",
+      "content": "Abstract"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": "Abstract",
+      "type": "formula",
+      "content": "Video sequences offer valuable temporal information, but existing large multimodal"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": "Abstract",
+      "type": "paragraph",
+      "content": "models (LMMs) fall short in understanding extremely long videos. Many works ad- dress this by reducing the number of visual tokens using visual resamplers. Alterna- tively, in this paper, we approach this problem from the perspective of the language model. By simply extrapolating the context length of the language backbone, we enable LMMs to comprehend orders of magnitude more visual tokens without any video training. We call this phenomenon long context transfer and carefully ablate its properties. To effectively measure LMMs’ ability to generalize to long contexts in the vision modality, we develop V-NIAH (Visual Needle-In-A-Haystack), a p..."
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": "Introduction",
+      "type": "section_heading",
+      "content": "1 Introduction"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 1,
+      "section": "Introduction",
+      "type": "formula",
+      "content": "Driven by the progress of Large Language Models (LLMs) [8, 67, 70, 66, 56, 54, 17], multiple studies"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 1,
+      "section": "Introduction",
+      "type": "paragraph",
+      "content": "are conducted to extend their capability to understand images and videos [ 38, 18, 68, 48]. With"
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 1,
+      "section": "Introduction",
+      "type": "formula",
+      "content": "modality alignment and visual instruction tuning, these Large Multimodal Models (LMMs) have"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 1,
+      "section": "Introduction",
+      "type": "paragraph",
+      "content": "shown impressive abilities such as captioning and visual question-answering. While current LMMs have demonstrated promising performance on tasks involving single images and short videos [64, 42, 50, 87], effectively processing and understanding extremely long videos remains a significant challenge [72]. One primary reason for this challenge is the excessive number of visual tokens generated by the vision encoder. For instance, LLaV A-1.6 [47] can produce 576 to 2880 visual tokens for a single image. The number of visual tokens increases significantly with the addition of more frames. To address this problem, numerous methods have been propos..."
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 1,
+      "section": "Introduction",
+      "type": "formula",
+      "content": "popular direction is to modify the visual resampler that connects the vision encoder and LLM, aiming"
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 1,
+      "section": "Introduction",
+      "type": "paragraph",
+      "content": "to extract fewer tokens [ 38, 41, 9, 15]. Alternative approaches [ 11, 62, 31, 91] employ heuristic techniques to prune or merge the visual features. However, despite these efforts, Table 1 demonstrates"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 1,
+      "section": "Introduction",
+      "type": "formula",
+      "content": "that the majority of current LMMs are still limited in their ability to process a large number of frames"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 1,
+      "section": "Introduction",
+      "type": "paragraph",
+      "content": "effectively. Another issue hindering the development of high-performance long video LMMs is the lack of high-quality long video datasets. In Table 2, we list the average video length of existing video *Equal contribution. †Project lead. BCorresponding author. arXiv:2406.16852v2 [cs.CV] 1 Jul 2024"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 2,
+      "section": "Introduction",
+      "type": "paragraph",
+      "content": "Model Tokens/Frames * Training Max Frames* LM Backbone LM Context Length MPLUG-Owl-video [82] 256 4 LLaMA 4K MovieChat [64] 32 8 Vicuna-v0 2K Video-LLaV A [87] 49 8 Vicuna-1.5 4K VideoChat [39] 32 /196 8 Vicuna-v0 2K LLaV A-NeXT-Video [89] 144 16 Vicuna-1.5 4K ST-LLM [49] 256 16 Vicuna-1.1 2K Video-LLaMA [15] 32 32 LLaMA-2 4K Chat-UniVi [30] 112 64 Vicuna-1.5 4K TimeChat [60] 4 96 LLaMA-2 4K Video-ChatGPT [50] 256 100 Vicuna-1.1 2K LLaMA-VID [41] 2 300 Vicuna-1.5 4K LongV A (Ours) 144 - Qwen2-Extended 224K+"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 2,
+      "section": "Introduction",
+      "type": "caption",
+      "content": "Table 1: To enable longer video inputs, previous works train fewer visual tokens to increase the"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 2,
+      "section": "Introduction",
+      "type": "formula",
+      "content": "maximum frames during training. Our LongV A, on the other hand, enables long video capability by"
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 2,
+      "section": "Introduction",
+      "type": "paragraph",
+      "content": "extending the backbone language model. *We report it based on the best available information from their paper or released codebase."
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 2,
+      "section": "Introduction",
+      "type": "formula",
+      "content": "instruction tuning data. Most datasets consist of video clips within 1 minute. Even if some datasets do"
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 2,
+      "section": "Introduction",
+      "type": "paragraph",
+      "content": "contain longer videos, the corresponding text pairs are generated by annotating only several frames within that video, lacking long and dense supervision signals. Given the circumstance, in this paper, instead of reducing the visual tokens, we identify the more critical issue limiting the visual context length in existing LMMs: the context length of the language model backbone. Given a language model, we first extend its context length by training on longer text data. We then use this context-extended LM as the backbone to perform modality alignment and visual instruction tuning without any long video text pairs. By training this way, the co..."
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 2,
+      "section": "Related Work",
+      "type": "section_heading",
+      "content": "2 Related Work"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 2,
+      "section": "Related Work",
+      "type": "formula",
+      "content": "Vision Language Connector in Large Multimodal Models Existing studies explore different"
+    },
+    {
+      "anchor_id": "anc_00022",
+      "page": 2,
+      "section": "Related Work",
+      "type": "paragraph",
+      "content": "architectures to extract and inject visual features into LLMs. One line of work [2, 37, 4, 34], pioneered"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 2,
+      "section": "Related Work",
+      "type": "formula",
+      "content": "by Flamingo [2], adopts a resampler to compress the visual feature and inserts cross-gated attention"
+    },
+    {
+      "anchor_id": "anc_00024",
+      "page": 2,
+      "section": "Related Work",
+      "type": "paragraph",
+      "content": "layers into the LLM. Some other works still use a reampler [38, 92, 68] while directly feeding the image feature into the input layer of the language model. The LLaV A series [47, 46, 48] use a simple and scalable design to directly project the image features into language model without any pooling or resampling. When the field moves from image-only models to include multi-image and video inputs, more modifications to the visual language connector were proposed. [89] and [9] use a simple average pooling. [31] dynamically drop the visual tokens. [15] adopt a spatial-temporal convolution to better capture the dynamics of video data and reduce..."
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 3,
+      "section": "Related Work",
+      "type": "caption",
+      "content": "Table 2: Existing Video SFT Datasets"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 3,
+      "section": "Related Work",
+      "type": "paragraph",
+      "content": "Dataset Name Video Length (sec.) Text Length VideoChatGPT-100K [50] 123.4 068.0 LLaV A-Hound-255K [88] 052.4 037.6 ShareGPT4Video[12] 026.6 273.3 TimeIT [60] 190.8 052.5 VideoChat [39] 009.5 059.0"
+    },
+    {
+      "anchor_id": "anc_00027",
+      "page": 3,
+      "section": "Related Work",
+      "type": "caption",
+      "content": "Table 3: Video Benchmarks"
+    },
+    {
+      "anchor_id": "anc_00028",
+      "page": 3,
+      "section": "Related Work",
+      "type": "paragraph",
+      "content": "Benchmark Name Video Length (sec.) VideoChatGPT [50] 0108.0 NexTQA [77] 0042.9 EgoSchema [51] 0179.8 VideoMME [21] 1017.0 V-NIAH (Ours) 000. ∞ from text to image is orthogonal to those works and can further enable LMMs to understand more frames. Context Extrapolation in Transformer Transformer does not directly work on sequences longer than its training length. To alleviate that, various RoPE-based [ 65] extension techniques [13, 7, 61, 57, 20] have been proposed to allow for training-free context extrapolation. Efforts have also been made on data curation [22, 79, 5] and system optimization [40, 45, 27] during long context training. There h..."
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 3,
+      "section": "Related Work",
+      "type": "formula",
+      "content": "inputs with the minimum overhead of data collection and human annotation. Several concurrent"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 3,
+      "section": "Related Work",
+      "type": "paragraph",
+      "content": "works also developed multimodal versions of the Needle-in-a-haystack test [73, 90, 63, 71]. However, they only measure on several hundreds of frames and lack a strong baseline to properly analyze the properties of visual context length."
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 3,
+      "section": "Related Work",
+      "type": "paragraph",
+      "content": "As in Figure 1, this paper centers around the hypothesis that if the modality of vision and language can be truly aligned, the capability to handle long contexts could also transfer from text to vision,"
+    },
+    {
+      "anchor_id": "anc_00033",
+      "page": 3,
+      "section": "Related Work",
+      "type": "formula",
+      "content": "and this could happen even without explicit long video training. Our methodology is thus very"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 3,
+      "section": "Related Work",
+      "type": "paragraph",
+      "content": "straightforward. Given a language model, we first perform long context training purely on language to extend its text context (Section 3.1). We then detailed how we augment this language model with long visual capabilities by training solely on short image data in Section 3.2."
+    },
+    {
+      "anchor_id": "anc_00035",
+      "page": 3,
+      "section": "Related Work",
+      "type": "paragraph",
+      "content": "3.1 Training Long Language Model"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 3,
+      "section": "Related Work",
+      "type": "paragraph",
+      "content": "We use Qwen2-7B-Instruct [69] as the backbone language model and perform continued pretraining with a context length of 224K1 over a total of 900M tokens. We follow [79] to increase RoPE [65] base frequency during the continued pertaining and specifically set it to 1B. A constant learning rate of 1e-5 is maintained for a batch size of one million tokens across 1,000 training steps. Following [22], we construct the dataset used for long context training from Slimpajama [10] by upsampling documents longer than 4096 and keeping the domain mixture ratio unchanged. Multiple documents are packed into a single sequence separated by a BOS token. We..."
+    },
+    {
+      "anchor_id": "anc_00037",
+      "page": 3,
+      "section": "Related Work",
+      "type": "formula",
+      "content": "1224K is the maximum we can fit with 8 ×A100-80G for Qwen-2-7B. We find that the embedding size"
+    },
+    {
+      "anchor_id": "anc_00038",
+      "page": 3,
+      "section": "Related Work",
+      "type": "formula",
+      "content": "significantly impacts the maximum sequence length in our optimized codebase. Qwen2 has a huge vocabulary"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 4,
+      "section": "Related Work",
+      "type": "caption",
+      "content": "Figure 1: Left: to develop long vision models, previous studies proposed better visual resamplers to"
+    },
+    {
+      "anchor_id": "anc_00041",
+      "page": 4,
+      "section": "Related Work",
+      "type": "paragraph",
+      "content": "reduce the number of visual tokens. Right: LongV A approaches this problem from the angle of the language model. We leverage image data (short visual input) to align long-context LLM with vision. During the test time, LongV A can zero-shot process extremely long videos, thanks to the property of long context transfer. in ring attention. The resulting training framework is memory efficient and maintains very high GPU occupancy. Note that we do not use any parameter-efficient methods such as LoRA [ 26] or approximate attention [16]. With those optimizations, the compute used in long context training is"
+    },
+    {
+      "anchor_id": "anc_00042",
+      "page": 4,
+      "section": "Related Work",
+      "type": "formula",
+      "content": "minimal compared to that of language model pretraining, making it feasible for academic budgets."
+    },
+    {
+      "anchor_id": "anc_00043",
+      "page": 4,
+      "section": "Related Work",
+      "type": "paragraph",
+      "content": "The long context training can finish in 2 days with 8 A100 GPUs. In Figure 7, we evaluate the extended Qwen2 with the Needle-in-a-haystack (NIAH) test [ 1, 23]. It achieves perfect results within the training context length (224K) and generalizes even further. We find the vanilla NIAH to be a relatively trivial benchmark and further test it with 5 distractors randomly inserted into the documents. The detailed configuration can be found in Appendix A."
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 4,
+      "section": "Related Work",
+      "type": "paragraph",
+      "content": "3.2 Aligning Long Language Model Using Short Vision Data"
+    },
+    {
+      "anchor_id": "anc_00045",
+      "page": 4,
+      "section": "Related Work",
+      "type": "paragraph",
+      "content": "Inspired by the AnyRes encoding scheme in LLaV A-NeXT [47, 35], we designed UniRes that provides a unified encoding scheme for both images and videos, as shown in Figure 2. Unlike AnyRes which retains a small base image and flattens ViT patches across the grids, UniRes removes the base image, flattens patches within each grid, and 2x2 pool the visual features by default (Appendix B). This approach allows us to maintain consistent representation when extending image data into videos where multiple frames are viewed as multiple grids in a row. Specifically, UniRes divides an input image of resolution a × b into smaller grids, each with a resol..."
+    },
+    {
+      "anchor_id": "anc_00046",
+      "page": 4,
+      "section": "Related Work",
+      "type": "formula",
+      "content": "images, we limit the maximum number of grids to 49, resizing images larger than this threshold. Each"
+    },
+    {
+      "anchor_id": "anc_00047",
+      "page": 4,
+      "section": "Related Work",
+      "type": "paragraph",
+      "content": "grid is separately encoded using CLIP-ViT-L-336px [58] and then projected through a 2-layer MLP to match the LM’s input dimension, resulting in 576 features per grid. We then apply 2x2 average pooling, finally converting ana × b image into (a//336) × (b//336) × 144 tokens. During inference, this visual encoding scheme allows videos to be represented as very long images (even though we do not train on videos). An N-frame video is treated as an image of size 336 × (336 × N ), divided into N grids where each grid corresponds to a video frame. Using CLIP encoding, MLP projection, and average pooling, an N-frame video is encoded into 144N visual..."
+    },
+    {
+      "anchor_id": "anc_00048",
+      "page": 5,
+      "section": "Related Work",
+      "type": "caption",
+      "content": "Figure 2: UniRes’s unified encoding scheme of images and videos. During training, images are"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 5,
+      "section": "Related Work",
+      "type": "paragraph",
+      "content": "divided into multiple grids. During inference, videos are treated as extended images with each frame considered as a grid. We believe the unified encoding scheme for images and videos is crucial, thus choosing this as the encoding scheme of LongV A. The image-text alignment can be finished in 1.5 days. With 2 days for long context training on text, the total training cost of LongV A is 3.5 days on 8×A100-80G."
+    },
+    {
+      "anchor_id": "anc_00050",
+      "page": 5,
+      "section": "Related Work",
+      "type": "formula",
+      "content": "It is worth noting previous work largely inspired the design choice of LongV A. For example,[79]"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 5,
+      "section": "Related Work",
+      "type": "paragraph",
+      "content": "first demonstrates the effectiveness of long context continued pretraining with increased RoPE base frequency (thus decreasing the rotation angles). We sample the long text data following the guidance of [22]. We adopt the same vision encoder and training data as that of LLaV A-1.6 [47]. We try to keep our methods as simple as possible to clearly show the phenomenon of long context transfer without other confounders."
+    },
+    {
+      "anchor_id": "anc_00053",
+      "page": 5,
+      "section": "Related Work",
+      "type": "paragraph",
+      "content": "To measure the context length of language models on extremely long input, earlier works calculate perplexity scores over long documents. Recently, many have started using the Needle-in-a-Haystack (NIAH) test to benchmark LLMs’ ability to retrieve long context information precisely. We note that there is so far no benchmark to measure the visual context length of LMMs. To evaluate LongV A’s capacity to locate and retrieve long-range visual information, we extend the NIAH test from text to video and propose V-NIAH. As shown in Table 9, we designed 5 video question-answering problems as the needle and inserted each as a single frame into hours-..."
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 5,
+      "section": "Related Work",
+      "type": "formula",
+      "content": "contamination. The AI-generated images and questions are purposely chosen to be \"counterfactual\""
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 5,
+      "section": "Related Work",
+      "type": "paragraph",
+      "content": "or \"counter-commonsense\", ensuring the model cannot answer based on language knowledge alone. Each question includes a \"locating prompt\" so that a capable system or human can locate the needle frame from the video haystack and answer the question. When testing LongV A with visual inputs of up to 3000 frames, one difficulty we encountered was that processing a 200K-token input requires up to 100GB of GPU memory for the KV cache for a 7B LM like LLaMA. Even with advanced LM serving systems like vLLM [33] with tensor parallelism to shard the KV cache across multiple GPUs, the sampling process remains extremely slow due to limited memory and bat..."
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 5,
+      "section": "Related Work",
+      "type": "formula",
+      "content": "attention. This approach makes the workload compute-bound and eliminates the need to cache the"
+    },
+    {
+      "anchor_id": "anc_00057",
+      "page": 5,
+      "section": "Related Work",
+      "type": "formula",
+      "content": "KV state. The model’s output is considered correct only if the highest output logits index of all tokens"
+    },
+    {
+      "anchor_id": "anc_00060",
+      "page": 6,
+      "section": "Related Work",
+      "type": "caption",
+      "content": "Figure 3: V-NIAH consists of a haystack video, a needle image, and a question related to the needle."
+    },
+    {
+      "anchor_id": "anc_00062",
+      "page": 6,
+      "section": "Related Work",
+      "type": "caption",
+      "content": "Figure 4: The V-NIAH results of LongV A and its baselines. The x-axis represents the total number"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 6,
+      "section": "Related Work",
+      "type": "paragraph",
+      "content": "of frames in the video haystack. The y-axis shows the position where the needle image is located. For instance, a frame depth of 0% would place the needle image at the very beginning of the video. The black dotted line denotes the training length of the backbone language model, with each frame corresponding to 144 tokens."
+    },
+    {
+      "anchor_id": "anc_00064",
+      "page": 6,
+      "section": "Experiments",
+      "type": "section_heading",
+      "content": "5 Experiments"
+    },
+    {
+      "anchor_id": "anc_00065",
+      "page": 6,
+      "section": "Method",
+      "type": "section_heading",
+      "content": "Model Qwen2-224K UniRes"
+    },
+    {
+      "anchor_id": "anc_00066",
+      "page": 6,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "LLaV A-Next-Qwen2 × × LongV A (AnyRes) ✓ × LongV A ✓ ✓"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 6,
+      "section": "Method",
+      "type": "caption",
+      "content": "Table 5: LongV A and its baselines."
+    },
+    {
+      "anchor_id": "anc_00068",
+      "page": 6,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "We primarily assess the long visual capability of LongV A on two benchmarks: V-NIAH (Section 5.1 and Video-MME [21] (Section 5.2). V-NIAH pro- vides quick signals about the visual context length of LongV A. However, it only tests the model’s ability to retrieve information and does not cover other abil- ies necessary for a real-world long video assistant. Therefore, we also include LongV A’s performance on Video-MME, a comprehensive evaluation suite for video LMMs that includes diverse data types and qualitative annotations. Video-MME is an ideal benchmark for assessing LMMs’ ability to handle long videos in real-world scenarios, given its..."
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 7,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "Model LLM Params FramesShort Medium Long Overall InternVL-Chat-V1.5 [14] 20B 010 60.2 46.4 45.6 50.7 LLaV A-NeXT-Video-34B [89]34B 032 61.7 50.1 44.3 52.0 VILA-1.5 [43] 34B 008 68.1 58.1 50.8 59.0 Qwen-VL-Chat [68] 07B 004 46.9 38.7 37.8 41.1 Video-LLaV A [42] 07B 008 45.3 38.0 36.2 39.9 ST-LLM [49] 07B 064 45.7 36.8 31.3 37.9 VideoChat2-Mistral [39] 07B 016 48.3 37.0 33.2 39.5 Chat-UniVi-V1.5 [30] 07B 064 45.7 40.3 35.8 40.6 VideoLLaMA2 [15] 08B 016 56.0 45.4 42.1 47.9 LLaV A-NeXT-Qwen2 07B 032 58.0 47.0 43.4 49.5 LongV A 07B 008 55.1 46.3 42.1 47.9 016 59.0 46.6 43.6 49.7 032 61.1 48.8 45.4 51.8 064 61.4 50.9 45.0 52.4 128 61.1 50.4 46.2 5..."
+    },
+    {
+      "anchor_id": "anc_00070",
+      "page": 7,
+      "section": "Method",
+      "type": "caption",
+      "content": "Table 4: Performance comparison of various LMMs on Video-MME [21] without subtitles. LongV A"
+    },
+    {
+      "anchor_id": "anc_00071",
+      "page": 7,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "achieves state-of-the-art results among 7B models. Its performance also increases with denser sampling of video frames."
+    },
+    {
+      "anchor_id": "anc_00072",
+      "page": 7,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "5.1 V-NIAH Results"
+    },
+    {
+      "anchor_id": "anc_00073",
+      "page": 7,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "Long context transfers from language to vision Figure 4 shows the V-NIAH performance of LongV A and other LMMs. Specifically, Figure 4 (iii) demonstrates that the visual context length of LLaV A-NeXT-Video-32K [89] is constrained by the 32K context length of its language backbone, Mistral-7B-Instruct-v0.2 [ 29], equivalent to approximately 200 frames. Beyond this limit, the V-NIAH accuracy drops significantly. As a stronger baseline, we include the results of LLaV A- NeXT-Video-32K enhanced with a training-free length extrapolation algorithm [6] by increasing its"
+    },
+    {
+      "anchor_id": "anc_00074",
+      "page": 7,
+      "section": "Method",
+      "type": "formula",
+      "content": "RoPE base frequency. We empirically determine the optimal extrapolation frequency by choosing"
+    },
+    {
+      "anchor_id": "anc_00075",
+      "page": 7,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "from [3M, 10M, 30M, 100M, 300M, 1B]. As indicated in Figure 4 (iv), although this training-free extrapolation allows the model to process information across an extended context, the improvement"
+    },
+    {
+      "anchor_id": "anc_00076",
+      "page": 7,
+      "section": "Method",
+      "type": "formula",
+      "content": "is marginal. These findings led us to develop LongV A, a model that unlocks the visual context by"
+    },
+    {
+      "anchor_id": "anc_00077",
+      "page": 7,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "extending the language model purely on text. As shown in Figure 4 (i), LongV A can almost perfectly retrieve information and answer the needle question for input frames fewer than 2000. Although we only trained LongV A’s language backbone on a context length of 224K (equivalent to 1555 frames), it generalizes well beyond that, maintaining satisfactory performance within 3000 frames. Those results clearly corroborate of hypothesis of long context transfer. Unified encoding enables better visual context extrapolationWe also present the V-NIAH heatmap of LongV A trained withAnyRes encoding scheme, keeping all other factors unchanged in Figure 4..."
+    },
+    {
+      "anchor_id": "anc_00078",
+      "page": 7,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "5.2 Video Evaluation"
+    },
+    {
+      "anchor_id": "anc_00079",
+      "page": 7,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "On Video-MME (Table 4), LongV A achievesstate-of-the-art performance among LMMs under 10B"
+    },
+    {
+      "anchor_id": "anc_00080",
+      "page": 7,
+      "section": "Method",
+      "type": "formula",
+      "content": "parameters, rivaling much larger ones such as LLaV A-NeXT-Video-34B [89] and InternVL-Chat-"
+    },
+    {
+      "anchor_id": "anc_00081",
+      "page": 7,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "V1.5 [14]. Notably, LongV A is trained without any video data, so its performance on video can be considered zero-shot. As the number of sampled frames increases, LongV A shows improved performance on the long subset, handling up to 384 frames2. Even though LongV A’s score slightly drops when we upsample from 128 to 384 frames, it maintains a competitive performance. To"
+    },
+    {
+      "anchor_id": "anc_00082",
+      "page": 7,
+      "section": "method",
+      "type": "formula",
+      "content": "our knowledge, LongV A is theonly open-source model that can handle such large input frames on"
+    },
+    {
+      "anchor_id": "anc_00083",
+      "page": 7,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "Video-MME. These findings highlight thelong context transfer effect, where LongV A, originating from a long context language model, can process significantly more frames than its baseline, despite being trained on the same multimodal data. 2We limited our analysis to 384 frames due to computational and memory constraints as detailed in Section 4. 7"
+    },
+    {
+      "anchor_id": "anc_00084",
+      "page": 8,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "Model NeXTQA [77]ActivityNetQA [85] VideoChatGPT [50] Video-DD [50]framesMC OE Score Consistency Correctness Detail Context TemporalScore LLaV A-NeXT-Video [89]32 57.93 26.90 3.20 3.12 3.39 3.29 3.92 2.60 3.32LongV A 08 50.78 27.71 2.73 3.73 3.09 3.14 3.72 2.39 3.19LongV A 16 61.61 27.87 2.78 3.61 3.13 3.15 3.75 2.40 3.22LongV A 32 67.08 27.87 2.80 3.65 3.08 3.10 3.74 2.28 3.19LongV A 64 68.27 27.81 2.84 3.64 3.05 3.09 3.77 2.44 3.14LongV A-DPO 32 69.26 28.02 2.80 4.07 3.55 3.32 4.09 2.86 3.58"
+    },
+    {
+      "anchor_id": "anc_00085",
+      "page": 8,
+      "section": "Method",
+      "type": "caption",
+      "content": "Table 6: Video evaluation results for LongV A on various short video benchmarks with comparison to"
+    },
+    {
+      "anchor_id": "anc_00086",
+      "page": 8,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "7B scale models. We also tested LongV A on shorter benchmarks with average video durations under 120 seconds. As indicated in Table 6, although LongV A scores higher with more densely sampled frames on datasets such as NeXTQA [77] and ActivityNetQA [85], the gains quickly plateau and are not as significant as those observed in Video-MME, which can be attributed to the shorter duration of these datasets. On the VideoChatGPT and Video Detailed Description (Video-DD) benchmarks, increasing frames does not lead to better performance, and LongV A generally achieves lower scores compared to LLaV A-NeXT-Video-7B. Since both benchmarks use OpenAI’s..."
+    },
+    {
+      "anchor_id": "anc_00087",
+      "page": 8,
+      "section": "Method",
+      "type": "formula",
+      "content": "improved performance for LongV A-DPO, confirming the findings in [88]."
+    },
+    {
+      "anchor_id": "anc_00088",
+      "page": 8,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "5.3 Image Evaluation"
+    },
+    {
+      "anchor_id": "anc_00089",
+      "page": 8,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "Model AI2D [32] ChartQA [52] DocVQA [53] InfoVQA [53] RealworldQA [75] MMMU [86] LLaV A-1.6-Vicuna [47]66.6 54.8 74.4 37.1 57.8 35.1LLaV A-NeXT-LLaMA3 [36]71.6 69.5 78.2 37.6 60.0 41.7LLaV A-NeXT-Qwen2 73.5 74.0 81.3 42.0 61.6 41.9LongV A (AnyRes) 73.1 74.4 81.5 43.3 62.4 42.1LongV A (UniRes) 70.7 70.4 80.8 49.4 60.0 42.6"
+    },
+    {
+      "anchor_id": "anc_00090",
+      "page": 8,
+      "section": "Method",
+      "type": "caption",
+      "content": "Table 7: Image evaluation results for LongV A on multiple benchmarks. Compared to other image mul-"
+    },
+    {
+      "anchor_id": "anc_00091",
+      "page": 8,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "timodal models, our methods maintain high performance and achieve better scores on InfoVQA[53]."
+    },
+    {
+      "anchor_id": "anc_00092",
+      "page": 8,
+      "section": "Method",
+      "type": "caption",
+      "content": "Figure 5: The 2D-histogram of the image width and height of different image benchmarks."
+    },
+    {
+      "anchor_id": "anc_00093",
+      "page": 8,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "InfoVQA[53] consists of many high-resolution images compared to other benchmarks. We further evaluate our model on various image benchmarks to investigate the image performance of LongV A (Table 7). Compared to the LongV A (AnyRes) baseline, LongV A withUniRes achieves significantly increased performance on InfoVQA [ 53], while the scores drop to some extent on AI2D [32] and ChartQA [52]. To better understand this phenomenon, we recorded and analyzed the image size of those datasets, as shown in Figure 5. We found that InfoVQA consists of higher- resolution images, while many images in AI2D and ChartQA are smaller than 768×768. Compared to A..."
+    },
+    {
+      "anchor_id": "anc_00094",
+      "page": 9,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "6 Qualitative Results"
+    },
+    {
+      "anchor_id": "anc_00095",
+      "page": 9,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "The qualitative results of LongV A-DPO are illustrated in Figure 6. The short video example comes from [78] and the two long videos are sourced from link1 and link2, respectively. In the figure, LongV A accurately describes the short, humorous video involving individuals playfully interacting with condiments. It also identifies specific details in long videos, such as the color of a train and the colors of umbrellas used in a scene, showcasing its proficiency in retrieving and interpreting visual information over extended video contexts. These capabilities highlight LongV A’s potential to overcome the challenges associated with processing an..."
+    },
+    {
+      "anchor_id": "anc_00096",
+      "page": 9,
+      "section": "Method",
+      "type": "formula",
+      "content": "34min51 seconds"
+    },
+    {
+      "anchor_id": "anc_00097",
+      "page": 9,
+      "section": "Method",
+      "type": "formula",
+      "content": "Thetraininthevideoisred. What is the colorof the train in the video? 27min13seconds Thecolorsofthetwoumbrellasinthevideoareblueandgreen.In this video,twoumbrellas were used. What are the colors of the two umbrellas?"
+    },
+    {
+      "anchor_id": "anc_00098",
+      "page": 9,
+      "section": "Method",
+      "type": "caption",
+      "content": "Figure 6: Qualitative Result of the LongV A-DPO. Our model demonstrates superior capability in"
+    },
+    {
+      "anchor_id": "anc_00099",
+      "page": 9,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "understanding both short and long videos."
+    },
+    {
+      "anchor_id": "anc_00100",
+      "page": 9,
+      "section": "Conclusion",
+      "type": "section_heading",
+      "content": "7 Conclusion"
+    },
+    {
+      "anchor_id": "anc_00101",
+      "page": 9,
+      "section": "Conclusion",
+      "type": "formula",
+      "content": "This work addresses the challenges of understanding long videos in Large Multimodal Models. By"
+    },
+    {
+      "anchor_id": "anc_00102",
+      "page": 9,
+      "section": "Conclusion",
+      "type": "paragraph",
+      "content": "extending the language model on text and then aligning this extended model with visual inputs, we significantly improved the capability of LMMs to handle long videos thanks to the long context transfer phenomenon. Our model, LongV A, shows improved performance with more input frames and achieves state-of-the-art results on Video-MME. Additionally, we introduce a synthetic benchmark, V-NIAH, to effectively measure the visual context length of video LMMs. We hope this work inspires further research in the field of long video LMMs and multimodal agents. 9"
+    },
+    {
+      "anchor_id": "anc_00103",
+      "page": 10,
+      "section": "Conclusion",
+      "type": "paragraph",
+      "content": "8 Acknowledgements"
+    },
+    {
+      "anchor_id": "anc_00104",
+      "page": 10,
+      "section": "Conclusion",
+      "type": "paragraph",
+      "content": "This research/project is supported by the National Research Foundation, Singapore under its AI Singapore Programme (AISG Award No: AISG2-PhD-2022-01-029). Besides, this project is sup- ported by NTU NAP, MOE AcRF Tier 2 (MOE-T2EP20221-0012), and under the RIE2020 Industry Alignment Fund – Industry Collaboration Projects (IAF-ICP) Funding Initiative, as well as advise from the industry partner(s)."
+    },
+    {
+      "anchor_id": "anc_00105",
+      "page": 10,
+      "section": "References",
+      "type": "section_heading",
+      "content": "References"
+    },
+    {
+      "anchor_id": "anc_00108",
+      "page": 10,
+      "section": "References",
+      "type": "reference",
+      "content": "language model for few-shot learning. In S. Koyejo, S. Mohamed, A. Agarwal, D. Belgrave, K. Cho, and A. Oh, editors, Advances in Neural Information Processing Systems, volume 35, pages 23716–23736. Curran Associates, Inc., 2022."
+    },
+    {
+      "anchor_id": "anc_00112",
+      "page": 10,
+      "section": "References",
+      "type": "reference",
+      "content": "source framework for training large autoregressive vision-language models. arXiv preprint"
+    },
+    {
+      "anchor_id": "anc_00120",
+      "page": 10,
+      "section": "References",
+      "type": "reference",
+      "content": "Sutskever, and Dario Amodei. Language models are few-shot learners. In H. Larochelle, M. Ranzato, R. Hadsell, M.F. Balcan, and H. Lin, editors, Advances in Neural Information Processing Systems, volume 33, pages 1877–1901. Curran Associates, Inc., 2020. [9] Mu Cai, Jianwei Yang, Jianfeng Gao, and Yong Jae Lee. Matryoshka multimodal models, 2024. [10] Cerebras. cerebras slimpajama-627b, 2023. [11] Liang Chen, Haozhe Zhao, Tianyu Liu, Shuai Bai, Junyang Lin, Chang Zhou, and Baobao Chang. An image is worth 1/2 tokens after layer 2: Plug-and-play inference acceleration for"
+    },
+    {
+      "anchor_id": "anc_00125",
+      "page": 11,
+      "section": "References",
+      "type": "reference",
+      "content": "[14] Zhe Chen, Jiannan Wu, Wenhai Wang, Weijie Su, Guo Chen, Sen Xing, Zhong Muyan, Qinglong Zhang, Xizhou Zhu, Lewei Lu, et al. Internvl: Scaling up vision foundation models and aligning for generic visual-linguistic tasks. arXiv preprint arXiv:2312.14238, 2023. [15] Zesen Cheng, Sicong Leng, Hang Zhang, Yifei Xin, Xin Li, Guanzheng Chen, Yongxin Zhu, Wenqi Zhang, Ziyang Luo, Deli Zhao, and Lidong Bing. Videollama 2: Advancing spatial- temporal modeling and audio understanding in video-llms, 2024. [16] Rewon Child, Scott Gray, Alec Radford, and Ilya Sutskever. Generating long sequences with sparse transformers, 2019. [17] Cohere. Introducin..."
+    },
+    {
+      "anchor_id": "anc_00130",
+      "page": 11,
+      "section": "References",
+      "type": "reference",
+      "content": "Samyam Rajbhandari, and Yuxiong He. Deepspeed ulysses: System optimizations for enabling training of extreme long sequence transformer models, 2023. [28] Yunseok Jang, Yale Song, Youngjae Yu, Youngjin Kim, and Gunhee Kim. Tgif-qa: Toward spatio-temporal reasoning in visual question answering. In Proceedings of the IEEE conference on computer vision and pattern recognition, pages 2758–2766, 2017. [29] Albert Q. Jiang, Alexandre Sablayrolles, Arthur Mensch, Chris Bamford, Devendra Singh Chaplot, Diego de las Casas, Florian Bressand, Gianna Lengyel, Guillaume Lample, Lucile Saulnier, Lélio Renard Lavaud, Marie-Anne Lachaux, Pierre Stock, Teven..."
+    },
+    {
+      "anchor_id": "anc_00138",
+      "page": 12,
+      "section": "References",
+      "type": "reference",
+      "content": "guage model serving with pagedattention. In Proceedings of the ACM SIGOPS 29th Symposium on Operating Systems Principles, 2023. [34] Hugo Laurençon, Lucile Saulnier, Léo Tronchon, Stas Bekman, Amanpreet Singh, Anton Lozhkov, Thomas Wang, Siddharth Karamcheti, Alexander M. Rush, Douwe Kiela, Matthieu Cord, and Victor Sanh. Obelics: An open web-scale filtered dataset of interleaved image-text documents, 2023. [35] Bo Li, Hao Zhang, Kaichen Zhang, Dong Guo, Yuanhan Zhang, Renrui Zhang, Feng Li, Ziwei Liu, and Chunyuan Li. Llava-next: What else influences visual instruction tuning beyond data?, May 2024. [36] Bo Li, Kaichen Zhang, Hao Zhang, Don..."
+    },
+    {
+      "anchor_id": "anc_00141",
+      "page": 12,
+      "section": "References",
+      "type": "reference",
+      "content": "pre-training with frozen image encoders and large language models, 2023."
+    },
+    {
+      "anchor_id": "anc_00145",
+      "page": 12,
+      "section": "References",
+      "type": "reference",
+      "content": "language models, 2023. [42] Bin Lin, Yang Ye, Bin Zhu, Jiaxi Cui, Munan Ning, Peng Jin, and Li Yuan. Video-llava: Learning united visual representation by alignment before projection, 2023. [43] Ji Lin, Hongxu Yin, Wei Ping, Yao Lu, Pavlo Molchanov, Andrew Tao, Huizi Mao, Jan Kautz, Mohammad Shoeybi, and Song Han. Vila: On pre-training for visual language models, 2023. [44] Hao Liu, Wilson Yan, Matei Zaharia, and Pieter Abbeel. World model on million-length video and language with ringattention. arXiv preprint, 2024. [45] Hao Liu, Matei Zaharia, and Pieter Abbeel. Ring attention with blockwise transformers for near-infinite context, 2023. [4..."
+    },
+    {
+      "anchor_id": "anc_00152",
+      "page": 13,
+      "section": "References",
+      "type": "reference",
+      "content": "[53] Minesh Mathew, Dimosthenis Karatzas, R Manmatha, and CV Jawahar. Docvqa: A dataset for vqa on document images. corr abs/2007.00398 (2020). arXiv preprint arXiv:2007.00398, 2020. [54] Mistral. Mixtral 8x22b: Cheaper, better, faster, stronger, 2024. [55] OpenAI. Hello gpt-4o, 2024. [56] Aitor Ormazabal, Che Zheng, Cyprien de Masson d’Autume, Dani Yogatoga, Deyu Fu, Dono- van Ong, Eric Chen, Eugenie Lamprecht, Hai Pham, Isaac Ong, et al. Reka core, flash, and edge: A series of powerful multimodal language models. arXiv preprint arXiv:2404.12387, 2024. [57] Bowen Peng, Jeffrey Quesnelle, Honglu Fan, and Enrico Shippole. Yarn: Efficient cont..."
+    },
+    {
+      "anchor_id": "anc_00154",
+      "page": 13,
+      "section": "References",
+      "type": "reference",
+      "content": "Learning Representations, 2023. [58] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agar- wal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, and Ilya Sutskever. Learning transferable visual models from natural language supervision, 2021. [59] Samyam Rajbhandari, Jeff Rasley, Olatunji Ruwase, and Yuxiong He. Zero: Memory optimiza- tions toward training trillion parameter models, 2020. [60] Shuhuai Ren, Linli Yao, Shicheng Li, Xu Sun, and Lu Hou. Timechat: A time-sensitive"
+    },
+    {
+      "anchor_id": "anc_00181",
+      "page": 15,
+      "section": "References",
+      "type": "caption",
+      "content": "Figure 7: The NIAH results of Qwen-7B-Instruct after long context training."
+    },
+    {
+      "anchor_id": "anc_00182",
+      "page": 15,
+      "section": "References",
+      "type": "reference",
+      "content": "When evaluating the Needle In A Haystack task [23], we focus specifically on an easier-to-evaluate variant [1] that involves identifying and retrieving random numbers associated with various randomly assigned cities from the context. The input to the language model has below template: \u0007 \u0004 This is a very long story book : < book > { haystack + needle + haystack }"
+    },
+    {
+      "anchor_id": "anc_00187",
+      "page": 15,
+      "section": "References",
+      "type": "caption",
+      "content": "Figure 7."
+    },
+    {
+      "anchor_id": "anc_00189",
+      "page": 16,
+      "section": "References",
+      "type": "caption",
+      "content": "Figure 8: The difference between AnyRes and UniRes, assuming the image is divided into 2x2 grids"
+    },
+    {
+      "anchor_id": "anc_00191",
+      "page": 16,
+      "section": "References",
+      "type": "caption",
+      "content": "Figure 8 indicates the difference between AnyRes and UniRes. Given a high-resolution image and"
+    },
+    {
+      "anchor_id": "anc_00193",
+      "page": 16,
+      "section": "References",
+      "type": "reference",
+      "content": "into multiple grids, each with the size 336x336. However, AnyRes will have a smaller version of the full image as the base image and prepended before the high-resolution image grids. Additionally, UniRes flattens the encoded image feature in a raster-order within each grid, while AnyRes combines all the grids as a big feature map and flattens them across the border of the grid. UniRes also apply 2x2 average pooling on the image feature. As shown in the rightmost part of Figure 8, the design of UniRes allows us to unifiedly encode videos as well. A video is treated as an extended image where each frame is considered as an image grid. C MLVU R..."
+    },
+    {
+      "anchor_id": "anc_00194",
+      "page": 16,
+      "section": "References",
+      "type": "caption",
+      "content": "Table 8: Evaluation results by the authors of MLVU [90]. The highest scores excluding GPT-4o are"
+    },
+    {
+      "anchor_id": "anc_00196",
+      "page": 16,
+      "section": "References",
+      "type": "caption",
+      "content": "Table 8 includes the evaluation results by the authors of MLVU [90] on their benchmark. LongV A"
+    },
+    {
+      "anchor_id": "anc_00197",
+      "page": 16,
+      "section": "References",
+      "type": "reference",
+      "content": "achieves state-of-the-art results among open-source models and is only second to GPT-4o. D Visual Needle In A Haystack Test"
+    },
+    {
+      "anchor_id": "anc_00198",
+      "page": 16,
+      "section": "References",
+      "type": "caption",
+      "content": "Table 9 lists the five VQA needles we used for V-NIAH. The 5 visual questions and answers are the"
+    },
+    {
+      "anchor_id": "anc_00201",
+      "page": 17,
+      "section": "references",
+      "type": "caption",
+      "content": "Table 9: The design of the 5 visual question-answering problems used as the needle in V-NIAH."
+    }
+  ],
+  "repair_rules": [
+    "Do not delete good existing content unless it violates source grounding.",
+    "Fill missing experiment_matrix and reproduction_roadmap if absent.",
+    "Every claim must have evidence with anchors.",
+    "Every skeleton field, graph node, delta, formula, experiment, evidence, glossary term and reproduction step must cite anchors from document_blocks.",
+    "Keep all analysis grounded in provided anchors only."
+  ]
+}
