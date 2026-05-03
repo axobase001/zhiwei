@@ -1,0 +1,1631 @@
+[
+  {
+    "block_id": "blk_00001",
+    "type": "title",
+    "content": "Deep Visual-Semantic Alignments for Generating Image Descriptions Andrej Karpathy Li Fei-Fei Department of Computer Science, Stanford University {karpathy,feifeili}@cs.stanford.edu",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "anchor_id": "anc_00001"
+  },
+  {
+    "block_id": "blk_00002",
+    "type": "section_heading",
+    "content": "Abstract",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00002"
+  },
+  {
+    "block_id": "blk_00003",
+    "type": "paragraph",
+    "content": "We present a model that generates natural language de- scriptions of images and their regions. Our approach lever- ages datasets of images and their sentence descriptions to learn about the inter-modal correspondences between lan- guage and visual data. Our alignment model is based on a novel combination of Convolutional Neural Networks over image regions, bidirectional Recurrent Neural Networks over sentences, and a structured objective that aligns the two modalities through a multimodal embedding. We then describe a Multimodal Recurrent Neural Network architec- ture that uses the inferred alignments to learn to generate novel descriptions of image regions. We demonstrate that our alignment model produces state of the art results in re- trieval experiments on Flickr8K, Flickr30K and MSCOCO datasets. We then show that the generated descriptions sig- niﬁcantly outperform retrieval baselines on both full images and on a new dataset of region-level annotations. 1. Introduction A quick glance at an image is sufﬁcient for a human to point out and describe an immense amount of details about the visual scene [14]. However, this remarkable ability has proven to be an elusive task for our visual recognition mod- els. The majority of previous work in visual recognition has focused on labeling images with a ﬁxed set of visual categories and great progress has been achieved in these en- deavors [45, 11]. However, while closed vocabularies of vi- sual concepts constitute a convenient modeling assumption, they are vastly restrictive when compared to the enormous amount of rich descriptions that a human can compose. Some pioneering approaches that address the challenge of generating image descriptions have been developed [29, 13]. However, these models often rely on hard-coded visual concepts and sentence templates, which imposes limits on their variety. Moreover, the focus of these works has been on reducing complex visual scenes into a single sentence, which we consider to be an unnecessary restriction. In this work, we strive to take a step towards the goal of",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00003"
+  },
+  {
+    "block_id": "blk_00004",
+    "type": "caption",
+    "content": "Figure 1. Motivation/Concept Figure: Our model treats language",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00004"
+  },
+  {
+    "block_id": "blk_00005",
+    "type": "paragraph",
+    "content": "as a rich label space and generates descriptions of image regions. generating dense descriptions of images (Figure 1). The primary challenge towards this goal is in the design of a model that is rich enough to simultaneously reason about contents of images and their representation in the domain of natural language. Additionally, the model should be free of assumptions about speciﬁc hard-coded templates, rules or categories and instead rely on learning from the training data. The second, practical challenge is that datasets of im-",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00005"
+  },
+  {
+    "block_id": "blk_00006",
+    "type": "formula",
+    "content": "age captions are available in large quantities on the internet",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00006"
+  },
+  {
+    "block_id": "blk_00007",
+    "type": "paragraph",
+    "content": "[21, 58, 37], but these descriptions multiplex mentions of several entities whose locations in the images are unknown.",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00007"
+  },
+  {
+    "block_id": "blk_00008",
+    "type": "formula",
+    "content": "Our core insight is that we can leverage these large image-",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00008"
+  },
+  {
+    "block_id": "blk_00009",
+    "type": "paragraph",
+    "content": "sentence datasets by treating the sentences as weak labels, in which contiguous segments of words correspond to some particular, but unknown location in the image. Our ap- proach is to infer these alignments and use them to learn a generative model of descriptions. Concretely, our contri- butions are twofold: • We develop a deep neural network model that in- fers the latent alignment between segments of sen- tences and the region of the image that they describe. arXiv:1412.2306v2 [cs.CV] 14 Apr 2015",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00009"
+  },
+  {
+    "block_id": "blk_00010",
+    "type": "paragraph",
+    "content": "Our model associates the two modalities through a common, multimodal embedding space and a struc- tured objective. We validate the effectiveness of this approach on image-sentence retrieval experiments in which we surpass the state-of-the-art. • We introduce a multimodal Recurrent Neural Network architecture that takes an input image and generates its description in text. Our experiments show that the generated sentences signiﬁcantly outperform retrieval- based baselines, and produce sensible qualitative pre- dictions. We then train the model on the inferred cor- respondences and evaluate its performance on a new dataset of region-level annotations. We make code, data and annotations publicly available. 1 2. Related Work Dense image annotations. Our work shares the high-level goal of densely annotating the contents of images with many works before us. Barnard et al. [2] and Socher et al. [48] studied the multimodal correspondence between words and images to annotate segments of images. Sev- eral works [34, 18, 15, 33] studied the problem of holistic scene understanding in which the scene type, objects and their spatial support in the image is inferred. However, the focus of these works is on correctly labeling scenes, objects and regions with a ﬁxed set of categories, while our focus is on richer and higher-level descriptions of regions. Generating descriptions. The task of describing images with sentences has also been explored. A number of ap- proaches pose the task as a retrieval problem, where the most compatible annotation in the training set is transferred to a test image [21, 49, 13, 43, 23], or where training an- notations are broken up and stitched together [30, 35, 31]. Several approaches generate image captions based on ﬁxed templates that are ﬁlled based on the content of the image [19, 29, 13, 55, 56, 9, 1] or generative grammars [42, 57], but this approach limits the variety of possible outputs.",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00010"
+  },
+  {
+    "block_id": "blk_00011",
+    "type": "formula",
+    "content": "Most closely related to us, Kiros et al. [26] developed a log-",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00011"
+  },
+  {
+    "block_id": "blk_00012",
+    "type": "paragraph",
+    "content": "bilinear model that can generate full sentence descriptions for images, but their model uses a ﬁxed window context while our Recurrent Neural Network (RNN) model condi- tions the probability distribution over the next word in a sen- tence on all previously generated words. Multiple closely related preprints appeared on Arxiv during the submission of this work, some of which also use RNNs to generate im- age descriptions [38, 54, 8, 25, 12, 5]. Our RNN is simpler than most of these approaches but also suffers in perfor- mance. We quantify this comparison in our experiments. Grounding natural language in images. A number of ap- proaches have been developed for grounding text in the vi- 1cs.stanford.edu/people/karpathy/deepimagesent sual domain [27, 39, 60, 36]. Our approach is inspired by Frome et al. [16] who associate words and images through a semantic embedding. More closely related is the work of Karpathy et al. [24], who decompose images and sentences into fragments and infer their inter-modal alignment using a ranking objective. In contrast to their model which is based on grounding dependency tree relations, our model aligns contiguous segments of sentences which are more mean- ingful, interpretable, and not ﬁxed in length. Neural networks in visual and language domains. Mul- tiple approaches have been developed for representing im- ages and words in higher-level representations. On the im- age side, Convolutional Neural Networks (CNNs) [32, 28] have recently emerged as a powerful class of models for image classiﬁcation and object detection [45]. On the sen- tence side, our work takes advantage of pretrained word vectors [41, 22, 3] to obtain low-dimensional representa- tions of words. Finally, Recurrent Neural Networks have been previously used in language modeling [40, 50], but we additionally condition these models on images. 3. Our Model Overview. The ultimate goal of our model is to generate descriptions of image regions. During training, the input to our model is a set of images and their corresponding sentence descriptions (Figure 2). We ﬁrst present a model that aligns sentence snippets to the visual regions that they describe through a multimodal embedding. We then treat these correspondences as training data for a second, multi- modal Recurrent Neural Network model that learns to gen- erate the snippets. 3.1. Learning to align visual and language data Our alignment model assumes an input dataset of images and their sentence descriptions. Our key insight is that sen- tences written by people make frequent references to some particular, but unknown location in the image. For exam- ple, in Figure 2, the words “Tabby cat is leaning” refer to the cat, the words “wooden table” refer to the table, etc. We would like to infer these latent correspondences, with the eventual goal of later learning to generate these snippets from image regions. We build on the approach of Karpathy et al. [24], who learn to ground dependency tree relations to image regions with a ranking objective. Our contribu- tion is in the use of bidirectional recurrent neural network to compute word representations in the sentence, dispens- ing of the need to compute dependency trees and allowing unbounded interactions of words and their context in the sentence. We also substantially simplify their objective and show that both modiﬁcations improve ranking performance. We ﬁrst describe neural networks that map words and image regions into a common, multimodal embedding. Then we introduce our novel objective, which learns the embedding",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00012"
+  },
+  {
+    "block_id": "blk_00013",
+    "type": "caption",
+    "content": "Figure 2. Overview of our approach. A dataset of images and their sentence descriptions is the input to our model (left). Our model ﬁrst",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00013"
+  },
+  {
+    "block_id": "blk_00014",
+    "type": "paragraph",
+    "content": "infers the correspondences (middle, Section 3.1) and then learns to generate novel descriptions (right, Section 3.2). representations so that semantically similar concepts across the two modalities occupy nearby regions of the space.",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00014"
+  },
+  {
+    "block_id": "blk_00015",
+    "type": "paragraph",
+    "content": "3.1.1 Representing images",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00015"
+  },
+  {
+    "block_id": "blk_00016",
+    "type": "paragraph",
+    "content": "Following prior work [29, 24], we observe that sentence de- scriptions make frequent references to objects and their at- tributes. Thus, we follow the method of Girshick et al. [17] to detect objects in every image with a Region Convolu- tional Neural Network (RCNN). The CNN is pre-trained on ImageNet [6] and ﬁnetuned on the 200 classes of the Ima- geNet Detection Challenge [45]. Following Karpathy et al. [24], we use the top 19 detected locations in addition to the whole image and compute the representations based on the pixels Ib inside each bounding box as follows:",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00016"
+  },
+  {
+    "block_id": "blk_00017",
+    "type": "formula",
+    "content": "v = Wm[CNNθc (Ib)] + bm, (1)",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00017"
+  },
+  {
+    "block_id": "blk_00018",
+    "type": "paragraph",
+    "content": "where CNN(Ib) transforms the pixels inside bounding box Ib into 4096-dimensional activations of the fully connected layer immediately before the classiﬁer. The CNN parame- ters θc contain approximately 60 million parameters. The matrix Wm has dimensions h× 4096, where h is the size of the multimodal embedding space ( h ranges from 1000- 1600 in our experiments). Every image is thus represented",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00018"
+  },
+  {
+    "block_id": "blk_00019",
+    "type": "formula",
+    "content": "as a set of h-dimensional vectors{vi| i = 1 . . . 20}.",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00019"
+  },
+  {
+    "block_id": "blk_00020",
+    "type": "paragraph",
+    "content": "3.1.2 Representing sentences",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00020"
+  },
+  {
+    "block_id": "blk_00021",
+    "type": "paragraph",
+    "content": "To establish the inter-modal relationships, we would like to represent the words in the sentence in the same h- dimensional embedding space that the image regions oc- cupy. The simplest approach might be to project every in- dividual word directly into this embedding. However, this approach does not consider any ordering and word context information in the sentence. An extension to this idea is to use word bigrams, or dependency tree relations as pre- viously proposed [24]. However, this still imposes an ar-",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00021"
+  },
+  {
+    "block_id": "blk_00022",
+    "type": "formula",
+    "content": "bitrary maximum size of the context window and requires",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00022"
+  },
+  {
+    "block_id": "blk_00023",
+    "type": "paragraph",
+    "content": "the use of Dependency Tree Parsers that might be trained on unrelated text corpora. To address these concerns, we propose to use a Bidirec- tional Recurrent Neural Network (BRNN) [46] to compute the word representations. The BRNN takes a sequence of N words (encoded in a 1-of-k representation) and trans- forms each one into an h-dimensional vector. However, the representation of each word is enriched by a variably-sized",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00023"
+  },
+  {
+    "block_id": "blk_00024",
+    "type": "formula",
+    "content": "context around that word. Using the index t = 1 . . . N to",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00024"
+  },
+  {
+    "block_id": "blk_00025",
+    "type": "paragraph",
+    "content": "denote the position of a word in a sentence, the precise form of the BRNN is as follows:",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00025"
+  },
+  {
+    "block_id": "blk_00026",
+    "type": "formula",
+    "content": "xt = WwI t (2)",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00026"
+  },
+  {
+    "block_id": "blk_00027",
+    "type": "formula",
+    "content": "et = f (Wext + be) (3)",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00027"
+  },
+  {
+    "block_id": "blk_00028",
+    "type": "paragraph",
+    "content": "hf",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00028"
+  },
+  {
+    "block_id": "blk_00029",
+    "type": "formula",
+    "content": "t = f (et + Wf hf",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00029"
+  },
+  {
+    "block_id": "blk_00030",
+    "type": "paragraph",
+    "content": "t−1 + bf ) (4) hb",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00030"
+  },
+  {
+    "block_id": "blk_00031",
+    "type": "formula",
+    "content": "t = f (et + Wbhb",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00031"
+  },
+  {
+    "block_id": "blk_00032",
+    "type": "paragraph",
+    "content": "t+1 + bb) (5)",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00032"
+  },
+  {
+    "block_id": "blk_00033",
+    "type": "formula",
+    "content": "st = f (Wd(hf",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00033"
+  },
+  {
+    "block_id": "blk_00034",
+    "type": "paragraph",
+    "content": "t + hb t) + bd). (6) Here, I t is an indicator column vector that has a single one at the index of the t-th word in a word vocabulary. The weights Ww specify a word embedding matrix that we ini- tialize with 300-dimensional word2vec [41] weights and keep ﬁxed due to overﬁtting concerns. However, in prac- tice we ﬁnd little change in ﬁnal performance when these vectors are trained, even from random initialization. Note that the BRNN consists of two independent streams of pro- cessing, one moving left to right (hf t ) and the other right to left (hb t) (see Figure 3 for diagram). The ﬁnalh-dimensional representation st for the t-th word is a function of both the word at that location and also its surrounding context in the sentence. Technically, every st is a function of all words in the entire sentence, but our empirical ﬁnding is that the ﬁnal word representations ( st) align most strongly to the visual concept of the word at that location (I t). We learn the parameters We, Wf , Wb, Wd and the respec- tive biases be, bf , bb, bd. A typical size of the hidden rep- resentation in our experiments ranges between 300-600 di- mensions. We set the activation function f to the rectiﬁed",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00034"
+  },
+  {
+    "block_id": "blk_00035",
+    "type": "formula",
+    "content": "linear unit (ReLU), which computes f : x↦→ max(0, x).",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00035"
+  },
+  {
+    "block_id": "blk_00036",
+    "type": "paragraph",
+    "content": "3.1.3 Alignment objective",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00036"
+  },
+  {
+    "block_id": "blk_00037",
+    "type": "paragraph",
+    "content": "We have described the transformations that map every im- age and sentence into a set of vectors in a common h- dimensional space. Since the supervision is at the level of entire images and sentences, our strategy is to formulate an",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00037"
+  },
+  {
+    "block_id": "blk_00038",
+    "type": "paragraph",
+    "content": "image-sentence score as a function of the individual region- word scores. Intuitively, a sentence-image pair should have a high matching score if its words have a conﬁdent support in the image. The model of Karpathy et a. [24] interprets the dot product vT i st between the i-th region and t-th word as a measure of similarity and use it to deﬁne the score between image k and sentence l as: Skl = ∑ t∈gl ∑ i∈gk",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00038"
+  },
+  {
+    "block_id": "blk_00039",
+    "type": "formula",
+    "content": "max(0, vT",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00039"
+  },
+  {
+    "block_id": "blk_00040",
+    "type": "paragraph",
+    "content": "i st). (7) Here, gk is the set of image fragments in image k and gl is the set of sentence fragments in sentence l. The indices k, l range over the images and sentences in the training set. Together with their additional Multiple Instance Learning objective, this score carries the interpretation that a sentence fragment aligns to a subset of the image regions whenever the dot product is positive. We found that the following reformulation simpliﬁes the model and alleviates the need for additional objectives and their hyperparameters: Skl = ∑ t∈gl",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00040"
+  },
+  {
+    "block_id": "blk_00041",
+    "type": "formula",
+    "content": "maxi∈gk vT",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00041"
+  },
+  {
+    "block_id": "blk_00042",
+    "type": "paragraph",
+    "content": "i st. (8) Here, every word st aligns to the single best image region. As we show in the experiments, this simpliﬁed model also leads to improvements in the ﬁnal ranking performance.",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00042"
+  },
+  {
+    "block_id": "blk_00043",
+    "type": "formula",
+    "content": "Assuming that k = l denotes a corresponding image and",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00043"
+  },
+  {
+    "block_id": "blk_00044",
+    "type": "formula",
+    "content": "sentence pair, the ﬁnal max-margin, structured loss remains:",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00044"
+  },
+  {
+    "block_id": "blk_00045",
+    "type": "formula",
+    "content": "C(θ) =",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00045"
+  },
+  {
+    "block_id": "blk_00046",
+    "type": "formula",
+    "content": "∑ k [ ∑ l",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00046"
+  },
+  {
+    "block_id": "blk_00047",
+    "type": "formula",
+    "content": "max(0, Skl− Skk + 1)",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00047"
+  },
+  {
+    "block_id": "blk_00048",
+    "type": "formula",
+    "content": "   rank images (9) + ∑ l",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00048"
+  },
+  {
+    "block_id": "blk_00049",
+    "type": "formula",
+    "content": "max(0, Slk− Skk + 1)",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00049"
+  },
+  {
+    "block_id": "blk_00050",
+    "type": "paragraph",
+    "content": "   rank sentences ] . This objective encourages aligned image-sentences pairs to",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00050"
+  },
+  {
+    "block_id": "blk_00051",
+    "type": "formula",
+    "content": "have a higher score than misaligned pairs, by a margin.",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00051"
+  },
+  {
+    "block_id": "blk_00052",
+    "type": "paragraph",
+    "content": "3.1.4 Decoding text segment alignments to images",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00052"
+  },
+  {
+    "block_id": "blk_00053",
+    "type": "paragraph",
+    "content": "Consider an image from the training set and its correspond- ing sentence. We can interpret the quantity vT i st as the un-",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00053"
+  },
+  {
+    "block_id": "blk_00054",
+    "type": "formula",
+    "content": "normalized log probability of the t-th word describing any",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00054"
+  },
+  {
+    "block_id": "blk_00055",
+    "type": "paragraph",
+    "content": "of the bounding boxes in the image. However, since we are ultimately interested in generating snippets of text instead of single words, we would like to align extended, contigu- ous sequences of words to a single bounding box. Note that the na¨ıve solution that assigns each word independently to the highest-scoring region is insufﬁcient because it leads to words getting scattered inconsistently to different regions. To address this issue, we treat the true alignments as latent variables in a Markov Random Field (MRF) where the bi- nary interactions between neighboring words encourage an",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00055"
+  },
+  {
+    "block_id": "blk_00056",
+    "type": "caption",
+    "content": "Figure 3. Diagram for evaluating the image-sentence score Skl.",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00056"
+  },
+  {
+    "block_id": "blk_00057",
+    "type": "paragraph",
+    "content": "Object regions are embedded with a CNN (left). Words (enriched by their context) are embedded in the same multimodal space with a BRNN (right). Pairwise similarities are computed with inner products (magnitudes shown in grayscale) and ﬁnally reduced to image-sentence score with Equation 8. alignment to the same region. Concretely, given a sentence with N words and an image with M bounding boxes, we introduce the latent alignment variables aj∈{ 1 . . . M} for",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00057"
+  },
+  {
+    "block_id": "blk_00058",
+    "type": "formula",
+    "content": "j = 1 . . . N and formulate an MRF in a chain structure",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00058"
+  },
+  {
+    "block_id": "blk_00059",
+    "type": "paragraph",
+    "content": "along the sentence as follows:",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00059"
+  },
+  {
+    "block_id": "blk_00060",
+    "type": "formula",
+    "content": "E(a) =",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00060"
+  },
+  {
+    "block_id": "blk_00061",
+    "type": "paragraph",
+    "content": "∑",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00061"
+  },
+  {
+    "block_id": "blk_00062",
+    "type": "formula",
+    "content": "j=1...N",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00062"
+  },
+  {
+    "block_id": "blk_00063",
+    "type": "formula",
+    "content": "ψU j (aj) + ∑",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00063"
+  },
+  {
+    "block_id": "blk_00064",
+    "type": "formula",
+    "content": "j=1...N−1",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00064"
+  },
+  {
+    "block_id": "blk_00065",
+    "type": "paragraph",
+    "content": "ψB j (aj, aj+1) (10) ψU",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00065"
+  },
+  {
+    "block_id": "blk_00066",
+    "type": "formula",
+    "content": "j (aj = t) = vT",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00066"
+  },
+  {
+    "block_id": "blk_00067",
+    "type": "paragraph",
+    "content": "i st (11) ψB",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00067"
+  },
+  {
+    "block_id": "blk_00068",
+    "type": "formula",
+    "content": "j (aj, aj+1) = β1 [aj = aj+1]. (12)",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00068"
+  },
+  {
+    "block_id": "blk_00069",
+    "type": "paragraph",
+    "content": "Here, β is a hyperparameter that controls the afﬁnity to- wards longer word phrases. This parameter allows us to",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00069"
+  },
+  {
+    "block_id": "blk_00070",
+    "type": "formula",
+    "content": "interpolate between single-word alignments ( β = 0 ) and",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00070"
+  },
+  {
+    "block_id": "blk_00071",
+    "type": "formula",
+    "content": "aligning the entire sentence to a single, maximally scoring",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00071"
+  },
+  {
+    "block_id": "blk_00072",
+    "type": "formula",
+    "content": "region when β is large. We minimize the energy to ﬁnd the",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00072"
+  },
+  {
+    "block_id": "blk_00073",
+    "type": "formula",
+    "content": "best alignments a using dynamic programming. The output",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00073"
+  },
+  {
+    "block_id": "blk_00074",
+    "type": "paragraph",
+    "content": "of this process is a set of image regions annotated with seg- ments of text. We now describe an approach for generating novel phrases based on these correspondences. 3.2. Multimodal Recurrent Neural Network for generating descriptions In this section we assume an input set of images and their textual descriptions. These could be full images and their sentence descriptions, or regions and text snippets, as in- ferred in the previous section. The key challenge is in the design of a model that can predict a variable-sized sequence of outputs given an image. In previously developed lan- guage models based on Recurrent Neural Networks (RNNs) [40, 50, 10], this is achieved by deﬁning a probability distri- bution of the next word in a sequence given the current word and context from previous time steps. We explore a simple",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00074"
+  },
+  {
+    "block_id": "blk_00075",
+    "type": "paragraph",
+    "content": "but effective extension that additionally conditions the gen- erative process on the content of an input image. More for- mally, during training our Multimodal RNN takes the image pixels I and a sequence of input vectors (x1, . . . , xT ). It then computes a sequence of hidden states (h1, . . . , ht) and a sequence of outputs(y1, . . . , yt) by iterating the following",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00075"
+  },
+  {
+    "block_id": "blk_00076",
+    "type": "formula",
+    "content": "recurrence relation for t = 1 to T :",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00076"
+  },
+  {
+    "block_id": "blk_00077",
+    "type": "formula",
+    "content": "bv = Whi[CNNθc (I)] (13)",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00077"
+  },
+  {
+    "block_id": "blk_00078",
+    "type": "formula",
+    "content": "ht = f (Whxxt + Whhht−1 + bh + 1 (t = 1)⊙ bv) (14)",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00078"
+  },
+  {
+    "block_id": "blk_00079",
+    "type": "formula",
+    "content": "yt = sof tmax(Wohht + bo). (15)",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00079"
+  },
+  {
+    "block_id": "blk_00080",
+    "type": "paragraph",
+    "content": "In the equations above, Whi, Whx, Whh, Woh, xi and bh, bo are learnable parameters, and CNNθc (I) is the last layer of",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00080"
+  },
+  {
+    "block_id": "blk_00081",
+    "type": "formula",
+    "content": "a CNN. The output vector yt holds the (unnormalized) log",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00081"
+  },
+  {
+    "block_id": "blk_00082",
+    "type": "paragraph",
+    "content": "probabilities of words in the dictionary and one additional dimension for a special END token. Note that we provide the image context vector bv to the RNN only at the ﬁrst iteration, which we found to work better than at each time step. In practice we also found that it can help to also pass both bv, (Whxxt) through the activation function. A typical size of the hidden layer of the RNN is 512 neurons. RNN training. The RNN is trained to combine a word (xt), the previous context ( ht−1) to predict the next word ( yt). We condition the RNN’s predictions on the image informa- tion (bv) via bias interactions on the ﬁrst step. The training",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00082"
+  },
+  {
+    "block_id": "blk_00083",
+    "type": "formula",
+    "content": "proceeds as follows (refer to Figure 4): We seth0 = ⃗0, x1 to",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00083"
+  },
+  {
+    "block_id": "blk_00084",
+    "type": "paragraph",
+    "content": "a special START vector, and the desired labely1 as the ﬁrst",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00084"
+  },
+  {
+    "block_id": "blk_00085",
+    "type": "formula",
+    "content": "word in the sequence. Analogously, we set x2 to the word",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00085"
+  },
+  {
+    "block_id": "blk_00086",
+    "type": "paragraph",
+    "content": "vector of the ﬁrst word and expect the network to predict the second word, etc. Finally, on the last step when xT rep-",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00086"
+  },
+  {
+    "block_id": "blk_00087",
+    "type": "formula",
+    "content": "resents the last word, the target label is set to a special END",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00087"
+  },
+  {
+    "block_id": "blk_00088",
+    "type": "formula",
+    "content": "token. The cost function is to maximize the log probability",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00088"
+  },
+  {
+    "block_id": "blk_00089",
+    "type": "formula",
+    "content": "assigned to the target labels (i.e. Softmax classiﬁer).",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00089"
+  },
+  {
+    "block_id": "blk_00090",
+    "type": "paragraph",
+    "content": "RNN at test time. To predict a sentence, we compute the",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00090"
+  },
+  {
+    "block_id": "blk_00091",
+    "type": "formula",
+    "content": "image representation bv, set h0 = 0, x1 to the START vec-",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00091"
+  },
+  {
+    "block_id": "blk_00092",
+    "type": "paragraph",
+    "content": "tor and compute the distribution over the ﬁrst word y1. We",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00092"
+  },
+  {
+    "block_id": "blk_00093",
+    "type": "formula",
+    "content": "sample a word from the distribution (or pick the argmax),",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00093"
+  },
+  {
+    "block_id": "blk_00094",
+    "type": "paragraph",
+    "content": "set its embedding vector as x2, and repeat this process until the END token is generated. In practice we found that beam search (e.g. beam size 7) can improve results. 3.3. Optimization",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00094"
+  },
+  {
+    "block_id": "blk_00095",
+    "type": "formula",
+    "content": "We use SGD with mini-batches of 100 image-sentence pairs",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00095"
+  },
+  {
+    "block_id": "blk_00096",
+    "type": "paragraph",
+    "content": "and momentum of 0.9 to optimize the alignment model. We cross-validate the learning rate and the weight decay. We also use dropout regularization in all layers except in the recurrent layers [59] and clip gradients elementwise at 5 (important). The generative RNN is more difﬁcult to op- timize, party due to the word frequency disparity between rare words and common words (e.g. ”a” or the END token). We achieved the best results using RMSprop [52], which is an adaptive step size method that scales the update of each weight by a running average of its gradient norm.",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00096"
+  },
+  {
+    "block_id": "blk_00097",
+    "type": "caption",
+    "content": "Figure 4. Diagram of our multimodal Recurrent Neural Network",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00097"
+  },
+  {
+    "block_id": "blk_00098",
+    "type": "paragraph",
+    "content": "generative model. The RNN takes a word, the context from previ- ous time steps and deﬁnes a distribution over the next word in the sentence. The RNN is conditioned on the image information at the ﬁrst time step. START and END are special tokens. 4. Experiments Datasets. We use the Flickr8K [21], Flickr30K [58] and MSCOCO [37] datasets in our experiments. These datasets contain 8,000, 31,000 and 123,000 images respectively and each is annotated with 5 sentences using Amazon Mechanical Turk. For Flickr8K and Flickr30K, we use 1,000 images for validation, 1,000 for testing and the rest for training (consistent with [21, 24]). For MSCOCO we use 5,000 images for both validation and testing. Data Preprocessing. We convert all sentences to lower- case, discard non-alphanumeric characters. We ﬁlter words to those that occur at least 5 times in the training set, which results in 2538, 7414, and 8791 words for Flickr8k, Flickr30K, and MSCOCO datasets respectively. 4.1. Image-Sentence Alignment Evaluation We ﬁrst investigate the quality of the inferred text and image alignments with ranking experiments. We consider a with- held set of images and sentences and retrieve items in one modality given a query from the other by sorting based on the image-sentence score Skl (Section 3.1.3). We report the median rank of the closest ground truth result in the list and Recall@K, which measures the fraction of times a correct item was found among the top K results. The result of these experiments can be found in Table 1, and example retrievals in Figure 5. We now highlight some of the takeaways. Our full model outperforms previous work. First, our full model (“Our model: BRNN”) outperforms Socher et al. [49] who trained with a similar loss but used a single image representation and a Recursive Neural Network over the sentence. A similar loss was adopted by Kiros et al. [25], who use an LSTM [20] to encode sentences. We list their performance with a CNN that is equivalent in power (AlexNet [28]) to the one used in this work, though simi- lar to [54] they outperform our model with a more powerful CNN (VGGNet [47], GoogLeNet [51]). “DeFrag” are the results reported by Karpathy et al. [24]. Since we use dif- ferent word vectors, dropout for regularization and different",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00098"
+  },
+  {
+    "block_id": "blk_00099",
+    "type": "formula",
+    "content": "cross-validation ranges and larger embedding sizes, we re-",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00099"
+  },
+  {
+    "block_id": "blk_00100",
+    "type": "paragraph",
+    "content": "implemented their loss for a fair comparison (“Our imple-",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00100"
+  },
+  {
+    "block_id": "blk_00101",
+    "type": "paragraph",
+    "content": "Image Annotation Image Search Model R@1 R@5 R@10 Med r R@1 R@5 R@10 Med r Flickr30K SDT-RNN (Socher et al. [49]) 9.6 29.8 41.1 16 8.9 29.8 41.1 16 Kiros et al. [25] 14.8 39.2 50.9 10 11.8 34.0 46.3 13 Mao et al. [38] 18.4 40.2 50.9 10 12.6 31.2 41.5 16 Donahue et al. [8] 17.5 40.3 50.8 9 - - - - DeFrag (Karpathy et al. [24]) 14.2 37.7 51.3 10 10.2 30.8 44.2 14 Our implementation of DeFrag [24] 19.2 44.5 58.0 6.0 12.9 35.4 47.5 10.8 Our model: DepTree edges 20.0 46.6 59.4 5.4 15.0 36.5 48.2 10.4 Our model: BRNN 22.2 48.2 61.4 4.8 15.2 37.7 50.5 9.2 Vinyals et al. [54] (more powerful CNN) 23 - 63 5 17 - 57 8 MSCOCO Our model: 1K test images 38.4 69.9 80.5 1.0 27.4 60.2 74.8 3.0 Our model: 5K test images 16.5 39.2 52.0 9.0 10.7 29.6 42.2 14.0",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00101"
+  },
+  {
+    "block_id": "blk_00102",
+    "type": "caption",
+    "content": "Table 1. Image-Sentence ranking experiment results. R@K is Recall@K (high is good). Med r is the median rank (low is good). In the",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00102"
+  },
+  {
+    "block_id": "blk_00103",
+    "type": "paragraph",
+    "content": "results for our models, we take the top 5 validation set models, evaluate each independently on the test set and then report the average performance. The standard deviations on the recall values range from approximately 0.5 to 1.0.",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00103"
+  },
+  {
+    "block_id": "blk_00104",
+    "type": "caption",
+    "content": "Figure 5. Example alignments predicted by our model. For every test image above, we retrieve the most compatible test sentence and",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00104"
+  },
+  {
+    "block_id": "blk_00105",
+    "type": "paragraph",
+    "content": "visualize the highest-scoring region for each word (before MRF smoothing described in Section 3.1.4) and the associated scores ( vT i st). We hide the alignments of low-scoring words to reduce clutter. We assign each region an arbitrary color. mentation of DeFrag”). Compared to other work that uses AlexNets, our full model shows consistent improvement. Our simpler cost function improves performance. We strive to better understand the source of our performance. First, we removed the BRNN and used dependency tree re- lations exactly as described in Karpathy et al. [24] (“Our model: DepTree edges”). The only difference between this model and “Our reimplementation of DeFrag” is the new, simpler cost function introduced in Section 3.1.3. We see that our formulation shows consistent improvements. BRNN outperforms dependency tree relations . Further- more, when we replace the dependency tree relations with the BRNN we observe additional performance improve- ments. Since the dependency relations were shown to work better than single words and bigrams [24], this suggests that the BRNN is taking advantage of contexts longer than two words. Furthermore, our method does not rely on extracting a Dependency Tree and instead uses the raw words directly. MSCOCO results for future comparisons. We are not aware of other published ranking results on MSCOCO. Therefore, we report results on a subset of 1,000 images and the full set of 5,000 test images for future comparisons. Note that the 5000 images numbers are lower since Re- call@K is a function of test set size. Qualitative. As can be seen from example groundings in",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00105"
+  },
+  {
+    "block_id": "blk_00106",
+    "type": "caption",
+    "content": "Figure 5, the model discovers interpretable visual-semantic",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00106"
+  },
+  {
+    "block_id": "blk_00107",
+    "type": "paragraph",
+    "content": "correspondences, even for small or relatively rare objects such as an “accordion”. These would be likely missed by models that only reason about full images. Learned region and word vector magnitudes. An ap- pealing feature of our model is that it learns to modulate the magnitude of the region and word embeddings. Due to their inner product interaction, we observe that repre-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00107"
+  },
+  {
+    "block_id": "blk_00108",
+    "type": "formula",
+    "content": "sentations of visually discriminative words such as “kayak-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00108"
+  },
+  {
+    "block_id": "blk_00109",
+    "type": "paragraph",
+    "content": "ing, pumpkins“ have embedding vectors with higher mag- nitudes, which in turn translates to a higher inﬂuence on the image-sentence score. Conversely, stop words such as “now, simply, actually, but” are mapped near the origin, which reduces their inﬂuence. See more analysis in supple- mentary material.",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00109"
+  },
+  {
+    "block_id": "blk_00110",
+    "type": "paragraph",
+    "content": "Flickr8K Flickr30K MSCOCO 2014 Model B-1 B-2 B-3 B-4 B-1 B-2 B-3 B-4 B-1 B-2 B-3 B-4 METEOR CIDEr Nearest Neighbor — — — — — — — — 48.0 28.1 16.6 10.0 15.7 38.3 Mao et al. [38] 58 28 23 — 55 24 20 — — — — — — — Google NIC [54] 63 41 27 — 66.3 42.3 27.7 18.3 66.6 46.1 32.9 24.6 — — LRCN [8] — — — — 58.8 39.1 25.1 16.5 62.8 44.2 30.4 — — — MS Research [12] — — — — — — — — — — — 21.1 20.7 — Chen and Zitnick [5] — — — 14.1 — — — 12.6 — — — 19.0 20.4 — Our model 57.9 38.3 24.5 16.0 57.3 36.9 24.0 15.7 62.5 45.0 32.1 23.0 19.5 66.0",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00110"
+  },
+  {
+    "block_id": "blk_00111",
+    "type": "caption",
+    "content": "Table 2. Evaluation of full image predictions on 1,000 test images.B-n is BLEU score that uses up to n-grams. High is good in all columns.",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00111"
+  },
+  {
+    "block_id": "blk_00112",
+    "type": "paragraph",
+    "content": "For future comparisons, our METEOR/CIDEr Flickr8K scores are 16.7/31.8 and the Flickr30K scores are 15.3/24.7.",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00112"
+  },
+  {
+    "block_id": "blk_00113",
+    "type": "caption",
+    "content": "Figure 6. Example sentences generated by the multimodal RNN for test images. We provide many more examples on our project page.",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00113"
+  },
+  {
+    "block_id": "blk_00114",
+    "type": "paragraph",
+    "content": "4.2. Generated Descriptions: Fulframe evaluation We now evaluate the ability of our RNN model to describe images and regions. We ﬁrst trained our Multimodal RNN to generate sentences on full images with the goal of veri- fying that the model is rich enough to support the mapping from image data to sequences of words. For these full im- age experiments we use the more powerful VGGNet image features [47]. We report the BLEU [44], METEOR [7] and CIDEr [53] scores computed with the coco-caption code [4] 2. Each method evaluates a candidate sentence by measuring how well it matches a set of ﬁve reference sentences written by humans. Qualitative. The model generates sensible descriptions of images (see Figure 6), although we consider the last two images failure cases. The ﬁrst prediction “man in black shirt is playing a guitar”does not appear in the training set. However, there are 20 occurrences of “man in black shirt” and 60 occurrences of “is paying guitar”, which the model may have composed to describe the ﬁrst image. In general,",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00114"
+  },
+  {
+    "block_id": "blk_00115",
+    "type": "formula",
+    "content": "we ﬁnd that a relatively large portion of generated sentences",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00115"
+  },
+  {
+    "block_id": "blk_00116",
+    "type": "paragraph",
+    "content": "(60% with beam size 7) can be found in the training data. This fraction decreases with lower beam size; For instance, with beam size 1 this falls to 25%, but the performance also deteriorates (e.g. from 0.66 to 0.61 CIDEr). Multimodal RNN outperforms retrieval baseline. Our ﬁrst comparison is to a nearest neighbor retrieval baseline. 2https://github.com/tylin/coco-caption Here, we annotate each test image with a sentence of the",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00116"
+  },
+  {
+    "block_id": "blk_00117",
+    "type": "formula",
+    "content": "most similar training set image as determined by L2 norm",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00117"
+  },
+  {
+    "block_id": "blk_00118",
+    "type": "paragraph",
+    "content": "over VGGNet [47] fc7 features. Table 2 shows that the Mul- timodal RNN conﬁdently outperforms this retrieval method. Hence, even with 113,000 train set images in MSCOCO the retrieval approach is inadequate. Additionally, the RNN takes only a fraction of a second to evaluate per image. Comparison to other work. Several related models have been proposed in Arxiv preprints since the original submis- sion of this work. We also include these in Table 2 for com- parison. Most similar to our model is Vinyals et al. [54]. Unlike this work where the image information is commu- nicated through a bias term on the ﬁrst step, they incorpo- rate it as a ﬁrst word, they use a more powerful but more complex sequence learner (LSTM [20]), a different CNN (GoogLeNet [51]), and report results of a model ensemble. Donahue et al. [8] use a 2-layer factored LSTM (similar in structure to the RNN in Mao et al. [38]). Both models",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00118"
+  },
+  {
+    "block_id": "blk_00119",
+    "type": "formula",
+    "content": "appear to work worse than ours, but this is likely in large",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00119"
+  },
+  {
+    "block_id": "blk_00120",
+    "type": "paragraph",
+    "content": "part due to their use of the less powerful AlexNet [28] fea- tures. Compared to these approaches, our model prioritizes simplicity and speed at a slight cost in performance. 4.3. Generated Descriptions: Region evaluation We now train the Multimodal RNN on the correspondences between image regions and snippets of text, as inferred by the alignment model. To support the evaluation, we used Amazon Mechanical Turk (AMT) to collect a new dataset",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00120"
+  },
+  {
+    "block_id": "blk_00121",
+    "type": "caption",
+    "content": "Figure 7. Example region predictions. We use our region-level multimodal RNN to generate text (shown on the right of each image) for",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00121"
+  },
+  {
+    "block_id": "blk_00122",
+    "type": "paragraph",
+    "content": "some of the bounding boxes in each image. The lines are grounded to centers of bounding boxes and the colors are chosen arbitrarily. of region-level annotations that we only use at test time. The labeling interface displayed a single image and asked anno- tators (we used nine per image) to draw ﬁve bounding boxes and annotate each with text. In total, we collected 9,000 text snippets for 200 images in our MSCOCO test split (i.e. 45 snippets per image). The snippets have an average length of 2.3 words. Example annotations include “sports car”, “el- derly couple sitting”, “construction site”, “three dogs on leashes”, “chocolate cake”. We noticed that asking anno- tators for grounded text snippets induces language statistics different from those in full image captions. Our region an- notations are more comprehensive and feature elements of scenes that would rarely be considered salient enough to be included in a single sentence sentence about the full image, such as “heating vent”, “belt buckle”, and “chimney”. Qualitative. We show example region model predictions in Figure 7. To reiterate the difﬁculty of the task, consider for example the phrase “table with wine glasses” that is generated on the image on the right in Figure 7. This phrase only occurs in the training set 30 times. Each time it may have a different appearance and each time it may occupy a few (or none) of our object bounding boxes. To generate this string for the region, the model had to ﬁrst correctly learn to ground the string and then also learn to generate it. Region model outperforms full frame model and rank- ing baseline. Similar to the full image description task, we evaluate this data as a prediction task from a 2D array of pixels (one image region) to a sequence of words and record the BLEU score. The ranking baseline retrieves training sentence substrings most compatible with each region as judged by the BRNN model. Table 3 shows that the region RNN model produces descriptions most consistent with our collected data. Note that the fullframe model was trained only on full images, so feeding it smaller image regions deteriorates its performance. However, its sentences are also longer than the region model sentences, which likely negatively impacts the BLEU score. The sentence length is non-trivial to control for with an RNN, but we note that the region model also outperforms the fullframe model on all other metrics: CIDEr 61.6/20.3, METEOR 15.8/13.3, ROUGE 35.1/21.0 for region/fullframe respectively.",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00122"
+  },
+  {
+    "block_id": "blk_00123",
+    "type": "section_heading",
+    "content": "Model B-1 B-2 B-3 B-4",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00123"
+  },
+  {
+    "block_id": "blk_00124",
+    "type": "paragraph",
+    "content": "Human agreement 61.5 45.2 30.1 22.0 Nearest Neighbor 22.9 10.5 0.0 0.0 RNN: Fullframe model 14.2 6.0 2.2 0.0 RNN: Region level model 35.2 23.0 16.1 14.8",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00124"
+  },
+  {
+    "block_id": "blk_00125",
+    "type": "caption",
+    "content": "Table 3. BLEU score evaluation of image region annotations.",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00125"
+  },
+  {
+    "block_id": "blk_00126",
+    "type": "paragraph",
+    "content": "4.4. Limitations Although our results are encouraging, the Multimodal RNN model is subject to multiple limitations. First, the model can only generate a description of one input array of pixels at a ﬁxed resolution. A more sensible approach might be to use multiple saccades around the image to identify all entities, their mutual interactions and wider context before generat- ing a description. Additionally, the RNN receives the image information only through additive bias interactions, which are known to be less expressive than more complicated mul- tiplicative interactions [50, 20]. Lastly, our approach con- sists of two separate models. Going directly from an image- sentence dataset to region-level annotations as part of a sin- gle model trained end-to-end remains an open problem. 5. Conclusions We introduced a model that generates natural language de- scriptions of image regions based on weak labels in form of a dataset of images and sentences, and with very few hard- coded assumptions. Our approach features a novel ranking model that aligned parts of visual and language modalities through a common, multimodal embedding. We showed that this model provides state of the art performance on image-sentence ranking experiments. Second, we described a Multimodal Recurrent Neural Network architecture that generates descriptions of visual data. We evaluated its per- formance on both fullframe and region-level experiments and showed that in both cases the Multimodal RNN outper- forms retrieval baselines. Acknowledgements. We thank Justin Johnson and Jon Krause for helpful com- ments and discussions. We gratefully acknowledge the sup- port of NVIDIA Corporation with the donation of the GPUs used for this research. This research is partially supported by an ONR MURI grant, and NSF ISS-1115313.",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00126"
+  },
+  {
+    "block_id": "blk_00127",
+    "type": "section_heading",
+    "content": "References",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00127"
+  },
+  {
+    "block_id": "blk_00128",
+    "type": "reference",
+    "content": "[1] A. Barbu, A. Bridge, Z. Burchill, D. Coroian, S. Dickin- son, S. Fidler, A. Michaux, S. Mussman, S. Narayanaswamy, D. Salvi, et al. Video in sentences out. arXiv preprint arXiv:1204.2742, 2012. [2] K. Barnard, P. Duygulu, D. Forsyth, N. De Freitas, D. M. Blei, and M. I. Jordan. Matching words and pictures. JMLR, 2003. [3] Y . Bengio, H. Schwenk, J.-S. Sen ´ecal, F. Morin, and J.-L. Gauvain. Neural probabilistic language models. In Innova- tions in Machine Learning. Springer, 2006. [4] X. Chen, H. Fang, T.-Y . Lin, R. Vedantam, S. Gupta, P. Dol- lar, and C. L. Zitnick. Microsoft coco captions: Data collec- tion and evaluation server.arXiv preprint arXiv:1504.00325, 2015. [5] X. Chen and C. L. Zitnick. Learning a recurrent vi- sual representation for image caption generation. CoRR, abs/1411.5654, 2014. [6] J. Deng, W. Dong, R. Socher, L.-J. Li, K. Li, and L. Fei-",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00128"
+  },
+  {
+    "block_id": "blk_00129",
+    "type": "reference",
+    "content": "Fei. Imagenet: A large-scale hierarchical image database. In",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00129"
+  },
+  {
+    "block_id": "blk_00130",
+    "type": "reference",
+    "content": "CVPR, 2009. [7] M. Denkowski and A. Lavie. Meteor universal: Language",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00130"
+  },
+  {
+    "block_id": "blk_00131",
+    "type": "reference",
+    "content": "speciﬁc translation evaluation for any target language. In",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00131"
+  },
+  {
+    "block_id": "blk_00132",
+    "type": "reference",
+    "content": "Proceedings of the EACL 2014 Workshop on Statistical Ma- chine Translation, 2014. [8] J. Donahue, L. A. Hendricks, S. Guadarrama, M. Rohrbach, S. Venugopalan, K. Saenko, and T. Darrell. Long-term recur- rent convolutional networks for visual recognition and de- scription. arXiv preprint arXiv:1411.4389, 2014. [9] D. Elliott and F. Keller. Image description using visual de- pendency representations. In EMNLP, pages 1292–1302, 2013. [10] J. L. Elman. Finding structure in time. Cognitive science, 14(2):179–211, 1990. [11] M. Everingham, L. Van Gool, C. K. I. Williams, J. Winn, and A. Zisserman. The pascal visual object classes (voc) chal- lenge. International Journal of Computer Vision, 88(2):303– 338, June 2010. [12] H. Fang, S. Gupta, F. Iandola, R. Srivastava, L. Deng, P. Doll ´ar, J. Gao, X. He, M. Mitchell, J. Platt, et al. From captions to visual concepts and back. arXiv preprint arXiv:1411.4952, 2014. [13] A. Farhadi, M. Hejrati, M. A. Sadeghi, P. Young, C. Rashtchian, J. Hockenmaier, and D. Forsyth. Every pic- ture tells a story: Generating sentences from images. In ECCV. 2010. [14] L. Fei-Fei, A. Iyer, C. Koch, and P. Perona. What do we perceive in a glance of a real-world scene?Journal of vision, 7(1):10, 2007. [15] S. Fidler, A. Sharma, and R. Urtasun. A sentence is worth a thousand pixels. In CVPR, 2013. [16] A. Frome, G. S. Corrado, J. Shlens, S. Bengio, J. Dean, T. Mikolov, et al. Devise: A deep visual-semantic embed- ding model. In NIPS, 2013. [17] R. Girshick, J. Donahue, T. Darrell, and J. Malik. Rich fea- ture hierarchies for accurate object detection and semantic segmentation. In CVPR, 2014. [18] S. Gould, R. Fulton, and D. Koller. Decomposing a scene into geometric and semantically consistent regions. In Com- puter Vision, 2009 IEEE 12th International Conference on , pages 1–8. IEEE, 2009. [19] A. Gupta and P. Mannem. From image annotation to im- age description. In Neural information processing. Springer, 2012. [20] S. Hochreiter and J. Schmidhuber. Long short-term memory. Neural computation, 9(8):1735–1780, 1997.",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00132"
+  },
+  {
+    "block_id": "blk_00133",
+    "type": "reference",
+    "content": "[21] M. Hodosh, P. Young, and J. Hockenmaier. Framing image",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00133"
+  },
+  {
+    "block_id": "blk_00134",
+    "type": "reference",
+    "content": "description as a ranking task: data, models and evaluation metrics. Journal of Artiﬁcial Intelligence Research, 2013. [22] R. JeffreyPennington and C. Manning. Glove: Global vec- tors for word representation. 2014. [23] Y . Jia, M. Salzmann, and T. Darrell. Learning cross-modality similarity for multinomial data. In ICCV, 2011. [24] A. Karpathy, A. Joulin, and L. Fei-Fei. Deep fragment em- beddings for bidirectional image sentence mapping. arXiv preprint arXiv:1406.5679, 2014. [25] R. Kiros, R. Salakhutdinov, and R. S. Zemel. Unifying visual-semantic embeddings with multimodal neural lan- guage models. arXiv preprint arXiv:1411.2539, 2014. [26] R. Kiros, R. S. Zemel, and R. Salakhutdinov. Multimodal neural language models. ICML, 2014. [27] C. Kong, D. Lin, M. Bansal, R. Urtasun, and S. Fidler. What are you talking about? text-to-image coreference. In CVPR, 2014. [28] A. Krizhevsky, I. Sutskever, and G. E. Hinton. Imagenet classiﬁcation with deep convolutional neural networks. In NIPS, 2012. [29] G. Kulkarni, V . Premraj, S. Dhar, S. Li, Y . Choi, A. C. Berg, and T. L. Berg. Baby talk: Understanding and generating simple image descriptions. In CVPR, 2011. [30] P. Kuznetsova, V . Ordonez, A. C. Berg, T. L. Berg, and Y . Choi. Collective generation of natural image descriptions. In ACL, 2012. [31] P. Kuznetsova, V . Ordonez, T. L. Berg, U. C. Hill, and Y . Choi. Treetalk: Composition and compression of trees for image descriptions. Transactions of the Association for Computational Linguistics, 2(10):351–362, 2014. [32] Y . LeCun, L. Bottou, Y . Bengio, and P. Haffner. Gradient- based learning applied to document recognition. Proceed- ings of the IEEE, 86(11):2278–2324, 1998. [33] L.-J. Li and L. Fei-Fei. What, where and who? classifying events by scene and object recognition. In ICCV, 2007. [34] L.-J. Li, R. Socher, and L. Fei-Fei. Towards total scene un- derstanding: Classiﬁcation, annotation and segmentation in an automatic framework. In Computer Vision and Pattern Recognition, 2009. CVPR 2009. IEEE Conference on, pages 2036–2043. IEEE, 2009. [35] S. Li, G. Kulkarni, T. L. Berg, A. C. Berg, and Y . Choi. Com- posing simple image descriptions using web-scale n-grams. In CoNLL, 2011. [36] D. Lin, S. Fidler, C. Kong, and R. Urtasun. Visual semantic search: Retrieving videos via complex textual queries. 2014.",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00134"
+  },
+  {
+    "block_id": "blk_00135",
+    "type": "reference",
+    "content": "[37] T.-Y . Lin, M. Maire, S. Belongie, J. Hays, P. Perona, D. Ra- manan, P. Doll´ar, and C. L. Zitnick. Microsoft coco: Com- mon objects in context. arXiv preprint arXiv:1405.0312 , 2014. [38] J. Mao, W. Xu, Y . Yang, J. Wang, and A. L. Yuille. Explain images with multimodal recurrent neural networks. arXiv preprint arXiv:1410.1090, 2014. [39] C. Matuszek*, N. FitzGerald*, L. Zettlemoyer, L. Bo, and D. Fox. A Joint Model of Language and Perception for Grounded Attribute Learning. In Proc. of the 2012 Interna- tional Conference on Machine Learning , Edinburgh, Scot- land, June 2012. [40] T. Mikolov, M. Karaﬁ´at, L. Burget, J. Cernock`y, and S. Khu- danpur. Recurrent neural network based language model. In INTERSPEECH, 2010. [41] T. Mikolov, I. Sutskever, K. Chen, G. S. Corrado, and J. Dean. Distributed representations of words and phrases and their compositionality. In NIPS, 2013. [42] M. Mitchell, X. Han, J. Dodge, A. Mensch, A. Goyal, A. Berg, K. Yamaguchi, T. Berg, K. Stratos, and H. Daum´e, III. Midge: Generating image descriptions from computer vision detections. In EACL, 2012. [43] V . Ordonez, G. Kulkarni, and T. L. Berg. Im2text: Describ- ing images using 1 million captioned photographs. In NIPS, 2011. [44] K. Papineni, S. Roukos, T. Ward, and W.-J. Zhu. Bleu: a method for automatic evaluation of machine translation. In Proceedings of the 40th annual meeting on association for computational linguistics , pages 311–318. Association for Computational Linguistics, 2002. [45] O. Russakovsky, J. Deng, H. Su, J. Krause, S. Satheesh, S. Ma, Z. Huang, A. Karpathy, A. Khosla, M. Bernstein,",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00135"
+  },
+  {
+    "block_id": "blk_00136",
+    "type": "reference",
+    "content": "A. C. Berg, and L. Fei-Fei. Imagenet large scale visual recog-",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00136"
+  },
+  {
+    "block_id": "blk_00137",
+    "type": "reference",
+    "content": "nition challenge, 2014. [46] M. Schuster and K. K. Paliwal. Bidirectional recurrent neural networks. Signal Processing, IEEE Transactions on, 1997. [47] K. Simonyan and A. Zisserman. Very deep convolutional",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00137"
+  },
+  {
+    "block_id": "blk_00138",
+    "type": "reference",
+    "content": "networks for large-scale image recognition. arXiv preprint",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00138"
+  },
+  {
+    "block_id": "blk_00139",
+    "type": "reference",
+    "content": "arXiv:1409.1556, 2014. [48] R. Socher and L. Fei-Fei. Connecting modalities: Semi- supervised segmentation and annotation of images using un- aligned text corpora. In CVPR, 2010. [49] R. Socher, A. Karpathy, Q. V . Le, C. D. Manning, and A. Y . Ng. Grounded compositional semantics for ﬁnding and de- scribing images with sentences. TACL, 2014. [50] I. Sutskever, J. Martens, and G. E. Hinton. Generating text with recurrent neural networks. In ICML, 2011. [51] C. Szegedy, W. Liu, Y . Jia, P. Sermanet, S. Reed, D. Anguelov, D. Erhan, V . Vanhoucke, and A. Rabi- novich. Going deeper with convolutions. arXiv preprint arXiv:1409.4842, 2014. [52] T. Tieleman and G. E. Hinton. Lecture 6.5-rmsprop: Divide the gradient by a running average of its recent magnitude., 2012. [53] R. Vedantam, C. L. Zitnick, and D. Parikh. Cider: Consensus-based image description evaluation. CoRR, abs/1411.5726, 2014. [54] O. Vinyals, A. Toshev, S. Bengio, and D. Erhan. Show and tell: A neural image caption generator. arXiv preprint arXiv:1411.4555, 2014. [55] Y . Yang, C. L. Teo, H. Daum ´e III, and Y . Aloimonos. Corpus-guided sentence generation of natural images. In EMNLP, 2011. [56] B. Z. Yao, X. Yang, L. Lin, M. W. Lee, and S.-C. Zhu. I2t: Image parsing to text description. Proceedings of the IEEE, 98(8):1485–1508, 2010. [57] M. Yatskar, L. Vanderwende, and L. Zettlemoyer. See no evil, say no evil: Description generation from densely la- beled images. Lexical and Computational Semantics, 2014. [58] P. Young, A. Lai, M. Hodosh, and J. Hockenmaier. From im- age descriptions to visual denotations: New similarity met- rics for semantic inference over event descriptions. TACL, 2014. [59] W. Zaremba, I. Sutskever, and O. Vinyals. Recurrent neu- ral network regularization. arXiv preprint arXiv:1409.2329, 2014. [60] C. L. Zitnick, D. Parikh, and L. Vanderwende. Learning the visual interpretation of sentences. ICCV, 2013.",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00139"
+  },
+  {
+    "block_id": "blk_00140",
+    "type": "reference",
+    "content": "6. Supplementary Material 6.1. Magnitude modulation An appealing feature of our alignment model is that it learns to modulate the importance of words and regions by scaling the magnitude of their corresponding embedding vectors. To see this, recall that we compute the image-sentence sim- ilarity between image k and sentence l as follows: Skl = ∑ t∈gl",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00140"
+  },
+  {
+    "block_id": "blk_00141",
+    "type": "reference",
+    "content": "maxi∈gk vT",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00141"
+  },
+  {
+    "block_id": "blk_00142",
+    "type": "reference",
+    "content": "i st. (16)",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00142"
+  },
+  {
+    "block_id": "blk_00143",
+    "type": "reference",
+    "content": "Disciminative words. As a result of this formulation,",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00143"
+  },
+  {
+    "block_id": "blk_00144",
+    "type": "reference",
+    "content": "we observe that representations of visually discriminative",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00144"
+  },
+  {
+    "block_id": "blk_00145",
+    "type": "reference",
+    "content": "words such as “kayaking, pumpkins“ tend to have higher magnitude in the embedding space, which translates to a higher inﬂuence on the ﬁnal image-sentence scores due to the inner product. Conversely, the model learns to map stop words such as “now, simply, actually, but” near the ori- gin, which reduces their inﬂuence. Table 4 show the top 40 words with highest and lowest magnitudes∥st∥.",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00145"
+  },
+  {
+    "block_id": "blk_00146",
+    "type": "reference",
+    "content": "Disciminative regions. Similarly, image regions that con-",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00146"
+  },
+  {
+    "block_id": "blk_00147",
+    "type": "reference",
+    "content": "tain discriminative entities are assigned vectors of higher",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00147"
+  },
+  {
+    "block_id": "blk_00148",
+    "type": "reference",
+    "content": "magnitudes by our model. This can be be interpreted as a measure of visual saliency, since these regions would pro-",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00148"
+  },
+  {
+    "block_id": "blk_00149",
+    "type": "reference",
+    "content": "duced large scores if their textual description was present in",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00149"
+  },
+  {
+    "block_id": "blk_00150",
+    "type": "reference",
+    "content": "a corresponding sentence. We show the regions with high magnitudes in Figure 8. Notice the common occurrence of often described regions such as balls, bikes, helmets.",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00150"
+  },
+  {
+    "block_id": "blk_00151",
+    "type": "caption",
+    "content": "Figure 8. Flickr30K test set regions with high vector magnitude.",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00151"
+  },
+  {
+    "block_id": "blk_00152",
+    "type": "reference",
+    "content": "Magnitude Word Magnitude Word 0.42 now 2.61 kayaking 0.42 simply 2.59 trampoline 0.43 actually 2.59 pumpkins 0.44 but 2.58 windsurﬁng 0.44 neither 2.56 wakeboard 0.45 then 2.54 acrobatics 0.45 still 2.54 sousaphone 0.46 obviously 2.54 skydivers 0.47 that 2.52 wakeboarders 0.47 which 2.52 skateboard 0.47 felt 2.51 snowboarder 0.47 not 2.51 wakeboarder 0.47 might 2.50 skydiving 0.47 because 2.50 guitar 0.48 appeared 2.50 snowboard 0.48 therefore 2.48 kitchen 0.48 been 2.48 paraglider 0.48 if 2.48 ollie 0.48 also 2.47 ﬁretruck 0.48 only 2.47 gymnastics 0.48 so 2.46 waterfalls 0.49 would 2.46 motorboat 0.49 yet 2.46 fryer 0.50 be 2.46 skateboarding 0.50 had 2.46 dulcimer 0.50 revealed 2.46 waterfall 0.50 never 2.46 backﬂips 0.50 very 2.46 unicyclist 0.50 without 2.45 kayak 0.51 they 2.43 costumes 0.51 either 2.43 wakeboarding 0.51 could 2.43 trike 0.51 feel 2.42 dancers 0.51 otherwise 2.42 cupcakes 0.51 when 2.42 tuba 0.51 already 2.42 skijoring 0.51 being 2.41 ﬁrewood 0.51 else 2.41 elevators 0.52 just 2.40 cranes 0.52 ones 2.40 bassoon",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00152"
+  },
+  {
+    "block_id": "blk_00153",
+    "type": "caption",
+    "content": "Table 4. This table shows the top magnitudes of vectors (∥st∥) for",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00153"
+  },
+  {
+    "block_id": "blk_00154",
+    "type": "reference",
+    "content": "words in Flickr30K. Since the magnitude of individual words in our model is also a function of their surrounding context in the sentence, we report the average magnitude.",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00154"
+  },
+  {
+    "block_id": "blk_00155",
+    "type": "reference",
+    "content": "6.2. Alignment model Learned appearance of text snippets . We can query our alignment model with a piece of text and retrieve individual image regions that have the highest score with that snip- pet. We show examples of such queries in Figure 9 and",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00155"
+  },
+  {
+    "block_id": "blk_00156",
+    "type": "caption",
+    "content": "Figure 10. Notice that the model is sensitive to compound",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00156"
+  },
+  {
+    "block_id": "blk_00157",
+    "type": "reference",
+    "content": "words and modiﬁers. For example, “red bus” and “yel- low bus” give very different results. Similarly, “bird ﬂying in the sky” and “bird on a tree branch” give different re- sults. Additionally, it can be seen that the quality of the results deteriorates for less frequently occurring concepts, such as “roof” or “straw hat”. However, we emphasize that the model learned these visual appearances of text snippets from raw data of full images and sentences, without any ex- plicit correspondences. Additional alignment visualizations . See additional ex- amples of inferred alignments between image regions and words in Figure 11. Note that one limitation of our model is that it does not explicitly handle or support counting. For in- stance, the last example we show contains the phrase“three people”. These words should align to the three people in the image, but our model puts the bounding box around two of the people. In doing so, the model may be taking advan- tage of the BRNN structure to modify the “people” vector to preferentially align to regions that contain multiple peo- ple. However, this is still unsatisfying because such spuri- ous detections only exist as a result of an error in the RCNN inference process, which presumably failed to localize the individual people. Web demo. We have published a web demo that displays our alignments for all images in the test set 3. Additional Flickr8K experiments . We omitted ranking experiment results from our paper due to space constraints, but these can be found in Table 5 Counting. We experimented with losses that perform prob- abilistic inference in the forward pass that explicitly tried to localize exactly three distinct people in the image. How- ever, this worked poorly because while the RCNN is good at ﬁnding people, it is not very good at localizing them. For instance, a single person can easily yield multiple detections (the head, the torso, or the full body, for example). We were not able to come up with a simple approach to collapsing",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00157"
+  },
+  {
+    "block_id": "blk_00158",
+    "type": "reference",
+    "content": "these into a single detection (non-maxim suppression by it-",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00158"
+  },
+  {
+    "block_id": "blk_00159",
+    "type": "reference",
+    "content": "self was not sufﬁcient in our experiments). Note that this ambiguity is partly an artifact of the training data. For ex- ample, torsos of people can often be labeled alone if the body is occluded. We are therefore lead to believe that this additional modeling step is highly non-trivial and a worthy subject of future work. 3 http://cs.stanford.edu/people/karpathy/deepimagesent/rankingdemo/ Plug and play use of Natural Language Processing toolkits. Before adopting the BRNN approach, we also tried to use Natural Language Processing toolkits to process the input sentences into graphs of noun phrases and their bi- nary relations. For instance, in the sentence“a brown dog is chasing a young child”, the toolkit would infer that there are two noun phrases ( “a brown dog”, “young child” ), joined by a binary relationship of “chasing”. We then developed a CRF that inferred the grounding of these noun phrases to the detection bounding boxes in the image with a unary ap- pearance model and a spatial binary model. However, this",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00159"
+  },
+  {
+    "block_id": "blk_00160",
+    "type": "reference",
+    "content": "endeavor proved fruitless. First, performing CRF-like infer-",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00160"
+  },
+  {
+    "block_id": "blk_00161",
+    "type": "reference",
+    "content": "ence during the forward pass of a Neural Network proved to be extremely slow. Second, we found that there is sur- prisingly little information in the relative spatial positions between bounding boxes. For instance, almost any two bounding boxes in the image could correspond to the ac- tion of “chasing” due to huge amount of possibly camera views of a scene. Hence, we were unable to extract enough signal from the binary relations in the coordinate system of the image and suspect that more complex 3-dimensional reasoning may be required. Lastly, we found that NLP tools",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00161"
+  },
+  {
+    "block_id": "blk_00162",
+    "type": "reference",
+    "content": "(when used out of the box) introduce a large amount of mis-",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00162"
+  },
+  {
+    "block_id": "blk_00163",
+    "type": "reference",
+    "content": "takes in the extracted parse trees, dependency trees and parts of speech tags. We tried to ﬁx these with complex rules and exceptions, but ultimately decided to abandon the idea. We believe that part of the problem is that these tools are usually trained on different text corpora (e.g. news articles), so im- age captions are outside of their domain of competence. In our experience, adopting the BRNN model instead of this approach provided immediate performance improvements and produced signiﬁcant reductions in code complexity. 6.3. Additional examples: Image annotation Additional examples of generated captions on the full im- age level can be found in Figure 12 (and our website). The model often gets the right gist of the scene, but sometimes guesses speciﬁc ﬁne-grained words incorrectly. We expect that reasoning not only the global level of the image but also on the level of objects will signiﬁcantly improve these re- sults. We ﬁnd the last example (“woman in bikini is jumping",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00163"
+  },
+  {
+    "block_id": "blk_00164",
+    "type": "reference",
+    "content": "over hurdle”) to be especially illuminating. This sentence",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00164"
+  },
+  {
+    "block_id": "blk_00165",
+    "type": "reference",
+    "content": "does not occur in the training data. Our general qualitative impression of the model is that it learns certain templates, e.g. “<noun>in <noun>is <verb>in <noun>”, and then ﬁlls these in based on textures in the image. In this partic- ular case, the volleyball net has the visual appearance of a hurdle, which may have caused the model to insert it as a noun (along with the woman) into one of its learned sen- tence templates.",
+    "page": 12,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00165"
+  },
+  {
+    "block_id": "blk_00166",
+    "type": "reference",
+    "content": "6.4. Additional examples: Region annotation Additional examples of region annotations can be found in Figure 13. Note that we annotate regions based on the content of each image region alone, which can cause erro- neous predictions when not enough context is available in the bounding box (e.g. a generated description that says “container” detected on the back of a dog’s head in the im- age on the right, in the second row). We found that one ef- fective way of using the contextual information and improv- ing the predictions is to concatenate the fullframe feature CNN vector to the vector of the region of interest, giving 8192-dimensional input vector the to RNN. However, we chose to omit these experiments in our paper to preserve the simplicity of the mode, and because we believe that cleaner and more principled approaches to this challenge can be de- veloped. 6.5. Training the Multimodal RNN There are a few tricks needed to get the Multimodal RNN to train efﬁciently. We found thatclipping the gradients (we only experimented with simple per-element clipping) at an appropriate value consistently gave better results and helped on the validation data. As mentioned in our paper, we exper- imented with SGD, SGD+Momentum, Adadelta, Adagrad, but found RMSProp to give best results. However, some SGD checkpoints usually also converged to nearby valida- tion performance vicinity. Moreover, the distribution of the words in English language are highly non-uniform. There- fore, the model spends the ﬁrst few iterations mostly learn-",
+    "page": 13,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00166"
+  },
+  {
+    "block_id": "blk_00167",
+    "type": "reference",
+    "content": "ing the biases for the Softmax classiﬁer such that it is pre-",
+    "page": 13,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00167"
+  },
+  {
+    "block_id": "blk_00168",
+    "type": "reference",
+    "content": "dicting every word at random with the appropriate dataset frequency. We found that we could obtain faster conver- gence early in the training (and nicer loss curves) by explic- itly initializing the biases of all words in the dictionary (in",
+    "page": 13,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00168"
+  },
+  {
+    "block_id": "blk_00169",
+    "type": "reference",
+    "content": "the Softmax classiﬁer) to log probability of their occurrence",
+    "page": 13,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00169"
+  },
+  {
+    "block_id": "blk_00170",
+    "type": "reference",
+    "content": "in the training data. Therefore, with small weights and bi- ases set appropriately the model right away predicts word at random according to their chance distribution. After sub- mission of our original paper we performed additional ex- periments with comparing an RNN to an LSTM and found that LSTMs consistently produced better results, but took longer to train. Lastly, we initially used word2vec vectors as our word representations xi, but found that it was sufﬁ- cient to train these vectors from random initialization with- out changes in the ﬁnal performance. Moreover, we found that the word2vec vectors have some unappealing properties when used in multimodal language-visual tasks. For exam- ple, all colors (e.g. red, blue, green) are clustered nearby in the word2vec representation because they are relatively interchangeable in most language contexts. However, their visual instantiations are very different.",
+    "page": 13,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00170"
+  },
+  {
+    "block_id": "blk_00171",
+    "type": "reference",
+    "content": "“chocolate cake” “glass of wine” “red bus” “yellow bus” “closeup of zebra” “sprinkled donut” “wooden chair” “wooden ofﬁce desk” “shiny laptop”",
+    "page": 14,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00171"
+  },
+  {
+    "block_id": "blk_00172",
+    "type": "caption",
+    "content": "Figure 9. Examples of highest scoring regions for queried snippets of text, on 5,000 images of our MSCOCO test set.",
+    "page": 14,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00172"
+  },
+  {
+    "block_id": "blk_00173",
+    "type": "reference",
+    "content": "“bird ﬂying in the sky” “bird on a tree branch” “bird sitting on roof” “closeup of fruit” “bowl of fruit” “man riding a horse” “straw hat”",
+    "page": 15,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00173"
+  },
+  {
+    "block_id": "blk_00174",
+    "type": "caption",
+    "content": "Figure 10. Examples of highest scoring regions for queried snippets of text, on 5,000 images of our MSCOCO test set.",
+    "page": 15,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00174"
+  },
+  {
+    "block_id": "blk_00175",
+    "type": "reference",
+    "content": "Image Annotation Image Search Model R@1 R@5 R@10 Med r R@1 R@5 R@10 Med r Flickr8K DeViSE (Frome et al. [16]) 4.5 18.1 29.2 26 6.7 21.9 32.7 25 SDT-RNN (Socher et al. [49]) 9.6 29.8 41.1 16 8.9 29.8 41.1 16 Kiros et al. [25] 13.5 36.2 45.7 13 10.4 31.0 43.7 14 Mao et al. [38] 14.5 37.2 48.5 11 11.5 31.0 42.4 15 DeFrag (Karpathy et al. [24]) 12.6 32.9 44.0 14 9.7 29.6 42.5 15 Our implementation of DeFrag [24] 13.8 35.8 48.2 10.4 9.5 28.2 40.3 15.6 Our model: DepTree edges 14.8 37.9 50.0 9.4 11.6 31.4 43.8 13.2 Our model: BRNN 16.5 40.6 54.2 7.6 11.8 32.1 44.7 12.4",
+    "page": 15,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00175"
+  },
+  {
+    "block_id": "blk_00176",
+    "type": "caption",
+    "content": "Table 5. Ranking experiment results for the Flickr8K dataset.",
+    "page": 15,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00176"
+  },
+  {
+    "block_id": "blk_00177",
+    "type": "caption",
+    "content": "Figure 11. Additional examples of alignments. For each query test image above we retrieve the most compatible sentence from the test set",
+    "page": 16,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00177"
+  },
+  {
+    "block_id": "blk_00178",
+    "type": "reference",
+    "content": "and show the alignments.",
+    "page": 16,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00178"
+  },
+  {
+    "block_id": "blk_00179",
+    "type": "caption",
+    "content": "Figure 12. Additional examples of captions on the level of full images. Green: Human ground truth. Red: Top-scoring sentence from",
+    "page": 16,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00179"
+  },
+  {
+    "block_id": "blk_00180",
+    "type": "reference",
+    "content": "training set. Blue: Generated sentence.",
+    "page": 16,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00180"
+  },
+  {
+    "block_id": "blk_00181",
+    "type": "caption",
+    "content": "Figure 13. Additional examples of region captions on the test set of Flickr30K.",
+    "page": 17,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00181"
+  }
+]

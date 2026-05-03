@@ -1,0 +1,771 @@
+{
+  "paper_skeleton": {
+    "problem": "视觉问答（VQA）任务：给定一张图像和一个关于该图像的自然语言问题，系统需要提供一个准确的自然语言答案。该任务需要比图像描述更细致的图像理解和复杂推理能力。",
+    "motivation": "现有的图像描述任务仅需粗略的场景级理解，而VQA需要更深入的视觉理解和常识推理。VQA任务可以自动评估，且问题与答案开放自由，更贴近现实世界场景（如帮助视障人士）。",
+    "core_idea": "提出一个大规模、开放自由的VQA数据集和任务，并提供多种基线方法和模型来评估和推动该领域的发展。",
+    "method": "构建了一个包含约25万张图像、76万个问题和1000万个答案的VQA数据集。提出了多种基线方法，包括随机猜测、先验回答、基于问题类型的先验、语言模型（BoW Q, LSTM Q）、视觉模型（I）以及结合视觉和语言的多模态模型（如deeper LSTM Q + norm I）。",
+    "experiments": "在VQA数据集上评估了多种基线方法和提出的模型。主要结果包括：语言模型单独表现良好，但结合视觉信息后性能显著提升。最佳模型（deeper LSTM Q + norm I）在开放任务上达到58.16%准确率，在多选任务上达到63.09%准确率。还进行了消融实验，分析了不同组件（如图像特征归一化、融合方式、答案数量K、词汇表大小等）的影响。",
+    "claims": [
+      "VQA任务比图像描述需要更细致的图像理解和复杂推理。",
+      "语言模型单独在VQA上表现良好，但结合视觉信息后性能显著提升。",
+      "提出的VQA数据集和任务为评估视觉理解和常识推理提供了有效平台。",
+      "最佳模型（deeper LSTM Q + norm I）显著优于单独的视觉或语言基线。"
+    ],
+    "limitations": [
+      "模型在计数问题上表现不佳，尤其是较高数字的计数。",
+      "语言模型可能利用了问题中的统计先验（如“香蕉是什么颜色？”可回答“黄色”而无需看图），导致对图像信息的依赖不足。",
+      "数据集可能存在偏差，影响模型的泛化能力。",
+      "模型在需要常识推理的问题上表现仍有提升空间。"
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "图像通道",
+        "label": "Image Channel",
+        "summary": "提供图像的嵌入表示，使用VGGNet最后一层隐藏层的激活作为4096维图像嵌入。",
+        "description": "实验了两种嵌入：1) I：VGGNet最后一层隐藏层的激活（4096维）。2) norm I：ℓ2归一化的VGGNet最后一层隐藏层激活。VGGNet参数冻结，使用ImageNet分类预训练权重，不进行微调。",
+        "type": "feature_extraction",
+        "anchors": [
+          "anc_00077",
+          "anc_00079",
+          "anc_00084"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "问题通道",
+        "label": "Question Channel",
+        "summary": "提供问题的嵌入表示，实验了三种嵌入：词袋（BoW Q）、LSTM（LSTM Q）和更深的LSTM（deeper LSTM Q）。",
+        "description": "1) Bag-of-Words Question (BoW Q)：使用问题中出现频率最高的1000个词创建词袋表示。2) LSTM Q：使用单层LSTM编码问题。3) deeper LSTM Q：使用两层LSTM编码问题。",
+        "type": "text_encoding",
+        "anchors": [
+          "anc_00077",
+          "anc_00079",
+          "anc_00084"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "多模态融合",
+        "label": "Multimodal Fusion",
+        "summary": "将图像和问题嵌入进行融合，用于预测答案。",
+        "description": "将图像嵌入和问题嵌入进行逐元素相乘（element-wise multiplication），然后通过一个全连接层（带tanh非线性）和softmax层，得到K个可能答案的概率分布。K=1000个最常见答案。",
+        "type": "fusion",
+        "anchors": [
+          "anc_00079",
+          "anc_00081",
+          "anc_00083",
+          "anc_00084"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "答案预测",
+        "label": "Answer Prediction",
+        "summary": "通过softmax层预测答案，使用交叉熵损失进行端到端训练。",
+        "description": "整个模型使用交叉熵损失进行端到端学习。输出层为softmax，预测K个可能答案的概率分布。",
+        "type": "prediction",
+        "anchors": [
+          "anc_00081",
+          "anc_00083",
+          "anc_00084"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "基线方法",
+        "label": "Baseline Methods",
+        "summary": "包括随机猜测、先验回答、基于问题类型的先验、语言模型（BoW Q, LSTM Q）和视觉模型（I）。",
+        "description": "1) random：从训练集前1000个答案中随机选择。2) prior (“yes”)：总是回答“是”。3) per Q-type prior：根据问题类型选择最常见答案。4) BoW Q：词袋语言模型。5) LSTM Q：LSTM语言模型。6) I：仅使用图像特征。",
+        "type": "baseline",
+        "anchors": [
+          "anc_00072",
+          "anc_00091",
+          "anc_00092"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "最佳模型",
+        "label": "Best Model (deeper LSTM Q + norm I)",
+        "summary": "结合两层LSTM问题编码和ℓ2归一化图像特征的多模态模型。",
+        "description": "使用两层LSTM编码问题（deeper LSTM Q），使用ℓ2归一化的VGGNet图像特征（norm I），通过逐元素相乘融合，然后通过全连接层和softmax预测答案。",
+        "type": "proposed_method",
+        "anchors": [
+          "anc_00079",
+          "anc_00094",
+          "anc_00104"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_003",
+        "label": "图像嵌入输入",
+        "anchors": [
+          "anc_00079"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "问题嵌入输入",
+        "anchors": [
+          "anc_00079"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "融合特征输入",
+        "anchors": [
+          "anc_00081",
+          "anc_00083"
+        ]
+      },
+      {
+        "source": "node_005",
+        "target": "node_004",
+        "label": "基线方法输出",
+        "anchors": [
+          "anc_00072"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "单独的语言模型（如BoW Q, LSTM Q）或视觉模型（I）。",
+    "new_method": "多模态模型（deeper LSTM Q + norm I），结合两层LSTM问题编码和ℓ2归一化图像特征，通过逐元素相乘融合。",
+    "deltas": [
+      {
+        "before": "仅使用语言模型（如LSTM Q）或视觉模型（I）。",
+        "after": "结合语言和视觉信息的多模态模型。",
+        "why_it_matters": "多模态融合显著提升了VQA任务的性能，表明视觉信息对于准确回答问题至关重要。",
+        "anchors": [
+          "anc_00091",
+          "anc_00092",
+          "anc_00094"
+        ]
+      },
+      {
+        "before": "使用未归一化的图像特征（I）。",
+        "after": "使用ℓ2归一化的图像特征（norm I）。",
+        "why_it_matters": "ℓ2归一化提升了性能（开放任务+0.16%，多选任务+0.24%），表明特征归一化有助于模型学习。",
+        "anchors": [
+          "anc_00104"
+        ]
+      },
+      {
+        "before": "使用单层LSTM编码问题（LSTM Q）。",
+        "after": "使用两层LSTM编码问题（deeper LSTM Q）。",
+        "why_it_matters": "更深的LSTM可能捕获更复杂的问题语义，提升模型性能。",
+        "anchors": [
+          "anc_00079",
+          "anc_00094"
+        ]
+      },
+      {
+        "before": "使用拼接（concatenation）融合图像和问题特征。",
+        "after": "使用逐元素相乘（element-wise multiplication）融合。",
+        "why_it_matters": "逐元素相乘比拼接融合效果更好（开放任务+0.95%，多选任务+1.24%），表明乘法交互更有效。",
+        "anchors": [
+          "anc_00104",
+          "anc_00113"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\text{softmax}(W \\cdot (\\text{norm}(I) \\odot \\text{LSTM}(Q)) + b)",
+        "variables": [
+          {
+            "name": "I",
+            "description": "图像特征向量（VGGNet最后一层隐藏层激活）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00077"
+            ]
+          },
+          {
+            "name": "norm(I)",
+            "description": "ℓ2归一化的图像特征",
+            "confidence": "high",
+            "anchors": [
+              "anc_00077",
+              "anc_00104"
+            ]
+          },
+          {
+            "name": "Q",
+            "description": "问题文本",
+            "confidence": "high",
+            "anchors": [
+              "anc_00077"
+            ]
+          },
+          {
+            "name": "LSTM(Q)",
+            "description": "问题经过LSTM编码后的向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00077",
+              "anc_00079"
+            ]
+          },
+          {
+            "name": "\\odot",
+            "description": "逐元素相乘",
+            "confidence": "high",
+            "anchors": [
+              "anc_00079",
+              "anc_00113"
+            ]
+          },
+          {
+            "name": "W, b",
+            "description": "全连接层的权重和偏置",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00083"
+            ]
+          },
+          {
+            "name": "K",
+            "description": "答案类别数（默认1000）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00076"
+            ]
+          }
+        ],
+        "dependencies": [
+          "图像特征提取",
+          "问题编码",
+          "多模态融合",
+          "分类预测"
+        ],
+        "intuition": "将归一化的图像特征与问题编码进行逐元素相乘，通过全连接层和softmax预测答案概率分布。乘法交互允许图像和问题特征相互调制。",
+        "anchors": [
+          "anc_00079",
+          "anc_00081",
+          "anc_00083",
+          "anc_00084"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "\\mathcal{L} = -\\sum_{k=1}^{K} y_k \\log(p_k)",
+        "variables": [
+          {
+            "name": "y_k",
+            "description": "真实答案的one-hot编码",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00084"
+            ]
+          },
+          {
+            "name": "p_k",
+            "description": "模型预测的答案概率",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00084"
+            ]
+          },
+          {
+            "name": "K",
+            "description": "答案类别数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00076"
+            ]
+          }
+        ],
+        "dependencies": [
+          "答案预测"
+        ],
+        "intuition": "使用交叉熵损失进行端到端训练，优化模型预测答案与真实答案之间的差异。",
+        "anchors": [
+          "anc_00084"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "最佳模型（deeper LSTM Q + norm I）在VQA测试集上的性能。",
+      "results": [
+        {
+          "task": "开放任务（Open-ended）",
+          "metric": "准确率",
+          "value": "58.16%",
+          "anchors": [
+            "anc_00094",
+            "anc_00134"
+          ]
+        },
+        {
+          "task": "多选任务（Multiple-choice）",
+          "metric": "准确率",
+          "value": "63.09%",
+          "anchors": [
+            "anc_00094",
+            "anc_00134"
+          ]
+        }
+      ],
+      "anchors": [
+        "anc_00094",
+        "anc_00134"
+      ]
+    },
+    "ablation": {
+      "description": "对最佳模型进行消融实验，分析不同组件的影响。",
+      "experiments": [
+        {
+          "name": "Without I Norm",
+          "description": "不使用图像特征归一化",
+          "result": "开放任务准确率下降0.16%，多选任务下降0.24%",
+          "anchors": [
+            "anc_00104"
+          ]
+        },
+        {
+          "name": "Concatenation",
+          "description": "使用拼接而非逐元素相乘融合",
+          "result": "开放任务准确率下降0.95%，多选任务下降1.24%",
+          "anchors": [
+            "anc_00104",
+            "anc_00113"
+          ]
+        },
+        {
+          "name": "K = 500",
+          "description": "使用500个最常见答案",
+          "result": "开放任务准确率下降0.82%，多选任务下降1.16%",
+          "anchors": [
+            "anc_00114",
+            "anc_00116",
+            "anc_00117"
+          ]
+        },
+        {
+          "name": "K = 2000",
+          "description": "使用2000个最常见答案",
+          "result": "开放任务准确率提升0.40%，多选任务提升1.16%",
+          "anchors": [
+            "anc_00119",
+            "anc_00121",
+            "anc_00122"
+          ]
+        },
+        {
+          "name": "Truncated Q Vocab @ 5",
+          "description": "将问题词汇表截断为出现至少5次的词",
+          "result": "开放任务准确率提升0.24%，多选任务提升0.17%",
+          "anchors": [
+            "anc_00123"
+          ]
+        },
+        {
+          "name": "Filtered Dataset",
+          "description": "使用过滤后的数据集（每个问题至少有10个答案）",
+          "result": "开放任务准确率下降1.13%，多选任务下降1.37%",
+          "anchors": [
+            "anc_00128"
+          ]
+        }
+      ],
+      "anchors": [
+        "anc_00103",
+        "anc_00104",
+        "anc_00113",
+        "anc_00114",
+        "anc_00119",
+        "anc_00123",
+        "anc_00128"
+      ]
+    },
+    "robustness": {
+      "description": "分析模型在不同问题类型和年龄组上的表现。",
+      "experiments": [
+        {
+          "name": "问题类型分析",
+          "description": "分析模型在不同问题类型（如“是/否”、“数字”、“其他”）上的准确率。",
+          "result": "模型在“是/否”问题上表现较好，在“数字”问题上表现较差，尤其是较高数字。",
+          "anchors": [
+            "anc_00095",
+            "anc_00099",
+            "anc_00101"
+          ]
+        },
+        {
+          "name": "年龄组分析",
+          "description": "分析模型在不同年龄组问题上的表现。",
+          "result": "模型在需要较低年龄组知识的问题上表现较好，在需要成人知识的问题上表现较差。",
+          "anchors": [
+            "anc_00102",
+            "anc_00110",
+            "anc_00112"
+          ]
+        }
+      ],
+      "anchors": [
+        "anc_00095",
+        "anc_00099",
+        "anc_00101",
+        "anc_00102",
+        "anc_00110",
+        "anc_00112"
+      ]
+    },
+    "scaling": {
+      "description": "分析答案数量K对性能的影响。",
+      "experiments": [
+        {
+          "name": "K = 500 vs K = 1000",
+          "description": "比较使用500和1000个答案的性能。",
+          "result": "K=1000比K=500在开放任务上高0.82%，多选任务上高1.16%。",
+          "anchors": [
+            "anc_00114",
+            "anc_00116",
+            "anc_00117"
+          ]
+        },
+        {
+          "name": "K = 1000 vs K = 2000",
+          "description": "比较使用1000和2000个答案的性能。",
+          "result": "K=2000比K=1000在开放任务上高0.40%，多选任务上高1.16%。",
+          "anchors": [
+            "anc_00119",
+            "anc_00121",
+            "anc_00122"
+          ]
+        }
+      ],
+      "anchors": [
+        "anc_00114",
+        "anc_00116",
+        "anc_00117",
+        "anc_00119",
+        "anc_00121",
+        "anc_00122"
+      ]
+    },
+    "case_study": {
+      "description": "展示模型预测的案例。",
+      "experiments": [
+        {
+          "name": "正确预测的答案分布",
+          "description": "分析模型正确预测时最常预测的答案。",
+          "result": "常见真实答案（如“是”、“否”、“2”、“白色”）在模型正确时更常被预测。",
+          "anchors": [
+            "anc_00096",
+            "anc_00108"
+          ]
+        },
+        {
+          "name": "错误预测分析",
+          "description": "分析模型在计数问题上的错误。",
+          "result": "模型在计数问题上表现不佳，尤其是较高数字（如“5”、“6”、“10”）。",
+          "anchors": [
+            "anc_00095"
+          ]
+        }
+      ],
+      "anchors": [
+        "anc_00095",
+        "anc_00096",
+        "anc_00108"
+      ]
+    },
+    "human_eval": {
+      "description": "人类在VQA任务上的表现。",
+      "experiments": [
+        {
+          "name": "人类准确率",
+          "description": "人类在开放任务和多选任务上的准确率。",
+          "result": "人类在开放任务上准确率约为83.30%，在多选任务上约为90.40%。",
+          "anchors": [
+            "anc_00161",
+            "anc_00163",
+            "anc_00164"
+          ]
+        },
+        {
+          "name": "人类共识",
+          "description": "人类回答的一致性。",
+          "result": "人类在开放任务上的一致性约为65.24%。",
+          "anchors": [
+            "anc_00161",
+            "anc_00163",
+            "anc_00164"
+          ]
+        }
+      ],
+      "anchors": [
+        "anc_00161",
+        "anc_00163",
+        "anc_00164"
+      ]
+    },
+    "benchmark": {
+      "description": "VQA数据集和挑战赛。",
+      "experiments": [
+        {
+          "name": "VQA数据集",
+          "description": "包含约25万张图像、76万个问题和1000万个答案。",
+          "result": "数据集规模远大于以往VQA数据集。",
+          "anchors": [
+            "anc_00005",
+            "anc_00016",
+            "anc_00019"
+          ]
+        },
+        {
+          "name": "VQA挑战赛",
+          "description": "组织年度VQA挑战赛和研讨会。",
+          "result": "提供了评估服务器和排行榜，促进系统性进展。",
+          "anchors": [
+            "anc_00130",
+            "anc_00132",
+            "anc_00134",
+            "anc_00135",
+            "anc_00138"
+          ]
+        }
+      ],
+      "anchors": [
+        "anc_00005",
+        "anc_00016",
+        "anc_00019",
+        "anc_00130",
+        "anc_00132",
+        "anc_00134",
+        "anc_00135",
+        "anc_00138"
+      ]
+    },
+    "efficiency": {
+      "description": "模型效率相关分析。",
+      "experiments": [
+        {
+          "name": "词汇表截断",
+          "description": "截断问题词汇表以减少参数。",
+          "result": "截断词汇表（出现至少5次）在提升性能的同时减少了65.24%的词汇量。",
+          "anchors": [
+            "anc_00123"
+          ]
+        }
+      ],
+      "anchors": [
+        "anc_00123"
+      ]
+    }
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "VQA任务比图像描述需要更细致的图像理解和复杂推理。",
+        "evidence_source_type": "论文论述",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00005",
+          "anc_00007"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "语言模型单独在VQA上表现良好，但结合视觉信息后性能显著提升。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00091",
+          "anc_00092",
+          "anc_00094"
+        ],
+        "risk_flags": [
+          "语言模型可能利用了问题中的统计先验，导致对图像信息的依赖不足。"
+        ]
+      },
+      {
+        "claim": "提出的VQA数据集和任务为评估视觉理解和常识推理提供了有效平台。",
+        "evidence_source_type": "数据集分析",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00005",
+          "anc_00016",
+          "anc_00030"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "最佳模型（deeper LSTM Q + norm I）显著优于单独的视觉或语言基线。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00091",
+          "anc_00092",
+          "anc_00094"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "ℓ2归一化图像特征和逐元素相乘融合能提升模型性能。",
+        "evidence_source_type": "消融实验",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00104",
+          "anc_00113"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "模型在计数问题上表现不佳，尤其是较高数字。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00095"
+        ],
+        "risk_flags": []
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "VQA (Visual Question Answering)",
+        "definition": "视觉问答任务：给定一张图像和一个关于该图像的自然语言问题，系统需要提供一个准确的自然语言答案。",
+        "anchors": [
+          "anc_00003",
+          "anc_00005"
+        ]
+      },
+      {
+        "term": "MS COCO",
+        "definition": "微软通用物体上下文数据集，包含大量日常场景图像和标注。",
+        "anchors": [
+          "anc_00016",
+          "anc_00027"
+        ]
+      },
+      {
+        "term": "VGGNet",
+        "definition": "一种深度卷积神经网络架构，用于图像特征提取。",
+        "anchors": [
+          "anc_00077",
+          "anc_00104"
+        ]
+      },
+      {
+        "term": "LSTM (Long Short-Term Memory)",
+        "definition": "一种循环神经网络架构，用于处理序列数据（如问题文本）。",
+        "anchors": [
+          "anc_00077",
+          "anc_00079"
+        ]
+      },
+      {
+        "term": "softmax",
+        "definition": "一种激活函数，将向量转换为概率分布。",
+        "anchors": [
+          "anc_00075",
+          "anc_00081",
+          "anc_00083"
+        ]
+      },
+      {
+        "term": "交叉熵损失",
+        "definition": "一种用于分类任务的损失函数，衡量预测概率分布与真实分布之间的差异。",
+        "anchors": [
+          "anc_00084"
+        ]
+      },
+      {
+        "term": "ℓ2归一化",
+        "definition": "将向量缩放为单位长度，常用于特征预处理。",
+        "anchors": [
+          "anc_00077",
+          "anc_00104"
+        ]
+      },
+      {
+        "term": "逐元素相乘",
+        "definition": "两个向量对应元素相乘，用于多模态特征融合。",
+        "anchors": [
+          "anc_00079",
+          "anc_00113"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "required_datasets": [
+      {
+        "name": "VQA数据集",
+        "description": "包含约25万张图像、76万个问题和1000万个答案。",
+        "anchors": [
+          "anc_00005",
+          "anc_00016"
+        ]
+      },
+      {
+        "name": "MS COCO数据集",
+        "description": "用于提供真实图像。",
+        "anchors": [
+          "anc_00016",
+          "anc_00027"
+        ]
+      }
+    ],
+    "required_models": [
+      {
+        "name": "VGGNet",
+        "description": "用于提取图像特征。",
+        "anchors": [
+          "anc_00077",
+          "anc_00104"
+        ]
+      },
+      {
+        "name": "LSTM",
+        "description": "用于编码问题文本。",
+        "anchors": [
+          "anc_00077",
+          "anc_00079"
+        ]
+      }
+    ],
+    "required_compute": "未知或缺失细节",
+    "code_available": "论文提供了演示网站（http://cloudcv.org/vqa），但未明确说明是否开源代码。",
+    "steps": [
+      "下载VQA数据集和MS COCO数据集。",
+      "预处理图像和问题文本。",
+      "使用预训练的VGGNet提取图像特征（可选择是否进行ℓ2归一化）。",
+      "构建LSTM模型编码问题文本（可选择单层或两层LSTM）。",
+      "将图像和问题特征进行逐元素相乘融合。",
+      "通过全连接层和softmax层预测答案（K=1000个最常见答案）。",
+      "使用交叉熵损失进行端到端训练。",
+      "在VQA测试集上评估模型性能。"
+    ],
+    "missing_details": [
+      "具体的训练超参数（如学习率、批大小、优化器）。",
+      "VGGNet和LSTM的具体架构细节（如层数、隐藏单元数）。",
+      "数据预处理的具体步骤（如图像大小、文本分词）。",
+      "训练时间和计算资源需求。",
+      "代码是否开源。"
+    ],
+    "risk_points": [
+      "语言模型可能利用问题中的统计先验，导致对图像信息的依赖不足。",
+      "模型在计数问题和需要常识推理的问题上表现不佳。",
+      "数据集可能存在偏差，影响模型的泛化能力。",
+      "复现结果可能因超参数和实现细节不同而有所差异。"
+    ]
+  }
+}

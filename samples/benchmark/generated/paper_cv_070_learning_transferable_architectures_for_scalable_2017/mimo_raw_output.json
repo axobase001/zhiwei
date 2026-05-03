@@ -1,0 +1,631 @@
+{
+  "paper_skeleton": {
+    "problem": "手动设计神经网络架构需要大量工程努力，且难以在不同数据集和计算规模间迁移。",
+    "motivation": "直接在大型数据集（如ImageNet）上进行架构搜索计算成本过高。需要一种可扩展的方法，能在小数据集上搜索架构，然后迁移到大数据集。",
+    "core_idea": "设计一个名为“NASNet搜索空间”的新搜索空间，使架构复杂度与网络深度和输入图像尺寸无关。在CIFAR-10上搜索最优卷积单元（Normal Cell和Reduction Cell），然后通过堆叠这些单元来构建适用于ImageNet等不同规模任务的可扩展架构。",
+    "method": "使用神经架构搜索（NAS）框架，通过控制器RNN在NASNet搜索空间中预测卷积单元的架构。在CIFAR-10上搜索，然后将找到的单元（如NASNet-A）迁移到ImageNet。引入ScheduledDropPath正则化技术。",
+    "experiments": "在CIFAR-10和ImageNet上进行图像分类实验，在COCO上进行目标检测实验。比较了不同计算预算下的模型性能，并与随机搜索进行了对比。",
+    "claims": [
+      "在CIFAR-10上达到2.4%的错误率（当时最优）。",
+      "在ImageNet上达到82.7%的top-1准确率（当时最优），且FLOPS比之前最优模型少90亿。",
+      "学习到的特征可迁移到目标检测任务，在COCO上达到43.1% mAP（当时最优）。",
+      "NASNet搜索空间设计良好，使得随机搜索也能取得不错的效果。",
+      "通过调整单元重复次数N和初始滤波器数量，可以生成一系列不同计算需求的模型，其性能均优于同等规模的人工设计模型。"
+    ],
+    "limitations": "搜索过程仍需大量计算资源（500 GPU运行4天）。搜索空间和搜索方法（RL vs 随机搜索）的细节可能影响结果。迁移的单元架构在目标数据集上是从头训练的，未探索微调。"
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "NASNet搜索空间设计",
+        "label": "搜索空间",
+        "summary": "定义了一个与网络深度和输入尺寸解耦的卷积单元搜索空间，包含Normal Cell和Reduction Cell两种类型。",
+        "description": "搜索空间由控制器RNN递归预测的B个块组成。每个块包含5个预测步骤：选择两个隐藏状态、对每个隐藏状态选择一个操作、选择一种组合方法。操作集包括各种卷积、池化等。组合方法为逐元素相加或沿滤波器维度拼接。所有未使用的隐藏状态最终拼接作为单元输出。",
+        "type": "search_space",
+        "anchors": [
+          "anc_00024",
+          "anc_00025",
+          "anc_00026",
+          "anc_00028",
+          "anc_00033",
+          "anc_00034",
+          "anc_00035",
+          "anc_00036",
+          "anc_00037",
+          "anc_00038",
+          "anc_00039",
+          "anc_00040",
+          "anc_00041",
+          "anc_00042",
+          "anc_00045",
+          "anc_00046",
+          "anc_00047",
+          "anc_00147"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "控制器RNN与强化学习搜索",
+        "label": "搜索算法",
+        "summary": "使用一个单层LSTM作为控制器，通过强化学习（PPO）在搜索空间中采样架构，并根据子网络验证准确率更新控制器。",
+        "description": "控制器RNN预测架构A的概率p。子网络以架构A训练至收敛，获得准确率R。使用R缩放p的梯度来更新控制器，使控制器为好的架构分配高概率。使用PPO算法和熵惩罚进行训练。",
+        "type": "search_algorithm",
+        "anchors": [
+          "anc_00021",
+          "anc_00022",
+          "anc_00048",
+          "anc_00049",
+          "anc_00050",
+          "anc_00124",
+          "anc_00128"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "架构迁移与可扩展网络构建",
+        "label": "迁移策略",
+        "summary": "在CIFAR-10上搜索到的卷积单元（如NASNet-A）被迁移到ImageNet等更大任务。通过堆叠多个Normal Cell和Reduction Cell，并调整重复次数N和初始滤波器数量，构建不同规模的网络。",
+        "description": "网络由两种重复的单元构成：Normal Cell（保持特征图尺寸）和Reduction Cell（将特征图尺寸减半）。通过改变单元重复次数N和初始滤波器数量，可以创建不同计算需求的模型家族。",
+        "type": "transfer_strategy",
+        "anchors": [
+          "anc_00003",
+          "anc_00005",
+          "anc_00006",
+          "anc_00007",
+          "anc_00011",
+          "anc_00026",
+          "anc_00027",
+          "anc_00028",
+          "anc_00029",
+          "anc_00030",
+          "anc_00031",
+          "anc_00032",
+          "anc_00054",
+          "anc_00058",
+          "anc_00077"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "ScheduledDropPath正则化",
+        "label": "正则化技术",
+        "summary": "引入一种新的正则化技术，显著提高了NASNet模型的泛化能力。",
+        "description": "具体实现细节在附录A.5中描述，但文档中未提供完整公式。这是一种在训练过程中按计划调整丢弃概率的路径丢弃技术。",
+        "type": "regularization",
+        "anchors": [
+          "anc_00007",
+          "anc_00145",
+          "anc_00146"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "实验验证与结果",
+        "label": "实验评估",
+        "summary": "在CIFAR-10、ImageNet分类和COCO目标检测上验证了方法的有效性，展示了跨任务、跨规模的优越性能。",
+        "description": "在CIFAR-10上达到2.4%错误率。在ImageNet上，NASNet-A（6@4032）达到82.7% top-1准确率，FLOPS比之前最优模型少。在COCO目标检测上，使用NASNet-A特征的Faster-RCNN达到43.1% mAP。还比较了强化学习与随机搜索的效率。",
+        "type": "evaluation",
+        "anchors": [
+          "anc_00057",
+          "anc_00059",
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064",
+          "anc_00065",
+          "anc_00077",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081",
+          "anc_00082",
+          "anc_00083",
+          "anc_00084",
+          "anc_00086",
+          "anc_00088",
+          "anc_00089",
+          "anc_00090",
+          "anc_00092",
+          "anc_00093",
+          "anc_00094",
+          "anc_00096",
+          "anc_00097",
+          "anc_00098",
+          "anc_00099",
+          "anc_00100",
+          "anc_00101",
+          "anc_00102"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "定义搜索空间",
+        "description": "控制器RNN在NASNet搜索空间中进行预测和搜索。"
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "输出最优单元",
+        "description": "搜索过程输出在CIFAR-10上表现最好的卷积单元（如NASNet-A）。"
+      },
+      {
+        "source": "node_003",
+        "target": "node_005",
+        "label": "构建并评估网络",
+        "description": "使用迁移的单元构建不同规模的网络，并在多个任务上进行评估。"
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "label": "提升模型性能",
+        "description": "ScheduledDropPath正则化技术应用于训练过程，提升了最终模型的泛化性能。"
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "原始神经架构搜索（NAS）[71]，直接在目标数据集（如ImageNet）上搜索架构，计算成本极高（800 GPU运行28天）。",
+    "new_method": "本文提出的NASNet方法：1) 设计新的NASNet搜索空间，使架构可迁移；2) 在小数据集（CIFAR-10）上搜索卷积单元；3) 将单元迁移到大数据集（ImageNet）构建可扩展网络；4) 引入ScheduledDropPath正则化。",
+    "deltas": [
+      {
+        "before": "搜索空间与网络深度、输入尺寸耦合，难以迁移。",
+        "after": "设计NASNet搜索空间，架构复杂度与深度和输入尺寸无关，由可重复的单元构成。",
+        "why_it_matters": "使得在小数据集上搜索到的架构能够有效迁移到大数据集，大幅降低搜索成本。",
+        "anchors": [
+          "anc_00024",
+          "anc_00025",
+          "anc_00026",
+          "anc_00028",
+          "anc_00032"
+        ]
+      },
+      {
+        "before": "直接在大型数据集（如ImageNet）上进行架构搜索，计算成本高昂。",
+        "after": "在代理数据集（CIFAR-10）上搜索，然后将找到的单元迁移到ImageNet。",
+        "why_it_matters": "将搜索成本从22,400 GPU-hours降低到2,000 GPU-hours，效率提升约7倍。",
+        "anchors": [
+          "anc_00003",
+          "anc_00005",
+          "anc_00006",
+          "anc_00007",
+          "anc_00011",
+          "anc_00052"
+        ]
+      },
+      {
+        "before": "NAS使用REINFORCE规则更新控制器。",
+        "after": "使用Proximal Policy Optimization (PPO) 更新控制器，训练更快更稳定。",
+        "why_it_matters": "提高了搜索过程的效率和稳定性。",
+        "anchors": [
+          "anc_00128"
+        ]
+      },
+      {
+        "before": "缺乏针对NASNet模型的有效正则化技术。",
+        "after": "引入ScheduledDropPath正则化技术。",
+        "why_it_matters": "显著提高了NASNet模型的泛化能力。",
+        "anchors": [
+          "anc_00007",
+          "anc_00145",
+          "anc_00146"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\text{Controller RNN predicts architecture } A \\text{ with probability } p(A; \\theta_c)",
+        "variables": [
+          {
+            "name": "A",
+            "description": "控制器预测的架构",
+            "confidence": "high",
+            "anchors": [
+              "anc_00022"
+            ]
+          },
+          {
+            "name": "p(A; \\theta_c)",
+            "description": "控制器参数为θ_c时预测架构A的概率",
+            "confidence": "high",
+            "anchors": [
+              "anc_00022"
+            ]
+          },
+          {
+            "name": "\\theta_c",
+            "description": "控制器RNN的参数",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00022",
+              "anc_00128"
+            ]
+          }
+        ],
+        "dependencies": [
+          "控制器RNN架构",
+          "搜索空间定义"
+        ],
+        "intuition": "控制器RNN输出一个概率分布，用于采样要评估的架构。这是强化学习搜索的核心。",
+        "anchors": [
+          "anc_00021",
+          "anc_00022"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "\\nabla_{\\theta_c} J(\\theta_c) \\approx \\frac{1}{m} \\sum_{k=1}^{m} \\sum_{t=1}^{T} \\nabla_{\\theta_c} \\log p(a_t | a_{t-1}, ..., a_1; \\theta_c) (R_k - b)",
+        "variables": [
+          {
+            "name": "J(\\theta_c)",
+            "description": "控制器的期望奖励（验证准确率）",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00128"
+            ]
+          },
+          {
+            "name": "m",
+            "description": "一批中采样的架构数量",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00128"
+            ]
+          },
+          {
+            "name": "T",
+            "description": "控制器预测的步骤数（对于每个单元为5B）",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00036",
+              "anc_00041"
+            ]
+          },
+          {
+            "name": "a_t",
+            "description": "控制器在第t步的预测动作",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00036"
+            ]
+          },
+          {
+            "name": "R_k",
+            "description": "第k个子网络在验证集上的准确率",
+            "confidence": "high",
+            "anchors": [
+              "anc_00022",
+              "anc_00128"
+            ]
+          },
+          {
+            "name": "b",
+            "description": "基线函数（指数移动平均）",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00128"
+            ]
+          }
+        ],
+        "dependencies": [
+          "控制器输出概率",
+          "子网络训练结果"
+        ],
+        "intuition": "这是策略梯度（REINFORCE/PPO）的更新公式。控制器根据子网络的验证准确率（奖励）来调整其参数，使得高奖励架构对应的概率增加。",
+        "anchors": [
+          "anc_00128"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "\\text{Cell Output} = \\text{Concat}(h_1, h_2, ..., h_{\\text{unused}})",
+        "variables": [
+          {
+            "name": "h_i",
+            "description": "卷积单元中生成但未被后续块使用的隐藏状态",
+            "confidence": "high",
+            "anchors": [
+              "anc_00041"
+            ]
+          }
+        ],
+        "dependencies": [
+          "单元内所有块的预测"
+        ],
+        "intuition": "卷积单元的最终输出是所有在单元内部生成但未被后续块使用的隐藏状态的拼接。这确保了信息的流动和维度的兼容性。",
+        "anchors": [
+          "anc_00041"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "task": "CIFAR-10图像分类",
+        "metric": "测试错误率",
+        "result": "2.40% (NASNet-A (7 @ 2304) + cutout)",
+        "baseline": "Shake-Shake 26 2x96d + cutout: 2.56%",
+        "improvement": "相对错误率降低6.25%",
+        "anchors": [
+          "anc_00059",
+          "anc_00060",
+          "anc_00061",
+          "anc_00071"
+        ]
+      },
+      {
+        "task": "ImageNet图像分类 (331x331)",
+        "metric": "Top-1准确率",
+        "result": "82.7% (NASNet-A (6 @ 4032))",
+        "baseline": "SENet: 82.7% (但FLOPS更高)",
+        "improvement": "达到同等准确率，但FLOPS减少约28% (9B fewer FLOPS)",
+        "anchors": [
+          "anc_00065",
+          "anc_00079",
+          "anc_00080"
+        ]
+      },
+      {
+        "task": "COCO目标检测 (test-dev)",
+        "metric": "mAP",
+        "result": "43.1% (使用NASNet-A特征的Faster-RCNN)",
+        "baseline": "之前最优: ~39.1%",
+        "improvement": "绝对提升4.0%",
+        "anchors": [
+          "anc_00098"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "component": "搜索方法 (RL vs 随机搜索)",
+        "finding": "强化学习找到的最佳模型在CIFAR-10上比随机搜索找到的最佳模型好1%以上。",
+        "anchors": [
+          "anc_00100",
+          "anc_00101",
+          "anc_00102"
+        ]
+      },
+      {
+        "component": "单元类型 (NASNet-A, B, C)",
+        "finding": "NASNet-A在大多数设置下表现最好，但B和C变体也展示了搜索空间的灵活性。",
+        "anchors": [
+          "anc_00053",
+          "anc_00054",
+          "anc_00071",
+          "anc_00081",
+          "anc_00154",
+          "anc_00155",
+          "anc_00156",
+          "anc_00157",
+          "anc_00158",
+          "anc_00159",
+          "anc_00160"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "aspect": "跨数据集迁移",
+        "description": "在CIFAR-10上搜索到的单元在ImageNet上表现良好，证明了搜索空间的可迁移性。",
+        "anchors": [
+          "anc_00062",
+          "anc_00063"
+        ]
+      },
+      {
+        "aspect": "跨任务迁移",
+        "description": "为分类学习的特征在目标检测任务上也表现优异。",
+        "anchors": [
+          "anc_00077",
+          "anc_00094",
+          "anc_00098"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "dimension": "计算预算",
+        "description": "通过调整单元重复次数N和初始滤波器数量，生成了一系列不同计算需求的模型（从移动平台到大规模模型），其性能均优于同等规模的人工设计模型。",
+        "anchors": [
+          "anc_00012",
+          "anc_00032",
+          "anc_00054",
+          "anc_00077",
+          "anc_00079",
+          "anc_00081",
+          "anc_00082",
+          "anc_00083"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "description": "展示了NASNet-A在COCO目标检测上的具体检测结果，并与Inception-ResNet-v2进行了对比。",
+        "anchors": [
+          "anc_00161",
+          "anc_00162",
+          "anc_00163",
+          "anc_00164"
+        ]
+      }
+    ],
+    "human_eval": null,
+    "benchmark": [
+      {
+        "name": "CIFAR-10",
+        "performance": "2.40% 错误率 (当时最优)",
+        "anchors": [
+          "anc_00059",
+          "anc_00060",
+          "anc_00061",
+          "anc_00071"
+        ]
+      },
+      {
+        "name": "ImageNet (ILSVRC 2012)",
+        "performance": "82.7% top-1, 96.2% top-5 (当时最优)",
+        "anchors": [
+          "anc_00065",
+          "anc_00079",
+          "anc_00080"
+        ]
+      },
+      {
+        "name": "COCO (目标检测)",
+        "performance": "43.1% mAP (当时最优)",
+        "anchors": [
+          "anc_00098"
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "metric": "架构搜索成本",
+        "value": "2,000 GPU-hours (500 GPUs * 4 days)",
+        "comparison": "比原始NAS (22,400 GPU-hours) 提升约7倍效率",
+        "anchors": [
+          "anc_00052"
+        ]
+      },
+      {
+        "metric": "模型推理FLOPS",
+        "value": "NASNet-A (6@4032): 23.8B Mult-Adds",
+        "comparison": "比同等准确率的SENet (42.3B) 减少约44%",
+        "anchors": [
+          "anc_00079",
+          "anc_00080"
+        ]
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "NASNet搜索空间的设计使得在小数据集上搜索到的架构能够有效迁移到大数据集。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00062",
+          "anc_00063"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "NASNet在CIFAR-10上达到了2.4%的错误率，是当时最优结果。",
+        "evidence_source_type": "实验结果 (Table 1)",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00059",
+          "anc_00060",
+          "anc_00061",
+          "anc_00071"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "NASNet在ImageNet上达到了82.7%的top-1准确率，且FLOPS比之前最优模型少90亿。",
+        "evidence_source_type": "实验结果 (Table 2)",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00065",
+          "anc_00079",
+          "anc_00080"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "NASNet学习到的特征可迁移到目标检测任务，在COCO上达到43.1% mAP。",
+        "evidence_source_type": "实验结果 (Table 4)",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00094",
+          "anc_00096",
+          "anc_00097",
+          "anc_00098"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim": "强化学习搜索方法优于随机搜索。",
+        "evidence_source_type": "实验对比 (Figure 6)",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00100",
+          "anc_00101",
+          "anc_00102"
+        ],
+        "risk_flags": [
+          "差距（约1%）相对于搜索成本可能不大，随机搜索仍是强基线。"
+        ]
+      },
+      {
+        "claim": "通过调整单元重复次数和滤波器数量，可以生成一系列性能优越的可扩展模型。",
+        "evidence_source_type": "实验结果 (Table 2, 3, Figure 5)",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00012",
+          "anc_00032",
+          "anc_00054",
+          "anc_00077",
+          "anc_00079",
+          "anc_00081",
+          "anc_00082",
+          "anc_00083"
+        ],
+        "risk_flags": []
+      }
+    ]
+  },
+  "glossary": {
+    "NASNet搜索空间": "本文设计的卷积架构搜索空间，其复杂度与网络深度和输入图像尺寸无关，由可重复的卷积单元构成。",
+    "卷积单元 (Cell)": "NASNet搜索空间中的基本构建块，包含Normal Cell（保持尺寸）和Reduction Cell（尺寸减半）。其内部结构由控制器RNN预测。",
+    "Normal Cell": "一种卷积单元，输出特征图的空间尺寸与输入相同。",
+    "Reduction Cell": "一种卷积单元，输出特征图的高度和宽度是输入的一半。",
+    "控制器RNN": "一个单层LSTM网络，用于在搜索空间中递归预测卷积单元的架构。",
+    "ScheduledDropPath": "本文引入的一种正则化技术，在训练过程中按计划调整路径丢弃的概率。",
+    "NASNet": "通过本文方法搜索得到的最优卷积架构，如NASNet-A, NASNet-B, NASNet-C。",
+    "子网络 (Child Network)": "在架构搜索过程中，根据控制器预测的架构实例化并训练的网络，用于评估该架构的性能。"
+  },
+  "reproduction_roadmap": {
+    "required_datasets": [
+      "CIFAR-10 (用于架构搜索)",
+      "ImageNet (ILSVRC 2012) (用于迁移学习和评估)",
+      "COCO (用于目标检测评估)"
+    ],
+    "required_models": [
+      "控制器RNN (单层LSTM，100个隐藏单元)",
+      "根据搜索到的单元构建的NASNet变体 (如NASNet-A, B, C)",
+      "用于目标检测的Faster-RCNN框架"
+    ],
+    "required_compute": "架构搜索阶段：500个GPU运行4天 (约2,000 GPU-hours)。最终模型训练：ImageNet训练使用50个K40 GPU的分布式同步SGD。具体训练时间未明确给出。",
+    "code_available": "论文未明确提及代码是否开源。但后续社区有多个开源实现 (如TensorFlow Slim, PyTorch)。",
+    "steps": [
+      "1. 实现NASNet搜索空间，包括定义操作集、组合方法和单元结构。",
+      "2. 实现控制器RNN (单层LSTM) 和基于PPO的强化学习训练循环。",
+      "3. 在CIFAR-10上进行架构搜索：控制器采样架构，训练子网络，用验证准确率更新控制器。",
+      "4. 从搜索历史中选择表现最好的卷积单元 (如NASNet-A)。",
+      "5. 使用选定的单元构建ImageNet模型：堆叠Normal Cell和Reduction Cell，调整N和初始滤波器数量。",
+      "6. 在ImageNet上从头训练构建好的NASNet模型，应用ScheduledDropPath等正则化技术。",
+      "7. (可选) 将训练好的NASNet作为特征提取器，与Faster-RCNN结合，在COCO上进行目标检测微调和评估。"
+    ],
+    "missing_details": [
+      "ScheduledDropPath的具体实现细节和超参数。",
+      "控制器RNN训练的完整超参数 (如熵惩罚权重0.00001之外的细节)。",
+      "ImageNet模型训练的完整超参数 (如学习率调度、标签平滑的具体参数)。",
+      "目标检测实验中RPN proposals的具体设置和训练细节。"
+    ],
+    "risk_points": [
+      "架构搜索的计算成本仍然很高，复现需要大量GPU资源。",
+      "搜索结果可能对随机种子、控制器初始化等敏感。",
+      "从CIFAR-10到ImageNet的迁移效果可能因搜索空间设计而异，本文的搜索空间是关键创新。",
+      "目标检测结果依赖于Faster-RCNN框架的实现和训练细节。"
+    ]
+  }
+}

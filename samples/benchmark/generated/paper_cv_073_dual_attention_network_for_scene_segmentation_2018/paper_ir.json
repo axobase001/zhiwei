@@ -1,0 +1,2113 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "场景分割任务中，传统基于多尺度特征融合的方法无法有效利用物体或背景之间的全局关系，导致对不显著物体和复杂场景的分割效果不佳。",
+      "anchors": [
+        "anc_00003",
+        "anc_00013"
+      ]
+    },
+    "motivation": {
+      "summary": "现有方法（如多尺度特征融合、编码器-解码器结构）主要关注不同尺度的上下文融合，但缺乏对全局语义依赖关系的建模。这限制了特征表示的判别能力，尤其是在处理遮挡、尺度变化和光照变化等挑战时。",
+      "anchors": [
+        "anc_00013",
+        "anc_00015"
+      ]
+    },
+    "core_idea": {
+      "summary": "提出双注意力网络（DANet），通过自注意力机制自适应地整合局部特征与其全局依赖关系。具体设计两种注意力模块：位置注意力模块（PAM）和通道注意力模块（CAM），分别建模空间和通道维度的语义相互依赖性。",
+      "anchors": [
+        "anc_00003",
+        "anc_00018"
+      ]
+    },
+    "method": {
+      "summary": "在传统扩张卷积FCN（Dilated FCN）之上附加两个并行的注意力模块。PAM通过加权求和所有位置的特征来聚合每个位置的上下文信息；CAM通过整合所有通道图中的相关特征来强调相互依赖的通道图。最后将两个模块的输出求和以增强特征表示。",
+      "anchors": [
+        "anc_00019",
+        "anc_00020",
+        "anc_00025",
+        "anc_00046"
+      ]
+    },
+    "experiments": {
+      "summary": "在Cityscapes、PASCAL VOC 2012、PASCAL Context和COCO Stuff四个场景分割数据集上进行了广泛实验。包括消融研究、改进策略对比、可视化分析以及与现有最先进方法的比较。",
+      "anchors": [
+        "anc_00053",
+        "anc_00062",
+        "anc_00066",
+        "anc_00072",
+        "anc_00083",
+        "anc_00087",
+        "anc_00093"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "DANet能够通过自注意力机制有效捕获长程上下文依赖关系，提升特征表示的判别能力。",
+        "anchors": [
+          "anc_00003",
+          "anc_00059",
+          "anc_00066",
+          "anc_00067"
+        ]
+      },
+      {
+        "claim_id": "claim_2",
+        "claim": "位置注意力模块和通道注意力模块均能显著提升分割性能，且两者结合效果更佳。",
+        "anchors": [
+          "anc_00053",
+          "anc_00055",
+          "anc_00056",
+          "anc_00059"
+        ]
+      },
+      {
+        "claim_id": "claim_3",
+        "claim": "DANet在Cityscapes测试集上达到了81.5%的平均交并比（Mean IoU），在不使用粗标注数据的情况下取得了新的最先进水平。",
+        "anchors": [
+          "anc_00072",
+          "anc_00073",
+          "anc_00076"
+        ]
+      },
+      {
+        "claim_id": "claim_4",
+        "claim": "该方法在多个数据集上均优于现有方法，具有良好的泛化能力。",
+        "anchors": [
+          "anc_00072",
+          "anc_00083",
+          "anc_00087",
+          "anc_00093"
+        ]
+      },
+      {
+        "claim_id": "claim_5",
+        "claim": "注意力模块能够选择性地聚合相似特征，增强不显著物体的特征表示，避免显著物体的干扰。",
+        "anchors": [
+          "anc_00015",
+          "anc_00061",
+          "anc_00066",
+          "anc_00067"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "论文未明确讨论计算复杂度或推理速度的潜在影响。注意力模块的计算开销可能较大，尤其是在高分辨率图像上。此外，方法依赖于预训练的骨干网络（如ResNet），其性能可能受骨干网络选择的影响。",
+        "anchors": [
+          "anc_00052"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "输入特征提取",
+        "label": "特征提取",
+        "summary": "使用扩张残差网络（Dilated ResNet）作为骨干网络，提取输入图像的特征图，尺寸为输入图像的1/8。",
+        "description": "在传统ResNet的最后两个块中使用扩张卷积，以扩大感受野并保留更多细节，同时不增加额外参数。输出特征图维度为C×H×W。",
+        "type": "backbone",
+        "anchors": [
+          "anc_00019",
+          "anc_00020"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "位置注意力模块（PAM）",
+        "label": "空间注意力",
+        "summary": "通过自注意力机制建模空间位置之间的长程依赖关系，自适应地聚合全局上下文信息。",
+        "description": "给定局部特征A∈RC×H×W，首先通过卷积层降维得到B和C。计算空间注意力矩阵S∈RN×N（N=H×W），其中sji表示第i个位置对第j个位置的影响。然后通过加权求和所有位置的特征并加上原始特征，得到增强的特征E。公式为：Ej = α * Σ(sji * Di) + Aj，其中α是可学习的缩放参数。",
+        "type": "attention_module",
+        "anchors": [
+          "anc_00027",
+          "anc_00031",
+          "anc_00032",
+          "anc_00033",
+          "anc_00034",
+          "anc_00035",
+          "anc_00036"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "通道注意力模块（CAM）",
+        "label": "通道注意力",
+        "summary": "通过自注意力机制建模通道之间的相互依赖关系，选择性地强调相互关联的通道图。",
+        "description": "给定特征A∈RC×H×W，计算通道注意力矩阵X∈RC×C，其中xji表示第i个通道对第j个通道的影响。然后通过加权求和所有通道的特征并加上原始特征，得到增强的特征E。公式为：Ej = β * Σ(xji * Ai) + Aj，其中β是可学习的缩放参数。",
+        "type": "attention_module",
+        "anchors": [
+          "anc_00037",
+          "anc_00038",
+          "anc_00039",
+          "anc_00040",
+          "anc_00041",
+          "anc_00042",
+          "anc_00043",
+          "anc_00044"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "特征融合与预测",
+        "label": "融合与输出",
+        "summary": "将两个注意力模块的输出特征进行求和融合，然后通过卷积层进行像素级分类预测。",
+        "description": "将PAM和CAM的输出特征分别通过卷积层变换后，进行逐元素求和。最后通过一个卷积层生成最终的分割预测图。训练时采用多损失策略。",
+        "type": "fusion",
+        "anchors": [
+          "anc_00046",
+          "anc_00052"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "特征输入",
+        "description": "扩张残差网络提取的特征图同时输入到位置注意力模块和通道注意力模块。",
+        "anchors": [
+          "anc_00020"
+        ]
+      },
+      {
+        "source": "node_001",
+        "target": "node_003",
+        "label": "特征输入",
+        "description": "扩张残差网络提取的特征图同时输入到位置注意力模块和通道注意力模块。",
+        "anchors": [
+          "anc_00020"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_004",
+        "label": "特征输出",
+        "description": "位置注意力模块输出的增强特征输入到特征融合模块。",
+        "anchors": [
+          "anc_00046"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "特征输出",
+        "description": "通道注意力模块输出的增强特征输入到特征融合模块。",
+        "anchors": [
+          "anc_00046"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00013"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00003",
+        "anc_00018"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "上下文信息主要通过局部感受野或多尺度特征融合获得，缺乏对全局语义依赖关系的显式建模。",
+        "after": "通过自注意力机制，PAM能够聚合所有位置的特征，CAM能够整合所有通道的特征，从而捕获全局上下文依赖。",
+        "why_it_matters": "全局依赖关系对于理解场景中物体之间的关系（如共现、空间布局）至关重要，能够提升对不显著物体和复杂场景的分割精度。",
+        "anchors": [
+          "anc_00003",
+          "anc_00013",
+          "anc_00015"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "特征表示可能受到显著物体主导的影响，导致对不显著物体的误分类。",
+        "after": "注意力模块能够选择性地聚合相似特征，增强不显著物体的特征表示，避免显著物体的干扰。",
+        "why_it_matters": "在真实场景中，不显著物体（如远处的行人、小物体）的准确分割对自动驾驶等应用至关重要。",
+        "anchors": [
+          "anc_00015",
+          "anc_00061"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "多尺度特征融合方法通常需要复杂的网络结构或额外的计算开销。",
+        "after": "注意力模块以相对简单的方式（矩阵乘法和加权求和）实现全局上下文建模，且可并行计算。",
+        "why_it_matters": "在保持或提升性能的同时，可能具有更好的计算效率和实现简洁性。",
+        "anchors": [
+          "anc_00018",
+          "anc_00020"
+        ],
+        "delta_id": "delta_3"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "name": "空间注意力矩阵计算",
+        "latex": "s_{ji} = \\frac{\\exp(B_i \\cdot C_j)}{\\sum_{k=1}^{N} \\exp(B_k \\cdot C_j)}",
+        "variables": [
+          {
+            "name": "s_{ji}",
+            "description": "空间注意力矩阵S中的元素，表示第i个位置对第j个位置的影响权重。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00032",
+              "anc_00033"
+            ]
+          },
+          {
+            "name": "B_i, C_j",
+            "description": "特征图B和C中第i和j个位置的特征向量，由输入特征A通过卷积层降维得到。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00027",
+              "anc_00028"
+            ]
+          },
+          {
+            "name": "N",
+            "description": "像素总数，N = H × W。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00028"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "通过计算所有位置对之间的特征相似度（点积），并经过softmax归一化，得到每个位置对其他位置的注意力权重。相似特征的位置会获得更高的权重，从而实现全局上下文信息的聚合。",
+        "anchors": [
+          "anc_00031",
+          "anc_00032",
+          "anc_00033"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "name": "位置注意力模块输出",
+        "latex": "E_j = \\alpha \\sum_{i=1}^{N} (s_{ji} D_i) + A_j",
+        "variables": [
+          {
+            "name": "E_j",
+            "description": "位置注意力模块在第j个位置的输出特征。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00035",
+              "anc_00036"
+            ]
+          },
+          {
+            "name": "\\alpha",
+            "description": "可学习的缩放参数，初始化为0，逐渐学习分配权重。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00036"
+            ]
+          },
+          {
+            "name": "D_i",
+            "description": "特征图D中第i个位置的特征向量，由输入特征A通过卷积层生成。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00034"
+            ]
+          },
+          {
+            "name": "A_j",
+            "description": "原始输入特征A在第j个位置的特征向量。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00034"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "最终特征是全局上下文加权和与原始特征的残差连接。这确保了模型既能利用全局信息，又能保留局部细节。",
+        "anchors": [
+          "anc_00034",
+          "anc_00035",
+          "anc_00036"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "name": "通道注意力矩阵计算",
+        "latex": "x_{ji} = \\frac{\\exp(A_i \\cdot A_j)}{\\sum_{k=1}^{C} \\exp(A_k \\cdot A_j)}",
+        "variables": [
+          {
+            "name": "x_{ji}",
+            "description": "通道注意力矩阵X中的元素，表示第i个通道对第j个通道的影响权重。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00039",
+              "anc_00040"
+            ]
+          },
+          {
+            "name": "A_i, A_j",
+            "description": "输入特征A中第i和j个通道的特征图（展平后）。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00037",
+              "anc_00038"
+            ]
+          },
+          {
+            "name": "C",
+            "description": "通道数。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00038"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "通过计算所有通道对之间的特征相似度（点积），并经过softmax归一化，得到每个通道对其他通道的注意力权重。相互关联的通道（如代表相似语义的通道）会获得更高的权重，从而增强语义一致性。",
+        "anchors": [
+          "anc_00037",
+          "anc_00038",
+          "anc_00039",
+          "anc_00040"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "name": "通道注意力模块输出",
+        "latex": "E_j = \\beta \\sum_{i=1}^{C} (x_{ji} A_i) + A_j",
+        "variables": [
+          {
+            "name": "E_j",
+            "description": "通道注意力模块在第j个通道的输出特征图。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00042",
+              "anc_00043"
+            ]
+          },
+          {
+            "name": "\\beta",
+            "description": "可学习的缩放参数，初始化为0，逐渐学习分配权重。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00043"
+            ]
+          },
+          {
+            "name": "A_i",
+            "description": "输入特征A中第i个通道的特征图。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00041"
+            ]
+          },
+          {
+            "name": "A_j",
+            "description": "输入特征A中第j个通道的特征图。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00041"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "最终特征是全局通道上下文加权和与原始特征的残差连接。这有助于捕获通道间的长程语义依赖，提升特征判别力。",
+        "anchors": [
+          "anc_00041",
+          "anc_00042",
+          "anc_00043",
+          "anc_00044"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "dataset": "Cityscapes (test)",
+        "metric": "Mean IoU (%)",
+        "value": "81.5",
+        "baseline_comparison": "优于DeepLab-v2 (70.4), RefineNet (73.6), PSPNet (78.4)等。",
+        "anchors": [
+          "anc_00072",
+          "anc_00073",
+          "anc_00076"
+        ]
+      },
+      {
+        "dataset": "PASCAL VOC 2012 (test)",
+        "metric": "Mean IoU (%)",
+        "value": "82.6",
+        "baseline_comparison": "与PSPNet (82.6)持平，优于EncNet (82.9)。",
+        "anchors": [
+          "anc_00083",
+          "anc_00084",
+          "anc_00085"
+        ]
+      },
+      {
+        "dataset": "PASCAL Context (test)",
+        "metric": "Mean IoU (%)",
+        "value": "52.6",
+        "baseline_comparison": "优于RefineNet (47.3), PSPNet (47.8), EncNet (51.7)。",
+        "anchors": [
+          "anc_00087",
+          "anc_00088",
+          "anc_00089"
+        ]
+      },
+      {
+        "dataset": "COCO Stuff (test)",
+        "metric": "Mean IoU (%)",
+        "value": "39.7",
+        "baseline_comparison": "优于RefineNet (33.6), Ding et al. (35.7)。",
+        "anchors": [
+          "anc_00093",
+          "anc_00094",
+          "anc_00095"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "study": "注意力模块消融",
+        "setting": "在Cityscapes val上，使用ResNet-50和ResNet-101作为骨干网络。",
+        "findings": "单独使用PAM或CAM均能显著提升性能（ResNet-50: +5.71%和+4.25%）。两者结合效果最佳（ResNet-50: +6.31%, ResNet-101: +5.03%）。",
+        "anchors": [
+          "anc_00053",
+          "anc_00055",
+          "anc_00056",
+          "anc_00059"
+        ]
+      },
+      {
+        "study": "改进策略消融",
+        "setting": "在Cityscapes val上，使用DANet-101。",
+        "findings": "数据增强（DA）提升1.26%，多网格（Multi-Grid）提升1.11%，多尺度推理（MS）进一步提升，最终达到81.50%。",
+        "anchors": [
+          "anc_00062",
+          "anc_00063",
+          "anc_00064",
+          "anc_00065"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "aspect": "不同骨干网络",
+        "description": "在ResNet-50和ResNet-101上均验证了方法的有效性，性能随骨干网络加深而提升。",
+        "anchors": [
+          "anc_00055",
+          "anc_00059"
+        ]
+      },
+      {
+        "aspect": "不同数据集",
+        "description": "在Cityscapes、PASCAL VOC、PASCAL Context和COCO Stuff四个数据集上均取得了优异性能，证明了方法的泛化能力。",
+        "anchors": [
+          "anc_00072",
+          "anc_00083",
+          "anc_00087",
+          "anc_00093"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "aspect": "骨干网络深度",
+        "description": "从ResNet-50到ResNet-101，性能持续提升，表明方法能从更深的特征表示中受益。",
+        "anchors": [
+          "anc_00055",
+          "anc_00059",
+          "anc_00079",
+          "anc_00081"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "type": "可视化分析",
+        "description": "通过可视化位置注意力图和通道注意力图，展示了模块能够捕获语义相似性和长程依赖关系。例如，位置注意力图能高亮显示同类物体区域，通道注意力图能纠正误分类。",
+        "anchors": [
+          "anc_00047",
+          "anc_00048",
+          "anc_00049",
+          "anc_00066",
+          "anc_00067",
+          "anc_00068",
+          "anc_00069",
+          "anc_00070"
+        ]
+      }
+    ],
+    "human_eval": "未提及",
+    "benchmark": [
+      {
+        "name": "Cityscapes",
+        "description": "大规模城市街景分割数据集，包含精细标注。",
+        "anchors": [
+          "anc_00072"
+        ]
+      },
+      {
+        "name": "PASCAL VOC 2012",
+        "description": "通用物体分割数据集。",
+        "anchors": [
+          "anc_00083"
+        ]
+      },
+      {
+        "name": "PASCAL Context",
+        "description": "场景解析数据集，包含更多类别。",
+        "anchors": [
+          "anc_00087"
+        ]
+      },
+      {
+        "name": "COCO Stuff",
+        "description": "包含物体和背景的场景理解数据集。",
+        "anchors": [
+          "anc_00093"
+        ]
+      }
+    ],
+    "efficiency": "论文未提供计算复杂度、参数量或推理速度的详细比较。",
+    "experiments": [
+      {
+        "dataset": "Cityscapes (test)",
+        "metric": "Mean IoU (%)",
+        "value": "81.5",
+        "baseline_comparison": "优于DeepLab-v2 (70.4), RefineNet (73.6), PSPNet (78.4)等。",
+        "anchors": [
+          "anc_00072",
+          "anc_00073",
+          "anc_00076"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "main_result_1",
+        "baseline": [],
+        "metrics": [
+          "Mean IoU (%)"
+        ],
+        "result_summary": "81.5",
+        "what_it_tries_to_prove": "DANet在Cityscapes测试集上达到81.5% Mean IoU，取得新的最先进水平。",
+        "evidence_strength": "strong"
+      },
+      {
+        "dataset": "PASCAL VOC 2012 (test)",
+        "metric": "Mean IoU (%)",
+        "value": "82.6",
+        "baseline_comparison": "与PSPNet (82.6)持平，优于EncNet (82.9)。",
+        "anchors": [
+          "anc_00083",
+          "anc_00084",
+          "anc_00085"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "main_result",
+        "name": "main_result_2",
+        "baseline": [],
+        "metrics": [
+          "Mean IoU (%)"
+        ],
+        "result_summary": "82.6",
+        "what_it_tries_to_prove": "DANet在PASCAL VOC 2012测试集上达到82.6% Mean IoU，与最先进方法持平。",
+        "evidence_strength": "strong"
+      },
+      {
+        "dataset": "PASCAL Context (test)",
+        "metric": "Mean IoU (%)",
+        "value": "52.6",
+        "baseline_comparison": "优于RefineNet (47.3), PSPNet (47.8), EncNet (51.7)。",
+        "anchors": [
+          "anc_00087",
+          "anc_00088",
+          "anc_00089"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "main_result",
+        "name": "main_result_3",
+        "baseline": [],
+        "metrics": [
+          "Mean IoU (%)"
+        ],
+        "result_summary": "52.6",
+        "what_it_tries_to_prove": "DANet在PASCAL Context测试集上达到52.6% Mean IoU，优于现有方法。",
+        "evidence_strength": "strong"
+      },
+      {
+        "dataset": "COCO Stuff (test)",
+        "metric": "Mean IoU (%)",
+        "value": "39.7",
+        "baseline_comparison": "优于RefineNet (33.6), Ding et al. (35.7)。",
+        "anchors": [
+          "anc_00093",
+          "anc_00094",
+          "anc_00095"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "main_result",
+        "name": "main_result_4",
+        "baseline": [],
+        "metrics": [
+          "Mean IoU (%)"
+        ],
+        "result_summary": "39.7",
+        "what_it_tries_to_prove": "DANet在COCO Stuff测试集上达到39.7% Mean IoU，优于现有方法。",
+        "evidence_strength": "strong"
+      },
+      {
+        "study": "注意力模块消融",
+        "setting": "在Cityscapes val上，使用ResNet-50和ResNet-101作为骨干网络。",
+        "findings": "单独使用PAM或CAM均能显著提升性能（ResNet-50: +5.71%和+4.25%）。两者结合效果最佳（ResNet-50: +6.31%, ResNet-101: +5.03%）。",
+        "anchors": [
+          "anc_00053",
+          "anc_00055",
+          "anc_00056",
+          "anc_00059"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "ablation",
+        "name": "ablation_5",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "单独使用PAM或CAM均能显著提升性能（ResNet-50: +5.71%和+4.25%）。两者结合效果最佳（ResNet-50: +6.31%, ResNet-101: +5.03%）。",
+        "what_it_tries_to_prove": "验证PAM和CAM模块的有效性及协同作用。",
+        "evidence_strength": "strong"
+      },
+      {
+        "study": "改进策略消融",
+        "setting": "在Cityscapes val上，使用DANet-101。",
+        "findings": "数据增强（DA）提升1.26%，多网格（Multi-Grid）提升1.11%，多尺度推理（MS）进一步提升，最终达到81.50%。",
+        "anchors": [
+          "anc_00062",
+          "anc_00063",
+          "anc_00064",
+          "anc_00065"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "ablation",
+        "name": "ablation_6",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "数据增强（DA）提升1.26%，多网格（Multi-Grid）提升1.11%，多尺度推理（MS）进一步提升，最终达到81.50%。",
+        "what_it_tries_to_prove": "验证各种改进策略对性能的贡献。",
+        "evidence_strength": "strong"
+      },
+      {
+        "aspect": "不同骨干网络",
+        "description": "在ResNet-50和ResNet-101上均验证了方法的有效性，性能随骨干网络加深而提升。",
+        "anchors": [
+          "anc_00055",
+          "anc_00059"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "robustness",
+        "name": "不同骨干网络",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "在ResNet-50和ResNet-101上均验证了方法的有效性，性能随骨干网络加深而提升。",
+        "what_it_tries_to_prove": "验证方法在不同骨干网络上的鲁棒性和可扩展性。",
+        "evidence_strength": "strong"
+      },
+      {
+        "aspect": "不同数据集",
+        "description": "在Cityscapes、PASCAL VOC、PASCAL Context和COCO Stuff四个数据集上均取得了优异性能，证明了方法的泛化能力。",
+        "anchors": [
+          "anc_00072",
+          "anc_00083",
+          "anc_00087",
+          "anc_00093"
+        ],
+        "experiment_id": "experiment_8",
+        "type": "robustness",
+        "name": "不同数据集",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "在Cityscapes、PASCAL VOC、PASCAL Context和COCO Stuff四个数据集上均取得了优异性能，证明了方法的泛化能力。",
+        "what_it_tries_to_prove": "验证方法在不同数据集上的泛化能力。",
+        "evidence_strength": "strong"
+      },
+      {
+        "aspect": "骨干网络深度",
+        "description": "从ResNet-50到ResNet-101，性能持续提升，表明方法能从更深的特征表示中受益。",
+        "anchors": [
+          "anc_00055",
+          "anc_00059",
+          "anc_00079",
+          "anc_00081"
+        ],
+        "experiment_id": "experiment_9",
+        "type": "scaling",
+        "name": "骨干网络深度",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "从ResNet-50到ResNet-101，性能持续提升，表明方法能从更深的特征表示中受益。",
+        "what_it_tries_to_prove": "验证方法随骨干网络深度增加的性能提升。",
+        "evidence_strength": "strong"
+      },
+      {
+        "type": "可视化分析",
+        "description": "通过可视化位置注意力图和通道注意力图，展示了模块能够捕获语义相似性和长程依赖关系。例如，位置注意力图能高亮显示同类物体区域，通道注意力图能纠正误分类。",
+        "anchors": [
+          "anc_00047",
+          "anc_00048",
+          "anc_00049",
+          "anc_00066",
+          "anc_00067",
+          "anc_00068",
+          "anc_00069",
+          "anc_00070"
+        ],
+        "experiment_id": "experiment_10",
+        "name": "case_study_10",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "通过可视化位置注意力图和通道注意力图，展示了模块能够捕获语义相似性和长程依赖关系。例如，位置注意力图能高亮显示同类物体区域，通道注意力图能纠正误分类。",
+        "what_it_tries_to_prove": "通过可视化分析验证注意力模块的工作机制和有效性。",
+        "evidence_strength": "strong"
+      },
+      {
+        "name": "Cityscapes",
+        "description": "大规模城市街景分割数据集，包含精细标注。",
+        "anchors": [
+          "anc_00072"
+        ],
+        "experiment_id": "experiment_11",
+        "type": "benchmark",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "大规模城市街景分割数据集，包含精细标注。",
+        "what_it_tries_to_prove": "提供实验基准数据集信息。",
+        "evidence_strength": "informational"
+      },
+      {
+        "name": "PASCAL VOC 2012",
+        "description": "通用物体分割数据集。",
+        "anchors": [
+          "anc_00083"
+        ],
+        "experiment_id": "experiment_12",
+        "type": "benchmark",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "通用物体分割数据集。",
+        "what_it_tries_to_prove": "提供实验基准数据集信息。",
+        "evidence_strength": "informational"
+      },
+      {
+        "name": "PASCAL Context",
+        "description": "场景解析数据集，包含更多类别。",
+        "anchors": [
+          "anc_00087"
+        ],
+        "experiment_id": "experiment_13",
+        "type": "benchmark",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "场景解析数据集，包含更多类别。",
+        "what_it_tries_to_prove": "提供实验基准数据集信息。",
+        "evidence_strength": "informational"
+      },
+      {
+        "name": "COCO Stuff",
+        "description": "包含物体和背景的场景理解数据集。",
+        "anchors": [
+          "anc_00093"
+        ],
+        "experiment_id": "experiment_14",
+        "type": "benchmark",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "包含物体和背景的场景理解数据集。",
+        "what_it_tries_to_prove": "提供实验基准数据集信息。",
+        "evidence_strength": "informational"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim_id": "claim_001",
+        "claim_text": "DANet通过自注意力机制能够有效捕获长程上下文依赖关系，提升特征表示的判别能力。",
+        "evidence_source_type": "实验结果（消融研究、可视化）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00003",
+          "anc_00059",
+          "anc_00066",
+          "anc_00067"
+        ],
+        "risk_flags": [],
+        "evidence": [
+          {
+            "evidence_id": "evidence_001",
+            "description": "消融实验显示，使用注意力模块后性能显著提升（ResNet-50: +6.31%）。",
+            "anchors": [
+              "anc_00059"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_002",
+            "description": "可视化分析显示位置注意力图能捕获语义相似性和长程依赖关系。",
+            "anchors": [
+              "anc_00066",
+              "anc_00067"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_002",
+        "claim_text": "位置注意力模块（PAM）和通道注意力模块（CAM）均能显著提升分割性能，且两者结合效果更佳。",
+        "evidence_source_type": "消融实验（Table 1）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00053",
+          "anc_00055",
+          "anc_00056",
+          "anc_00059"
+        ],
+        "risk_flags": [],
+        "evidence": [
+          {
+            "evidence_id": "evidence_003",
+            "description": "Table 1显示，单独使用PAM提升5.71%，单独使用CAM提升4.25%，两者结合提升6.31%。",
+            "anchors": [
+              "anc_00055",
+              "anc_00056"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_003",
+        "claim_text": "DANet在Cityscapes测试集上达到了81.5%的平均交并比（Mean IoU），在不使用粗标注数据的情况下取得了新的最先进水平。",
+        "evidence_source_type": "基准测试结果（Table 3）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00072",
+          "anc_00073",
+          "anc_00076"
+        ],
+        "risk_flags": [],
+        "evidence": [
+          {
+            "evidence_id": "evidence_004",
+            "description": "Table 3显示DANet在Cityscapes测试集上达到81.5% Mean IoU，优于所有比较方法。",
+            "anchors": [
+              "anc_00072",
+              "anc_00073"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_004",
+        "claim_text": "该方法在多个数据集上均优于现有方法，具有良好的泛化能力。",
+        "evidence_source_type": "多个数据集上的实验结果（Table 3, 5, 6, 7）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00072",
+          "anc_00083",
+          "anc_00087",
+          "anc_00093"
+        ],
+        "risk_flags": [],
+        "evidence": [
+          {
+            "evidence_id": "evidence_005",
+            "description": "在Cityscapes、PASCAL VOC 2012、PASCAL Context和COCO Stuff四个数据集上均取得优异性能。",
+            "anchors": [
+              "anc_00072",
+              "anc_00083",
+              "anc_00087",
+              "anc_00093"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_005",
+        "claim_text": "注意力模块能够选择性地聚合相似特征，增强不显著物体的特征表示，避免显著物体的干扰。",
+        "evidence_source_type": "可视化分析（Figure 5, 6）",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00015",
+          "anc_00061",
+          "anc_00066",
+          "anc_00067"
+        ],
+        "risk_flags": [
+          "可视化结果为主，缺乏定量分析。"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evidence_006",
+            "description": "Figure 5显示通道注意力模块能纠正误分类，Figure 6显示位置注意力图能高亮同类物体区域。",
+            "anchors": [
+              "anc_00061",
+              "anc_00066",
+              "anc_00067"
+            ],
+            "strength": "moderate"
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "场景分割 (Scene Segmentation)",
+        "definition": "计算机视觉任务，目标是为图像中的每个像素分配一个语义类别标签（如道路、汽车、天空等）。",
+        "anchors": [
+          "anc_00003",
+          "anc_00004",
+          "anc_00005"
+        ],
+        "appears_in": [
+          "anc_00003",
+          "anc_00004",
+          "anc_00005"
+        ]
+      },
+      {
+        "term": "自注意力机制 (Self-Attention Mechanism)",
+        "definition": "一种允许序列中的每个位置关注序列中所有其他位置的机制，用于捕获长程依赖关系。在本文中应用于空间和通道维度。",
+        "anchors": [
+          "anc_00003",
+          "anc_00018"
+        ],
+        "appears_in": [
+          "anc_00003",
+          "anc_00018"
+        ]
+      },
+      {
+        "term": "扩张卷积 (Dilated Convolution)",
+        "definition": "一种卷积操作，通过在卷积核元素之间插入空洞来扩大感受野，而不增加参数数量或降低分辨率。",
+        "anchors": [
+          "anc_00010",
+          "anc_00019"
+        ],
+        "appears_in": [
+          "anc_00010",
+          "anc_00019"
+        ]
+      },
+      {
+        "term": "位置注意力模块 (Position Attention Module, PAM)",
+        "definition": "DANet中的一个组件，通过计算空间位置之间的注意力权重来聚合全局上下文信息。",
+        "anchors": [
+          "anc_00025",
+          "anc_00027"
+        ],
+        "appears_in": [
+          "anc_00025",
+          "anc_00027"
+        ]
+      },
+      {
+        "term": "通道注意力模块 (Channel Attention Module, CAM)",
+        "definition": "DANet中的一个组件，通过计算通道之间的注意力权重来强调相互依赖的通道图。",
+        "anchors": [
+          "anc_00025",
+          "anc_00037"
+        ],
+        "appears_in": [
+          "anc_00025",
+          "anc_00037"
+        ]
+      },
+      {
+        "term": "平均交并比 (Mean Intersection over Union, Mean IoU)",
+        "definition": "语义分割的标准评估指标，计算所有类别IoU的平均值。IoU是预测区域与真实区域交集面积除以并集面积。",
+        "anchors": [
+          "anc_00055",
+          "anc_00073"
+        ],
+        "appears_in": [
+          "anc_00055",
+          "anc_00073"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        {
+          "name": "Cityscapes",
+          "description": "大规模城市街景分割数据集，包含5000张精细标注的图像（2975训练，500验证，1525测试）。",
+          "anchors": [
+            "anc_00072"
+          ]
+        },
+        {
+          "name": "PASCAL VOC 2012",
+          "description": "通用物体分割数据集，包含1464张训练图像，1449张验证图像，1456张测试图像（使用增强后约10582张训练图像）。",
+          "anchors": [
+            "anc_00083"
+          ]
+        },
+        {
+          "name": "PASCAL Context",
+          "description": "场景解析数据集，包含4998张训练图像和5105张测试图像，标注了59个类别（包括背景）。",
+          "anchors": [
+            "anc_00087"
+          ]
+        },
+        {
+          "name": "COCO Stuff",
+          "description": "场景理解数据集，包含9000张训练图像和1000张测试图像，标注了171个类别（80个物体，91个背景）。",
+          "anchors": [
+            "anc_00093"
+          ]
+        }
+      ],
+      "required_models": [
+        {
+          "name": "ResNet-50",
+          "description": "预训练的骨干网络，用于特征提取。",
+          "anchors": [
+            "anc_00055"
+          ]
+        },
+        {
+          "name": "ResNet-101",
+          "description": "更深的预训练骨干网络，用于特征提取。",
+          "anchors": [
+            "anc_00055",
+            "anc_00059"
+          ]
+        }
+      ],
+      "compute_requirements": "论文未明确说明。但训练深度网络（如ResNet-101）在多个数据集上进行180-240个epoch，需要相当的GPU计算资源（可能为多个高端GPU）。",
+      "code_available": "论文未提及官方代码发布。但基于PyTorch实现（anc_00052），社区可能有第三方复现。",
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 准备数据集：下载并预处理Cityscapes、PASCAL VOC 2012、PASCAL Context和COCO Stuff数据集。",
+          "anchors": [
+            "anc_00072",
+            "anc_00083",
+            "anc_00087",
+            "anc_00093"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 构建骨干网络：使用预训练的ResNet-50或ResNet-101，并在最后两个块中应用扩张卷积（扩张率可能为2和4）。",
+          "anchors": [
+            "anc_00019",
+            "anc_00020"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 实现注意力模块：根据公式实现位置注意力模块（PAM）和通道注意力模块（CAM）。",
+          "anchors": [
+            "anc_00027",
+            "anc_00031",
+            "anc_00032",
+            "anc_00033",
+            "anc_00034",
+            "anc_00035",
+            "anc_00036",
+            "anc_00037",
+            "anc_00038",
+            "anc_00039",
+            "anc_00040",
+            "anc_00041",
+            "anc_00042",
+            "anc_00043",
+            "anc_00044"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "4. 构建完整网络：将骨干网络与两个注意力模块并行连接，最后通过卷积层进行像素分类。",
+          "anchors": [
+            "anc_00046"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "5. 训练配置：使用多项式学习率策略（初始学习率0.01，动量0.9，权重衰减0.0001），同步BN，批量大小8（Cityscapes）或16（其他数据集）。",
+          "anchors": [
+            "anc_00052"
+          ]
+        },
+        {
+          "step": "step_6",
+          "description": "6. 训练策略：采用数据增强（随机缩放）、多网格方法、多尺度推理等改进策略。",
+          "anchors": [
+            "anc_00062",
+            "anc_00063",
+            "anc_00064",
+            "anc_00065"
+          ]
+        },
+        {
+          "step": "step_7",
+          "description": "7. 评估：在验证集和测试集上计算平均交并比（Mean IoU）。",
+          "anchors": [
+            "anc_00055",
+            "anc_00073"
+          ]
+        }
+      ],
+      "missing_details": [],
+      "risk_points": []
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-03T16:43:30+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_cv_073_dual_attention_network_for_scene_segmentation_2018",
+    "title": "Dual Attention Network for Scene Segmentation",
+    "authors": [
+      "J. Fu",
+      "J. Liu",
+      "Haijie Tian",
+      "Zhiwei Fang",
+      "Hanqing Lu"
+    ],
+    "venue": "Computer Vision and Pattern Recognition",
+    "year": 2018,
+    "arxiv_id": "1809.02983",
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-03T16:41:40+00:00",
+    "paper_type": "Computer Vision / Segmentation / Computer Vision / Pose Estimation / Computer Vision / Attention / Top-cited Computer Vision paper",
+    "citation_count": 5982,
+    "influential_citation_count": 537,
+    "semantic_scholar_id": "ad655c25e052fa4eeed53421344aca6f239c4c9d",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/ad655c25e052fa4eeed53421344aca6f239c4c9d",
+    "importance_rank": 73,
+    "selection_source": "semantic_scholar_top_cited_cv_open_pdf_2026_05_03",
+    "open_access_pdf_url": "https://arxiv.org/pdf/1809.02983",
+    "fields_of_study": [
+      "Computer Science"
+    ],
+    "publication_types": [
+      "JournalArticle",
+      "Conference"
+    ],
+    "abstract": "In this paper, we address the scene segmentation task by capturing rich contextual dependencies based on the self-attention mechanism. Unlike previous works that capture contexts by multi-scale features fusion, we propose a Dual Attention Networks (DANet) to adaptively integrate local features with their global dependencies. Specifically, we append two types of attention modules on top of traditional dilated FCN, which model the semantic interdependencies in spatial and channel dimensions respectively. The position attention module selectively aggregates the features at each position by a weighted sum of the features at all positions. Similar features would be related to each other regardless of their distances. Meanwhile, the channel attention module selectively emphasizes interdependent channel maps by integrating associated features among all channel maps. We sum the outputs of the two attention modules to further improve feature representation which contributes to more precise segmentation results. We achieve new state-of-the-art segmentation performance on three challenging scene segmentation datasets, i.e., Cityscapes, PASCAL Context and COCO Stuff dataset. In particular, a Mean IoU score of 81.5% on Cityscapes test set is achieved without using coarse data."
+  },
+  "anchors": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Dual Attention Network for Scene Segmentation Jun Fu 1,3 Jing Liu* 1 Haijie Tian 1 Yong Li 2 Yongjun Bao 2 Zhiwei Fang 1,3 Hanqing Lu 1 1National Laboratory of Pattern Recognition, Institute of Automation, Chinese Academy of Sciences 2Business Growth BU, JD.com 3 University of Chinese Academy of Sciences {jun.fu,jliu,zhiwei.fang,luhq}@nlpr.ia.ac.cn,hjtian bit@163.com,{liyong5,baoyongjun}@jd.com",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Abstract",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "In this paper, we address the scene segmentation task by capturing rich contextual dependencies based on the self-attention mechanism. Unlike previous works that cap- ture contexts by multi-scale feature fusion, we propose a Dual Attention Network (DANet) to adaptively integrate lo- cal features with their global dependencies. Speciﬁcally, we append two types of attention modules on top of dilated FCN, which model the semantic interdependencies in spa- tial and channel dimensions respectively. The position at- tention module selectively aggregates the feature at each position by a weighted sum of the features at all positions. Similar features would be related to each other regardless of their distances. Meanwhile, the channel attention mod- ule selectively emphasizes interdependent channel maps by integrating associated features among all channel maps. We sum the outputs of the two attention modules to further improve feature representation which contributes to more precise segmentat...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 1: The goal of scene segmentation is to recognize",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "each pixel including stuff, diverse objects. The various",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "scales, occlusion and illumination changing of objects/stuff",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "make it challenging to parsing each pixel. task can be applied to potential applications, such as auto- matic driving, robot sensing and image editing. In order to accomplish the task of scene segmentation effectively, we need to distinguish some confusing categories and take into account objects with different appearance. For example, re- gions of ’ﬁeld’ and ’grass’ are often indistinguishable, and the objects of ’cars’ may often be affected by scales, oc-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "clusion and illumination. Therefore, it is necessary to en-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "hance the discriminative ability of feature representations",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "for pixel-level recognition. Recently, state-of-the-art methods based on Fully Con- volutional Networks (FCNs) [13] have been proposed to ad- dress the above issues. One way is to utilize the multi-scale context fusion. For example, some works [3, 4, 30] aggre- gate multi-scale contexts via combining feature maps gen- erated by different dilated convolutions and pooling opera- tions. And some works [15, 28] capture richer global con-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "text information by enlarging the kernel size with a decom-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "posed structure or introducing an effective encoding layer on top of the network. In addition, the encoder-decoder arXiv:1809.02983v4 [cs.CV] 21 Apr 2019",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "structures [6, 10, 16] are proposed to fuse mid-level and high-level semantic features. Although the context fusion helps to capture different scales objects, it can not leverage the relationship between objects or stuff in a global view, which is also essential to scene segmentation. Another type of methods employs recurrent neural net- works to exploit long-range dependencies, thus improving scene segmentation accuracy. The method based on 2D LSTM networks [1] is proposed to capture complex spa- tial dependencies on labels. The work [18] builds a recur- rent neural network with directed acyclic graph to capture the rich contextual dependencies over local features. How- ever, these methods capture the global relationship implic- itly with recurrent neural networks, whose effectiveness re- lies heavily on the learning outcome of the long-term mem- orization. To address above problems, we propose a novel frame- work, called as Dual Attention Network (DANet), for natu- ral scene image s...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "plored, the context from dominated salient objects (e.g. car,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "building) would harm those inconspicuous object labeling. By contrast, our attention model selectively aggregates the similar features of inconspicuous objects to highlight their feature representations and avoid the inﬂuence of salient objects. Second, the scales of the ’car’ and ’person’ are diverse, and recognizing such diverse objects requires con- textual information at different scales. That is, the features at different scale should be treated equally to represent the same semantics. Our model with attention mechanism just aims to adaptively integrate similar features at any scales from a global view, and this can solve the above problem to some extent. Third, we explicitly take spatial and channel relationships into consideration, so that scene understand- ing could beneﬁt from long-range dependencies. Our main contributions can be summarized as follows: • We propose a novel Dual Attention Network (DANet) with self-attention mechanism to enhance the discrim- inant ability of f...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ResNet Channel Attention Module Position Attention Module convolution layer Spatial attention matrix Channel attention matrix Matrix multiplication Element-wise Sum (HXW)X(HXW) CXC CXHXW CXHXW CXHXW CXHXW Channel matrix operationSpatial matrix operation reshape reshape reshape reshape Sum fusion",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 2: An overview of the Dual Attention Network. (Best viewed in color)",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "applied in image vision ﬂied. The work [29] introduces self- attention mechanism to learn a better image generator. The work [23], which is related to self-attention module, mainly exploring effectiveness of non-local operation in spacetime dimension for videos and images. Different from previous works, we extend the self- attention mechanism in the task of scene segmentation, and carefully design two types of attention modules to capture rich contextual relationships for better feature representa- tions with intra-class compactness. Comprehensive empiri- cal results verify the effectiveness of our proposed method. 3. Dual Attention Network In this section, we ﬁrst present a general framework of our network and then introduce the two attention modules which capture long-range contextual information in spatial and channel dimension respectively. Finally we describe how to aggregate them together for further reﬁnement. 3.1. Overview Given a picture of scene segmentation, stuff or object...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "last two ResNet blocks, thus enlarging the size of the ﬁ-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "nal feature map size to 1/8 of the input image. It retains more details without adding extra parameters. Then the fea- tures from the dilated residual network would be fed into two parallel attention modules. Take the spatial attention modules in the upper part of the Figure. 2 as an example, we ﬁrst apply a convolution layer to obtain the features of dimension reduction. Then we feed the features into the position attention module and generate new features of spa- tial long-range contextual information through the follow- ing three steps. The ﬁrst step is to generate a spatial atten- tion matrix which models the spatial relationship between any two pixels of the features. Next, we perform a matrix multiplication between the attention matrix and the original features. Third, we perform an element-wise sum opera- tion on the above multiplied resulting matrix and original features to obtain the ﬁnal representations reﬂecting long- range contexts. Meanwhile, long-range contextual informa-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(HXW)X(HXW) reshape & transpose softmax CXHXW CXHXW A. Position attention module",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00022",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "softmax CXC",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "CXHXW B. Channel attention module A B C D S E X E reshape & transpose reshape reshape reshape reshape reshape reshape CXHXW A",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00024",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 3: The details of Position Attention Module and",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Channel Attention Module are illustrated in (A) and (B). (Best viewed in color) tion in channel dimension are captured by a channel atten- tion module. The process of capturing the channel relation- ship is similar to the position attention module except for the ﬁrst step, in which channel attention matrix is calcu- lated in channel dimension. Finally we aggregate the out- puts from the two attention modules to obtain better feature representations for pixel-level prediction. 3.2. Position Attention Module",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Discriminant feature representations are essential for",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00027",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "scene understanding, which could be obtained by capturing long-range contextual information. However, many works [15, 30] suggest that local features generated by traditional FCNs could lead to misclassiﬁcation of objects and stuff. In order to model rich contextual relationships over local features, we introduce a position attention module. The po- sition attention module encodes a wider range of contextual information into local features, thus enhancing their repre- sentation capability. Next, we elaborate the process to adap- tively aggregate spatial contexts. As illustrated in Figure.3(A), given a local feature A∈ RC×H×W , we ﬁrst feed it into a convolution layers to gen- erate two new feature maps B and C, respectively, where {B, C} ∈RC×H×W . Then we reshape them to RC×N ,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00028",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "whereN =H×W is the number of pixels. After that we",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "perform a matrix multiplication between the transpose ofC",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "and B, and apply a softmax layer to calculate the spatial",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00031",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "attention map S∈ RN ×N :",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "sji = exp(Bi·Cj)∑N",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00033",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "i=1exp(Bi·Cj)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(1) where sji measures the ith position’s impact on jth posi- tion. The more similar feature representations of the two position contributes to greater correlation between them. Meanwhile, we feed feature A into a convolution layer to generate a new feature map D∈ RC×H×W and reshape it to RC×N . Then we perform a matrix multiplication be- tween D and the transpose of S and reshape the result to RC×H×W . Finally, we multiply it by a scale parameter α and perform a element-wise sum operation with the features A to obtain the ﬁnal output E∈ RC×H×W as follows:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00035",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Ej =α",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "N∑ i=1 (sjiDi) +Aj (2) where α is initialized as 0 and gradually learns to assign more weight [29]. It can be inferred from Equation 2 that the resulting feature E at each position is a weighted sum of the features across all positions and original features. Therefore, it has a global contextual view and selectively aggregates contexts according to the spatial attention map. The similar semantic features achieve mutual gains, thus imporving intra-class compact and semantic consistency. 3.3. Channel Attention Module Each channel map of high level features can be re- garded as a class-speciﬁc response, and different semantic responses are associated with each other. By exploiting the interdependencies between channel maps, we could empha- size interdependent feature maps and improve the feature representation of speciﬁc semantics. Therefore, we build a channel attention module to explicitly model interdepen- dencies between channels. The structure of channel attention module is illustra...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00037",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "apply a softmax layer to obtain the channel attention map",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00038",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "X∈ RC×C:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00039",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "xji = exp(Ai·Aj)∑C",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "i=1exp(Ai·Aj)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00041",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(3) where xji measures the ith channel’s impact on the jth channel. In addition, we perform a matrix multiplication between the transpose of X and A and reshape their result to RC×H×W . Then we multiply the result by a scale pa- rameterβ and perform an element-wise sum operation with A to obtain the ﬁnal output E∈ RC×H×W :",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00042",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Ej =β",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00043",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "C∑ i=1 (xjiAi) +Aj (4) whereβ gradually learns a weight from 0. The Equation 4 shows that the ﬁnal feature of each channel is a weighted",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "sum of the features of all channels and original features, which models the long-range semantic dependencies be-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00045",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tween feature maps. It helps to boost feature discriminabil-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00046",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ity. Noted that we do not employ convolution layers to em- bed features before computing relationshoips of two chan- nels, since it can maintain relationship between different channel maps. In addition, different from recent works [28] which explores channel relationships by a global pooling or encoding layer, we exploit spatial information at all corre- sponding positions to model channel correlations. 3.4. Attention Module Embedding with Networks In order to take full advantage of long-range contextual information, we aggregate the features from these two at- tention modules. Speciﬁcally, we transform the outputs of two attention modules by a convolution layer and perform an element-wise sum to accomplish feature fusion. At last a convolution layer is followed to generate the ﬁnal predic- tion map. We do not adopt cascading operation because it needs more GPU memory. Noted that our attention mod- ules are simple and can be directly inserted in the existing FCN pipeline. They do not...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00047",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 4: Visualization results of position attention module",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00048",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "on Cityscapes val set. Image Without CAM With CAM Groundtruth",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 5: Visualization results of channel attention module",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00050",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "on Cityscapes val set. COCO Stuff The dataset contains 9,000 images for training and 1,000 images for testing. Following [6, 10], we report our results on 171 categories including 80 objects and 91 stuff annotated to each pixel.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4.1.1 Implementation Details",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00052",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "We implement our method based on Pytorch. Following [4,28], we employ a poly learning rate policy where the ini- tial learning rate is multiplied by(1− iter total iter )0.9 after each iteration. The base learning rate is set to 0.01 for Cityscapes dataset. Momentum and weight decay coefﬁcients are set to 0.9 and 0.0001 respectively. We train our model with Syn- chronized BN [28]. Batchsize are set to 8 for Cityscapes and 16 for other datasets.When adopting multi-scale aug- mentation, we set training time to 180 epochs for COCO Stuff and 240 epochs for other datasets. Following [3], we adopt multi-loss on the end of the network when both two attention modules are used. For data augmentation, we ap- ply random cropping (cropsize 768) and random left-right ﬂipping during training in the ablation study for Cityscapes datasets. 4.2. Results on Cityscapes Dataset",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00053",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4.2.1 Ablation Study for Attention Modules",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "We employ the dual attention modules on top of the dila- tion network to capture long-range dependencies for better scene understanding. To verify the performance of attention",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Method BaseNet PAM CAM Mean IoU% Dilated FCN Res50 70.03 DANet Res50 ✓ 75.74 DANet Res50 ✓ 74.28 DANet Res50 ✓ ✓ 76.34 Dilated FCN Res101 72.54 DANet Res101 ✓ 77.03 DANet Res101 ✓ 76.55 DANet Res101 ✓ ✓ 77.57",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 1: Ablation study on Cityscapes val set. PAM repre-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00057",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "sents Position Attention Module, CAM represents Channel Attention Module. modules, we conduct experiments with different settings in",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00058",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 1.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00059",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "As shown in Table 1, the attention modules improve the performance remarkably. Compared with the base- line FCN (ResNet-50), employing position attention mod- ule yields a result of 75.74% in Mean IoU , which brings 5.71% improvement. Meanwhile, employing channel con- textual module individually outperforms the baseline by 4.25%. When we integrate the two attention modules to- gether, the performance further improves to 76.34%. Fur- thermore, when we adopt a deeper pre-trained network (ResNet-101), the network with two attention modules sig- niﬁcantly improves the segmentation performance over the baseline model by 5.03%. Results show that attention mod- ules bring great beneﬁt to scene segmentation. The effects of position attention modules can be visu- alized in Figure.4. Some details and object boundaries are clearer with the position attention module, such as the ’pole’ in the ﬁrst row and the ’sidewalk’ in the second row. Selec-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00060",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tive fusion over local features enhance the discrimination",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00061",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "of details. Meanwhile, Figure.5 demonstrate that, with our channel attention module, some misclassiﬁed category are now correctly classiﬁed, such as the ’bus’ in the ﬁrst and third row. The selective integration among channel maps helps to capture context information. The semantic consis- tency have been improved obviously.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00062",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4.2.2 Ablation Study for Improvement Strategies",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Following [4], we adopt the same strategies to improve per- formance further. (1) DA: Data augmentation with random scaling. (2) Multi-Grid: we apply employ a hierarchy of grids of different sizes (4,8,16) in the last ResNet block. (3) MS: We average the segmentation probability maps from 8 image scales{0.5 0.75 1 1.25 1.5 1.75 2 2.2} for inference. Experimental results are shown in Table 2. Data aug- mentation with random scaling improves the performance by almost 1.26%, which shows that network beneﬁts from enriching scale diversity of training data. We adopt Multi- Method DA Multi-Grid MS Mean IoU% DANet-101 77.57 DANet-101 ✓ 78.83 DANet-101 ✓ ✓ 79.94 DANet-101 ✓ ✓ ✓ 81.50",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00064",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 2: Performance comparison between different strate-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00065",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "gies on Cityscape val set. DANet-101 represents DANet with BaseNet ResNet-101, DA represents data augmenta- tion with random scaling. Multi-Grid represents employing multi-grid method, MS represents multi-scale inputs during inference. Grid to obtain better feature representations of pretrained network, which further achieves 1.11% improvements. Fi- nally, segmentation map fusion further improves the perfor- mance to 81.50%, which outperforms well-known method Deeplabv3 [4] (79.30% on Cityscape val set) by 2.20%.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00066",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4.2.3 Visualization of Attention Module",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "For position attention, the overall self-attention map is in size of (H×W )× (H×W ), which means that for each speciﬁc point in the image, there is an corresponding sub- attention map whose size is (H×W ). In Figure.6, for each input image, we select two points (marked as #1 and #2) and show their corresponding sub-attention map in columns 2 and 3 respectively. We observe that the position attention module could capture clear semantic similarity and long- range relationships. For example, in the ﬁrst row, the red point #1 are marked on a building and its attention map (in column 2) highlights most the areas where the buildings lies on. Moreover, in the sub-attention map, the boundaries are very clear even though some of them are far away from the point #1. As for the point #2, its attention map fo- cuses on most positions labeled as ”car”. In the second row, the same holds for the ’trafﬁc sign’ and ’person’ in global region, even though the number of corresponding pixels is less. The...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00068",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Image Groundtruth Channel map #4 ResultSub-attention map #1 Sub-attention map #2 Channel map #11 1 2 1 2 21 21 2 1 2 1",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 6: Visualization results of attention modules on Cityscapes val set. For each row, we show an input image, two sub-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00070",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "attention maps (H×W ) corresponding to the ponits marked in the input image. Meanwhile, we give two channel maps from the outputs of channel attention module, where the maps are from4th and 11th channels, respectively. Finally, corresponding result and groundtruth are provided.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00071",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Methods",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00072",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Mean IoU road sidewalk building wall fence pole trafﬁc light trafﬁc sign vegetation terrain sky person rider car truck bus train motorcycle bicycle DeepLab-v2 [3] 70.4 97.9 81.3 90.3 48.8 47.4 49.6 57.9 67.3 91.9 69.4 94.2 79.8 59.8 93.7 56.5 67.5 57.5 57.7 68.8 ReﬁneNet [10] 73.6 98.2 83.3 91.3 47.8 50.4 56.1 66.9 71.3 92.3 70.3 94.8 80.9 63.3 94.5 64.6 76.1 64.3 62.2 70 GCN [15] 76.9 - - - - - - - - - - - - - - - - - - - DUC [22] 77.6 98.5 85.5 92.8 58.6 55.5 65 73.5 77.9 93.3 72 95.2 84.8 68.5 95.4 70.9 78.8 68.7 65.9 73.8 ResNet-38 [24] 78.4 98.5 85.7 93.1 55.5 59.1 67.1 74.8 78.7 93.7 72.6 95.5 86.6 69.2 95.7 64.5 78.8 74.1 69 76.7 PSPNet [30] 78.4 - - - - - - - - - - - - - - - - - - - BiSeNet [26] 78.9 - - - - - - - - - - - - - - - - - - - PSANet [31] 80.1 - - - - - - - - - - - - - - - - - - - DenseASPP [25] 80.6 98.7 87.1 93.4 60.7 62.7 65.6 74.6 78.5 93.6 72.5 95.4 86.2 71.9 96.0 78.0 90.3 80.7 69.7 76.8 DANet 81.5 98.6 86.1 93.5 56.1 63.3 69.7 77.3 81.3 93.9 72.9 95.7 87.3 72...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00073",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 3: Per-class results on Cityscapes testing set. DANet outperforms existing approaches and achieves 81.5% in Mean",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00074",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "IoU. In short, these visualizations further demonstrate the ne- cessity of capturing long-range dependencies for improving feature representation in scene segmentation.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00075",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "4.2.4 Comparing with State-of-the-art",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00076",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "We further compare our method with existing methods on the Cityscapes testing set. Speciﬁcally, we train our DANet- 101 with only ﬁne annotated data and submit our test re- sults to the ofﬁcial evaluation server. Results are shown in Table 3. DANet outperforms existing approaches with",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00077",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "dominantly advantage. In particular, our model outperforms",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00078",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "PSANet [31] by a large margin with the same backbone",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00079",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "ResNet-101. Moreover, it also surpasses DenseASPP [25], which use more powerful pretrained models than ours. 4.3. Results on PASCAL VOC 2012 Dataset We carry out experiments on the PASCAL VOC 2012 dataset to further evaluate the effectiveness of our method. Quantitative results of PASCAL VOC 2012 val set are Method BaseNet PAM CAM Mean IoU% Dilated FCN Res50 75.7 DANet Res50 ✓ ✓ 79.0 DANet Res101 ✓ ✓ 80.4",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00080",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 4: Ablation study on PASCAL VOC 2012 val set.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00081",
+      "page": 7,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "PAM represents Position Attention Module, CAM repre- sents Channel Attention Module. shown in Table. 4. Our attention modules improves perfor- mance signiﬁcantly, where DANet-50 exceeds the baseline by 3.3%. When we adopt a deeper network ResNet-101, the model further achieves a Mean IoU of 80.4%. Follow- ing [4, 28, 30], we employ the PASCAL VOC 2012 trainval set further ﬁne-tune our best model. The results of PASCAL VOC2012 on test set is are shown in Table 5.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00082",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Method Mean IoU%",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00083",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "FCN [13] 62.2 DeepLab-v2(Res101-COCO) [3] 71.6 Piecewise [11] 75.3 ResNet38 [10] 82.5 PSPNet(Res101) [30] 82.6 EncNet (Res101) [28] 82.9 DANet(Res101) 82.6",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00084",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 5: Segmentation results on PASCAL VOC 2012 test-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00085",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "ing set.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00086",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Method Mean IoU%",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00087",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "FCN-8s [13] 37.8 Piecewise [11] 43.3 DeepLab-v2 (Res101-COCO) [3] 45.7 ReﬁneNet (Res152) [10] 47.3 PSPNet (Res101) [30] 47.8 Ding et al.( Res101) [6] 51.6 EncNet (Res101) [28] 51.7 Dilated FCN(Res50) 44.3 DANet (Res50) 50.1 DANet (Res101) 52.6",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00088",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 6: Segmentation results on PASCAL Context testing",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00089",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "set. 4.4. Results on PASCAL Context Dataset In this subsection, we carry out experiments on the PAS- CAL Context dataset to further evaluate the effectiveness of our method. We adopt the same training and testing set- tings on PASCAL VOC 2012 dataset. Quantitative results of PASCAL Context are shown in Table. 6. The base- line (Dilated FCN-50) yields Mean IoU 44.3%. DANet-50 boosts the performance to 50.1%. Furthermore, with a deep pretrained network ResNet101, our model results achieve Mean IoU 52.6%, which outperforms previous methods",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00090",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "by a large margin. Among previous works, Deeplab-v2",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00091",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "and ReﬁneNet adopt multi-scale feature fusion by different atrous convolution or different stage of encoder. In addition, they trained their model with extra COCO data or adopt a deeper model (ResNet152) to improve their segmentation results. Different from the previous methods, we introduce attention modules to capture global dependencies explicitly, and the proposed method can achieve better performance. 4.5. Results on COCO Stuff Dataset We also conduct experiments on the COCO Stuff dataset to verify the generalization of our proposed network. Com-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00092",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Method Mean IoU%",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00093",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "FCN-8s [13] 22.7 DeepLab-v2(Res101) [3] 26.9 DAG-RNN [18] 31.2 ReﬁneNet (Res101) [10] 33.6 Ding et al.( Res101) [6] 35.7 Dilated FCN (Res50) 31.9 DANet (Res50) 37.2 DANet (Res101) 39.7",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00094",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Table 7: Segmentation results on COCO Stuff testing set.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00095",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "parisons with previous state-of-the-art methods are reported in Table. 7. Results show that our model achieves 39.7%",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00096",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "in Mean IoU, which outperforms these methods by a large",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00097",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "margin. Among the compared methods, DAG-RNN [18]",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00098",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "utilizes chain-RNNs for 2D images to model rich spatial de- pendencies, and Ding et al. [6] adopts a gating mechanism in the decoder stage for improving inconspicuous objects and background stuff segmentation. our method could cap- ture long-range contextual information more effectively and learn better feature representation in scene segmentation. 5. Conclusion In this paper, we have presented a Dual Attention Net- work (DANet) for scene segmentation, which adaptively integrates local semantic features using the self-attention mechanism. Speciﬁcally, we introduce a position attention module and a channel attention module to capture global dependencies in the spatial and channel dimensions respec- tively. The ablation experiments show that dual attention modules capture long-range contextual information effec- tively and give more precise segmentation results. Our at- tention network achieves outstanding performance consis- tently on four scene segmentation datasets, i.e. Cityscapes,...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00099",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "References",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00100",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[1] Wonmin Byeon, Thomas M. Breuel, Federico Raue, and",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00101",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Marcus Liwicki. Scene labeling with LSTM recurrent neu- ral networks. In IEEE Conference on Computer Vision and Pattern Recognition, CVPR, pages 3547–3555, 2015.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00102",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[2] Holger Caesar, Jasper R. R. Uijlings, and Vittorio Ferrari. Coco-stuff: Thing and stuff classes in context. CoRR, abs/1612.03716, 2016. [3] Liang-Chieh Chen, George Papandreou, Iasonas Kokkinos, Kevin Murphy, and Alan L. Yuille. Deeplab: Semantic im- age segmentation with deep convolutional nets, atrous con- volution, and fully connected crfs. IEEE Transactions on Pattern Analysis and Machine Intelligence., 40(4):834–848, 2018. [4] Liang-Chieh Chen, George Papandreou, Florian Schroff, and Hartwig Adam. Rethinking atrous convolution for semantic image segmentation. CoRR, abs/1706.05587, 2017. [5] Marius Cordts, Mohamed Omran, Sebastian Ramos, Timo Rehfeld, Markus Enzweiler, Rodrigo Benenson, Uwe Franke, Stefan Roth, and Bernt Schiele. The cityscapes dataset for semantic urban scene understanding. In IEEE Conference on Computer Vision and Pattern Recognition , pages 3213–3223, 2016. [6] Henghui Ding, Xudong Jiang, Bing Shuai, Ai Qun Liu, and Gang Wang. Context contrasted feature and...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00103",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[15] Chao Peng, Xiangyu Zhang, Gang Yu, Guiming Luo, and",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00104",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Jian Sun. Large kernel matters - improve semantic segmen-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00105",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "tation by global convolutional network. In IEEE Conference on Computer Vision and Pattern Recognition , pages 1743– 1751, 2017. [16] Olaf Ronneberger, Philipp Fischer, and Thomas Brox. U-net: Convolutional networks for biomedical image segmentation. In Medical Image Computing and Computer-Assisted Inter- vention, pages 234–241, 2015. [17] Tao Shen, Tianyi Zhou, Guodong Long, Jing Jiang, Shirui Pan, and Chengqi Zhang. Disan: Directional self-attention network for rnn/cnn-free language understanding. In Pro- ceedings of the Thirty-Second AAAI Conference on Artiﬁcial Intelligence, 2018. [18] Bing Shuai, Zhen Zuo, Bing Wang, and Gang Wang. Scene segmentation with dag-recurrent neural networks. IEEE Trans. Pattern Anal. Mach. Intell., pages 1480–1493, 2018. [19] Jinhui Tang, Richang Hong, Shuicheng Yan, Tat-Seng Chua, Guo-Jun Qi, and Ramesh Jain. Image annotation by k nn- sparse graph-based label propagation over noisily tagged web images. ACM Transactions on Intelligent Systems and",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00106",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Technology (TIST), 2(2):14, 2011.",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00107",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[20] Jinhui Tang, Lu Jin, Zechao Li, and Shenghua Gao. Rgb- d object recognition via incorporating latent data structure and prior knowledge. IEEE Transactions on Multimedia , 17(11):1899–1908, 2015. [21] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszko- reit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. In Advances in Neural Information Processing Systems 30, pages 6000–6010, 2017. [22] Panqu Wang, Pengfei Chen, Ye Yuan, Ding Liu, Zehua Huang, Xiaodi Hou, and Garrison W. Cottrell. Understand- ing convolution for semantic segmentation. In IEEE Win- ter Conference on Applications of Computer Vision , pages 1451–1460, 2018. [23] Xiaolong Wang, Ross Girshick, Abhinav Gupta, and Kaim- ing He. Non-Local Neural Networks. In CVPR, 2018. [24] Zifeng Wu, Chunhua Shen, and Anton van den Hengel. Wider or deeper: Revisiting the resnet model for visual recognition. arXiv preprint arXiv:1611.10080, 2016. [25] Maoke Yang, Kun Yu, Chi Zhang, Zhiwe...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00108",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[29] Han Zhang, Ian J. Goodfellow, Dimitris N. Metaxas, and Augustus Odena. Self-attention generative adversarial net- works. CoRR, abs/1805.08318, 2018. [30] Hengshuang Zhao, Jianping Shi, Xiaojuan Qi, Xiaogang Wang, and Jiaya Jia. Pyramid scene parsing network. In IEEE Conference on Computer Vision and Pattern Recogni- tion, pages 6230–6239, 2017. [31] Hengshuang Zhao, Yi Zhang, Shu Liu, Jianping Shi, Chen Change Loy, Dahua Lin, and Jiaya Jia. Psanet: Point-wise spatial attention network for scene parsing. In Proceedings of the European Conference on Computer Vision (ECCV) , pages 267–283, 2018.",
+      "source_type": "reference"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "warnings": [
+      {
+        "code": "ok",
+        "message": "Grounding verification passed with current v1 checks.",
+        "target": null,
+        "severity": "info"
+      }
+    ],
+    "anchor_count": 108
+  }
+}

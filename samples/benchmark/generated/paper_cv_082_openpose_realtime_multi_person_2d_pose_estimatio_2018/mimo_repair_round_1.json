@@ -1,0 +1,2422 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "实时多人2D姿态估计是机器理解图像和视频中人物的关键组件。现有方法面临挑战：图像中人数未知且位置/尺度任意；人与人之间的接触、遮挡和肢体关节导致复杂的空间干扰，使得部件关联困难；运行时复杂度随人数增加而增长，难以实现实时性能。",
+      "anchors": [
+        "anc_00005",
+        "anc_00007"
+      ]
+    },
+    "motivation": {
+      "summary": "传统自顶向下方法依赖人物检测器，其性能和速度受检测器限制，且运行时随人数线性增长。早期自底向上方法虽效率高，但最终解析需要昂贵的全局推理，耗时数分钟。需要一种既能保持高精度又能实现实时性能的自底向上方法。",
+      "anchors": [
+        "anc_00007",
+        "anc_00009",
+        "anc_00010"
+      ]
+    },
+    "core_idea": {
+      "summary": "提出一种基于部件亲和场（Part Affinity Fields, PAFs）的非参数化表示，用于学习关联图像中的身体部件。PAFs是一组2D向量场，编码肢体的位置和方向。通过一个CNN同时预测部件置信度图和PAFs，然后使用贪心解析算法进行部件关联，实现高效、准确的多人姿态估计。",
+      "anchors": [
+        "anc_00011",
+        "anc_00013"
+      ]
+    },
+    "method": {
+      "summary": "方法分为三个阶段：1) 使用CNN同时预测部件置信度图S和部件亲和场L；2) 通过二分图匹配将部件候选关联起来；3) 组装成完整的人体姿态。关键创新包括：仅优化PAF细化而非同时细化PAF和部件位置，显著提升速度和精度；提出首个结合身体和脚部关键点的检测器；发布OpenPose开源系统。",
+      "anchors": [
+        "anc_00013",
+        "anc_00014",
+        "anc_00015",
+        "anc_00016"
+      ]
+    },
+    "experiments": {
+      "summary": "在MPII和COCO数据集上进行评估。在MPII数据集上，方法在288张图像子集上比先前最优自底向上方法mAP提升8.5%，推理时间减少6个数量级。在COCO数据集上，新模型比原始工作AP提升6.9%。推理速度在NVIDIA GTX 1080 Ti上达到约22 FPS，且速度不随人数增加而显著增长。",
+      "anchors": [
+        "anc_00156",
+        "anc_00158",
+        "anc_00191",
+        "anc_00192",
+        "anc_00137",
+        "anc_00199",
+        "anc_00203",
+        "anc_00205"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "PAFs是一种有效的部件关联表示，能编码肢体位置和方向。",
+        "anchors": [
+          "anc_00011",
+          "anc_00069",
+          "anc_00158"
+        ]
+      },
+      {
+        "claim_id": "claim_2",
+        "claim": "仅细化PAF而非同时细化PAF和部件位置，能同时提升速度和精度。",
+        "anchors": [
+          "anc_00015",
+          "anc_00016",
+          "anc_00194",
+          "anc_00195",
+          "anc_00196"
+        ]
+      },
+      {
+        "claim_id": "claim_3",
+        "claim": "结合身体和脚部关键点的单一模型能保持各组件精度并减少推理时间。",
+        "anchors": [
+          "anc_00016",
+          "anc_00132",
+          "anc_00191",
+          "anc_00192",
+          "anc_00207",
+          "anc_00233",
+          "anc_00235"
+        ]
+      },
+      {
+        "claim_id": "claim_4",
+        "claim": "贪心解析算法足以产生高质量解析，且效率不受人数影响。",
+        "anchors": [
+          "anc_00011",
+          "anc_00137",
+          "anc_00199",
+          "anc_00203",
+          "anc_00205"
+        ]
+      },
+      {
+        "claim_id": "claim_5",
+        "claim": "OpenPose是首个开源的实时多人2D姿态检测系统。",
+        "anchors": [
+          "anc_00001",
+          "anc_00003",
+          "anc_00016"
+        ]
+      },
+      {
+        "claim_id": "claim_6",
+        "claim": "方法可泛化到其他关键点检测任务（如车辆）。",
+        "anchors": [
+          "anc_00242",
+          "anc_00244",
+          "anc_00249",
+          "anc_00252"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "对于非典型姿态（如倒置）和严重遮挡情况，预测通常会失败。",
+        "anchors": [
+          "anc_00254",
+          "anc_00246"
+        ]
+      },
+      {
+        "limitation": "脚部关键点检测的抖动和错误较多，可能因训练数据不足（14K实例 vs 身体100K实例）。",
+        "anchors": [
+          "anc_00236"
+        ]
+      },
+      {
+        "limitation": "自底向上方法的精度仍略低于自顶向下方法，主要受限于分辨率。",
+        "anchors": [
+          "anc_00216",
+          "anc_00217"
+        ]
+      },
+      {
+        "limitation": "当前性能指标仅基于关键点精度，未考虑速度。",
+        "anchors": [
+          "anc_00218"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "输入图像",
+        "label": "Input",
+        "summary": "整个图像作为CNN的输入。",
+        "description": "方法接收整个图像作为输入，无需预先裁剪或检测人物。",
+        "type": "input",
+        "anchors": [
+          "anc_00013"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "CNN特征提取",
+        "label": "Feature Extraction",
+        "summary": "使用CNN从输入图像中提取特征。",
+        "description": "使用VGG-19的前10层作为初始化特征提取器。",
+        "type": "process",
+        "anchors": [
+          "anc_00029",
+          "anc_00030"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "多阶段CNN预测",
+        "label": "Multi-stage Prediction",
+        "summary": "通过多阶段CNN同时预测部件置信度图和PAFs。",
+        "description": "第一组阶段预测PAFs (L_t)，最后一组阶段预测置信度图 (S_t)。每个阶段的预测及其对应的图像特征被连接起来用于后续阶段。",
+        "type": "process",
+        "anchors": [
+          "anc_00029",
+          "anc_00030",
+          "anc_00044",
+          "anc_00049"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "部件置信度图",
+        "label": "Part Confidence Maps",
+        "summary": "预测每个身体部件位置的置信度图。",
+        "description": "集合 S = (S1, S2,..., SJ) 包含J个置信度图，每个图表示一个身体部件在图像中每个像素位置的置信度。",
+        "type": "output",
+        "anchors": [
+          "anc_00034"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "部件亲和场",
+        "label": "Part Affinity Fields (PAFs)",
+        "summary": "预测编码肢体位置和方向的2D向量场。",
+        "description": "集合 L = (L1, L2,..., LC) 包含C个向量场，每个场对应一个肢体连接，编码该肢体的位置和方向信息。",
+        "type": "output",
+        "anchors": [
+          "anc_00036",
+          "anc_00011"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "二分图匹配",
+        "label": "Bipartite Matching",
+        "summary": "使用贪心算法进行部件关联。",
+        "description": "基于PAFs计算的关联分数，对每个肢体连接执行二分图匹配，将部件候选关联到不同的人。",
+        "type": "process",
+        "anchors": [
+          "anc_00013",
+          "anc_00067"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "姿态组装",
+        "label": "Pose Assembly",
+        "summary": "将关联的部件组装成完整的人体姿态。",
+        "description": "将匹配的部件组装成完整的人体姿态，输出所有人的2D关键点。",
+        "type": "output",
+        "anchors": [
+          "anc_00013"
+        ]
+      },
+      {
+        "node_id": "node_008",
+        "title": "损失函数",
+        "label": "Loss Function",
+        "summary": "在每个阶段末尾应用L2损失进行监督。",
+        "description": "使用L2损失在每个阶段末尾对预测的置信度图和PAFs与真值进行监督。损失函数在空间上加权，以处理未完全标注的数据集。",
+        "type": "loss",
+        "anchors": [
+          "anc_00055",
+          "anc_00056"
+        ]
+      },
+      {
+        "node_id": "node_009",
+        "title": "PAF细化策略",
+        "label": "PAF Refinement Strategy",
+        "summary": "仅细化PAF而非同时细化PAF和部件位置。",
+        "description": "实验证明，仅细化PAF（而非同时细化PAF和部件位置）能显著提升速度和精度。新架构增加网络深度但移除部件细化阶段。",
+        "type": "design_choice",
+        "anchors": [
+          "anc_00015",
+          "anc_00016",
+          "anc_00194",
+          "anc_00195",
+          "anc_00196"
+        ]
+      },
+      {
+        "node_id": "node_010",
+        "title": "身体+脚部关键点检测器",
+        "label": "Body+Foot Keypoint Detector",
+        "summary": "首个结合身体和脚部关键点的检测器。",
+        "description": "基于内部标注的脚部数据集（15K实例）训练，将身体和脚部关键点检测结合到一个模型中，减少推理时间并保持精度。",
+        "type": "extension",
+        "anchors": [
+          "anc_00016",
+          "anc_00132",
+          "anc_00150",
+          "anc_00222",
+          "anc_00223",
+          "anc_00225",
+          "anc_00227",
+          "anc_00233",
+          "anc_00235"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "输入",
+        "anchors": [
+          "anc_00013"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "特征",
+        "anchors": [
+          "anc_00029",
+          "anc_00030"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "预测",
+        "anchors": [
+          "anc_00034",
+          "anc_00049"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_003",
+        "target": "node_005",
+        "label": "预测",
+        "anchors": [
+          "anc_00036",
+          "anc_00044"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_004",
+        "target": "node_006",
+        "label": "部件候选",
+        "anchors": [
+          "anc_00063"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_005",
+        "target": "node_006",
+        "label": "关联分数",
+        "anchors": [
+          "anc_00067",
+          "anc_00069"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_006",
+        "target": "node_007",
+        "label": "关联结果",
+        "anchors": [
+          "anc_00013"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_003",
+        "target": "node_008",
+        "label": "监督",
+        "anchors": [
+          "anc_00055"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_009",
+        "target": "node_003",
+        "label": "架构设计",
+        "anchors": [
+          "anc_00015",
+          "anc_00016"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_010",
+        "target": "node_003",
+        "label": "扩展",
+        "anchors": [
+          "anc_00016",
+          "anc_00132"
+        ],
+        "description": ""
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00003",
+        "anc_00014"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00014",
+        "anc_00015",
+        "anc_00016"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "同时细化PAF和部件置信度图，使用7x7卷积核。",
+        "after": "仅细化PAF，使用3层3x3卷积核替代7x7卷积核，增加网络深度。",
+        "why_it_matters": "仅细化PAF能显著提升速度和精度。新架构速度提升约200%，精度提升约7%。",
+        "anchors": [
+          "anc_00015",
+          "anc_00016",
+          "anc_00030",
+          "anc_00192",
+          "anc_00194",
+          "anc_00195",
+          "anc_00196"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "仅检测身体关键点。",
+        "after": "结合身体和脚部关键点检测，使用内部脚部数据集（15K实例）训练。",
+        "why_it_matters": "结合检测器减少推理时间（相比顺序运行），并保持各组件精度。发布首个公开的脚部关键点数据集。",
+        "anchors": [
+          "anc_00016",
+          "anc_00132",
+          "anc_00150",
+          "anc_00222",
+          "anc_00223",
+          "anc_00225",
+          "anc_00227",
+          "anc_00233",
+          "anc_00235"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "使用MPII和COCO数据集训练。",
+        "after": "新增脚部关键点数据集（15K实例），并用于训练结合模型。",
+        "why_it_matters": "提供更全面的姿态估计（包括脚部），并公开数据集以促进研究。",
+        "anchors": [
+          "anc_00016",
+          "anc_00150",
+          "anc_00222"
+        ],
+        "delta_id": "delta_3"
+      },
+      {
+        "before": "推理速度受人数影响（自顶向下方法）或解析耗时（早期自底向上方法）。",
+        "after": "推理速度基本不受人数影响，达到实时性能（约22 FPS）。",
+        "why_it_matters": "使方法适用于实际应用场景，如视频分析、人机交互。",
+        "anchors": [
+          "anc_00137",
+          "anc_00199",
+          "anc_00203",
+          "anc_00205"
+        ],
+        "delta_id": "delta_4"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "L_t = \\phi_t(F, L_{t-1}), \\forall t \\in \\{1, ..., T_P\\}",
+        "variables": [
+          {
+            "name": "L_t",
+            "description": "第t阶段预测的部件亲和场（PAFs）。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00044"
+            ]
+          },
+          {
+            "name": "\\phi_t",
+            "description": "第t阶段用于推理PAFs的CNN。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00044"
+            ]
+          },
+          {
+            "name": "F",
+            "description": "从输入图像提取的特征。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00044"
+            ]
+          },
+          {
+            "name": "L_{t-1}",
+            "description": "前一阶段预测的PAFs。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00044"
+            ]
+          },
+          {
+            "name": "T_P",
+            "description": "PAF预测的总阶段数。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00044"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "PAFs通过多阶段CNN迭代细化。每个阶段利用前一阶段的PAFs预测和图像特征来改进当前预测。",
+        "anchors": [
+          "anc_00044"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "S_t = \\rho_t(F, L_{T_P}, S_{t-1}), \\forall t \\in \\{T_P+1, ..., T_P+T_C\\}",
+        "variables": [
+          {
+            "name": "S_t",
+            "description": "第t阶段预测的部件置信度图。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00049"
+            ]
+          },
+          {
+            "name": "\\rho_t",
+            "description": "第t阶段用于推理置信度图的CNN。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00049"
+            ]
+          },
+          {
+            "name": "F",
+            "description": "从输入图像提取的特征。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00049"
+            ]
+          },
+          {
+            "name": "L_{T_P}",
+            "description": "最终阶段预测的PAFs。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00049"
+            ]
+          },
+          {
+            "name": "S_{t-1}",
+            "description": "前一阶段预测的置信度图。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00049"
+            ]
+          },
+          {
+            "name": "T_C",
+            "description": "置信度图预测的总阶段数。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00049"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "置信度图在PAFs预测完成后开始预测。每个阶段利用最终PAFs、前一阶段置信度图和图像特征来改进当前预测。",
+        "anchors": [
+          "anc_00049"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "L_{loss} = \\sum_{t=1}^{T_P} \\sum_{p} W(p) \\cdot \\| L_t(p) - L_t^*(p) \\|_2^2 + \\sum_{t=T_P+1}^{T_P+T_C} \\sum_{p} W(p) \\cdot \\| S_t(p) - S_t^*(p) \\|_2^2",
+        "variables": [
+          {
+            "name": "L_{loss}",
+            "description": "总损失函数。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00055"
+            ]
+          },
+          {
+            "name": "W(p)",
+            "description": "二进制掩码，W(p)=0表示像素p在图像中未标注。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00056"
+            ]
+          },
+          {
+            "name": "L_t(p)",
+            "description": "第t阶段在像素p处预测的PAF值。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00055"
+            ]
+          },
+          {
+            "name": "L_t^*(p)",
+            "description": "第t阶段在像素p处的PAF真值。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00055"
+            ]
+          },
+          {
+            "name": "S_t(p)",
+            "description": "第t阶段在像素p处预测的置信度值。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00055"
+            ]
+          },
+          {
+            "name": "S_t^*(p)",
+            "description": "第t阶段在像素p处的置信度真值。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00055"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "损失函数在每个阶段末尾计算，对PAFs和置信度图分别计算L2损失。使用空间加权掩码处理未完全标注的数据集。",
+        "anchors": [
+          "anc_00055",
+          "anc_00056"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "latex": "E = \\{ (d_{j_1}, d_{j_2}) \\mid j_1, j_2 \\in \\{1,...,J\\} \\}",
+        "variables": [
+          {
+            "name": "E",
+            "description": "肢体连接集合，每个连接由两个部件索引定义。",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00067"
+            ]
+          },
+          {
+            "name": "d_{j_1}, d_{j_2}",
+            "description": "部件j1和j2的候选位置。",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00067"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "定义肢体连接，用于后续的二分图匹配。每个连接对应一个PAF场。",
+        "anchors": [
+          "anc_00067"
+        ]
+      },
+      {
+        "formula_id": "formula_005",
+        "latex": "score(d_{j_1}, d_{j_2}) = \\int_{u=0}^{u=1} L_c(u) \\cdot \\frac{d_{j_2} - d_{j_1}}{\\| d_{j_2} - d_{j_1} \\|} du",
+        "variables": [
+          {
+            "name": "score(d_{j_1}, d_{j_2})",
+            "description": "候选部件d_{j_1}和d_{j_2}之间的关联分数。",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00069"
+            ]
+          },
+          {
+            "name": "L_c(u)",
+            "description": "在连接d_{j_1}和d_{j_2}的线段上位置u处的PAF值。",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00069"
+            ]
+          },
+          {
+            "name": "u",
+            "description": "线段上的位置参数，u从0到1。",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00069"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "通过沿连接两个候选部件的线段积分PAF值来计算关联分数。分数衡量PAF方向与连接方向的一致性。",
+        "anchors": [
+          "anc_00069"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "dataset": "MPII",
+        "metric": "mAP",
+        "value": "75.6%",
+        "description": "在MPII测试集上使用3尺度搜索达到75.6% mAP。",
+        "anchors": [
+          "anc_00158"
+        ]
+      },
+      {
+        "dataset": "COCO test-dev",
+        "metric": "AP",
+        "value": "65.3%",
+        "description": "在COCO test-dev上，5 PAF - 1 CM模型达到65.3% AP。",
+        "anchors": [
+          "anc_00192"
+        ]
+      },
+      {
+        "dataset": "COCO validation",
+        "metric": "AP",
+        "value": "65.3%",
+        "description": "在COCO验证集上，5 PAF - 1 CM模型达到65.3% AP。",
+        "anchors": [
+          "anc_00192"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "experiment": "PAF细化 vs 部件细化",
+        "description": "固定总阶段数为6，比较不同PAF和置信度图阶段分配的效果。证明PAF细化比部件细化更重要。",
+        "result": "仅细化PAF（5 PAF - 1 CM）比同时细化（3 PAF - 3 CM）AP高4.3%。",
+        "anchors": [
+          "anc_00194",
+          "anc_00195",
+          "anc_00196"
+        ]
+      },
+      {
+        "experiment": "网络深度与卷积核大小",
+        "description": "用3层3x3卷积核替代7x7卷积核，增加网络深度。",
+        "result": "速度提升约200%，精度提升约7%。",
+        "anchors": [
+          "anc_00016",
+          "anc_00030"
+        ]
+      },
+      {
+        "experiment": "身体+脚部模型 vs 身体模型",
+        "description": "比较结合模型与仅身体模型在COCO验证集上的性能。",
+        "result": "结合模型比原始工作AP提升6.9%，且推理速度更快。",
+        "anchors": [
+          "anc_00191",
+          "anc_00192",
+          "anc_00207"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "experiment": "不同骨架结构",
+        "description": "比较不同骨架结构（如最小边、树结构等）在自定义验证集上的性能。",
+        "result": "使用最小边的树结构性能最佳。",
+        "anchors": [
+          "anc_00158",
+          "anc_00169",
+          "anc_00171"
+        ]
+      },
+      {
+        "experiment": "未标注人员掩码",
+        "description": "训练时使用掩码忽略未标注人员。",
+        "result": "性能提升2.3%。",
+        "anchors": [
+          "anc_00179"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "experiment": "推理时间 vs 人数",
+        "description": "分析推理时间随人数增加的变化。",
+        "result": "OpenPose推理时间基本不变，而Mask R-CNN和Alpha-Pose运行时随人数线性增长。",
+        "anchors": [
+          "anc_00199",
+          "anc_00203",
+          "anc_00205"
+        ]
+      },
+      {
+        "experiment": "不同模型推理时间",
+        "description": "比较MPII、COCO和身体+脚部模型的推理时间。",
+        "result": "身体+脚部模型GPU推理时间36ms，CPU推理时间10396ms。",
+        "anchors": [
+          "anc_00207",
+          "anc_00209"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "experiment": "失败案例分析",
+        "description": "分析MPII、COCO和COCO+脚部验证集上的主要失败案例。",
+        "result": "失败案例包括非典型姿态、遮挡、重叠部件、脚部遮挡等。",
+        "anchors": [
+          "anc_00254",
+          "anc_00246",
+          "anc_00248"
+        ]
+      },
+      {
+        "experiment": "车辆关键点检测",
+        "description": "将方法泛化到车辆关键点检测任务。",
+        "result": "在车辆关键点验证集上，AP和AR均高于身体关键点任务。",
+        "anchors": [
+          "anc_00242",
+          "anc_00244",
+          "anc_00249",
+          "anc_00252"
+        ]
+      }
+    ],
+    "human_eval": [],
+    "benchmark": [
+      {
+        "dataset": "MPII",
+        "description": "在MPII数据集上评估，使用PCKh指标。",
+        "anchors": [
+          "anc_00156"
+        ]
+      },
+      {
+        "dataset": "COCO",
+        "description": "在COCO关键点挑战数据集上评估，使用AP指标。",
+        "anchors": [
+          "anc_00154",
+          "anc_00184",
+          "anc_00186"
+        ]
+      },
+      {
+        "dataset": "脚部数据集",
+        "description": "在内部脚部数据集上评估，使用AP和AR指标。",
+        "anchors": [
+          "anc_00222",
+          "anc_00223",
+          "anc_00233",
+          "anc_00235"
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "metric": "推理速度",
+        "value": "约22 FPS",
+        "description": "在NVIDIA GTX 1080 Ti上达到约22 FPS。",
+        "anchors": [
+          "anc_00137"
+        ]
+      },
+      {
+        "metric": "解析时间",
+        "value": "0.58 ms (9人)",
+        "description": "解析时间比CNN处理时间低两个数量级。",
+        "anchors": [
+          "anc_00205"
+        ]
+      }
+    ],
+    "experiments": [
+      {
+        "dataset": "MPII",
+        "metric": "mAP",
+        "value": "75.6%",
+        "description": "在MPII测试集上使用3尺度搜索达到75.6% mAP。",
+        "anchors": [
+          "anc_00158"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "main_result_1",
+        "baseline": [],
+        "metrics": [
+          "mAP"
+        ],
+        "result_summary": "75.6%",
+        "what_it_tries_to_prove": "在MPII测试集上使用3尺度搜索达到75.6% mAP。",
+        "evidence_strength": "strong"
+      },
+      {
+        "dataset": "COCO test-dev",
+        "metric": "AP",
+        "value": "65.3%",
+        "description": "在COCO test-dev上，5 PAF - 1 CM模型达到65.3% AP。",
+        "anchors": [
+          "anc_00192"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "main_result",
+        "name": "main_result_2",
+        "baseline": [],
+        "metrics": [
+          "AP"
+        ],
+        "result_summary": "65.3%",
+        "what_it_tries_to_prove": "在COCO test-dev上，5 PAF - 1 CM模型达到65.3% AP。",
+        "evidence_strength": "strong"
+      },
+      {
+        "dataset": "COCO validation",
+        "metric": "AP",
+        "value": "65.3%",
+        "description": "在COCO验证集上，5 PAF - 1 CM模型达到65.3% AP。",
+        "anchors": [
+          "anc_00192"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "main_result",
+        "name": "main_result_3",
+        "baseline": [],
+        "metrics": [
+          "AP"
+        ],
+        "result_summary": "65.3%",
+        "what_it_tries_to_prove": "在COCO验证集上，5 PAF - 1 CM模型达到65.3% AP。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "PAF细化 vs 部件细化",
+        "description": "固定总阶段数为6，比较不同PAF和置信度图阶段分配的效果。证明PAF细化比部件细化更重要。",
+        "result": "仅细化PAF（5 PAF - 1 CM）比同时细化（3 PAF - 3 CM）AP高4.3%。",
+        "anchors": [
+          "anc_00194",
+          "anc_00195",
+          "anc_00196"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "ablation",
+        "name": "PAF细化 vs 部件细化",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "仅细化PAF（5 PAF - 1 CM）比同时细化（3 PAF - 3 CM）AP高4.3%。",
+        "what_it_tries_to_prove": "固定总阶段数为6，比较不同PAF和置信度图阶段分配的效果。证明PAF细化比部件细化更重要。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "网络深度与卷积核大小",
+        "description": "用3层3x3卷积核替代7x7卷积核，增加网络深度。",
+        "result": "速度提升约200%，精度提升约7%。",
+        "anchors": [
+          "anc_00016",
+          "anc_00030"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "ablation",
+        "name": "网络深度与卷积核大小",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "速度提升约200%，精度提升约7%。",
+        "what_it_tries_to_prove": "用3层3x3卷积核替代7x7卷积核，增加网络深度。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "身体+脚部模型 vs 身体模型",
+        "description": "比较结合模型与仅身体模型在COCO验证集上的性能。",
+        "result": "结合模型比原始工作AP提升6.9%，且推理速度更快。",
+        "anchors": [
+          "anc_00191",
+          "anc_00192",
+          "anc_00207"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "ablation",
+        "name": "身体+脚部模型 vs 身体模型",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "结合模型比原始工作AP提升6.9%，且推理速度更快。",
+        "what_it_tries_to_prove": "比较结合模型与仅身体模型在COCO验证集上的性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "不同骨架结构",
+        "description": "比较不同骨架结构（如最小边、树结构等）在自定义验证集上的性能。",
+        "result": "使用最小边的树结构性能最佳。",
+        "anchors": [
+          "anc_00158",
+          "anc_00169",
+          "anc_00171"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "robustness",
+        "name": "不同骨架结构",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "使用最小边的树结构性能最佳。",
+        "what_it_tries_to_prove": "比较不同骨架结构（如最小边、树结构等）在自定义验证集上的性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "未标注人员掩码",
+        "description": "训练时使用掩码忽略未标注人员。",
+        "result": "性能提升2.3%。",
+        "anchors": [
+          "anc_00179"
+        ],
+        "experiment_id": "experiment_8",
+        "type": "robustness",
+        "name": "未标注人员掩码",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "性能提升2.3%。",
+        "what_it_tries_to_prove": "训练时使用掩码忽略未标注人员。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "推理时间 vs 人数",
+        "description": "分析推理时间随人数增加的变化。",
+        "result": "OpenPose推理时间基本不变，而Mask R-CNN和Alpha-Pose运行时随人数线性增长。",
+        "anchors": [
+          "anc_00199",
+          "anc_00203",
+          "anc_00205"
+        ],
+        "experiment_id": "experiment_9",
+        "type": "scaling",
+        "name": "推理时间 vs 人数",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "OpenPose推理时间基本不变，而Mask R-CNN和Alpha-Pose运行时随人数线性增长。",
+        "what_it_tries_to_prove": "分析推理时间随人数增加的变化。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "不同模型推理时间",
+        "description": "比较MPII、COCO和身体+脚部模型的推理时间。",
+        "result": "身体+脚部模型GPU推理时间36ms，CPU推理时间10396ms。",
+        "anchors": [
+          "anc_00207",
+          "anc_00209"
+        ],
+        "experiment_id": "experiment_10",
+        "type": "scaling",
+        "name": "不同模型推理时间",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "身体+脚部模型GPU推理时间36ms，CPU推理时间10396ms。",
+        "what_it_tries_to_prove": "比较MPII、COCO和身体+脚部模型的推理时间。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "失败案例分析",
+        "description": "分析MPII、COCO和COCO+脚部验证集上的主要失败案例。",
+        "result": "失败案例包括非典型姿态、遮挡、重叠部件、脚部遮挡等。",
+        "anchors": [
+          "anc_00254",
+          "anc_00246",
+          "anc_00248"
+        ],
+        "experiment_id": "experiment_11",
+        "type": "case_study",
+        "name": "失败案例分析",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "失败案例包括非典型姿态、遮挡、重叠部件、脚部遮挡等。",
+        "what_it_tries_to_prove": "分析MPII、COCO和COCO+脚部验证集上的主要失败案例。",
+        "evidence_strength": "strong"
+      },
+      {
+        "experiment": "车辆关键点检测",
+        "description": "将方法泛化到车辆关键点检测任务。",
+        "result": "在车辆关键点验证集上，AP和AR均高于身体关键点任务。",
+        "anchors": [
+          "anc_00242",
+          "anc_00244",
+          "anc_00249",
+          "anc_00252"
+        ],
+        "experiment_id": "experiment_12",
+        "type": "case_study",
+        "name": "车辆关键点检测",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "在车辆关键点验证集上，AP和AR均高于身体关键点任务。",
+        "what_it_tries_to_prove": "将方法泛化到车辆关键点检测任务。",
+        "evidence_strength": "strong"
+      },
+      {
+        "dataset": "MPII",
+        "description": "在MPII数据集上评估，使用PCKh指标。",
+        "anchors": [
+          "anc_00156"
+        ],
+        "experiment_id": "experiment_13",
+        "type": "benchmark",
+        "name": "benchmark_13",
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "在MPII数据集上评估，使用PCKh指标。",
+        "what_it_tries_to_prove": "在MPII数据集上评估，使用PCKh指标。",
+        "evidence_strength": "strong"
+      },
+      {
+        "dataset": "COCO",
+        "description": "在COCO关键点挑战数据集上评估，使用AP指标。",
+        "anchors": [
+          "anc_00154",
+          "anc_00184",
+          "anc_00186"
+        ],
+        "experiment_id": "experiment_14",
+        "type": "benchmark",
+        "name": "benchmark_14",
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "在COCO关键点挑战数据集上评估，使用AP指标。",
+        "what_it_tries_to_prove": "在COCO关键点挑战数据集上评估，使用AP指标。",
+        "evidence_strength": "strong"
+      },
+      {
+        "dataset": "脚部数据集",
+        "description": "在内部脚部数据集上评估，使用AP和AR指标。",
+        "anchors": [
+          "anc_00222",
+          "anc_00223",
+          "anc_00233",
+          "anc_00235"
+        ],
+        "experiment_id": "experiment_15",
+        "type": "benchmark",
+        "name": "benchmark_15",
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "在内部脚部数据集上评估，使用AP和AR指标。",
+        "what_it_tries_to_prove": "在内部脚部数据集上评估，使用AP和AR指标。",
+        "evidence_strength": "strong"
+      },
+      {
+        "metric": "推理速度",
+        "value": "约22 FPS",
+        "description": "在NVIDIA GTX 1080 Ti上达到约22 FPS。",
+        "anchors": [
+          "anc_00137"
+        ],
+        "experiment_id": "experiment_16",
+        "type": "efficiency",
+        "name": "efficiency_16",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [
+          "推理速度"
+        ],
+        "result_summary": "约22 FPS",
+        "what_it_tries_to_prove": "在NVIDIA GTX 1080 Ti上达到约22 FPS。",
+        "evidence_strength": "strong"
+      },
+      {
+        "metric": "解析时间",
+        "value": "0.58 ms (9人)",
+        "description": "解析时间比CNN处理时间低两个数量级。",
+        "anchors": [
+          "anc_00205"
+        ],
+        "experiment_id": "experiment_17",
+        "type": "efficiency",
+        "name": "efficiency_17",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [
+          "解析时间"
+        ],
+        "result_summary": "0.58 ms (9人)",
+        "what_it_tries_to_prove": "解析时间比CNN处理时间低两个数量级。",
+        "evidence_strength": "strong"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "PAFs是一种有效的部件关联表示，能编码肢体位置和方向。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00011",
+          "anc_00069",
+          "anc_00158"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_1",
+        "evidence": [
+          {
+            "evidence_id": "evidence_1_1",
+            "description": "在MPII数据集上，使用PAFs的自底向上方法比先前最优方法mAP提升8.5%。",
+            "anchors": [
+              "anc_00158"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_1_2",
+            "description": "PAFs通过沿连接两个候选部件的线段积分PAF值来计算关联分数，衡量PAF方向与连接方向的一致性。",
+            "anchors": [
+              "anc_00069"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "仅细化PAF而非同时细化PAF和部件位置，能同时提升速度和精度。",
+        "evidence_source_type": "消融实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00015",
+          "anc_00016",
+          "anc_00194",
+          "anc_00195",
+          "anc_00196"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_2",
+        "evidence": [
+          {
+            "evidence_id": "evidence_2_1",
+            "description": "消融实验表明，仅细化PAF（5 PAF - 1 CM）比同时细化（3 PAF - 3 CM）AP高4.3%。",
+            "anchors": [
+              "anc_00194",
+              "anc_00195",
+              "anc_00196"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_2_2",
+            "description": "新架构增加网络深度但移除部件细化阶段，速度提升约200%，精度提升约7%。",
+            "anchors": [
+              "anc_00016",
+              "anc_00030"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "结合身体和脚部关键点的单一模型能保持各组件精度并减少推理时间。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00016",
+          "anc_00132",
+          "anc_00191",
+          "anc_00192",
+          "anc_00207",
+          "anc_00233",
+          "anc_00235"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_3",
+        "evidence": [
+          {
+            "evidence_id": "evidence_3_1",
+            "description": "结合模型比原始工作AP提升6.9%，且推理速度更快。",
+            "anchors": [
+              "anc_00191",
+              "anc_00192",
+              "anc_00207"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_3_2",
+            "description": "在脚部数据集上，结合模型达到77.9% AP和82.5% AR。",
+            "anchors": [
+              "anc_00233",
+              "anc_00235"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "贪心解析算法足以产生高质量解析，且效率不受人数影响。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00011",
+          "anc_00137",
+          "anc_00199",
+          "anc_00203",
+          "anc_00205"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_4",
+        "evidence": [
+          {
+            "evidence_id": "evidence_4_1",
+            "description": "OpenPose推理时间基本不变，而Mask R-CNN和Alpha-Pose运行时随人数线性增长。",
+            "anchors": [
+              "anc_00199",
+              "anc_00203",
+              "anc_00205"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_4_2",
+            "description": "解析时间比CNN处理时间低两个数量级，例如解析9人仅需0.58ms。",
+            "anchors": [
+              "anc_00205"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "OpenPose是首个开源的实时多人2D姿态检测系统。",
+        "evidence_source_type": "论文陈述",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00001",
+          "anc_00003",
+          "anc_00016"
+        ],
+        "risk_flags": [
+          "需要验证是否确实是首个开源系统。"
+        ],
+        "claim_id": "claim_5",
+        "evidence": [
+          {
+            "evidence_id": "evidence_5_1",
+            "description": "论文明确声明OpenPose是首个开源的实时多人2D姿态检测系统。",
+            "anchors": [
+              "anc_00001",
+              "anc_00003"
+            ],
+            "strength": "medium"
+          }
+        ]
+      },
+      {
+        "claim": "方法可泛化到其他关键点检测任务（如车辆）。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00242",
+          "anc_00244",
+          "anc_00249",
+          "anc_00252"
+        ],
+        "risk_flags": [
+          "仅在一个简单数据集上验证。"
+        ],
+        "claim_id": "claim_6",
+        "evidence": [
+          {
+            "evidence_id": "evidence_6_1",
+            "description": "在车辆关键点验证集上，AP和AR均高于身体关键点任务。",
+            "anchors": [
+              "anc_00249",
+              "anc_00252"
+            ],
+            "strength": "medium"
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "Part Affinity Fields (PAFs)": "部件亲和场，一组2D向量场，编码肢体的位置和方向信息，用于关联身体部件。",
+    "Confidence Maps": "置信度图，表示每个身体部件在图像中每个像素位置的置信度。",
+    "Bipartite Matching": "二分图匹配，一种贪心算法，用于将部件候选关联到不同的人。",
+    "Bottom-up": "自底向上方法，先检测所有部件，再进行关联。",
+    "Top-down": "自顶向下方法，先检测人物，再对每个人进行姿态估计。",
+    "mAP": "平均精度均值，用于评估关键点检测性能。",
+    "AP": "平均精度，COCO数据集的主要评估指标。",
+    "PCKh": "头部归一化的正确关键点百分比，MPII数据集的评估指标。",
+    "OKS": "对象关键点相似度，COCO数据集用于衡量关键点检测精度的指标。",
+    "OpenPose": "本文提出的开源实时多人2D姿态检测系统。",
+    "terms": []
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        {
+          "name": "MPII Human Pose Dataset",
+          "description": "多人姿态估计数据集，包含14个身体部件。",
+          "anchors": [
+            "anc_00154",
+            "anc_00156"
+          ]
+        },
+        {
+          "name": "COCO Keypoint Challenge Dataset",
+          "description": "多人姿态估计数据集，包含17个关键点（12个身体部件和5个面部关键点）。",
+          "anchors": [
+            "anc_00154"
+          ]
+        },
+        {
+          "name": "Foot Keypoint Dataset",
+          "description": "内部脚部关键点数据集，包含15K实例，是COCO数据集的子集。",
+          "anchors": [
+            "anc_00016",
+            "anc_00150",
+            "anc_00222"
+          ]
+        }
+      ],
+      "required_models": [
+        {
+          "name": "VGG-19",
+          "description": "用于特征提取的预训练CNN模型。",
+          "anchors": [
+            "anc_00029",
+            "anc_00030"
+          ]
+        }
+      ],
+      "required_compute": [
+        {
+          "type": "GPU",
+          "description": "NVIDIA GTX 1080 Ti或类似GPU用于训练和推理。",
+          "anchors": [
+            "anc_00137",
+            "anc_00199",
+            "anc_00207"
+          ]
+        }
+      ],
+      "code_available": {
+        "available": true,
+        "url": "https://github.com/CMU-Perceptual-Computing-Lab/openpose",
+        "anchors": [
+          "anc_00261"
+        ]
+      },
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 准备数据集：下载MPII、COCO和脚部数据集。",
+          "anchors": [
+            "anc_00154",
+            "anc_00156",
+            "anc_00222"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 预处理数据：生成部件置信度图和PAFs的真值。",
+          "anchors": [
+            "anc_00055",
+            "anc_00056"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 训练模型：使用多阶段CNN训练，先预测PAFs，再预测置信度图。",
+          "anchors": [
+            "anc_00029",
+            "anc_00030",
+            "anc_00044",
+            "anc_00049"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "4. 评估模型：在MPII和COCO数据集上评估mAP和AP。",
+          "anchors": [
+            "anc_00156",
+            "anc_00158",
+            "anc_00184",
+            "anc_00186"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "5. 部署推理：使用OpenPose库进行实时推理。",
+          "anchors": [
+            "anc_00137",
+            "anc_00261"
+          ]
+        }
+      ],
+      "missing_details": [
+        "脚部数据集的具体标注格式和预处理步骤。",
+        "多阶段CNN的详细架构参数（如每层通道数、卷积核大小）。",
+        "训练超参数（如学习率、批量大小、优化器）。",
+        "数据增强策略的具体实现。",
+        "二分图匹配算法的具体实现细节。"
+      ],
+      "risk_points": [
+        "脚部数据集规模较小（15K实例），可能导致脚部检测器泛化能力不足。",
+        "自底向上方法在复杂遮挡场景下可能仍存在精度瓶颈。",
+        "实时性能依赖于特定硬件（如NVIDIA GTX 1080 Ti），在其他硬件上可能无法达到相同速度。"
+      ]
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-03T17:40:15+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_cv_082_openpose_realtime_multi_person_2d_pose_estimatio_2018",
+    "title": "OpenPose: Realtime Multi-Person 2D Pose Estimation Using Part Affinity Fields",
+    "authors": [
+      "Zhe Cao",
+      "Gines Hidalgo",
+      "T. Simon",
+      "S. Wei",
+      "Yaser Sheikh"
+    ],
+    "venue": "IEEE Transactions on Pattern Analysis and Machine Intelligence",
+    "year": 2018,
+    "arxiv_id": "1812.08008",
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-03T17:38:20+00:00",
+    "paper_type": "Computer Vision / Pose Estimation / Computer Vision / Video Understanding / Computer Vision / Top-cited Computer Vision paper",
+    "citation_count": 5480,
+    "influential_citation_count": 713,
+    "semantic_scholar_id": "9e8db1519245426f3a78752a3d8360484f4626b1",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/9e8db1519245426f3a78752a3d8360484f4626b1",
+    "importance_rank": 82,
+    "selection_source": "semantic_scholar_top_cited_cv_open_pdf_2026_05_03",
+    "open_access_pdf_url": "https://arxiv.org/pdf/1812.08008",
+    "fields_of_study": [
+      "Computer Science",
+      "Medicine"
+    ],
+    "publication_types": [
+      "JournalArticle"
+    ],
+    "abstract": "Realtime multi-person 2D pose estimation is a key component in enabling machines to have an understanding of people in images and videos. In this work, we present a realtime approach to detect the 2D pose of multiple people in an image. The proposed method uses a nonparametric representation, which we refer to as Part Affinity Fields (PAFs), to learn to associate body parts with individuals in the image. This bottom-up system achieves high accuracy and realtime performance, regardless of the number of people in the image. In previous work, PAFs and body part location estimation were refined simultaneously across training stages. We demonstrate that a PAF-only refinement rather than both PAF and body part location refinement results in a substantial increase in both runtime performance and accuracy. We also present the first combined body and foot keypoint detector, based on an internal annotated foot dataset that we have publicly released. We show that the combined detector not only reduces the inference time compared to running them sequentially, but also maintains the accuracy of each component individually. This work has culminated in the release of OpenPose, the first open-source realtime system for multi-person 2D pose detection, including body, foot, hand, and facial keypoints."
+  },
+  "document_blocks": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "type": "title",
+      "content": "IEEE TRANSACTIONS ON PATTERN ANAL YSIS AND MACHINE INTELLIGENCE, VOL. XXX, NO. XXX, AUGUST YYYY 1 OpenPose: Realtime Multi-Person 2D Pose Estimation using Part Afﬁnity Fields Zhe Cao, Student Member, IEEE, Gines Hidalgo, Student Member, IEEE, Tomas Simon, Shih-En Wei, and Y aser Sheikh Abstract—Realtime multi-person 2D pose estimation is a key component in enabling machines to have an understanding of people in images and videos. In this work, we present a realtime approach to detect the 2D pose of multiple people in an image. The proposed method uses a nonparametric representation, which we refer to as Part Afﬁnity Fields (PAFs), to learn t..."
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": null,
+      "type": "formula",
+      "content": "running them sequentially, but also maintains the accuracy of each component individually. This work has culminated in the release of"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": null,
+      "type": "paragraph",
+      "content": "OpenPose, the ﬁrst open-source realtime system for multi-person 2D pose detection, including body, foot, hand, and facial keypoints. Index Terms—2D human pose estimation, 2D foot keypoint estimation, real-time, multiple person, part afﬁnity ﬁelds. !"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": null,
+      "type": "paragraph",
+      "content": "1 I NTRODUCTION"
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": null,
+      "type": "paragraph",
+      "content": "I N this paper, we consider a core component in obtaining a detailed understanding of people in images and videos: human 2D pose estimation—or the problem of localizing anatomical keypoints or “parts”. Human estimation has"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 1,
+      "section": null,
+      "type": "formula",
+      "content": "largely focused on ﬁnding body parts of individuals. Infer-"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 1,
+      "section": null,
+      "type": "paragraph",
+      "content": "ring the pose of multiple people in images presents a unique set of challenges. First, each image may contain an unknown number of people that can appear at any position or scale. Second, interactions between people induce complex spatial interference, due to contact, occlusion, or limb articulations, making association of parts difﬁcult. Third, runtime com- plexity tends to grow with the number of people in the image, making realtime performance a challenge. A common approach is to employ a person detector and perform single-person pose estimation for each detec- tion. These top-down approaches directly leverage existing techniques for sing..."
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 1,
+      "section": null,
+      "type": "caption",
+      "content": "Fig. 1: T op:Multi-person pose estimation. Body parts be-"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 1,
+      "section": null,
+      "type": "paragraph",
+      "content": "longing to the same person are linked, including foot key- points (big toes, small toes, and heels). Bottom left: Part Afﬁnity Fields (PAFs) corresponding to the limb connecting right elbow and wrist. The color encodes orientation. Bot- tom right: A 2D vector in each pixel of every PAF encodes the position and orientation of the limbs. people. Initial bottom-up methods ([1], [2]) did not retain the gains in efﬁciency as the ﬁnal parse required costly global"
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 1,
+      "section": null,
+      "type": "formula",
+      "content": "inference, taking several minutes per image."
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 1,
+      "section": null,
+      "type": "paragraph",
+      "content": "In this paper, we present an efﬁcient method for multi- person pose estimation with competitive performance on multiple public benchmarks. We present the ﬁrst bottom- up representation of association scores via Part Afﬁnity Fields (PAFs), a set of 2D vector ﬁelds that encode the location and orientation of limbs over the image domain. We demonstrate that simultaneously inferring these bottom- up representations of detection and association encodes sufﬁcient global context for a greedy parse to achieve high- arXiv:1812.08008v2 [cs.CV] 30 May 2019"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 2,
+      "section": null,
+      "type": "paragraph",
+      "content": "IEEE TRANSACTIONS ON PATTERN ANAL YSIS AND MACHINE INTELLIGENCE, VOL. XXX, NO. XXX, AUGUST YYYY 2 (b) Part Confidence Maps (c) Part Affinity Fields(a) Input Image (d) Bipartite Matching (e) Parsing Results"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 2,
+      "section": null,
+      "type": "caption",
+      "content": "Fig. 2: Overall pipeline. (a) Our method takes the entire image as the input for a CNN to jointly predict (b) conﬁdence"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 2,
+      "section": null,
+      "type": "paragraph",
+      "content": "maps for body part detection and (c) PAFs for part association. (d) The parsing step performs a set of bipartite matchings to associate body part candidates. (e) We ﬁnally assemble them into full body poses for all people in the image. quality results, at a fraction of the computational cost. An earlier version of this manuscript appeared in [3]. This version makes several new contributions. First, we"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 2,
+      "section": null,
+      "type": "formula",
+      "content": "prove that PAF reﬁnement is crucial for maximizing ac-"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 2,
+      "section": null,
+      "type": "paragraph",
+      "content": "curacy, while body part prediction reﬁnement is not that important. We increase the network depth but remove the body part reﬁnement stages (Sections 3.1 and 3.2). This reﬁned network increases both speed and accuracy by approximately 200% and 7%, respectively (Sections 5.2 and 5.3). Second, we present an annotated foot dataset 1 with 15K human foot instances that has been publicly re- leased (Section 4.2), and we show that a combined model with body and foot keypoints can be trained preserving the speed of the body-only model while maintaining its accuracy (Section 5.5). Third, we demonstrate the generality of our method by applying it to t..."
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 2,
+      "section": null,
+      "type": "paragraph",
+      "content": "2 R ELATED WORK"
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 2,
+      "section": null,
+      "type": "paragraph",
+      "content": "Single Person Pose Estimation The traditional approach to articulated human pose estimation is to perform inference over a combination of local observations on body parts and the spatial dependencies between them. The spatial model for articulated pose is either based on tree-structured graphical models [7], [8], [9], [10], [11], [12], [13], which para- metrically encode the spatial relationship between adjacent parts following a kinematic chain, or non-tree models [14], [15], [16], [17], [18] that augment the tree structure with additional edges to capture occlusion, symmetry, and long- range relationships. To obtain reliable local observat..."
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 2,
+      "section": null,
+      "type": "formula",
+      "content": "large receptive ﬁelds. The convolutional pose machines ar-"
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 2,
+      "section": null,
+      "type": "paragraph",
+      "content": "chitecture proposed by Wei et al. [20] used a multi-stage ar- chitecture based on a sequential prediction framework [34]; iteratively incorporating global context to reﬁne part con- ﬁdence maps and preserving multimodal uncertainty from previous iterations. Intermediate supervisions are enforced at the end of each stage to address the problem of vanishing gradients [35], [36], [37] during training. Newell et al. [19] also showed intermediate supervisions are beneﬁcial in a stacked hourglass architecture. However, all of these meth- ods assume a single person, where the阶段预测的PAFs。"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 2,
+      "section": null,
+      "type": "formula",
+      "content": "programming over the fully connected graph is an NP-hard"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 2,
+      "section": null,
+      "type": "formula",
+      "content": "the method still takes several minutes per image, with a"
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 2,
+      "section": null,
+      "type": "formula",
+      "content": "and thus a separate logistic regression is required to convert"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 2,
+      "section": null,
+      "type": "paragraph",
+      "content": "the pairwise features into a probability score. In earlier work [3], we present part afﬁnity ﬁelds (PAFs), a representation consisting of a set of ﬂow ﬁelds that encodes unstructured pairwise relationships between body parts of a variable number of people. In contrast to [1] and [2], we"
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 3,
+      "section": null,
+      "type": "caption",
+      "content": "Fig. 3: Architecture of the multi-stage CNN. The ﬁrst set"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 3,
+      "section": null,
+      "type": "paragraph",
+      "content": "of stages predicts PAFs Lt, while the last set predicts con- ﬁdence maps St. The predictions of each stage and their corresponding image features are concatenated for each subsequent stage. Convolutions of kernel size 7 from the original approach [3] are replaced with 3 layers of convolu- tions of kernel 3 which are concatenated at their end."
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 3,
+      "section": null,
+      "type": "caption",
+      "content": "Fig. 2 illustrates the overall pipeline of our method. The"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 3,
+      "section": null,
+      "type": "formula",
+      "content": "ciation between parts (Fig. 2c). The set S = ( S1, S2,..., SJ )"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 3,
+      "section": null,
+      "type": "formula",
+      "content": "j ∈ {1...J }. The set L = ( L1, L2,..., LC) has C vector"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 3,
+      "section": null,
+      "type": "formula",
+      "content": "the former is 2× 72− 1 = 97 , it is only 51 for the latter."
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 3,
+      "section": null,
+      "type": "formula",
+      "content": "L1 = φ1(F), where φ1 refers to the CNNs for inference"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 3,
+      "section": null,
+      "type": "formula",
+      "content": "St = ρt(F, LTP, St−1),∀TP <t ≤TP +TC, (3)"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 4,
+      "section": null,
+      "type": "caption",
+      "content": "Fig. 4 shows the reﬁnement of the afﬁnity ﬁelds across"
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 4,
+      "section": null,
+      "type": "caption",
+      "content": "Fig. 4: PAFs of right forearm across stages. Although there"
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 4,
+      "section": null,
+      "type": "paragraph",
+      "content": "is confusion between left and right body parts and limbs in early stages, the estimates are increasingly reﬁned through global inference in later stages. the latest and most reﬁned PAF predictions, resulting in a barely noticeable difference across conﬁdence map stages. To guide the network to iteratively predict PAFs of body parts in the ﬁrst branch and conﬁdence maps in the second branch, we apply a loss function at the end of each stage. We use an L2 loss between the estimated predictions and the groundtruth maps and ﬁelds. Here, we weight the loss functions spatially to address a practical issue that some datasets do not completely label..."
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 4,
+      "section": null,
+      "type": "formula",
+      "content": "conﬁdence map, and W is a binary mask with W(p) = 0"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 4,
+      "section": null,
+      "type": "formula",
+      "content": "of the individual conﬁdence maps via a max operator,"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 4,
+      "section": null,
+      "type": "caption",
+      "content": "Fig. 5: Part association strategies. (a) The body part detection"
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 4,
+      "section": null,
+      "type": "formula",
+      "content": "and orientation over the support of the limb, PAFs eliminate"
+    },
+    {
+      "anchor_id": "anc_00116",
+      "page": 5,
+      "section": null,
+      "type": "formula",
+      "content": "ison results in Section 5.1, which demonstrate that minimal"
+    },
+    {
+      "anchor_id": "anc_00132",
+      "page": 6,
+      "section": null,
+      "type": "paragraph",
+      "content": "whether to display the results or save them on disk, enable or disable each detector (body, foot, face, and hand), enable pixel coordinate normalization, control how many GPUs to use, skip frames for a faster processing, etc. OpenPose consists of three different blocks: (a) body+foot detection, (b) hand detection [63], and (c) face detection. The core block is the combined body+foot key- point detector (Section 4.2). It can alternatively use the original body-only models [3] trained on COCO and MPII datasets. Based on the output of the body detector, facial bounding box proposals can roughly be estimated from some body part locations, in par..."
+    },
+    {
+      "anchor_id": "anc_00134",
+      "page": 6,
+      "section": null,
+      "type": "formula",
+      "content": "are generated with the arm keypoints. This methodology"
+    },
+    {
+      "anchor_id": "anc_00137",
+      "page": 6,
+      "section": null,
+      "type": "paragraph",
+      "content": "with non-linear Levenberg-Marquardt reﬁnement [64] over the results of multiple synchronized camera views. The inference time of OpenPose outperforms all state- of-the-art methods, while preserving high-quality results. It is able to run at about 22 FPS in a machine with a Nvidia GTX 1080 Ti while preserving high accuracy (Sec- tion 5.3). OpenPose has already been used by the research community for many vision and robotics topics, such as"
+    },
+    {
+      "anchor_id": "anc_00143",
+      "page": 7,
+      "section": null,
+      "type": "caption",
+      "content": "Fig. 9: Foot keypoint analysis. (a) Foot keypoint annotations,"
+    },
+    {
+      "anchor_id": "anc_00145",
+      "page": 7,
+      "section": null,
+      "type": "formula",
+      "content": "mated. (c) Analogous body+foot model example, the foot"
+    },
+    {
+      "anchor_id": "anc_00150",
+      "page": 7,
+      "section": null,
+      "type": "paragraph",
+      "content": "rather than the surface position. For instance, for the exact toe positions, we label the area between the connection of the nail and skin, and also take depth into consideration by labeling the center of the toe rather than the surface. Using our dataset, we train a foot keypoint detection algorithm. A n ¨aive foot keypoint detector could have been built by using a body keypoint detector to generate foot bounding box proposals, and then training a foot detector on top of it. However, this method suffers from the top- down problems stated in Section 1. Instead, the same archi- tecture previously described for body estimation is trained to pr..."
+    },
+    {
+      "anchor_id": "anc_00153",
+      "page": 7,
+      "section": null,
+      "type": "caption",
+      "content": "Fig. 10: Keypoint annotation conﬁguration for the 3 datasets."
+    },
+    {
+      "anchor_id": "anc_00154",
+      "page": 7,
+      "section": null,
+      "type": "paragraph",
+      "content": "dataset [66], which consists of 3844 training and 1758 testing groups of multiple interacting individuals in highly articu- lated poses with 14 body parts; (2) COCO keypoint chal- lenge dataset [67], which requires simultaneously detecting people and localizing 17 keypoints (body parts) in each per- son (including 12 human body parts and 5 facial keypoints); (3) our foot dataset, which is a subset of 15K annotations out of the COCO keypoint dataset. These datasets collect images in diverse scenarios that contain many real-world challenges such as crowding, scale variation, occlusion, and contact. Our approach placed ﬁrst at the inaugural COC..."
+    },
+    {
+      "anchor_id": "anc_00156",
+      "page": 7,
+      "section": null,
+      "type": "paragraph",
+      "content": "For comparison on the MPII dataset, we use the toolkit [1] to measure mean Average Precision (mAP) of all body parts following the “PCKh” metric from [66]. Table 1 com- pares mAP performance between our method and other approaches on the ofﬁcial MPII testing sets. We also com- pare the average inference/optimization time per image in seconds. For the 288 images subset, our method outper- forms previous state-of-the-art bottom-up methods [2] by 8.5% mAP . Remarkably, our inference time is 6 orders of magnitude less. We report a more detailed runtime analysis in Section 5.3. For the entire MPII testing set, our method without scale search alre..."
+    },
+    {
+      "anchor_id": "anc_00157",
+      "page": 7,
+      "section": null,
+      "type": "formula",
+      "content": "of-the-art methods by a large margin, i.e., 13% absolute"
+    },
+    {
+      "anchor_id": "anc_00158",
+      "page": 7,
+      "section": null,
+      "type": "paragraph",
+      "content": "increase on mAP . Using a 3 scale search (×0.7,×1 and×1.3) further increases the performance to 75.6% mAP . The mAP comparison with previous bottom-up approaches indicate the effectiveness of our novel feature representation, PAFs, to associate body parts. Based on the tree structure, our greedy parsing method achieves better accuracy than a graphcut optimization formula based on a fully connected graph structure [1], [2]. In Table 2, we show comparison results for the different skeleton structures shown in Fig. 6. We created a custom val- idation set consisting of 343 images from the original MPII training set. We train our model based on a..."
+    },
+    {
+      "anchor_id": "anc_00163",
+      "page": 8,
+      "section": null,
+      "type": "caption",
+      "content": "TABLE 1: Results on the MPII dataset. Top: Comparison"
+    },
+    {
+      "anchor_id": "anc_00169",
+      "page": 8,
+      "section": null,
+      "type": "caption",
+      "content": "TABLE 2: Comparison of different structures on our custom"
+    },
+    {
+      "anchor_id": "anc_00171",
+      "page": 8,
+      "section": null,
+      "type": "formula",
+      "content": "minimal edges. We trained our ﬁnal model to only learn the"
+    },
+    {
+      "anchor_id": "anc_00176",
+      "page": 8,
+      "section": null,
+      "type": "caption",
+      "content": "Fig. 11a shows an ablation analysis on our validation set."
+    },
+    {
+      "anchor_id": "anc_00178",
+      "page": 8,
+      "section": null,
+      "type": "formula",
+      "content": "than two intermediate points, generally outperforming the"
+    },
+    {
+      "anchor_id": "anc_00179",
+      "page": 8,
+      "section": null,
+      "type": "paragraph",
+      "content": "method of midpoint representation. The PAFs, which en- code both position and orientation information of human limbs, are better able to distinguish the common cross-over cases, e.g., overlapping arms. Training with masks of un- labeled persons further improves the performance by 2.3% because it avoids penalizing the true positive prediction in the loss during training. If we use the ground-truth keypoint location with our parsing algorithm, we can obtain a mAP of 88.3%. In Fig. 11a, the mAP obtained using our parsing with GT detection is constant across different PCKh thresholds due to no localization error. Using GT connection with our key..."
+    },
+    {
+      "anchor_id": "anc_00184",
+      "page": 8,
+      "section": null,
+      "type": "caption",
+      "content": "TABLE 3: COCO test-dev leaderboard [73], “*” indicates"
+    },
+    {
+      "anchor_id": "anc_00186",
+      "page": 8,
+      "section": null,
+      "type": "caption",
+      "content": "Table 3 shows results from top teams in the challenge. It is"
+    },
+    {
+      "anchor_id": "anc_00188",
+      "page": 8,
+      "section": "Method",
+      "type": "section_heading",
+      "content": "Method AP AP50 AP75 APM APL"
+    },
+    {
+      "anchor_id": "anc_00190",
+      "page": 8,
+      "section": "Method",
+      "type": "caption",
+      "content": "TABLE 4: Self-comparison experiments on the COCO val-"
+    },
+    {
+      "anchor_id": "anc_00191",
+      "page": 8,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "idation set. Our new body+foot model outperforms the original work in [3] by 6.9%. In Table 4, we report self-comparisons on the COCO validation set. If we use the GT bounding box and a sin- gle person CPM [20], we can achieve an upper-bound for the top-down approach using CPM, which is 62.7% AP . If we use the state-of-the-art object detector, Single Shot MultiBox Detector (SSD) [74], the performance drops 10%. This comparison indicates the performance of top-down approaches rely heavily on the person detector. In contrast, our original bottom-up method achieves 58.4% AP . If we reﬁne the results by applying a single person CPM on each resc..."
+    },
+    {
+      "anchor_id": "anc_00192",
+      "page": 9,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "IEEE TRANSACTIONS ON PATTERN ANAL YSIS AND MACHINE INTELLIGENCE, VOL. XXX, NO. XXX, AUGUST YYYY 9 architecture without CPM reﬁnement is approximately 7% more accurate than the original approach, while increasing the speed×2. Method AP AP50 AP75 APM APL Stages 5 PAF - 1 CM 65.3 85.2 71.3 62.2 70.7 6 4 PAF - 2 CM 65.2 85.3 71.4 62.3 70.1 6 3 PAF - 3 CM 65.0 85.1 71.2 62.4 69.4 6 4 PAF - 1 CM 64.8 85.3 70.9 61.9 69.6 5 3 PAF - 1 CM 64.6 84.8 70.6 61.8 69.5 4 3 CM - 3 PAF 61.0 83.9 65.7 58.5 65.3 6"
+    },
+    {
+      "anchor_id": "anc_00193",
+      "page": 9,
+      "section": "Method",
+      "type": "caption",
+      "content": "TABLE 5: Self-comparison experiments on the COCO vali-"
+    },
+    {
+      "anchor_id": "anc_00194",
+      "page": 9,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "dation set. CM refers to conﬁdence map, while the numbers express the number of estimation stages for PAF and CM. Stages refers to the number of PAF and CM stages. Reducing the number of stages increases the runtime performance. We analyze the effect of PAF reﬁnement over conﬁdence map estimation in Table 5. We ﬁx the computation to a"
+    },
+    {
+      "anchor_id": "anc_00195",
+      "page": 9,
+      "section": "Method",
+      "type": "formula",
+      "content": "maximum of 6 stages, distributed differently across the PAF"
+    },
+    {
+      "anchor_id": "anc_00196",
+      "page": 9,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "and conﬁdence map branches. We can extract 3 conclusions from this experiment. First, PAF requires a higher number of stages to converge and beneﬁts more from reﬁnement stages. Second, increasing the number of PAF channels mainly improves the number of true positives, even though they might not be too accurate (higher AP 50). However, increasing the number of conﬁdence map channels further improves the localization accuracy (higherAP 75). Third, we prove that the accuracy of the part conﬁdence maps highly increases when using PAF as a prior, while the opposite results in a 4% absolute accuracy decrease. Even the model with only 4 stages (3 P..."
+    },
+    {
+      "anchor_id": "anc_00197",
+      "page": 9,
+      "section": "Method",
+      "type": "formula",
+      "content": "approach with CPM [20] to avoid harming the speed."
+    },
+    {
+      "anchor_id": "anc_00198",
+      "page": 9,
+      "section": "Method",
+      "type": "section_heading",
+      "content": "5.3 Inference Runtime Analysis"
+    },
+    {
+      "anchor_id": "anc_00199",
+      "page": 9,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "We compare 3 state-of-the-art, well-maintained, and widely- used multi-person pose estimation libraries, OpenPose [4], based on this work, Mask R-CNN [5], and Alpha-Pose [6]. We analyze the inference runtime performance of the 3 methods in Fig. 12. Megvii (Face++) [43] and MSRA [44] GitHub repositories do not include the person detector they use and only provide pose estimation results given a cropped person. Thus, we cannot know their exact runtime performance and have been excluded from this analysis. Mask R-CNN is only compatible with Nvidia graphics cards, so we perform the analysis on a system with a NVIDIA 1080 Ti. As top-down approach..."
+    },
+    {
+      "anchor_id": "anc_00200",
+      "page": 9,
+      "section": "Method",
+      "type": "formula",
+      "content": "OpenPose (max accuracy)"
+    },
+    {
+      "anchor_id": "anc_00202",
+      "page": 9,
+      "section": "Method",
+      "type": "caption",
+      "content": "Fig. 12: Inference time comparison between OpenPose,"
+    },
+    {
+      "anchor_id": "anc_00203",
+      "page": 9,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "Mask R-CNN, and Alpha-Pose (fast Pytorch version). While OpenPose inference time is invariant, Mask R-CNN and Alpha-Pose runtimes grow linearly with the number of people. Testing with and without scale search is denoted"
+    },
+    {
+      "anchor_id": "anc_00204",
+      "page": 9,
+      "section": "Method",
+      "type": "formula",
+      "content": "as “max accuracy” and “1 scale”, respectively. This analysis"
+    },
+    {
+      "anchor_id": "anc_00205",
+      "page": 9,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "was performed using the same images for each algorithm and a batch size of 1. Each analysis was repeated 1000 times and then averaged. This was all performed on a system with a Nvidia 1080 Ti and CUDA 8. O(n2), wheren represents the number of people. However, the parsing time is two orders of magnitude less than the CNN processing time. For instance, the parsing takes 0.58 ms for 9 people while the CNN takes 36 ms."
+    },
+    {
+      "anchor_id": "anc_00206",
+      "page": 9,
+      "section": "Method",
+      "type": "section_heading",
+      "content": "Method CUDA CPU-only"
+    },
+    {
+      "anchor_id": "anc_00207",
+      "page": 9,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "Original MPII model 73 ms 2309 ms Original COCO model 74 ms 2407 ms Body+foot model 36 ms 10396 ms"
+    },
+    {
+      "anchor_id": "anc_00208",
+      "page": 9,
+      "section": "Method",
+      "type": "caption",
+      "content": "TABLE 6: Runtime difference between the 3 models released"
+    },
+    {
+      "anchor_id": "anc_00209",
+      "page": 9,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "in OpenPose with CUDA and CPU-only versions, running in a NVIDIA GeForce GTX-1080 Ti GPU and a i7-6850K CPU. MPII and COCO models refer to our work in [3]. In Table 6, we analyze the difference in inference time between the models released in OpenPose, i.e., the MPII and COCO models from [3] and the new body+foot model. Our new combined model is not only more accurate, but is also×2 faster than the original model when using the GPU version. Interestingly, the runtime for the CPU version is 5x slower compared to that of the original model. The new architecture consists of many more layers, which requires a higher amount of memory, while the n..."
+    },
+    {
+      "anchor_id": "anc_00211",
+      "page": 9,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "In the area of object detection, Huang et al. [75] show that region-proposed methods (e.g., Faster-rcnn [76]) achieve higher accuracy, while single-shot methods (e.g., YOLO [77],"
+    },
+    {
+      "anchor_id": "anc_00212",
+      "page": 9,
+      "section": "Method",
+      "type": "formula",
+      "content": "SSD [74]) present higher runtime performance. Analogously"
+    },
+    {
+      "anchor_id": "anc_00215",
+      "page": 10,
+      "section": "Method",
+      "type": "caption",
+      "content": "Fig. 13: Trade-off between speed and accuracy for the main"
+    },
+    {
+      "anchor_id": "anc_00216",
+      "page": 10,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "entries of the COCO Challenge. We only consider those approaches that either release their runtime measurements (methods with an asterisk) or their code (rest). Algorithms with several values represent different resolution conﬁgu- rations. AlphaPose, METU, and single-scale OpenPose pro- vide the best results considering the trade-off between speed and accuracy. The remaining methods are both slower and less accurate than at least one of these 3 approaches. compared to bottom-up methods, especially for images with multiple people. The main reason for the lower accuracy of bottom-up approaches is their limited resolution. While top-down method..."
+    },
+    {
+      "anchor_id": "anc_00217",
+      "page": 10,
+      "section": "Method",
+      "type": "formula",
+      "content": "over our original work in [3] (by applying a larger cropped"
+    },
+    {
+      "anchor_id": "anc_00218",
+      "page": 10,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "image patch) results in a higher accuracy boost than reﬁne- ment over other top-down approaches. As hardware gets faster and increases its memory, bottom-up methods with higher resolution might be able to reduce the accuracy gap with respect to top-down approaches. Additionally, current human pose performance metrics are purely based on keypoint accuracy, while speed is ignored. In order to provide a more complete comparison, we display both speed and accuracy for the top entries of the COCO Challenge in Fig. 13. Given those results, single-"
+    },
+    {
+      "anchor_id": "anc_00219",
+      "page": 10,
+      "section": "Method",
+      "type": "formula",
+      "content": "scale OpenPose should be chosen for maximum speed,"
+    },
+    {
+      "anchor_id": "anc_00220",
+      "page": 10,
+      "section": "Method",
+      "type": "formula",
+      "content": "AlphaPose for maximum accuracy, and METU for a trade-"
+    },
+    {
+      "anchor_id": "anc_00221",
+      "page": 10,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "off between both of them. The remaining approaches are both slower and less accurate than at least one of these 3 methods. Overall, top-down approaches (e.g., AlphaPose) provide better results for images with few people, but their speed considerably drops for images with many people. We also observe that the accuracy metrics might be mis- leading. We see in Section 5.2 that PersonLab [49] achieves higher accuracy than our method. However, our multi-scale approach simultaneously provides both higher speed and accuracy than the versions for which they report runtime results. Note that no runtime results are provided in [49] for their most accu..."
+    },
+    {
+      "anchor_id": "anc_00222",
+      "page": 10,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "5.5 Results on the Foot Keypoint Dataset"
+    },
+    {
+      "anchor_id": "anc_00223",
+      "page": 10,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "To evaluate the foot keypoint detection results obtained us- ing our foot keypoint dataset, we calculate the mean average precision and recall over 10 OKS, as done in the COCO"
+    },
+    {
+      "anchor_id": "anc_00224",
+      "page": 10,
+      "section": "Method",
+      "type": "formula",
+      "content": "evaluation metric. There are only minor differences between"
+    },
+    {
+      "anchor_id": "anc_00225",
+      "page": 10,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "the combined and body-only approaches. In the combined training scheme, there exist two separate and completely"
+    },
+    {
+      "anchor_id": "anc_00226",
+      "page": 10,
+      "section": "Method",
+      "type": "formula",
+      "content": "independent datasets. The larger of the two datasets consists"
+    },
+    {
+      "anchor_id": "anc_00227",
+      "page": 10,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "of the body annotations while the smaller set contains both body and foot annotations. The same batch size used for the body-only training is used for the combined training. Nevertheless, it contains only annotations from one dataset at a time. A probability ratio is deﬁned to select the dataset from which to pick each batch. A higher probability is"
+    },
+    {
+      "anchor_id": "anc_00228",
+      "page": 10,
+      "section": "Method",
+      "type": "formula",
+      "content": "assigned to select a batch from the larger dataset, as the"
+    },
+    {
+      "anchor_id": "anc_00230",
+      "page": 10,
+      "section": "Method",
+      "type": "formula",
+      "content": "of the body-only dataset to avoid harming the net with non-"
+    },
+    {
+      "anchor_id": "anc_00231",
+      "page": 10,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "labeled data. In addition, body annotations are also masked out from the foot dataset. Keeping these annotations yields a small drop in accuracy, probably due to overﬁtting, as those samples are repeated in both datasets."
+    },
+    {
+      "anchor_id": "anc_00232",
+      "page": 10,
+      "section": "Method",
+      "type": "section_heading",
+      "content": "Method AP AR AP75 AR75"
+    },
+    {
+      "anchor_id": "anc_00233",
+      "page": 10,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "Body+foot model (5 PAF - 1 CM) 77.9 82.5 82.1 85.6"
+    },
+    {
+      "anchor_id": "anc_00234",
+      "page": 10,
+      "section": "Method",
+      "type": "caption",
+      "content": "TABLE 7: Foot keypoint analysis on the foot validation set."
+    },
+    {
+      "anchor_id": "anc_00235",
+      "page": 10,
+      "section": "Method",
+      "type": "caption",
+      "content": "Table 7 shows the foot keypoint accuracy for our vali-"
+    },
+    {
+      "anchor_id": "anc_00236",
+      "page": 10,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "dation set. This set is created from a subset of the COCO validation set, in particular from the images in which the ankles of all people are visible and annotated. This results in a simpler validation set compared to that of COCO, leading to higher precision and recall numbers compared to those of body detection (Table 4). Qualitatively, we ﬁnd a higher amount of jitter and number of detection errors compared to body keypoint prediction. We believe 14K training an- notations are not a sufﬁcient number to train a robust foot detector, considering that over 100K instances are used for the body keypoint dataset. Rather than using the whole bat..."
+    },
+    {
+      "anchor_id": "anc_00237",
+      "page": 10,
+      "section": "Method",
+      "type": "section_heading",
+      "content": "Method AP AP50 AP75 APM APL"
+    },
+    {
+      "anchor_id": "anc_00239",
+      "page": 10,
+      "section": "Method",
+      "type": "caption",
+      "content": "TABLE 8: Self-comparison experiments for body on the"
+    },
+    {
+      "anchor_id": "anc_00240",
+      "page": 10,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "COCO validation set. Foot keypoints are predicted but ignored for the evaluation. In Table 8, we show that there is almost no accuracy difference in the COCO test-dev set with respect to the same network architecture trained only with body annotations. We compared the model consisting of 5 PAF and 1 conﬁ- dence map stages, with a 95% probability of picking a batch from the COCO body-only dataset, and 5% of choosing from the body+foot dataset. There is no architecture difference compared to the body-only model other than the increase in the number of outputs to include the foot CM and PAFs."
+    },
+    {
+      "anchor_id": "anc_00242",
+      "page": 10,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "Our approach is not limited to human body or foot key- points, but can be generalized to any keypoint annotation task. To demonstrate this, we have run the same network architecture for the task of vehicle keypoint detection [79]."
+    },
+    {
+      "anchor_id": "anc_00244",
+      "page": 11,
+      "section": "Method",
+      "type": "caption",
+      "content": "Fig. 14: Vehicle keypoint detection examples from the validation set. The keypoint locations are successfully estimated"
+    },
+    {
+      "anchor_id": "anc_00246",
+      "page": 11,
+      "section": "Method",
+      "type": "caption",
+      "content": "Fig. 15: Common failure cases: (a) rare pose or appearance, (b) missing or false parts detection, (c) overlapping parts, i.e.,"
+    },
+    {
+      "anchor_id": "anc_00248",
+      "page": 11,
+      "section": "Method",
+      "type": "caption",
+      "content": "Fig. 16: Common foot failure cases: (a) foot or leg occluded by the body, (b) foot or leg occluded by another object, (c) foot"
+    },
+    {
+      "anchor_id": "anc_00249",
+      "page": 11,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "visible but leg occluded, (d) shoe and foot not aligned, (e): false negatives when foot visible but rest of the body occluded, (f): soles of their feet are usually not detected (rare in training), (g): swap between right and left body parts. Once again, we use mean average precision over 10 OKS for the evaluation. The results are shown in Table 9. Both the average precision and recall are higher than in the body keypoint task, mainly because we are using a smaller and simpler dataset. This initial dataset consists of image anno- tations from 19 different cameras. We have used the ﬁrst 18 camera frames as a training set, and the camera frames..."
+    },
+    {
+      "anchor_id": "anc_00250",
+      "page": 11,
+      "section": "Method",
+      "type": "section_heading",
+      "content": "Method AP AR AP75 AR75"
+    },
+    {
+      "anchor_id": "anc_00252",
+      "page": 11,
+      "section": "Method",
+      "type": "caption",
+      "content": "TABLE 9: Vehicle keypoint validation set."
+    },
+    {
+      "anchor_id": "anc_00254",
+      "page": 11,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "We have analyzed the main cases where the current ap- proach fails in the MPII, COCO, and COCO+foot validation sets. Fig. 15 shows an overview of the main body failure cases, while Fig. 16 shows the main foot failure cases Fig. 15a refers to non typical poses and upside-down examples, where the predictions usually fail. Increasing the rotation augmentation visually seems to partially solve these issues, but the global accuracy on the COCO validation set is reduced by about 5%. A different alternative is to run the network using different rotations and keep the poses with the higher conﬁdence. Body occlusion can also lead to false negatives a..."
+    },
+    {
+      "anchor_id": "anc_00256",
+      "page": 11,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "Realtime multi-person 2D pose estimation is a critical com- ponent in enabling machines to visually understand and interpret humans and their interactions. In this paper, we present an explicit nonparametric representation of the key- point association that encodes both position and orienta- tion of human limbs. Second, we design an architecture that jointly learns part detection and association. Third, we demonstrate that a greedy parsing algorithm is sufﬁcient to produce high-quality parses of body poses, and preserves"
+    },
+    {
+      "anchor_id": "anc_00257",
+      "page": 12,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "IEEE TRANSACTIONS ON PATTERN ANAL YSIS AND MACHINE INTELLIGENCE, VOL. XXX, NO. XXX, AUGUST YYYY 12 efﬁciency regardless of the number of people. Fourth, we prove that PAF reﬁnement is far more important than combined PAF and body part location reﬁnement, leading to a substantial increase in both runtime performance and accuracy. Fifth, we show that combining body and foot estimation into a single model boosts the accuracy of each component individually and reduces the inference time of running them sequentially. We have created a foot keypoint dataset consisting of 15K foot keypoint instances, which we will publicly release. Finally, we have..."
+    },
+    {
+      "anchor_id": "anc_00258",
+      "page": 12,
+      "section": "Method",
+      "type": "formula",
+      "content": "retargeting, and Human-Computer Interaction. In addition,"
+    },
+    {
+      "anchor_id": "anc_00259",
+      "page": 12,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "OpenPose has been included in the OpenCV library [65]. ACKNOWLEDGMENTS We acknowledge the effort from the authors of the MPII and COCO human pose datasets. These datasets make 2D hu- man pose estimation in the wild possible. This research was supported by the Intelligence Advanced Research Projects Activity (IARPA) via Department of Interior / Interior Busi- ness Center (DOI/IBC) contract number D17PC00340."
+    },
+    {
+      "anchor_id": "anc_00261",
+      "page": 12,
+      "section": "References",
+      "type": "reference",
+      "content": "[1] L. Pishchulin, E. Insafutdinov, S. Tang, B. Andres, M. Andriluka, P . Gehler, and B. Schiele, “Deepcut: Joint subset partition and labeling for multi person pose estimation,” in CVPR, 2016. [2] E. Insafutdinov, L. Pishchulin, B. Andres, M. Andriluka, and B. Schiele, “Deepercut: A deeper, stronger, and faster multi-person pose estimation model,” in ECCV, 2016. [3] Z. Cao, T. Simon, S.-E. Wei, and Y. Sheikh, “Realtime multi-person 2d pose estimation using part afﬁnity ﬁelds,” in CVPR, 2017. [4] G. Hidalgo, Z. C00261",
+      "anchors": [
+        "anc_00261"
+      ]
+    },
+    {
+      "anchor_id": "anc_00262",
+      "page": 12,
+      "section": "Method",
+      "type": "section_heading",
+      "content": "model,” in ECCV, 2018."
+    },
+    {
+      "anchor_id": "anc_00264",
+      "page": 13,
+      "section": "Method",
+      "type": "formula",
+      "content": "works for large-scale image recognition,” in ICLR, 2015."
+    },
+    {
+      "anchor_id": "anc_00265",
+      "page": 13,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "[54] D. B. West et al., Introduction to graph theory . Prentice hall Upper Saddle River, 2001, vol. 2. [55] H. W. Kuhn, “The hungarian method for the assignment prob-"
+    },
+    {
+      "anchor_id": "anc_00266",
+      "page": 13,
+      "section": "Method",
+      "type": "formula",
+      "content": "lem,” in Naval research logistics quarterly . Wiley Online Library,"
+    },
+    {
+      "anchor_id": "anc_00268",
+      "page": 13,
+      "section": "Method",
+      "type": "formula",
+      "content": "Unsupervised video retargeting,” in ECCV, 2018."
+    },
+    {
+      "anchor_id": "anc_00269",
+      "page": 13,
+      "section": "Method",
+      "type": "paragraph",
+      "content": "[58] C. Chan, S. Ginosar, T. Zhou, and A. A. Efros, “Everybody dance now,” in ECCV Workshop, 2018. [59] L. Gui, K. Zhang, Y.-X. Wang, X. Liang, J. M. Moura, and M. M. Veloso, “Teaching robots to predict human motion,” inIROS, 2018. [60] P . Panteleris, I. Oikonomidis, and A. Argyros, “Using a single rgb frame for real time 3d hand pose estimation in the wild,” in IEEE WACV. IEEE, 2018, pp. 436–445. [61] H. Joo, T. Simon, and Y. Sheikh, “Total capture: A 3d deformation model for tracking faces, hands, and bodies,” in CVPR, 2018. [62] D. Mehta, S. Sridhar, O. Sotnychenko, H. Rhodin, M. Shaﬁei, H.- P . Seidel, W. Xu, D. Casas, and C. Theobalt,..."
+    },
+    {
+      "anchor_id": "anc_00271",
+      "page": 14,
+      "section": "Method",
+      "type": "caption",
+      "content": "Fig. 17: Results containing viewpoint and appearance variation, occlusion, crowding, contact, and other common imaging"
+    }
+  ],
+  "repair_rules": [
+    "Do not delete good existing content unless it violates source grounding.",
+    "Fill missing experiment_matrix and reproduction_roadmap if absent.",
+    "Every claim must have evidence with anchors.",
+    "Every skeleton field, graph node, delta, formula, experiment, evidence, glossary term and reproduction step must cite anchors from document_blocks.",
+    "Keep all analysis grounded in provided anchors only."
+  ]
+}

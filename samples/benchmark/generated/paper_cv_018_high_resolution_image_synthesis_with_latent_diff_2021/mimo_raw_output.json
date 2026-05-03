@@ -1,0 +1,782 @@
+{
+  "paper_skeleton": {
+    "problem": "扩散模型（DMs）在像素空间直接操作，导致训练需要数百GPU天，推理成本高昂，限制了其可访问性和应用范围。",
+    "motivation": "降低扩散模型的计算复杂度，使其能在有限计算资源上训练，同时保持其质量和灵活性，从而增强可访问性。",
+    "core_idea": "在预训练自编码器的潜在空间中应用扩散模型，通过引入交叉注意力层，实现对文本、边界框等条件输入的灵活控制，并支持高分辨率卷积合成。",
+    "method": "提出潜在扩散模型（LDMs），包括：1）使用自编码器将图像压缩到潜在空间；2）在潜在空间训练扩散模型；3）通过交叉注意力机制实现条件控制。",
+    "experiments": "在多个任务上评估：无条件图像合成、文本到图像合成、图像修复、超分辨率、语义合成等，使用CelebA-HQ、FFHQ、LSUN、ImageNet、LAION-400M等数据集。",
+    "claims": [
+      "LDMs在潜在空间中训练，显著降低计算需求，同时保持或提升生成质量。",
+      "通过交叉注意力机制，LDMs能灵活处理多种条件输入（如文本、边界框）。",
+      "LDMs在图像修复和类条件图像合成上达到新SOTA，在其他任务上具有竞争力。",
+      "LDMs能泛化到更高分辨率（如512x1024）进行空间条件任务。"
+    ],
+    "limitations": "顺序采样过程仍然较慢；潜在空间的压缩可能损失细节；对训练数据敏感，可能放大偏见或泄露隐私。"
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "自编码器压缩",
+        "label": "Autoencoder Compression",
+        "summary": "使用预训练自编码器将图像压缩到潜在空间，减少数据维度，同时保留感知细节。",
+        "description": "自编码器包括编码器E和解码器D，将图像x压缩为潜在表示z = E(x)，并重建为x̃ = D(z)。压缩因子f = H/h = W/w，其中H、W为原始尺寸，h、w为潜在尺寸。研究了不同的下采样因子f = 2^m。",
+        "type": "preprocessing",
+        "anchors": [
+          "anc_00027",
+          "anc_00028",
+          "anc_00030",
+          "anc_00031",
+          "anc_00033"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "潜在扩散模型",
+        "label": "Latent Diffusion Model",
+        "summary": "在潜在空间z上训练扩散模型，通过去噪自编码器序列学习数据分布。",
+        "description": "扩散模型通过逐步去噪正态分布变量来学习数据分布p(z)。使用时间条件UNet作为去噪自编码器ϵθ(zt, t)，训练目标为最小化去噪误差：L = E[z,ϵ∼N(0,I), t] [∥ϵ − ϵθ(zt, t)∥2^2]。",
+        "type": "generative_model",
+        "anchors": [
+          "anc_00034",
+          "anc_00035",
+          "anc_00042"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "条件机制",
+        "label": "Conditioning Mechanism",
+        "summary": "通过交叉注意力层将条件输入y（如文本、边界框）引入扩散模型，实现灵活控制。",
+        "description": "条件去噪自编码器为ϵθ(zt, t, τθ(y))，其中τθ是领域特定编码器（如Transformer）。训练目标为L = E[z,y,ϵ∼N(0,I), t] [∥ϵ − ϵθ(zt, t, τθ(y))∥2^2]。τθ和ϵθ联合优化。",
+        "type": "conditioning",
+        "anchors": [
+          "anc_00039",
+          "anc_00042",
+          "anc_00053"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "采样与生成",
+        "label": "Sampling and Generation",
+        "summary": "从潜在空间采样并通过解码器生成图像，支持多种采样步骤（如DDIM）。",
+        "description": "从p(z)采样潜在表示，通过解码器D生成图像。采样过程可使用DDIM等加速方法，步数可调（如100-200步）。",
+        "type": "inference",
+        "anchors": [
+          "anc_00042",
+          "anc_00060",
+          "anc_00066"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "任务特定应用",
+        "label": "Task-Specific Applications",
+        "summary": "将LDMs应用于图像修复、超分辨率、语义合成等任务，通过条件输入实现。",
+        "description": "对于图像修复，将掩码与潜在表示拼接；对于超分辨率，将低分辨率图像与潜在表示拼接；对于语义合成，将语义图与潜在表示拼接。支持泛化到更高分辨率。",
+        "type": "application",
+        "anchors": [
+          "anc_00095",
+          "anc_00096",
+          "anc_00100",
+          "anc_00102",
+          "anc_00104",
+          "anc_00105"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "潜在空间输入",
+        "description": "自编码器输出的潜在表示z作为扩散模型的输入。"
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "条件注入",
+        "description": "条件机制将外部输入y注入扩散模型的去噪过程。"
+      },
+      {
+        "source": "node_002",
+        "target": "node_004",
+        "label": "采样生成",
+        "description": "扩散模型采样得到的潜在表示用于图像生成。"
+      },
+      {
+        "source": "node_003",
+        "target": "node_005",
+        "label": "任务条件",
+        "description": "条件机制支持不同任务的条件输入（如掩码、低分辨率图、语义图）。"
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "label": "图像输出",
+        "description": "生成的图像用于任务特定评估和应用。"
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "像素空间扩散模型（如DDPM、ADM），直接在原始像素上训练扩散模型。",
+    "new_method": "潜在扩散模型（LDMs），在预训练自编码器的潜在空间中训练扩散模型，并引入交叉注意力条件机制。",
+    "deltas": [
+      {
+        "before": "扩散模型在像素空间操作，计算成本高（训练数百GPU天，推理慢）。",
+        "after": "扩散模型在潜在空间操作，维度大幅降低，计算成本显著减少（训练和推理更快）。",
+        "why_it_matters": "使扩散模型能在有限计算资源上训练和部署，扩大可访问性，同时保持生成质量。",
+        "anchors": [
+          "anc_00005",
+          "anc_00011",
+          "anc_00013"
+        ]
+      },
+      {
+        "before": "条件控制通常通过简单拼接或额外训练实现，灵活性有限。",
+        "after": "引入交叉注意力层，支持任意token-based条件输入（如文本、边界框），实现多模态训练。",
+        "why_it_matters": "使扩散模型能灵活处理多种条件输入，扩展应用范围（如文本到图像、布局到图像）。",
+        "anchors": [
+          "anc_00015",
+          "anc_00021",
+          "anc_00039",
+          "anc_00042"
+        ]
+      },
+      {
+        "before": "潜在空间压缩可能过度（如VQGAN的f=16），导致信息损失和质量下降。",
+        "after": "使用较温和的压缩（如f=4或f=8），在压缩率和细节保留之间取得平衡，提升视觉保真度。",
+        "why_it_matters": "实现近乎最优的复杂度降低和细节保留，提高生成图像质量。",
+        "anchors": [
+          "anc_00008",
+          "anc_00010",
+          "anc_00033",
+          "anc_00055"
+        ]
+      },
+      {
+        "before": "扩散模型通常用于固定分辨率，泛化能力有限。",
+        "after": "LDMs能泛化到更高分辨率（如512x1024）进行空间条件任务（如语义合成、修复）。",
+        "why_it_matters": "支持高分辨率图像合成，无需重新训练，增强实用性。",
+        "anchors": [
+          "anc_00098",
+          "anc_00100",
+          "anc_00104",
+          "anc_00105"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "formula": "z = E(x), \\quad \\tilde{x} = D(z)",
+        "variables": [
+          {
+            "name": "x",
+            "description": "输入图像",
+            "confidence": "high"
+          },
+          {
+            "name": "z",
+            "description": "潜在表示",
+            "confidence": "high"
+          },
+          {
+            "name": "E",
+            "description": "编码器",
+            "confidence": "high"
+          },
+          {
+            "name": "D",
+            "description": "解码器",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "自编码器预训练"
+        ],
+        "intuition": "将图像压缩到潜在空间，减少维度，同时保留可重建的信息。",
+        "anchors": [
+          "anc_00027",
+          "anc_00028"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "formula": "L = \\mathbb{E}_{z, \\epsilon \\sim \\mathcal{N}(0,I), t} \\left[ \\| \\epsilon - \\epsilon_\\theta(z_t, t) \\|_2^2 \\right]",
+        "variables": [
+          {
+            "name": "z_t",
+            "description": "时间步t的潜在表示（加噪后）",
+            "confidence": "high"
+          },
+          {
+            "name": "\\epsilon",
+            "description": "噪声",
+            "confidence": "high"
+          },
+          {
+            "name": "\\epsilon_\\theta",
+            "description": "去噪自编码器（UNet）",
+            "confidence": "high"
+          },
+          {
+            "name": "t",
+            "description": "时间步",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "扩散过程",
+          "UNet架构"
+        ],
+        "intuition": "训练去噪自编码器以预测噪声，从而学习数据分布。",
+        "anchors": [
+          "anc_00042"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "formula": "L = \\mathbb{E}_{z, y, \\epsilon \\sim \\mathcal{N}(0,I), t} \\left[ \\| \\epsilon - \\epsilon_\\theta(z_t, t, \\tau_\\theta(y)) \\|_2^2 \\right]",
+        "variables": [
+          {
+            "name": "y",
+            "description": "条件输入（如文本、边界框）",
+            "confidence": "high"
+          },
+          {
+            "name": "\\tau_\\theta",
+            "description": "条件编码器（如Transformer）",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "条件机制",
+          "联合优化"
+        ],
+        "intuition": "将条件输入编码后注入去噪过程，实现条件生成。",
+        "anchors": [
+          "anc_00053"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "formula": "f = H/h = W/w",
+        "variables": [
+          {
+            "name": "H, W",
+            "description": "原始图像高度和宽度",
+            "confidence": "high"
+          },
+          {
+            "name": "h, w",
+            "description": "潜在表示高度和宽度",
+            "confidence": "high"
+          },
+          {
+            "name": "f",
+            "description": "空间下采样因子",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "自编码器设计"
+        ],
+        "intuition": "控制压缩程度，平衡计算效率和细节保留。",
+        "anchors": [
+          "anc_00030",
+          "anc_00031"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "task": "无条件图像合成",
+        "dataset": "CelebA-HQ, FFHQ, LSUN-Churches, LSUN-Bedrooms",
+        "metric": "FID, Precision, Recall",
+        "result": "LDM-4在CelebA-HQ上FID为3.60，优于StyleGAN等基线。",
+        "anchors": [
+          "anc_00069",
+          "anc_00071"
+        ]
+      },
+      {
+        "task": "类条件图像合成",
+        "dataset": "ImageNet",
+        "metric": "FID, IS, Precision, Recall",
+        "result": "LDM-4-G（带分类器自由引导）FID为3.60，IS为247.67，达到新SOTA。",
+        "anchors": [
+          "anc_00093",
+          "anc_00094"
+        ]
+      },
+      {
+        "task": "文本到图像合成",
+        "dataset": "LAION-400M, MS-COCO",
+        "metric": "FID, IS",
+        "result": "LDM-KL-8-G在MS-COCO上FID为12.63，IS为30.29，具有竞争力。",
+        "anchors": [
+          "anc_00078",
+          "anc_00079"
+        ]
+      },
+      {
+        "task": "图像修复",
+        "dataset": "Places",
+        "metric": "FID, LPIPS",
+        "result": "LDM-4（带注意力，微调）在30k crops上FID为9.39，达到新SOTA。",
+        "anchors": [
+          "anc_00125"
+        ]
+      },
+      {
+        "task": "超分辨率",
+        "dataset": "ImageNet-Val",
+        "metric": "FID, IS, PSNR, SSIM",
+        "result": "LDM-SR在×4上采样上FID优于SR3，但PSNR/SSIM较低。",
+        "anchors": [
+          "anc_00114"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "variable": "压缩因子f",
+        "values": [
+          "f=1（像素空间）",
+          "f=4",
+          "f=8",
+          "f=16"
+        ],
+        "effect": "f=4或f=8在FID和训练效率之间取得最佳平衡；f=1训练慢，f=16质量下降。",
+        "anchors": [
+          "anc_00055",
+          "anc_00068"
+        ]
+      },
+      {
+        "variable": "条件机制",
+        "values": [
+          "拼接",
+          "交叉注意力"
+        ],
+        "effect": "交叉注意力支持更灵活的条件输入，提升多模态任务性能。",
+        "anchors": [
+          "anc_00039",
+          "anc_00042"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "aspect": "分辨率泛化",
+        "test": "在256²训练的模型泛化到512x1024进行语义合成和修复。",
+        "result": "成功泛化，但可能需要微调以适应新分辨率特征。",
+        "anchors": [
+          "anc_00098",
+          "anc_00100",
+          "anc_00104",
+          "anc_00105"
+        ]
+      },
+      {
+        "aspect": "采样步骤",
+        "test": "使用不同DDIM步数（10-200步）评估生成质量。",
+        "result": "步数减少时质量下降，但LDM-4在50-100步时仍保持较好性能。",
+        "anchors": [
+          "anc_00068"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "variable": "模型大小",
+        "values": [
+          "258M-400M参数"
+        ],
+        "effect": "更大模型（如LDM-4）通常性能更好，但计算成本增加。",
+        "anchors": [
+          "anc_00093",
+          "anc_00262",
+          "anc_00266"
+        ]
+      },
+      {
+        "variable": "数据集规模",
+        "values": [
+          "LAION-400M",
+          "ImageNet",
+          "CelebA-HQ"
+        ],
+        "effect": "在更大、更多样数据集上训练提升泛化能力。",
+        "anchors": [
+          "anc_00086"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "task": "文本到图像合成",
+        "example": "用户定义文本提示生成图像（如“一个戴帽子的男人”）。",
+        "observation": "模型能生成与文本描述匹配的多样化图像。",
+        "anchors": [
+          "anc_00059",
+          "anc_00060"
+        ]
+      },
+      {
+        "task": "布局到图像合成",
+        "example": "根据边界框和类别标签生成图像。",
+        "observation": "模型能遵循布局生成合理对象。",
+        "anchors": [
+          "anc_00083",
+          "anc_00086"
+        ]
+      }
+    ],
+    "human_eval": [
+      {
+        "task": "超分辨率",
+        "protocol": "用户研究比较像素基线与LDM-SR的生成质量。",
+        "result": "LDM-SR在感知质量上优于像素基线。",
+        "anchors": [
+          "anc_00111",
+          "anc_00112"
+        ]
+      }
+    ],
+    "benchmark": [
+      {
+        "name": "ImageNet类条件生成",
+        "metrics": [
+          "FID",
+          "IS",
+          "Precision",
+          "Recall"
+        ],
+        "result": "LDM-4-G达到FID 3.60，IS 247.67，领先于ADM、VQGAN等。",
+        "anchors": [
+          "anc_00093",
+          "anc_00094"
+        ]
+      },
+      {
+        "name": "MS-COCO文本到图像",
+        "metrics": [
+          "FID",
+          "IS"
+        ],
+        "result": "LDM-KL-8-G达到FID 12.63，IS 30.29，与GLIDE、Make-A-Scene竞争。",
+        "anchors": [
+          "anc_00078",
+          "anc_00079"
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "metric": "训练时间",
+        "comparison": "LDM-4在ImageNet上训练2M步约需35 V100天，而像素基线需数百GPU天。",
+        "anchors": [
+          "anc_00011",
+          "anc_00253",
+          "anc_00254"
+        ]
+      },
+      {
+        "metric": "推理吞吐量",
+        "comparison": "LDM-4在250 DDIM步下生成50k样本约需5天（单A100），而像素基线更慢。",
+        "anchors": [
+          "anc_00011",
+          "anc_00288",
+          "anc_00290"
+        ]
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "LDMs在潜在空间中训练，显著降低计算需求，同时保持或提升生成质量。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00005",
+          "anc_00011",
+          "anc_00013",
+          "anc_00055",
+          "anc_00068"
+        ],
+        "risk_flags": [
+          "计算节省依赖于压缩因子选择；质量提升可能因任务而异。"
+        ]
+      },
+      {
+        "claim": "通过交叉注意力机制，LDMs能灵活处理多种条件输入（如文本、边界框）。",
+        "evidence_source_type": "方法描述与实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00015",
+          "anc_00021",
+          "anc_00039",
+          "anc_00042",
+          "anc_00053",
+          "anc_00086"
+        ],
+        "risk_flags": [
+          "条件编码器τθ需要领域特定设计；多模态训练可能增加复杂度。"
+        ]
+      },
+      {
+        "claim": "LDMs在图像修复和类条件图像合成上达到新SOTA。",
+        "evidence_source_type": "基准测试结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00093",
+          "anc_00094",
+          "anc_00125"
+        ],
+        "risk_flags": [
+          "SOTA可能随时间变化；评估指标（如FID）可能不全面。"
+        ]
+      },
+      {
+        "claim": "LDMs能泛化到更高分辨率进行空间条件任务。",
+        "evidence_source_type": "实验观察",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00098",
+          "anc_00100",
+          "anc_00104",
+          "anc_00105"
+        ],
+        "risk_flags": [
+          "泛化可能需微调；高分辨率生成可能引入伪影。"
+        ]
+      },
+      {
+        "claim": "使用较温和的压缩（如f=4）在压缩率和细节保留之间取得平衡。",
+        "evidence_source_type": "消融实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00008",
+          "anc_00010",
+          "anc_00033",
+          "anc_00055"
+        ],
+        "risk_flags": [
+          "最优压缩因子可能因数据集和任务而异。"
+        ]
+      },
+      {
+        "claim": "LDMs在多个任务上具有竞争力，同时计算成本更低。",
+        "evidence_source_type": "综合实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00019",
+          "anc_00069",
+          "anc_00071",
+          "anc_00078",
+          "anc_00079",
+          "anc_00093",
+          "anc_00094"
+        ],
+        "risk_flags": [
+          "竞争力评估依赖于基线选择；计算成本比较可能因硬件而异。"
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "潜在扩散模型（LDMs）",
+        "definition": "在预训练自编码器的潜在空间中训练的扩散模型，用于高效图像合成。",
+        "anchors": [
+          "anc_00005",
+          "anc_00013"
+        ]
+      },
+      {
+        "term": "扩散模型（DMs）",
+        "definition": "通过逐步去噪正态分布变量来学习数据分布的概率模型。",
+        "anchors": [
+          "anc_00005",
+          "anc_00034"
+        ]
+      },
+      {
+        "term": "自编码器",
+        "definition": "由编码器和解码器组成的神经网络，用于数据压缩和重建。",
+        "anchors": [
+          "anc_00027",
+          "anc_00028"
+        ]
+      },
+      {
+        "term": "交叉注意力",
+        "definition": "一种注意力机制，允许模型关注外部条件输入（如文本）以控制生成过程。",
+        "anchors": [
+          "anc_00039",
+          "anc_00042"
+        ]
+      },
+      {
+        "term": "分类器自由引导",
+        "definition": "一种引导技术，通过调整条件和无条件预测的混合比例来增强条件生成。",
+        "anchors": [
+          "anc_00060",
+          "anc_00093"
+        ]
+      },
+      {
+        "term": "DDIM",
+        "definition": "一种加速扩散模型采样的确定性过程。",
+        "anchors": [
+          "anc_00060",
+          "anc_00066"
+        ]
+      },
+      {
+        "term": "FID",
+        "definition": "Fréchet Inception Distance，用于评估生成图像质量的指标，值越低越好。",
+        "anchors": [
+          "anc_00010",
+          "anc_00055"
+        ]
+      },
+      {
+        "term": "IS",
+        "definition": "Inception Score，用于评估生成图像质量和多样性的指标，值越高越好。",
+        "anchors": [
+          "anc_00094"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "required_datasets": [
+      {
+        "name": "CelebA-HQ",
+        "description": "高分辨率人脸数据集",
+        "anchors": [
+          "anc_00050",
+          "anc_00069"
+        ]
+      },
+      {
+        "name": "FFHQ",
+        "description": "高质量人脸数据集",
+        "anchors": [
+          "anc_00050",
+          "anc_00069"
+        ]
+      },
+      {
+        "name": "LSUN-Churches, LSUN-Bedrooms",
+        "description": "场景数据集",
+        "anchors": [
+          "anc_00050",
+          "anc_00069"
+        ]
+      },
+      {
+        "name": "ImageNet",
+        "description": "大规模图像分类数据集",
+        "anchors": [
+          "anc_00010",
+          "anc_00063"
+        ]
+      },
+      {
+        "name": "LAION-400M",
+        "description": "大规模图文对数据集",
+        "anchors": [
+          "anc_00060",
+          "anc_00086"
+        ]
+      },
+      {
+        "name": "Places",
+        "description": "场景识别数据集，用于图像修复评估",
+        "anchors": [
+          "anc_00117",
+          "anc_00283"
+        ]
+      }
+    ],
+    "required_models": [
+      {
+        "name": "预训练自编码器",
+        "description": "用于图像压缩和重建，如VQ-reg.或KL-reg.模型",
+        "anchors": [
+          "anc_00027",
+          "anc_00028",
+          "anc_00033"
+        ]
+      },
+      {
+        "name": "UNet",
+        "description": "扩散模型的骨干网络，时间条件UNet",
+        "anchors": [
+          "anc_00035",
+          "anc_00042"
+        ]
+      },
+      {
+        "name": "Transformer编码器",
+        "description": "用于条件输入（如文本）的编码器τθ",
+        "anchors": [
+          "anc_00053",
+          "anc_00086"
+        ]
+      }
+    ],
+    "compute_requirements": {
+      "training": "LDM-4在ImageNet上训练2M步约需35 V100天；像素基线需数百GPU天。",
+      "inference": "LDM-4在250 DDIM步下生成50k样本约需5天（单A100）。",
+      "anchors": [
+        "anc_00011",
+        "anc_00253",
+        "anc_00254",
+        "anc_00288",
+        "anc_00290"
+      ]
+    },
+    "code_available": {
+      "url": "https://github.com/CompVis/latent-diffusion",
+      "description": "官方代码库，包含预训练模型和训练脚本。",
+      "anchors": [
+        "anc_00003",
+        "anc_00021"
+      ]
+    },
+    "steps": [
+      "1. 准备数据集（如CelebA-HQ、ImageNet）并预处理。",
+      "2. 训练或加载预训练自编码器（如VQ-reg.或KL-reg.模型）。",
+      "3. 在潜在空间中训练扩散模型（UNet），使用去噪目标。",
+      "4. 对于条件任务，训练条件编码器（如Transformer）并联合优化。",
+      "5. 使用DDIM等采样器从潜在空间采样，并通过解码器生成图像。",
+      "6. 在目标任务（如图像修复、超分辨率）上评估性能。"
+    ],
+    "missing_details": [
+      "自编码器的具体架构和训练细节（如损失函数、超参数）。",
+      "扩散模型的详细超参数（如学习率、噪声调度）。",
+      "条件编码器的具体实现（如Transformer层数、注意力头数）。",
+      "数据预处理的具体步骤（如裁剪、归一化）。",
+      "评估指标的具体计算方式（如FID的参考图像集）。"
+    ],
+    "risk_points": [
+      "计算资源需求高，可能限制复现。",
+      "压缩因子选择影响质量，需仔细调优。",
+      "条件机制可能需领域特定调整。",
+      "高分辨率泛化可能需额外微调。",
+      "评估指标可能不全面，需结合人类评估。"
+    ]
+  }
+}

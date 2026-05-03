@@ -1,0 +1,1216 @@
+{
+  "paper_skeleton": {
+    "problem": "YOLO原始版本存在定位误差大、召回率低的问题，且无法检测大规模类别（如9000类以上）。同时，检测数据集规模远小于分类数据集，限制了检测系统的词汇量。",
+    "motivation": "改进YOLO检测方法，提升精度和速度；利用大规模分类数据扩展检测类别，实现实时大规模目标检测。",
+    "core_idea": "通过一系列改进（如批归一化、高分辨率分类器、锚框聚类、直接位置预测、细粒度特征、多尺度训练）构建YOLOv2；提出WordTree层次化分类和联合训练方法，结合检测与分类数据，训练YOLO9000检测超过9000类物体。",
+    "method": "1. YOLOv2改进：批归一化、高分辨率分类器、卷积网络、锚框、新网络（Darknet-19）、维度聚类、直接位置预测、细粒度特征（passthrough层）、多尺度训练。2. YOLO9000：WordTree层次化分类、联合训练（检测+分类数据）、平衡采样。",
+    "experiments": "在PASCAL VOC 2007/2012、COCO、ImageNet检测任务上评估。YOLOv2在VOC 2007上达到78.6 mAP（40 FPS）和76.8 mAP（67 FPS）；YOLO9000在ImageNet检测验证集上达到19.7 mAP（仅44类有检测数据），在156个无检测数据类别上达到16.0 mAP。",
+    "claims": [
+      "YOLOv2是当时最先进的实时目标检测系统，在精度和速度上超越Faster R-CNN和SSD。",
+      "多尺度训练使同一模型能在不同分辨率下运行，提供速度-精度权衡。",
+      "WordTree和联合训练能利用分类数据扩展检测类别，实现超过9000类的实时检测。",
+      "YOLO9000在仅有少量检测数据的类别上也能取得合理检测性能。"
+    ],
+    "limitations": "YOLO9000在服装等COCO中无边界框标注的类别上表现较差；联合训练依赖层次化标签结构；多尺度训练可能增加训练复杂度。"
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "批归一化",
+        "label": "Batch Normalization",
+        "summary": "在所有卷积层添加批归一化，提升收敛速度和mAP，并移除dropout。",
+        "description": "通过批归一化消除对其他正则化的需求，提升超过2%的mAP。",
+        "type": "improvement",
+        "anchors": [
+          "anc_00016",
+          "anc_00017",
+          "anc_00018"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "高分辨率分类器",
+        "label": "High Resolution Classifier",
+        "summary": "先在224×224训练分类器，再在448×448微调，以适应检测的高分辨率输入。",
+        "description": "解决原始YOLO中分类器与检测分辨率不匹配的问题，提升约4%的mAP。",
+        "type": "improvement",
+        "anchors": [
+          "anc_00018"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "卷积网络",
+        "label": "Convolutional",
+        "summary": "移除全连接层，使用全卷积网络，支持多尺度输入。",
+        "description": "使网络能处理不同尺寸的输入图像。",
+        "type": "architecture",
+        "anchors": [
+          "anc_00071"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "锚框",
+        "label": "Anchor Boxes",
+        "summary": "引入锚框（先验框）来预测边界框，提升召回率。",
+        "description": "使用锚框后，召回率提升，但mAP未变。",
+        "type": "improvement",
+        "anchors": [
+          "anc_00071",
+          "anc_00022"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "新网络Darknet-19",
+        "label": "New Network (Darknet-19)",
+        "summary": "设计新的分类网络Darknet-19，比VGG-16更快且精度相当。",
+        "description": "Darknet-19有19个卷积层和5个最大池化层，仅需5.58亿次浮点运算，达到72.9% top-1精度。",
+        "type": "architecture",
+        "anchors": [
+          "anc_00077",
+          "anc_00078",
+          "anc_00079",
+          "anc_00080",
+          "anc_00085",
+          "anc_00086"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "维度聚类",
+        "label": "Dimension Clusters",
+        "summary": "使用k-means聚类边界框维度，获得更好的先验框。",
+        "description": "使用IOU距离度量进行k-means聚类，选择k=5作为先验框数量，比手工选择的锚框平均IOU更高。",
+        "type": "improvement",
+        "anchors": [
+          "anc_00023",
+          "anc_00024",
+          "anc_00025",
+          "anc_00026",
+          "anc_00027",
+          "anc_00028",
+          "anc_00029",
+          "anc_00030",
+          "anc_00031",
+          "anc_00032",
+          "anc_00033",
+          "anc_00034"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "直接位置预测",
+        "label": "Direct Location Prediction",
+        "summary": "直接预测边界框中心相对于网格单元的偏移，使用sigmoid约束，提升稳定性。",
+        "description": "避免RPN中无约束偏移预测导致的不稳定，使用sigmoid将预测限制在0-1之间。",
+        "type": "improvement",
+        "anchors": [
+          "anc_00035",
+          "anc_00036",
+          "anc_00037",
+          "anc_00038",
+          "anc_00039",
+          "anc_00040",
+          "anc_00041",
+          "anc_00042",
+          "anc_00043",
+          "anc_00044",
+          "anc_00045",
+          "anc_00046",
+          "anc_00047",
+          "anc_00048",
+          "anc_00049",
+          "anc_00056",
+          "anc_00057",
+          "anc_00059",
+          "anc_00060"
+        ]
+      },
+      {
+        "node_id": "node_008",
+        "title": "细粒度特征",
+        "label": "Fine-Grained Features",
+        "summary": "添加passthrough层，将早期26×26特征与13×13特征拼接，提升小物体检测。",
+        "description": "通过passthrough层将高分辨率特征与低分辨率特征连接，类似ResNet的恒等映射。",
+        "type": "improvement",
+        "anchors": [
+          "anc_00049",
+          "anc_00050",
+          "anc_00051",
+          "anc_00060"
+        ]
+      },
+      {
+        "node_id": "node_009",
+        "title": "多尺度训练",
+        "label": "Multi-Scale Training",
+        "summary": "训练时随机选择输入图像尺寸（320×320到608×608），使模型适应不同分辨率。",
+        "description": "同一模型可在不同分辨率下运行，提供速度-精度权衡。",
+        "type": "training",
+        "anchors": [
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064",
+          "anc_00068"
+        ]
+      },
+      {
+        "node_id": "node_010",
+        "title": "WordTree层次化分类",
+        "label": "WordTree Hierarchical Classification",
+        "summary": "基于WordNet构建层次化标签树，使用条件概率进行分类，解决类别互斥问题。",
+        "description": "在WordTree中，每个节点预测其下位词的条件概率，通过路径乘积得到绝对概率。",
+        "type": "method",
+        "anchors": [
+          "anc_00087",
+          "anc_00088",
+          "anc_00089",
+          "anc_00090",
+          "anc_00091",
+          "anc_00092",
+          "anc_00093",
+          "anc_00094",
+          "anc_00095",
+          "anc_00096",
+          "anc_00097",
+          "anc_00098",
+          "anc_00099",
+          "anc_00100",
+          "anc_00101",
+          "anc_00102",
+          "anc_00103",
+          "anc_00105",
+          "anc_00107",
+          "anc_00108",
+          "anc_00109",
+          "anc_00110",
+          "anc_00111",
+          "anc_00112"
+        ]
+      },
+      {
+        "node_id": "node_011",
+        "title": "联合训练",
+        "label": "Joint Training",
+        "summary": "同时训练检测和分类数据，检测数据学习定位和常见类别，分类数据扩展词汇量。",
+        "description": "对于检测图像，反向传播检测和分类损失；对于分类图像，仅反向传播分类损失，并假设预测框与真实标签重叠至少0.3 IOU。",
+        "type": "training",
+        "anchors": [
+          "anc_00087",
+          "anc_00113",
+          "anc_00114",
+          "anc_00115",
+          "anc_00116",
+          "anc_00117",
+          "anc_00118",
+          "anc_00120",
+          "anc_00121"
+        ]
+      },
+      {
+        "node_id": "node_012",
+        "title": "YOLOv2检测框架",
+        "label": "YOLOv2 Detection Framework",
+        "summary": "整合上述改进，构建YOLOv2检测器，在VOC和COCO上达到最先进水平。",
+        "description": "YOLOv2在VOC 2007上达到78.6 mAP（40 FPS），在COCO上达到44.0 mAP（IOU=0.5）。",
+        "type": "framework",
+        "anchors": [
+          "anc_00003",
+          "anc_00004",
+          "anc_00005",
+          "anc_00064",
+          "anc_00065",
+          "anc_00066",
+          "anc_00067",
+          "anc_00068",
+          "anc_00071",
+          "anc_00072",
+          "anc_00073",
+          "anc_00074",
+          "anc_00075",
+          "anc_00083",
+          "anc_00084"
+        ]
+      },
+      {
+        "node_id": "node_013",
+        "title": "YOLO9000检测系统",
+        "label": "YOLO9000 Detection System",
+        "summary": "基于YOLOv2和联合训练，构建YOLO9000，可检测超过9000类物体。",
+        "description": "在ImageNet检测验证集上达到19.7 mAP，仅44类有检测数据；在156个无检测数据类别上达到16.0 mAP。",
+        "type": "framework",
+        "anchors": [
+          "anc_00003",
+          "anc_00005",
+          "anc_00006",
+          "anc_00007",
+          "anc_00008",
+          "anc_00009",
+          "anc_00010",
+          "anc_00113",
+          "anc_00114",
+          "anc_00115",
+          "anc_00116",
+          "anc_00117",
+          "anc_00118",
+          "anc_00120",
+          "anc_00121",
+          "anc_00124",
+          "anc_00125",
+          "anc_00126",
+          "anc_00127"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_012",
+        "label": "改进",
+        "anchors": [
+          "anc_00016",
+          "anc_00017",
+          "anc_00018"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_012",
+        "label": "改进",
+        "anchors": [
+          "anc_00018"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_012",
+        "label": "架构",
+        "anchors": [
+          "anc_00071"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_012",
+        "label": "改进",
+        "anchors": [
+          "anc_00071",
+          "anc_00022"
+        ]
+      },
+      {
+        "source": "node_005",
+        "target": "node_012",
+        "label": "架构",
+        "anchors": [
+          "anc_00077",
+          "anc_00078",
+          "anc_00079",
+          "anc_00080",
+          "anc_00085",
+          "anc_00086"
+        ]
+      },
+      {
+        "source": "node_006",
+        "target": "node_012",
+        "label": "改进",
+        "anchors": [
+          "anc_00023",
+          "anc_00024",
+          "anc_00025",
+          "anc_00026",
+          "anc_00027",
+          "anc_00028",
+          "anc_00029",
+          "anc_00030",
+          "anc_00031",
+          "anc_00032",
+          "anc_00033",
+          "anc_00034"
+        ]
+      },
+      {
+        "source": "node_007",
+        "target": "node_012",
+        "label": "改进",
+        "anchors": [
+          "anc_00035",
+          "anc_00036",
+          "anc_00037",
+          "anc_00038",
+          "anc_00039",
+          "anc_00040",
+          "anc_00041",
+          "anc_00042",
+          "anc_00043",
+          "anc_00044",
+          "anc_00045",
+          "anc_00046",
+          "anc_00047",
+          "anc_00048",
+          "anc_00049",
+          "anc_00056",
+          "anc_00057",
+          "anc_00059",
+          "anc_00060"
+        ]
+      },
+      {
+        "source": "node_008",
+        "target": "node_012",
+        "label": "改进",
+        "anchors": [
+          "anc_00049",
+          "anc_00050",
+          "anc_00051",
+          "anc_00060"
+        ]
+      },
+      {
+        "source": "node_009",
+        "target": "node_012",
+        "label": "训练",
+        "anchors": [
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064",
+          "anc_00068"
+        ]
+      },
+      {
+        "source": "node_010",
+        "target": "node_013",
+        "label": "方法",
+        "anchors": [
+          "anc_00087",
+          "anc_00088",
+          "anc_00089",
+          "anc_00090",
+          "anc_00091",
+          "anc_00092",
+          "anc_00093",
+          "anc_00094",
+          "anc_00095",
+          "anc_00096",
+          "anc_00097",
+          "anc_00098",
+          "anc_00099",
+          "anc_00100",
+          "anc_00101",
+          "anc_00102",
+          "anc_00103",
+          "anc_00105",
+          "anc_00107",
+          "anc_00108",
+          "anc_00109",
+          "anc_00110",
+          "anc_00111",
+          "anc_00112"
+        ]
+      },
+      {
+        "source": "node_011",
+        "target": "node_013",
+        "label": "训练",
+        "anchors": [
+          "anc_00087",
+          "anc_00113",
+          "anc_00114",
+          "anc_00115",
+          "anc_00116",
+          "anc_00117",
+          "anc_00118",
+          "anc_00120",
+          "anc_00121"
+        ]
+      },
+      {
+        "source": "node_012",
+        "target": "node_013",
+        "label": "基础",
+        "anchors": [
+          "anc_00003",
+          "anc_00005",
+          "anc_00006",
+          "anc_00007",
+          "anc_00008",
+          "anc_00009",
+          "anc_00010",
+          "anc_00113",
+          "anc_00114",
+          "anc_00115",
+          "anc_00116",
+          "anc_00117",
+          "anc_00118",
+          "anc_00120",
+          "anc_00121",
+          "anc_00124",
+          "anc_00125",
+          "anc_00126",
+          "anc_00127"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "YOLO (原始版本)",
+    "new_method": "YOLOv2 和 YOLO9000",
+    "deltas": [
+      {
+        "before": "YOLO无批归一化，需要dropout等正则化。",
+        "after": "YOLOv2在所有卷积层添加批归一化，移除dropout。",
+        "why_it_matters": "提升收敛速度和mAP超过2%，并简化正则化。",
+        "anchors": [
+          "anc_00016",
+          "anc_00017",
+          "anc_00018"
+        ]
+      },
+      {
+        "before": "YOLO分类器在224×224训练，检测时使用448×448，分辨率不匹配。",
+        "after": "YOLOv2先在224×224训练，再在448×448微调分类器。",
+        "why_it_matters": "提升约4%的mAP，使分类器适应检测的高分辨率。",
+        "anchors": [
+          "anc_00018"
+        ]
+      },
+      {
+        "before": "YOLO使用全连接层，输入尺寸固定。",
+        "after": "YOLOv2使用全卷积网络，支持多尺度输入。",
+        "why_it_matters": "使模型能处理不同尺寸的输入图像。",
+        "anchors": [
+          "anc_00071"
+        ]
+      },
+      {
+        "before": "YOLO无锚框，直接预测边界框。",
+        "after": "YOLOv2引入锚框（先验框）。",
+        "why_it_matters": "提升召回率，但mAP未变。",
+        "anchors": [
+          "anc_00071",
+          "anc_00022"
+        ]
+      },
+      {
+        "before": "YOLO使用自定义GoogLeNet网络。",
+        "after": "YOLOv2使用新的Darknet-19网络，更快且精度相当。",
+        "why_it_matters": "减少计算量（5.58亿次运算 vs 8.52亿次），同时保持精度。",
+        "anchors": [
+          "anc_00077",
+          "anc_00078",
+          "anc_00079",
+          "anc_00080",
+          "anc_00085",
+          "anc_00086"
+        ]
+      },
+      {
+        "before": "YOLO使用手工选择的锚框尺寸。",
+        "after": "YOLOv2使用k-means聚类边界框维度，获得更好的先验框。",
+        "why_it_matters": "使用5个聚类先验框的平均IOU（61.0）接近9个手工锚框（60.9），且更优。",
+        "anchors": [
+          "anc_00023",
+          "anc_00024",
+          "anc_00025",
+          "anc_00026",
+          "anc_00027",
+          "anc_00028",
+          "anc_00029",
+          "anc_00030",
+          "anc_00031",
+          "anc_00032",
+          "anc_00033",
+          "anc_00034"
+        ]
+      },
+      {
+        "before": "RPN中预测无约束偏移，导致训练不稳定。",
+        "after": "YOLOv2直接预测边界框中心相对于网格单元的偏移，使用sigmoid约束。",
+        "why_it_matters": "提升训练稳定性，结合维度聚类提升近5%的mAP。",
+        "anchors": [
+          "anc_00035",
+          "anc_00036",
+          "anc_00037",
+          "anc_00038",
+          "anc_00039",
+          "anc_00040",
+          "anc_00041",
+          "anc_00042",
+          "anc_00043",
+          "anc_00044",
+          "anc_00045",
+          "anc_00046",
+          "anc_00047",
+          "anc_00048",
+          "anc_00049",
+          "anc_00056",
+          "anc_00057",
+          "anc_00059",
+          "anc_00060"
+        ]
+      },
+      {
+        "before": "YOLO仅使用13×13特征图，小物体检测能力有限。",
+        "after": "YOLOv2添加passthrough层，将26×26特征与13×13特征拼接。",
+        "why_it_matters": "提升小物体检测，带来约1%的性能提升。",
+        "anchors": [
+          "anc_00049",
+          "anc_00050",
+          "anc_00051",
+          "anc_00060"
+        ]
+      },
+      {
+        "before": "YOLO固定输入分辨率（448×448）。",
+        "after": "YOLOv2多尺度训练，随机选择输入尺寸（320×320到608×608）。",
+        "why_it_matters": "同一模型可在不同分辨率下运行，提供速度-精度权衡。",
+        "anchors": [
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064",
+          "anc_00068"
+        ]
+      },
+      {
+        "before": "传统分类使用softmax，假设类别互斥，无法合并不同数据集。",
+        "after": "YOLO9000使用WordTree层次化分类，基于WordNet构建标签树，使用条件概率。",
+        "why_it_matters": "解决类别互斥问题，能合并检测和分类数据集。",
+        "anchors": [
+          "anc_00087",
+          "anc_00088",
+          "anc_00089",
+          "anc_00090",
+          "anc_00091",
+          "anc_00092",
+          "anc_00093",
+          "anc_00094",
+          "anc_00095",
+          "anc_00096",
+          "anc_00097",
+          "anc_00098",
+          "anc_00099",
+          "anc_00100",
+          "anc_00101",
+          "anc_00102",
+          "anc_00103",
+          "anc_00105",
+          "anc_00107",
+          "anc_00108",
+          "anc_00109",
+          "anc_00110",
+          "anc_00111",
+          "anc_00112"
+        ]
+      },
+      {
+        "before": "检测系统仅使用检测数据训练，类别有限。",
+        "after": "YOLO9000联合训练检测和分类数据，扩展词汇量。",
+        "why_it_matters": "利用大规模分类数据扩展检测类别，实现超过9000类的实时检测。",
+        "anchors": [
+          "anc_00087",
+          "anc_00113",
+          "anc_00114",
+          "anc_00115",
+          "anc_00116",
+          "anc_00117",
+          "anc_00118",
+          "anc_00120",
+          "anc_00121"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "formula": "d(box, centroid) = 1 - IOU(box, centroid)",
+        "variables": [
+          {
+            "name": "d(box, centroid)",
+            "description": "边界框与聚类中心的距离",
+            "confidence": "high"
+          },
+          {
+            "name": "IOU(box, centroid)",
+            "description": "边界框与聚类中心的交并比",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "k-means聚类"
+        ],
+        "intuition": "使用IOU作为距离度量，使聚类结果与框大小无关，更符合检测任务需求。",
+        "anchors": [
+          "anc_00029",
+          "anc_00030"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "formula": "bx = σ(tx) + cx",
+        "variables": [
+          {
+            "name": "bx",
+            "description": "预测的边界框中心x坐标",
+            "confidence": "high"
+          },
+          {
+            "name": "tx",
+            "description": "网络预测的x偏移",
+            "confidence": "high"
+          },
+          {
+            "name": "cx",
+            "description": "网格单元左上角x坐标",
+            "confidence": "high"
+          },
+          {
+            "name": "σ",
+            "description": "sigmoid函数",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "直接位置预测"
+        ],
+        "intuition": "将边界框中心预测限制在网格单元内，提升训练稳定性。",
+        "anchors": [
+          "anc_00044",
+          "anc_00056"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "formula": "by = σ(ty) + cy",
+        "variables": [
+          {
+            "name": "by",
+            "description": "预测的边界框中心y坐标",
+            "confidence": "high"
+          },
+          {
+            "name": "ty",
+            "description": "网络预测的y偏移",
+            "confidence": "high"
+          },
+          {
+            "name": "cy",
+            "description": "网格单元左上角y坐标",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "直接位置预测"
+        ],
+        "intuition": "同bx，限制y坐标预测。",
+        "anchors": [
+          "anc_00045",
+          "anc_00057"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "formula": "bw = pw * e^{tw}",
+        "variables": [
+          {
+            "name": "bw",
+            "description": "预测的边界框宽度",
+            "confidence": "high"
+          },
+          {
+            "name": "pw",
+            "description": "先验框宽度",
+            "confidence": "high"
+          },
+          {
+            "name": "tw",
+            "description": "网络预测的宽度缩放",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "维度聚类",
+          "直接位置预测"
+        ],
+        "intuition": "使用指数函数预测宽度，基于先验框缩放。",
+        "anchors": [
+          "anc_00046",
+          "anc_00053"
+        ]
+      },
+      {
+        "formula_id": "formula_005",
+        "formula": "bh = ph * e^{th}",
+        "variables": [
+          {
+            "name": "bh",
+            "description": "预测的边界框高度",
+            "confidence": "high"
+          },
+          {
+            "name": "ph",
+            "description": "先验框高度",
+            "confidence": "high"
+          },
+          {
+            "name": "th",
+            "description": "网络预测的高度缩放",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "维度聚类",
+          "直接位置预测"
+        ],
+        "intuition": "使用指数函数预测高度，基于先验框缩放。",
+        "anchors": [
+          "anc_00047",
+          "anc_00054"
+        ]
+      },
+      {
+        "formula_id": "formula_006",
+        "formula": "Pr(object) * IOU(b, object) = σ(to)",
+        "variables": [
+          {
+            "name": "Pr(object)",
+            "description": "目标存在概率",
+            "confidence": "high"
+          },
+          {
+            "name": "IOU(b, object)",
+            "description": "预测框与真实框的交并比",
+            "confidence": "high"
+          },
+          {
+            "name": "to",
+            "description": "网络预测的目标置信度",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "直接位置预测"
+        ],
+        "intuition": "目标置信度预测为目标存在概率与IOU的乘积。",
+        "anchors": [
+          "anc_00048"
+        ]
+      },
+      {
+        "formula_id": "formula_007",
+        "formula": "Pr(Norfolk terrier) = Pr(Norfolk terrier|terrier) * Pr(terrier|hunting dog) * ... * Pr(animal|physical object)",
+        "variables": [
+          {
+            "name": "Pr(Norfolk terrier)",
+            "description": "绝对概率",
+            "confidence": "high"
+          },
+          {
+            "name": "Pr(Norfolk terrier|terrier)",
+            "description": "条件概率",
+            "confidence": "high"
+          }
+        ],
+        "dependencies": [
+          "WordTree层次化分类"
+        ],
+        "intuition": "通过路径乘积计算叶子节点的绝对概率。",
+        "anchors": [
+          "anc_00096",
+          "anc_00097",
+          "anc_00098"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "experiment": "YOLOv2在PASCAL VOC 2007上的性能",
+        "result": "在416×416分辨率下达到76.8 mAP（67 FPS），在544×544分辨率下达到78.6 mAP（40 FPS）。",
+        "anchors": [
+          "anc_00003",
+          "anc_00004",
+          "anc_00066",
+          "anc_00067"
+        ]
+      },
+      {
+        "experiment": "YOLOv2在PASCAL VOC 2012上的性能",
+        "result": "达到73.4 mAP，运行速度远快于竞争方法。",
+        "anchors": [
+          "anc_00064",
+          "anc_00073",
+          "anc_00074",
+          "anc_00075"
+        ]
+      },
+      {
+        "experiment": "YOLOv2在COCO上的性能",
+        "result": "在VOC指标（IOU=0.5）下达到44.0 mAP，与SSD和Faster R-CNN相当。",
+        "anchors": [
+          "anc_00065",
+          "anc_00083",
+          "anc_00084"
+        ]
+      },
+      {
+        "experiment": "YOLO9000在ImageNet检测任务上的性能",
+        "result": "在ImageNet检测验证集上达到19.7 mAP（仅44类有检测数据），在156个无检测数据类别上达到16.0 mAP。",
+        "anchors": [
+          "anc_00005",
+          "anc_00124",
+          "anc_00125",
+          "anc_00126"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "experiment": "从YOLO到YOLOv2的改进路径",
+        "result": "批归一化、高分辨率分类器、卷积网络、锚框、新网络、维度聚类、直接位置预测、passthrough层、多尺度训练等改进逐步提升mAP。",
+        "anchors": [
+          "anc_00071",
+          "anc_00072"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "experiment": "多尺度训练的鲁棒性",
+        "result": "同一模型在不同分辨率下运行，提供速度-精度权衡。",
+        "anchors": [
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064",
+          "anc_00068"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "experiment": "输入分辨率对速度和精度的影响",
+        "result": "从288×288（91 FPS，69.0 mAP）到544×544（40 FPS，78.6 mAP）。",
+        "anchors": [
+          "anc_00066",
+          "anc_00067"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "experiment": "YOLO9000在最好和最差类别上的表现",
+        "result": "动物类别表现较好，服装类别表现较差。",
+        "anchors": [
+          "anc_00124",
+          "anc_00125",
+          "anc_00126"
+        ]
+      }
+    ],
+    "human_eval": [],
+    "benchmark": [
+      {
+        "experiment": "在PASCAL VOC、COCO、ImageNet检测基准上的评估",
+        "result": "YOLOv2在多个基准上达到最先进水平。",
+        "anchors": [
+          "anc_00003",
+          "anc_00004",
+          "anc_00005",
+          "anc_00064",
+          "anc_00065",
+          "anc_00066",
+          "anc_00067",
+          "anc_00073",
+          "anc_00074",
+          "anc_00075",
+          "anc_00083",
+          "anc_00084"
+        ]
+      }
+    ],
+    "efficiency": [
+      {
+        "experiment": "YOLOv2的速度",
+        "result": "在Geforce GTX Titan X上，416×416分辨率为67 FPS，288×288分辨率为91 FPS。",
+        "anchors": [
+          "anc_00066",
+          "anc_00067",
+          "anc_00069"
+        ]
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "YOLOv2是当时最先进的实时目标检测系统，在精度和速度上超越Faster R-CNN和SSD。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00003",
+          "anc_00004",
+          "anc_00005",
+          "anc_00066",
+          "anc_00067",
+          "anc_00073",
+          "anc_00074",
+          "anc_00075"
+        ],
+        "risk_flags": [
+          "实验仅在特定数据集和硬件上验证"
+        ]
+      },
+      {
+        "claim": "多尺度训练使同一模型能在不同分辨率下运行，提供速度-精度权衡。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064",
+          "anc_00066",
+          "anc_00067",
+          "anc_00068"
+        ],
+        "risk_flags": [
+          "多尺度训练可能增加训练复杂度"
+        ]
+      },
+      {
+        "claim": "WordTree和联合训练能利用分类数据扩展检测类别，实现超过9000类的实时检测。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00005",
+          "anc_00087",
+          "anc_00113",
+          "anc_00114",
+          "anc_00115",
+          "anc_00116",
+          "anc_00117",
+          "anc_00118",
+          "anc_00120",
+          "anc_00121",
+          "anc_00124",
+          "anc_00125",
+          "anc_00126"
+        ],
+        "risk_flags": [
+          "在无检测数据的类别上性能有限（16.0 mAP）",
+          "依赖层次化标签结构"
+        ]
+      },
+      {
+        "claim": "YOLO9000在仅有少量检测数据的类别上也能取得合理检测性能。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00005",
+          "anc_00124",
+          "anc_00125",
+          "anc_00126"
+        ],
+        "risk_flags": [
+          "合理性能的定义不明确",
+          "服装等类别表现较差"
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "YOLOv2",
+        "definition": "YOLO的改进版本，通过一系列技术提升精度和速度。",
+        "anchors": [
+          "anc_00003",
+          "anc_00004",
+          "anc_00005"
+        ]
+      },
+      {
+        "term": "YOLO9000",
+        "definition": "基于YOLOv2和联合训练，可检测超过9000类物体的实时检测系统。",
+        "anchors": [
+          "anc_00003",
+          "anc_00005",
+          "anc_00006",
+          "anc_00007"
+        ]
+      },
+      {
+        "term": "Darknet-19",
+        "definition": "YOLOv2使用的分类网络，有19个卷积层和5个最大池化层。",
+        "anchors": [
+          "anc_00077",
+          "anc_00078",
+          "anc_00079",
+          "anc_00080",
+          "anc_00085",
+          "anc_00086"
+        ]
+      },
+      {
+        "term": "WordTree",
+        "definition": "基于WordNet构建的层次化标签树，用于解决类别互斥问题。",
+        "anchors": [
+          "anc_00087",
+          "anc_00088",
+          "anc_00089",
+          "anc_00090",
+          "anc_00091",
+          "anc_00092",
+          "anc_00093",
+          "anc_00094",
+          "anc_00095",
+          "anc_00096",
+          "anc_00097",
+          "anc_00098",
+          "anc_00099",
+          "anc_00100",
+          "anc_00101",
+          "anc_00102",
+          "anc_00103",
+          "anc_00105",
+          "anc_00107",
+          "anc_00108",
+          "anc_00109",
+          "anc_00110",
+          "anc_00111",
+          "anc_00112"
+        ]
+      },
+      {
+        "term": "联合训练",
+        "definition": "同时训练检测和分类数据，以扩展检测类别。",
+        "anchors": [
+          "anc_00087",
+          "anc_00113",
+          "anc_00114",
+          "anc_00115",
+          "anc_00116",
+          "anc_00117",
+          "anc_00118",
+          "anc_00120",
+          "anc_00121"
+        ]
+      },
+      {
+        "term": "维度聚类",
+        "definition": "使用k-means聚类边界框维度，获得更好的先验框。",
+        "anchors": [
+          "anc_00023",
+          "anc_00024",
+          "anc_00025",
+          "anc_00026",
+          "anc_00027",
+          "anc_00028",
+          "anc_00029",
+          "anc_00030",
+          "anc_00031",
+          "anc_00032",
+          "anc_00033",
+          "anc_00034"
+        ]
+      },
+      {
+        "term": "直接位置预测",
+        "definition": "直接预测边界框中心相对于网格单元的偏移，使用sigmoid约束。",
+        "anchors": [
+          "anc_00035",
+          "anc_00036",
+          "anc_00037",
+          "anc_00038",
+          "anc_00039",
+          "anc_00040",
+          "anc_00041",
+          "anc_00042",
+          "anc_00043",
+          "anc_00044",
+          "anc_00045",
+          "anc_00046",
+          "anc_00047",
+          "anc_00048",
+          "anc_00049",
+          "anc_00056",
+          "anc_00057",
+          "anc_00059",
+          "anc_00060"
+        ]
+      },
+      {
+        "term": "passthrough层",
+        "definition": "将早期高分辨率特征与低分辨率特征拼接的层。",
+        "anchors": [
+          "anc_00049",
+          "anc_00050",
+          "anc_00051",
+          "anc_00060"
+        ]
+      },
+      {
+        "term": "多尺度训练",
+        "definition": "训练时随机选择输入图像尺寸，使模型适应不同分辨率。",
+        "anchors": [
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064",
+          "anc_00068"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "required_datasets": [
+      "PASCAL VOC 2007/2012",
+      "COCO",
+      "ImageNet (分类和检测)"
+    ],
+    "required_models": [
+      "Darknet-19 (分类网络)",
+      "YOLOv2 (检测网络)",
+      "YOLO9000 (检测网络)"
+    ],
+    "required_compute": "Geforce GTX Titan X 或类似GPU，具体训练时间未知。",
+    "code_available": "论文提到使用Darknet神经网络框架，但未明确说明代码是否公开。",
+    "steps": [
+      "1. 准备数据集：下载PASCAL VOC、COCO、ImageNet，并构建WordTree标签。",
+      "2. 训练分类网络：在ImageNet上训练Darknet-19，先224×224后448×448微调。",
+      "3. 训练检测网络：修改Darknet-19为检测网络，添加passthrough层，在VOC/COCO上训练YOLOv2。",
+      "4. 多尺度训练：训练时随机选择输入尺寸（320×320到608×608）。",
+      "5. 联合训练YOLO9000：结合COCO检测数据和ImageNet分类数据，使用WordTree和联合训练策略。",
+      "6. 评估：在VOC、COCO、ImageNet检测任务上评估。"
+    ],
+    "missing_details": [
+      "Darknet框架的具体实现细节",
+      "训练超参数的完整列表（如学习率调度细节）",
+      "数据增强的具体实现",
+      "联合训练中平衡采样的具体策略",
+      "WordTree构建的完整代码"
+    ],
+    "risk_points": [
+      "复现可能因硬件差异导致速度结果不同",
+      "联合训练依赖层次化标签，标签质量影响性能",
+      "多尺度训练可能增加训练时间和复杂度",
+      "在无检测数据的类别上性能有限"
+    ]
+  }
+}

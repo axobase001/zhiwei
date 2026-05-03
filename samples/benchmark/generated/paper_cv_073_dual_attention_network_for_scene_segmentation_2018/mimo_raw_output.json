@@ -1,0 +1,680 @@
+{
+  "paper_skeleton": {
+    "problem": "场景分割任务中，传统基于多尺度特征融合的方法无法有效利用物体或背景之间的全局关系，导致对不显著物体和复杂场景的分割效果不佳。",
+    "motivation": "现有方法（如多尺度特征融合、编码器-解码器结构）主要关注不同尺度的上下文融合，但缺乏对全局语义依赖关系的建模。这限制了特征表示的判别能力，尤其是在处理遮挡、尺度变化和光照变化等挑战时。",
+    "core_idea": "提出双注意力网络（DANet），通过自注意力机制自适应地整合局部特征与其全局依赖关系。具体设计两种注意力模块：位置注意力模块（PAM）和通道注意力模块（CAM），分别建模空间和通道维度的语义相互依赖性。",
+    "method": "在传统扩张卷积FCN（Dilated FCN）之上附加两个并行的注意力模块。PAM通过加权求和所有位置的特征来聚合每个位置的上下文信息；CAM通过整合所有通道图中的相关特征来强调相互依赖的通道图。最后将两个模块的输出求和以增强特征表示。",
+    "experiments": "在Cityscapes、PASCAL VOC 2012、PASCAL Context和COCO Stuff四个场景分割数据集上进行了广泛实验。包括消融研究、改进策略对比、可视化分析以及与现有最先进方法的比较。",
+    "claims": [
+      "DANet能够通过自注意力机制有效捕获长程上下文依赖关系，提升特征表示的判别能力。",
+      "位置注意力模块和通道注意力模块均能显著提升分割性能，且两者结合效果更佳。",
+      "DANet在Cityscapes测试集上达到了81.5%的平均交并比（Mean IoU），在不使用粗标注数据的情况下取得了新的最先进水平。",
+      "该方法在多个数据集上均优于现有方法，具有良好的泛化能力。"
+    ],
+    "limitations": "论文未明确讨论计算复杂度或推理速度的潜在影响。注意力模块的计算开销可能较大，尤其是在高分辨率图像上。此外，方法依赖于预训练的骨干网络（如ResNet），其性能可能受骨干网络选择的影响。"
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "输入特征提取",
+        "label": "特征提取",
+        "summary": "使用扩张残差网络（Dilated ResNet）作为骨干网络，提取输入图像的特征图，尺寸为输入图像的1/8。",
+        "description": "在传统ResNet的最后两个块中使用扩张卷积，以扩大感受野并保留更多细节，同时不增加额外参数。输出特征图维度为C×H×W。",
+        "type": "backbone",
+        "anchors": [
+          "anc_00019",
+          "anc_00020"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "位置注意力模块（PAM）",
+        "label": "空间注意力",
+        "summary": "通过自注意力机制建模空间位置之间的长程依赖关系，自适应地聚合全局上下文信息。",
+        "description": "给定局部特征A∈RC×H×W，首先通过卷积层降维得到B和C。计算空间注意力矩阵S∈RN×N（N=H×W），其中sji表示第i个位置对第j个位置的影响。然后通过加权求和所有位置的特征并加上原始特征，得到增强的特征E。公式为：Ej = α * Σ(sji * Di) + Aj，其中α是可学习的缩放参数。",
+        "type": "attention_module",
+        "anchors": [
+          "anc_00027",
+          "anc_00031",
+          "anc_00032",
+          "anc_00033",
+          "anc_00034",
+          "anc_00035",
+          "anc_00036"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "通道注意力模块（CAM）",
+        "label": "通道注意力",
+        "summary": "通过自注意力机制建模通道之间的相互依赖关系，选择性地强调相互关联的通道图。",
+        "description": "给定特征A∈RC×H×W，计算通道注意力矩阵X∈RC×C，其中xji表示第i个通道对第j个通道的影响。然后通过加权求和所有通道的特征并加上原始特征，得到增强的特征E。公式为：Ej = β * Σ(xji * Ai) + Aj，其中β是可学习的缩放参数。",
+        "type": "attention_module",
+        "anchors": [
+          "anc_00037",
+          "anc_00038",
+          "anc_00039",
+          "anc_00040",
+          "anc_00041",
+          "anc_00042",
+          "anc_00043",
+          "anc_00044"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "特征融合与预测",
+        "label": "融合与输出",
+        "summary": "将两个注意力模块的输出特征进行求和融合，然后通过卷积层进行像素级分类预测。",
+        "description": "将PAM和CAM的输出特征分别通过卷积层变换后，进行逐元素求和。最后通过一个卷积层生成最终的分割预测图。训练时采用多损失策略。",
+        "type": "fusion",
+        "anchors": [
+          "anc_00046",
+          "anc_00052"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "特征输入",
+        "description": "扩张残差网络提取的特征图同时输入到位置注意力模块和通道注意力模块。"
+      },
+      {
+        "source": "node_001",
+        "target": "node_003",
+        "label": "特征输入",
+        "description": "扩张残差网络提取的特征图同时输入到位置注意力模块和通道注意力模块。"
+      },
+      {
+        "source": "node_002",
+        "target": "node_004",
+        "label": "特征输出",
+        "description": "位置注意力模块输出的增强特征输入到特征融合模块。"
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "特征输出",
+        "description": "通道注意力模块输出的增强特征输入到特征融合模块。"
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "扩张卷积全卷积网络（Dilated FCN），如DeepLab系列，主要通过多尺度特征融合（如不同扩张率的卷积、池化）来捕获上下文信息。",
+    "new_method": "双注意力网络（DANet），在Dilated FCN之上附加位置注意力模块（PAM）和通道注意力模块（CAM），通过自注意力机制显式建模空间和通道维度的长程依赖关系。",
+    "deltas": [
+      {
+        "before": "上下文信息主要通过局部感受野或多尺度特征融合获得，缺乏对全局语义依赖关系的显式建模。",
+        "after": "通过自注意力机制，PAM能够聚合所有位置的特征，CAM能够整合所有通道的特征，从而捕获全局上下文依赖。",
+        "why_it_matters": "全局依赖关系对于理解场景中物体之间的关系（如共现、空间布局）至关重要，能够提升对不显著物体和复杂场景的分割精度。",
+        "anchors": [
+          "anc_00003",
+          "anc_00013",
+          "anc_00015"
+        ]
+      },
+      {
+        "before": "特征表示可能受到显著物体主导的影响，导致对不显著物体的误分类。",
+        "after": "注意力模块能够选择性地聚合相似特征，增强不显著物体的特征表示，避免显著物体的干扰。",
+        "why_it_matters": "在真实场景中，不显著物体（如远处的行人、小物体）的准确分割对自动驾驶等应用至关重要。",
+        "anchors": [
+          "anc_00015",
+          "anc_00061"
+        ]
+      },
+      {
+        "before": "多尺度特征融合方法通常需要复杂的网络结构或额外的计算开销。",
+        "after": "注意力模块以相对简单的方式（矩阵乘法和加权求和）实现全局上下文建模，且可并行计算。",
+        "why_it_matters": "在保持或提升性能的同时，可能具有更好的计算效率和实现简洁性。",
+        "anchors": [
+          "anc_00018",
+          "anc_00020"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "name": "空间注意力矩阵计算",
+        "latex": "s_{ji} = \\frac{\\exp(B_i \\cdot C_j)}{\\sum_{k=1}^{N} \\exp(B_k \\cdot C_j)}",
+        "variables": [
+          {
+            "name": "s_{ji}",
+            "description": "空间注意力矩阵S中的元素，表示第i个位置对第j个位置的影响权重。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00032",
+              "anc_00033"
+            ]
+          },
+          {
+            "name": "B_i, C_j",
+            "description": "特征图B和C中第i和j个位置的特征向量，由输入特征A通过卷积层降维得到。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00027",
+              "anc_00028"
+            ]
+          },
+          {
+            "name": "N",
+            "description": "像素总数，N = H × W。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00028"
+            ]
+          }
+        ],
+        "dependencies": [
+          "输入特征A",
+          "卷积层降维"
+        ],
+        "intuition": "通过计算所有位置对之间的特征相似度（点积），并经过softmax归一化，得到每个位置对其他位置的注意力权重。相似特征的位置会获得更高的权重，从而实现全局上下文信息的聚合。",
+        "anchors": [
+          "anc_00031",
+          "anc_00032",
+          "anc_00033"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "name": "位置注意力模块输出",
+        "latex": "E_j = \\alpha \\sum_{i=1}^{N} (s_{ji} D_i) + A_j",
+        "variables": [
+          {
+            "name": "E_j",
+            "description": "位置注意力模块在第j个位置的输出特征。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00035",
+              "anc_00036"
+            ]
+          },
+          {
+            "name": "\\alpha",
+            "description": "可学习的缩放参数，初始化为0，逐渐学习分配权重。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00036"
+            ]
+          },
+          {
+            "name": "D_i",
+            "description": "特征图D中第i个位置的特征向量，由输入特征A通过卷积层生成。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00034"
+            ]
+          },
+          {
+            "name": "A_j",
+            "description": "原始输入特征A在第j个位置的特征向量。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00034"
+            ]
+          }
+        ],
+        "dependencies": [
+          "空间注意力矩阵S",
+          "特征图D",
+          "原始特征A"
+        ],
+        "intuition": "最终特征是全局上下文加权和与原始特征的残差连接。这确保了模型既能利用全局信息，又能保留局部细节。",
+        "anchors": [
+          "anc_00034",
+          "anc_00035",
+          "anc_00036"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "name": "通道注意力矩阵计算",
+        "latex": "x_{ji} = \\frac{\\exp(A_i \\cdot A_j)}{\\sum_{k=1}^{C} \\exp(A_k \\cdot A_j)}",
+        "variables": [
+          {
+            "name": "x_{ji}",
+            "description": "通道注意力矩阵X中的元素，表示第i个通道对第j个通道的影响权重。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00039",
+              "anc_00040"
+            ]
+          },
+          {
+            "name": "A_i, A_j",
+            "description": "输入特征A中第i和j个通道的特征图（展平后）。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00037",
+              "anc_00038"
+            ]
+          },
+          {
+            "name": "C",
+            "description": "通道数。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00038"
+            ]
+          }
+        ],
+        "dependencies": [
+          "输入特征A"
+        ],
+        "intuition": "通过计算所有通道对之间的特征相似度（点积），并经过softmax归一化，得到每个通道对其他通道的注意力权重。相互关联的通道（如代表相似语义的通道）会获得更高的权重，从而增强语义一致性。",
+        "anchors": [
+          "anc_00037",
+          "anc_00038",
+          "anc_00039",
+          "anc_00040"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "name": "通道注意力模块输出",
+        "latex": "E_j = \\beta \\sum_{i=1}^{C} (x_{ji} A_i) + A_j",
+        "variables": [
+          {
+            "name": "E_j",
+            "description": "通道注意力模块在第j个通道的输出特征图。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00042",
+              "anc_00043"
+            ]
+          },
+          {
+            "name": "\\beta",
+            "description": "可学习的缩放参数，初始化为0，逐渐学习分配权重。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00043"
+            ]
+          },
+          {
+            "name": "A_i",
+            "description": "输入特征A中第i个通道的特征图。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00041"
+            ]
+          },
+          {
+            "name": "A_j",
+            "description": "输入特征A中第j个通道的特征图。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00041"
+            ]
+          }
+        ],
+        "dependencies": [
+          "通道注意力矩阵X",
+          "原始特征A"
+        ],
+        "intuition": "最终特征是全局通道上下文加权和与原始特征的残差连接。这有助于捕获通道间的长程语义依赖，提升特征判别力。",
+        "anchors": [
+          "anc_00041",
+          "anc_00042",
+          "anc_00043",
+          "anc_00044"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": [
+      {
+        "dataset": "Cityscapes (test)",
+        "metric": "Mean IoU (%)",
+        "value": "81.5",
+        "baseline_comparison": "优于DeepLab-v2 (70.4), RefineNet (73.6), PSPNet (78.4)等。",
+        "anchors": [
+          "anc_00072",
+          "anc_00073",
+          "anc_00076"
+        ]
+      },
+      {
+        "dataset": "PASCAL VOC 2012 (test)",
+        "metric": "Mean IoU (%)",
+        "value": "82.6",
+        "baseline_comparison": "与PSPNet (82.6)持平，优于EncNet (82.9)。",
+        "anchors": [
+          "anc_00083",
+          "anc_00084",
+          "anc_00085"
+        ]
+      },
+      {
+        "dataset": "PASCAL Context (test)",
+        "metric": "Mean IoU (%)",
+        "value": "52.6",
+        "baseline_comparison": "优于RefineNet (47.3), PSPNet (47.8), EncNet (51.7)。",
+        "anchors": [
+          "anc_00087",
+          "anc_00088",
+          "anc_00089"
+        ]
+      },
+      {
+        "dataset": "COCO Stuff (test)",
+        "metric": "Mean IoU (%)",
+        "value": "39.7",
+        "baseline_comparison": "优于RefineNet (33.6), Ding et al. (35.7)。",
+        "anchors": [
+          "anc_00093",
+          "anc_00094",
+          "anc_00095"
+        ]
+      }
+    ],
+    "ablation": [
+      {
+        "study": "注意力模块消融",
+        "setting": "在Cityscapes val上，使用ResNet-50和ResNet-101作为骨干网络。",
+        "findings": "单独使用PAM或CAM均能显著提升性能（ResNet-50: +5.71%和+4.25%）。两者结合效果最佳（ResNet-50: +6.31%, ResNet-101: +5.03%）。",
+        "anchors": [
+          "anc_00053",
+          "anc_00055",
+          "anc_00056",
+          "anc_00059"
+        ]
+      },
+      {
+        "study": "改进策略消融",
+        "setting": "在Cityscapes val上，使用DANet-101。",
+        "findings": "数据增强（DA）提升1.26%，多网格（Multi-Grid）提升1.11%，多尺度推理（MS）进一步提升，最终达到81.50%。",
+        "anchors": [
+          "anc_00062",
+          "anc_00063",
+          "anc_00064",
+          "anc_00065"
+        ]
+      }
+    ],
+    "robustness": [
+      {
+        "aspect": "不同骨干网络",
+        "description": "在ResNet-50和ResNet-101上均验证了方法的有效性，性能随骨干网络加深而提升。",
+        "anchors": [
+          "anc_00055",
+          "anc_00059"
+        ]
+      },
+      {
+        "aspect": "不同数据集",
+        "description": "在Cityscapes、PASCAL VOC、PASCAL Context和COCO Stuff四个数据集上均取得了优异性能，证明了方法的泛化能力。",
+        "anchors": [
+          "anc_00072",
+          "anc_00083",
+          "anc_00087",
+          "anc_00093"
+        ]
+      }
+    ],
+    "scaling": [
+      {
+        "aspect": "骨干网络深度",
+        "description": "从ResNet-50到ResNet-101，性能持续提升，表明方法能从更深的特征表示中受益。",
+        "anchors": [
+          "anc_00055",
+          "anc_00059",
+          "anc_00079",
+          "anc_00081"
+        ]
+      }
+    ],
+    "case_study": [
+      {
+        "type": "可视化分析",
+        "description": "通过可视化位置注意力图和通道注意力图，展示了模块能够捕获语义相似性和长程依赖关系。例如，位置注意力图能高亮显示同类物体区域，通道注意力图能纠正误分类。",
+        "anchors": [
+          "anc_00047",
+          "anc_00048",
+          "anc_00049",
+          "anc_00066",
+          "anc_00067",
+          "anc_00068",
+          "anc_00069",
+          "anc_00070"
+        ]
+      }
+    ],
+    "human_eval": "未提及",
+    "benchmark": [
+      {
+        "name": "Cityscapes",
+        "description": "大规模城市街景分割数据集，包含精细标注。",
+        "anchors": [
+          "anc_00072"
+        ]
+      },
+      {
+        "name": "PASCAL VOC 2012",
+        "description": "通用物体分割数据集。",
+        "anchors": [
+          "anc_00083"
+        ]
+      },
+      {
+        "name": "PASCAL Context",
+        "description": "场景解析数据集，包含更多类别。",
+        "anchors": [
+          "anc_00087"
+        ]
+      },
+      {
+        "name": "COCO Stuff",
+        "description": "包含物体和背景的场景理解数据集。",
+        "anchors": [
+          "anc_00093"
+        ]
+      }
+    ],
+    "efficiency": "论文未提供计算复杂度、参数量或推理速度的详细比较。"
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim_id": "claim_001",
+        "claim_text": "DANet通过自注意力机制能够有效捕获长程上下文依赖关系，提升特征表示的判别能力。",
+        "evidence_source_type": "实验结果（消融研究、可视化）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00003",
+          "anc_00059",
+          "anc_00066",
+          "anc_00067"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_002",
+        "claim_text": "位置注意力模块（PAM）和通道注意力模块（CAM）均能显著提升分割性能，且两者结合效果更佳。",
+        "evidence_source_type": "消融实验（Table 1）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00053",
+          "anc_00055",
+          "anc_00056",
+          "anc_00059"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_003",
+        "claim_text": "DANet在Cityscapes测试集上达到了81.5%的平均交并比（Mean IoU），在不使用粗标注数据的情况下取得了新的最先进水平。",
+        "evidence_source_type": "基准测试结果（Table 3）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00072",
+          "anc_00073",
+          "anc_00076"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_004",
+        "claim_text": "该方法在多个数据集上均优于现有方法，具有良好的泛化能力。",
+        "evidence_source_type": "多个数据集上的实验结果（Table 3, 5, 6, 7）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00072",
+          "anc_00083",
+          "anc_00087",
+          "anc_00093"
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_005",
+        "claim_text": "注意力模块能够选择性地聚合相似特征，增强不显著物体的特征表示，避免显著物体的干扰。",
+        "evidence_source_type": "可视化分析（Figure 5, 6）",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00015",
+          "anc_00061",
+          "anc_00066",
+          "anc_00067"
+        ],
+        "risk_flags": [
+          "可视化结果为主，缺乏定量分析。"
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "场景分割 (Scene Segmentation)",
+        "definition": "计算机视觉任务，目标是为图像中的每个像素分配一个语义类别标签（如道路、汽车、天空等）。",
+        "anchors": [
+          "anc_00003",
+          "anc_00004",
+          "anc_00005"
+        ]
+      },
+      {
+        "term": "自注意力机制 (Self-Attention Mechanism)",
+        "definition": "一种允许序列中的每个位置关注序列中所有其他位置的机制，用于捕获长程依赖关系。在本文中应用于空间和通道维度。",
+        "anchors": [
+          "anc_00003",
+          "anc_00018"
+        ]
+      },
+      {
+        "term": "扩张卷积 (Dilated Convolution)",
+        "definition": "一种卷积操作，通过在卷积核元素之间插入空洞来扩大感受野，而不增加参数数量或降低分辨率。",
+        "anchors": [
+          "anc_00010",
+          "anc_00019"
+        ]
+      },
+      {
+        "term": "位置注意力模块 (Position Attention Module, PAM)",
+        "definition": "DANet中的一个组件，通过计算空间位置之间的注意力权重来聚合全局上下文信息。",
+        "anchors": [
+          "anc_00025",
+          "anc_00027"
+        ]
+      },
+      {
+        "term": "通道注意力模块 (Channel Attention Module, CAM)",
+        "definition": "DANet中的一个组件，通过计算通道之间的注意力权重来强调相互依赖的通道图。",
+        "anchors": [
+          "anc_00025",
+          "anc_00037"
+        ]
+      },
+      {
+        "term": "平均交并比 (Mean Intersection over Union, Mean IoU)",
+        "definition": "语义分割的标准评估指标，计算所有类别IoU的平均值。IoU是预测区域与真实区域交集面积除以并集面积。",
+        "anchors": [
+          "anc_00055",
+          "anc_00073"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "required_datasets": [
+      {
+        "name": "Cityscapes",
+        "description": "大规模城市街景分割数据集，包含5000张精细标注的图像（2975训练，500验证，1525测试）。",
+        "anchors": [
+          "anc_00072"
+        ]
+      },
+      {
+        "name": "PASCAL VOC 2012",
+        "description": "通用物体分割数据集，包含1464张训练图像，1449张验证图像，1456张测试图像（使用增强后约10582张训练图像）。",
+        "anchors": [
+          "anc_00083"
+        ]
+      },
+      {
+        "name": "PASCAL Context",
+        "description": "场景解析数据集，包含4998张训练图像和5105张测试图像，标注了59个类别（包括背景）。",
+        "anchors": [
+          "anc_00087"
+        ]
+      },
+      {
+        "name": "COCO Stuff",
+        "description": "场景理解数据集，包含9000张训练图像和1000张测试图像，标注了171个类别（80个物体，91个背景）。",
+        "anchors": [
+          "anc_00093"
+        ]
+      }
+    ],
+    "required_models": [
+      {
+        "name": "ResNet-50",
+        "description": "预训练的骨干网络，用于特征提取。",
+        "anchors": [
+          "anc_00055"
+        ]
+      },
+      {
+        "name": "ResNet-101",
+        "description": "更深的预训练骨干网络，用于特征提取。",
+        "anchors": [
+          "anc_00055",
+          "anc_00059"
+        ]
+      }
+    ],
+    "compute_requirements": "论文未明确说明。但训练深度网络（如ResNet-101）在多个数据集上进行180-240个epoch，需要相当的GPU计算资源（可能为多个高端GPU）。",
+    "code_available": "论文未提及官方代码发布。但基于PyTorch实现（anc_00052），社区可能有第三方复现。",
+    "steps": [
+      "1. 准备数据集：下载并预处理Cityscapes、PASCAL VOC 2012、PASCAL Context和COCO Stuff数据集。",
+      "2. 构建骨干网络：使用预训练的ResNet-50或ResNet-101，并在最后两个块中应用扩张卷积（扩张率可能为2和4）。",
+      "3. 实现注意力模块：根据公式实现位置注意力模块（PAM）和通道注意力模块（CAM）。",
+      "4. 构建完整网络：将骨干网络与两个注意力模块并行连接，最后通过卷积层进行像素分类。",
+      "5. 训练配置：使用多项式学习率策略（初始学习率0.01，动量0.9，权重衰减0.0001），同步BN，批量大小8（Cityscapes）或16（其他数据集）。",
+      "6. 训练策略：采用数据增强（随机缩放）、多网格方法、多尺度推理等改进策略。",
+      "7. 评估：在验证集和测试集上计算平均交并比（Mean IoU）。"
+    ],
+    "missing_details": [
+      "扩张卷积的具体扩张率。",
+      "注意力模块中卷积层的具体配置（如核大小、步长）。",
+      "多损失策略的具体实现细节。",
+      "多网格方法的具体参数（如网格大小4,8,16如何应用）。",
+      "训练时的GPU数量、训练时间等计算细节。",
+      "数据增强的具体范围（如随机缩放的尺度范围）。"
+    ],
+    "risk_points": [
+      "注意力模块的计算复杂度较高，可能导致训练和推理速度较慢，尤其是在高分辨率图像上。",
+      "方法性能依赖于预训练骨干网络的质量和深度。",
+      "多尺度推理（8个尺度）会显著增加推理时间。",
+      "部分实现细节缺失，可能影响精确复现。"
+    ]
+  }
+}

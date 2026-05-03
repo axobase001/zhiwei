@@ -1,0 +1,1306 @@
+[
+  {
+    "anchor_id": "anc_00001",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "text_span": "Feature Pyramid Networks for Object Detection Tsung-Yi Lin1,2, Piotr Doll´ar1, Ross Girshick1,",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00002",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "text_span": "Kaiming He1, Bharath Hariharan1, and Serge Belongie2",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00003",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "text_span": "1Facebook AI Research (FAIR) 2Cornell University and Cornell Tech",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00004",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Abstract",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00005",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Feature pyramids are a basic component in recognition systems for detecting objects at different scales. But recent deep learning object detectors have avoided pyramid rep- resentations, in part because they are compute and memory intensive. In this paper, we exploit the inherent multi-scale, pyramidal hierarchy of deep convolutional networks to con-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00006",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "struct feature pyramids with marginal extra cost. A top-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00007",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "down architecture with lateral connections is developed for building high-level semantic feature maps at all scales. This architecture, called a Feature Pyramid Network (FPN), shows signiﬁcant improvement as a generic feature extrac- tor in several applications. Using FPN in a basic Faster R-CNN system, our method achieves state-of-the-art single- model results on the COCO detection benchmark without bells and whistles, surpassing all existing single-model en- tries including those from the COCO 2016 challenge win- ners. In addition, our method can run at 6 FPS on a GPU and thus is a practical and accurate solution to multi-scale object detection. Code will be made publicly available. 1. Introduction Recognizing objects at vastly different scales is a fun- damental challenge in computer vision. Feature pyramids built upon image pyramids (for short we call these featur- ized image pyramids) form the basis of a standard solution [1] (Fig. 1(a)). These pyramids are scale-invariant in the...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00008",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "model to detect objects across a large range of scales by",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00009",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "scanning the model over both positions and pyramid levels. Featurized image pyramids were heavily used in the era of hand-engineered features [5, 25]. They were so critical that object detectors like DPM [7] required dense scale sampling to achieve good results ( e.g., 10 scales per octave). For recognition tasks, engineered features have (a) Featurized image pyramid predict predict predict predict (b) Single feature map predict (d) Feature Pyramid Network predict predict predict (c) Pyramidal feature hierarchy predict predict predict",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00010",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Figure 1. (a) Using an image pyramid to build a feature pyramid.",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00011",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Features are computed on each of the image scales independently, which is slow. (b) Recent detection systems have opted to use only single scale features for faster detection. (c) An alternative is to reuse the pyramidal feature hierarchy computed by a ConvNet as if it were a featurized image pyramid. (d) Our proposed Feature Pyramid Network (FPN) is fast like (b) and (c), but more accurate. In this ﬁgure, feature maps are indicate by blue outlines and thicker outlines denote semantically stronger features.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00012",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "largely been replaced with features computed by deep con-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00013",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "volutional networks (ConvNets) [19, 20]. Aside from being capable of representing higher-level semantics, ConvNets are also more robust to variance in scale and thus facilitate recognition from features computed on a single input scale [15, 11, 29] (Fig. 1(b)). But even with this robustness, pyra- mids are still needed to get the most accurate results. All re- cent top entries in the ImageNet [33] and COCO [21] detec- tion challenges use multi-scale testing on featurized image pyramids (e.g., [16, 35]). The principle advantage of fea- turizing each level of an image pyramid is that it produces a multi-scale feature representation in which all levels are semantically strong, including the high-resolution levels. Nevertheless, featurizing each level of an image pyra- mid has obvious limitations. Inference time increases con- siderably (e.g., by four times [11]), making this approach impractical for real applications. Moreover, training deep 1 arXiv:1612.03144v2 [cs.CV] 19 Apr 2017",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00014",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "networks end-to-end on an image pyramid is infeasible in terms of memory, and so, if exploited, image pyramids are used only at test time [15, 11, 16, 35], which creates an inconsistency between train/test-time inference. For these reasons, Fast and Faster R-CNN [11, 29] opt to not use fea- turized image pyramids under default settings. However, image pyramids are not the only way to com- pute a multi-scale feature representation. A deep ConvNet computes a feature hierarchy layer by layer, and with sub- sampling layers the feature hierarchy has an inherent multi- scale, pyramidal shape. This in-network feature hierarchy produces feature maps of different spatial resolutions, but",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00015",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "introduces large semantic gaps caused by different depths.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00016",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "The high-resolution maps have low-level features that harm their representational capacity for object recognition. The Single Shot Detector (SSD) [22] is one of the ﬁrst attempts at using a ConvNet’s pyramidal feature hierarchy as if it were a featurized image pyramid (Fig. 1(c)). Ideally, the SSD-style pyramid would reuse the multi-scale feature maps from different layers computed in the forward pass and thus come free of cost. But to avoid using low-level features SSD foregoes reusing already computed layers and instead builds the pyramid starting from high up in the net- work (e.g., conv4 3 of VGG nets [36]) and then by adding several new layers. Thus it misses the opportunity to reuse the higher-resolution maps of the feature hierarchy. We show that these are important for detecting small objects. The goal of this paper is to naturally leverage the pyra- midal shape of a ConvNet’s feature hierarchy while cre- ating a feature pyramid that has strong semantics at all scales. To achi...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00017",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Figure 2. Top: a top-down architecture with skip connections,",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00018",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "where predictions are made on the ﬁnest level (e.g., [28]). Bottom: our model that has a similar structure but leverages it as a feature pyramid, with predictions made independently at all levels. a basic Faster R-CNN detector [29], surpassing all exist- ing heavily-engineered single-model entries of competition winners. In ablation experiments, we ﬁnd that for bound- ing box proposals, FPN signiﬁcantly increases the Average Recall (AR) by 8.0 points; for object detection, it improves the COCO-style Average Precision (AP) by 2.3 points and PASCAL-style AP by 3.8 points, over a strong single-scale baseline of Faster R-CNN on ResNets [16]. Our method is also easily extended to mask proposals and improves both instance segmentation AR and speed over state-of-the-art methods that heavily depend on image pyramids. In addition, our pyramid structure can be trained end-to- end with all scales and is used consistently at train/test time, which would be memory-infeasible using image pyramids....",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00019",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Deep ConvNet object detectors. With the development of modern deep ConvNets [19], object detectors like Over- Feat [34] and R-CNN [12] showed dramatic improvements in accuracy. OverFeat adopted a strategy similar to early neural network face detectors by applying a ConvNet as a sliding window detector on an image pyramid. R-CNN adopted a region proposal-based strategy [37] in which each proposal was scale-normalized before classifying with a ConvNet. SPPnet [15] demonstrated that such region-based detectors could be applied much more efﬁciently on fea- ture maps extracted on a single image scale. Recent and more accurate detection methods like Fast R-CNN [11] and Faster R-CNN [29] advocate using features computed from a single scale, because it offers a good trade-off between accuracy and speed. Multi-scale detection, however, still performs better, especially for small objects. Methods using multiple layers. A number of recent ap- proaches improve detection and segmentation by using...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00020",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "which is equivalent to summing transformed features. SSD",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00021",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "[22] and MS-CNN [3] predict objects at multiple layers of the feature hierarchy without combining features or scores. There are recent methods exploiting lateral/skip connec- tions that associate low-level feature maps across resolu- tions and semantic levels, including U-Net [31] and Sharp- Mask [28] for segmentation, Recombinator networks [17] for face detection, and Stacked Hourglass networks [26] for keypoint estimation. Ghiasi et al. [8] present a Lapla- cian pyramid presentation for FCNs to progressively reﬁne segmentation. Although these methods adopt architectures with pyramidal shapes, they are unlike featurized image pyramids [5, 7, 34] where predictions are made indepen- dently at all levels, see Fig. 2. In fact, for the pyramidal architecture in Fig. 2 (top), image pyramids are still needed to recognize objects across multiple scales [28]. 3. Feature Pyramid Networks Our goal is to leverage a ConvNet’s pyramidal feature hierarchy, which has semantics from low to high level...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00022",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Figure 3. A building block illustrating the lateral connection and",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00023",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "the top-down pathway, merged by addition. at multiple levels, in a fully convolutional fashion. This pro- cess is independent of the backbone convolutional architec- tures (e.g., [19, 36, 16]), and in this paper we present results using ResNets [16]. The construction of our pyramid in- volves a bottom-up pathway, a top-down pathway, and lat- eral connections, as introduced in the following. Bottom-up pathway. The bottom-up pathway is the feed- forward computation of the backbone ConvNet, which com- putes a feature hierarchy consisting of feature maps at sev- eral scales with a scaling step of 2. There are often many layers producing output maps of the same size and we say these layers are in the same network stage. For our feature pyramid, we deﬁne one pyramid level for each stage. We choose the output of the last layer of each stage as our ref- erence set of feature maps, which we will enrich to create our pyramid. This choice is natural since the deepest layer of each stage should h...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00024",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "to its large memory footprint.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00025",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Top-down pathway and lateral connections. The top- down pathway hallucinates higher resolution features by upsampling spatially coarser, but semantically stronger, fea- ture maps from higher pyramid levels. These features are then enhanced with features from the bottom-up pathway via lateral connections. Each lateral connection merges fea- ture maps of the same spatial size from the bottom-up path- way and the top-down pathway. The bottom-up feature map is of lower-level semantics, but its activations are more ac- curately localized as it was subsampled fewer times.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00026",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Fig. 3 shows the building block that constructs our top-",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00027",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "down feature maps. With a coarser-resolution feature map, we upsample the spatial resolution by a factor of 2 (using nearest neighbor upsampling for simplicity). The upsam- 3",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00028",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "pled map is then merged with the corresponding bottom-up map (which undergoes a 1×1 convolutional layer to reduce channel dimensions) by element-wise addition. This pro- cess is iterated until the ﬁnest resolution map is generated. To start the iteration, we simply attach a 1×1 convolutional layer on C5 to produce the coarsest resolution map. Fi- nally, we append a3×3 convolution on each merged map to generate the ﬁnal feature map, which is to reduce the alias- ing effect of upsampling. This ﬁnal set of feature maps is called{P2, P3, P4, P5}, corresponding to{C2, C3, C4, C5} that are respectively of the same spatial sizes. Because all levels of the pyramid use shared classi- ﬁers/regressors as in a traditional featurized image pyramid, we ﬁx the feature dimension (numbers of channels, denoted",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00029",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "as d) in all the feature maps. We set d = 256 in this pa-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00030",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "per and thus all extra convolutional layers have 256-channel outputs. There are no non-linearities in these extra layers,",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00031",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "which we have empirically found to have minor impacts.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00032",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Simplicity is central to our design and we have found that our model is robust to many design choices. We have exper- imented with more sophisticated blocks ( e.g., using multi- layer residual blocks [16] as the connections) and observed",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00033",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "marginally better results. Designing better connection mod-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00034",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "ules is not the focus of this paper, so we opt for the simple design described above. 4. Applications Our method is a generic solution for building feature pyramids inside deep ConvNets. In the following we adopt our method in RPN [29] for bounding box proposal gen- eration and in Fast R-CNN [11] for object detection. To demonstrate the simplicity and effectiveness of our method,",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00035",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "we make minimal modiﬁcations to the original systems of",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00036",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "[29, 11] when adapting them to our feature pyramid. 4.1. Feature Pyramid Networks for RPN RPN [29] is a sliding-window class-agnostic object de- tector. In the original RPN design, a small subnetwork is evaluated on dense 3×3 sliding windows, on top of a single-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00037",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "scale convolutional feature map, performing object/non-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00038",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "object binary classiﬁcation and bounding box regression. This is realized by a 3×3 convolutional layer followed by two sibling 1×1 convolutions for classiﬁcation and regres- sion, which we refer to as a network head. The object/non-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00039",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "object criterion and bounding box regression target are de-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00040",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "ﬁned with respect to a set of reference boxes calledanchors [29]. The anchors are of multiple pre-deﬁned scales and aspect ratios in order to cover objects of different shapes. We adapt RPN by replacing the single-scale feature map with our FPN. We attach a head of the same design (3 ×3 conv and two sibling 1×1 convs) to each level on our feature pyramid. Because the head slides densely over all locations in all pyramid levels, it is not necessary to have multi-scale anchors on a speciﬁc level. Instead, we assign anchors of a single scale to each level. Formally, we deﬁne the an- chors to have areas of {322, 642, 1282, 2562, 5122} pixels on{P2, P3, P4, P5, P6} respectively.1 As in [29] we also use anchors of multiple aspect ratios{1:2, 1:1, 2:1} at each level. So in total there are 15 anchors over the pyramid. We assign training labels to the anchors based on their Intersection-over-Union (IoU) ratios with ground-truth bounding boxes as in [29]. Formally, an anchor is assigned a posit...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00041",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "levels. This advantage is analogous to that of using a fea-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00042",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "turized image pyramid, where a common head classiﬁer can be applied to features computed at any image scale. With the above adaptations, RPN can be naturally trained and tested with our FPN, in the same fashion as in [29]. We elaborate on the implementation details in the experiments. 4.2. Feature Pyramid Networks for Fast R-CNN Fast R-CNN [11] is a region-based object detector in which Region-of-Interest (RoI) pooling is used to extract features. Fast R-CNN is most commonly performed on a single-scale feature map. To use it with our FPN, we need to assign RoIs of different scales to the pyramid levels. We view our feature pyramid as if it were produced from an image pyramid. Thus we can adapt the assignment strat- egy of region-based detectors [15, 11] in the case when they are run on image pyramids. Formally, we assign an RoI of width w and height h (on the input image to the network) to the level Pk of our feature pyramid by:",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00043",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "k =⌊k0 + log2(",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00044",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "√ wh/224)⌋. (1) Here 224 is the canonical ImageNet pre-training size, and",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00045",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "k0 is the target level on which an RoI with w× h = 224 2",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00046",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "should be mapped into. Analogous to the ResNet-based",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00047",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Faster R-CNN system [16] that uses C4 as the single-scale feature map, we set k0 to 4. Intuitively, Eqn. (1) means that if the RoI’s scale becomes smaller (say, 1/2 of 224), it",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00048",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "should be mapped into a ﬁner-resolution level (say,k = 3).",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00049",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "1Here we introduce P6 only for covering a larger anchor scale of5122.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00050",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "P6 is simply a stride two subsampling of P5. P6 is not used by the Fast R-CNN detector in the next section. 4",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00051",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "We attach predictor heads (in Fast R-CNN the heads are class-speciﬁc classiﬁers and bounding box regressors) to all RoIs of all levels. Again, the heads all share parameters, regardless of their levels. In [16], a ResNet’s conv5 lay- ers (a 9-layer deep subnetwork) are adopted as the head on top of the conv4 features, but our method has already har- nessed conv5 to construct the feature pyramid. So unlike [16], we simply adopt RoI pooling to extract 7×7 features, and attach two hidden 1,024-d fully-connected ( fc) layers (each followed by ReLU) before the ﬁnal classiﬁcation and bounding box regression layers. These layers are randomly initialized, as there are no pre-trained fc layers available in ResNets. Note that compared to the standard conv5 head, our 2-fc MLP head is lighter weight and faster. Based on these adaptations, we can train and test Fast R- CNN on top of the feature pyramid. Implementation details are given in the experimental section. 5. Experiments on Object Detectio...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00052",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "(minival). We also report ﬁnal results on the standard",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00053",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "test set (test-std) [21] which has no disclosed labels. As is common practice [12], all network backbones are pre-trained on the ImageNet1k classiﬁcation set [33] and then ﬁne-tuned on the detection dataset. We use the pre-trained ResNet-50 and ResNet-101 models that are publicly available. 2 Our code is a reimplementation of py-faster-rcnn3 using Caffe2.4 5.1. Region Proposal with RPN We evaluate the COCO-style Average Recall (AR) and",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00054",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "AR on small, medium, and large objects (AR s, AR m, and",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00055",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "ARl) following the deﬁnitions in [21]. We report results for 100 and 1000 proposals per images (AR100 and AR1k). Implementation details. All architectures in Table 1 are trained end-to-end. The input image is resized such that its shorter side has 800 pixels. We adopt synchronized SGD",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00056",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "training on 8 GPUs. A mini-batch involves 2 images per",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00057",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "GPU and 256 anchors per image. We use a weight decay of 0.0001 and a momentum of 0.9. The learning rate is 0.02 for",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00058",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "the ﬁrst 30k mini-batches and 0.002 for the next 10k. For",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00059",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "all RPN experiments (including baselines), we include the anchor boxes that are outside the image for training, which is unlike [29] where these anchor boxes are ignored. Other implementation details are as in [29]. Training RPN with FPN on 8 GPUs takes about 8 hours on COCO.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00060",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "2https://github.com/kaiminghe/deep-residual-networks",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00061",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "3https://github.com/rbgirshick/py-faster-rcnn 4https://github.com/caffe2/caffe2",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00062",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "5.1.1 Ablation Experiments",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00063",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Comparisons with baselines. For fair comparisons with original RPNs [29], we run two baselines (Table 1(a, b)) us- ing the single-scale map ofC4 (the same as [16]) orC5, both using the same hyper-parameters as ours, including using 5 scale anchors of{322, 642, 1282, 2562, 5122}. Table 1 (b) shows no advantage over (a), indicating that a single higher- level feature map is not enough because there is a trade-off between coarser resolutions and stronger semantics. Placing FPN in RPN improves AR 1k to 56.3 (Table 1 (c)), which is 8.0 points increase over the single-scale RPN baseline (Table 1 (a)). In addition, the performance on small objects (AR1k",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00064",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "s ) is boosted by a large margin of 12.9 points.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00065",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Our pyramid representation greatly improves RPN’s robust- ness to object scale variation. How important is top-down enrichment? Table 1(d) shows the results of our feature pyramid without the top- down pathway. With this modiﬁcation, the 1×1 lateral con- nections followed by 3×3 convolutions are attached to the bottom-up pyramid. This architecture simulates the effect of reusing the pyramidal feature hierarchy (Fig. 1(b)). The results in Table 1(d) are just on par with the RPN baseline and lag far behind ours. We conjecture that this",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00066",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "is because there are large semantic gaps between different",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00067",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "levels on the bottom-up pyramid (Fig. 1(b)), especially for very deep ResNets. We have also evaluated a variant of Ta- ble 1(d) without sharing the parameters of the heads, but observed similarly degraded performance. This issue can- not be simply remedied by level-speciﬁc heads. How important are lateral connections? Table 1(e) shows the ablation results of a top-down feature pyramid without the 1×1 lateral connections. This top-down pyra- mid has strong semantic features and ﬁne resolutions. But",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00068",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "we argue that the locations of these features are not precise,",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00069",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "because these maps have been downsampled and upsampled several times. More precise locations of features can be di- rectly passed from the ﬁner levels of the bottom-up maps via the lateral connections to the top-down maps. As a results, FPN has an AR1k score 10 points higher than Table 1(e). How important are pyramid representations? Instead of resorting to pyramid representations, one can attach the head to the highest-resolution, strongly semantic feature maps of P2 (i.e., the ﬁnest level in our pyramids). Simi- lar to the single-scale baselines, we assign all anchors to the P2 feature map. This variant (Table 1(f)) is better than the baseline but inferior to our approach. RPN is a sliding win- dow detector with a ﬁxed window size, so scanning over pyramid levels can increase its robustness to scale variance. In addition, we note that using P2 alone leads to more",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00070",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "anchors (750k, Table 1(f)) caused by its large spatial reso-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00071",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "lution. This result suggests that a larger number of anchors",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00072",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "is not sufﬁcient in itself to improve accuracy. 5",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00073",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "RPN feature # anchors lateral? top-down? AR100 AR1k AR1k s AR1k m AR1k l (a) baseline on conv4 C4 47k 36.1 48.3 32.0 58.7 62.2 (b) baseline on conv5 C5 12k 36.3 44.9 25.3 55.5 64.2 (c) FPN {Pk} 200k ✓ ✓ 44.0 56.3 44.9 63.4 66.2 Ablation experiments follow: (d) bottom-up pyramid {Pk} 200k ✓ 37.4 49.5 30.5 59.9 68.0 (e) top-down pyramid, w/o lateral {Pk} 200k ✓ 34.5 46.1 26.5 57.4 64.7 (f) only ﬁnest level P2 750k ✓ ✓ 38.4 51.3 35.1 59.7 67.6",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00074",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Table 1. Bounding box proposal results using RPN [29], evaluated on the COCOminival set. All models are trained on trainval35k.",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00075",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "The columns “lateral” and “top-down” denote the presence of lateral and top-down connections, respectively. The column “feature” denotes the feature maps on which the heads are attached. All results are based on ResNet-50 and share the same hyper-parameters. Fast R-CNN proposals feature head lateral? top-down? AP@0.5 AP APs APm APl (a) baseline on conv4 RPN,{Pk} C4 conv5 54.7 31.9 15.7 36.5 45.5 (b) baseline on conv5 RPN,{Pk} C5 2fc 52.9 28.8 11.9 32.4 43.4 (c) FPN RPN,{Pk} {Pk} 2fc ✓ ✓ 56.9 33.9 17.8 37.7 45.8 Ablation experiments follow: (d) bottom-up pyramid RPN,{Pk} {Pk} 2fc ✓ 44.9 24.9 10.9 24.4 38.5 (e) top-down pyramid, w/o lateral RPN,{Pk} {Pk} 2fc ✓ 54.0 31.3 13.3 35.2 45.3 (f) only ﬁnest level RPN,{Pk} P2 2fc ✓ ✓ 56.3 33.4 17.3 37.3 45.6",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00076",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Table 2. Object detection results using Fast R-CNN [11] on a ﬁxed set of proposals (RPN,{Pk}, Table 1(c)), evaluated on the COCO",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00077",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "minival set. Models are trained on the trainval35k set. All results are based on ResNet-50 and share the same hyper-parameters.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00078",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Faster R-CNN proposals feature head lateral? top-down? AP@0.5 AP APs APm APl (*) baseline from He et al. [16]† RPN, C4 C4 conv5 47.3 26.3 - - - (a) baseline on conv4 RPN, C4 C4 conv5 53.1 31.6 13.2 35.6 47.1 (b) baseline on conv5 RPN, C5 C5 2fc 51.7 28.0 9.6 31.9 43.1 (c) FPN RPN,{Pk} {Pk} 2fc ✓ ✓ 56.9 33.9 17.8 37.7 45.8",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00079",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Table 3. Object detection results using Faster R-CNN [29] evaluated on the COCO minival set. The backbone network for RPN are",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00080",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "consistent with Fast R-CNN. Models are trained on the trainval35k set and use ResNet-50.†Provided by authors of [16]. 5.2. Object Detection with Fast/Faster R-CNN Next we investigate FPN for region-based (non-sliding window) detectors. We evaluate object detection by the COCO-style Average Precision (AP) and PASCAL-style AP (at a single IoU threshold of 0.5). We also report COCO",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00081",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "AP on objects of small, medium, and large sizes (namely,",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00082",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "APs, APm, and APl) following the deﬁnitions in [21]. Implementation details. The input image is resized such that its shorter side has 800 pixels. Synchronized SGD is",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00083",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "used to train the model on 8 GPUs. Each mini-batch in-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00084",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "volves 2 image per GPU and 512 RoIs per image. We use a weight decay of 0.0001 and a momentum of 0.9. The",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00085",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "learning rate is 0.02 for the ﬁrst 60k mini-batches and 0.002",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00086",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "for the next 20k. We use 2000 RoIs per image for training and 1000 for testing. Training Fast R-CNN with FPN takes about 10 hours on the COCO dataset. 5.2.1 Fast R-CNN (on ﬁxed proposals) To better investigate FPN’s effects on the region-based de- tector alone, we conduct ablations of Fast R-CNN ona ﬁxed set of proposals. We choose to freeze the proposals as com- puted by RPN on FPN (Table 1(c)), because it has good per- formance on small objects that are to be recognized by the detector. For simplicity we do not share features between Fast R-CNN and RPN, except when speciﬁed. As a ResNet-based Fast R-CNN baseline, following [16], we adopt RoI pooling with an output size of 14 ×14 and attach all conv5 layers as the hidden layers of the head. This gives an AP of 31.9 in Table 2(a). Table 2(b) is a base- line exploiting an MLP head with 2 hiddenfc layers, similar to the head in our architecture. It gets an AP of 28.8, indi- cating that the 2- fc head does not give us any orthogonal adva...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00087",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Table 2(c) shows the results of our FPN in Fast R-CNN.",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00088",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Comparing with the baseline in Table 2(a), our method im- proves AP by 2.0 points and small object AP by 2.1 points. Comparing with the baseline that also adopts a 2fc head (Ta- ble 2(b)), our method improves AP by 5.1 points. 5 These comparisons indicate that our feature pyramid is superior to single-scale features for a region-based object detector.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00089",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Table 2(d) and (e) show that removing top-down con-",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00090",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "5We expect a stronger architecture of the head [30] will improve upon our results, which is beyond the focus of this paper. 6",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00091",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "image test-dev test-std method backbone competition pyramid AP@.5 AP APs APm APl AP@.5 AP APs APm APl ours, Faster R-CNN on FPN ResNet-101 - 59.1 36.2 18.2 39.0 48.2 58.5 35.8 17.5 38.7 47.8 Competition-winning single-model results follow: G-RMI† Inception-ResNet 2016 - 34.7 - - - - - - - - AttractioNet‡ [10] VGG16 + Wide ResNet§ 2016 ✓ 53.4 35.7 15.6 38.0 52.7 52.9 35.3 14.7 37.6 51.9 Faster R-CNN +++ [16] ResNet-101 2015 ✓ 55.7 34.9 15.6 38.7 50.9 - - - - -",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00092",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Multipath [40] (on minival) VGG-16 2015 49.6 31.5 - - - - - - - -",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00093",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "ION‡ [2] VGG-16 2015 53.4 31.2 12.8 32.9 45.2 52.9 30.7 11.8 32.8 44.8",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00094",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Table 4. Comparisons of single-model results on the COCO detection benchmark. Some results were not available on the test-std",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00095",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "set, so we also include the test-dev results (and for Multipath [40] on minival).†: http://image-net.org/challenges/",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00096",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "talks/2016/GRMI-COCO-slidedeck.pdf.‡: http://mscoco.org/dataset/#detections-leaderboard.§: This entry of AttractioNet [10] adopts VGG-16 for proposals and Wide ResNet [39] for object detection, so is not strictly a single-model result. nections or removing lateral connections leads to inferior results, similar to what we have observed in the above sub- section for RPN. It is noteworthy that removing top-down connections (Table 2(d)) signiﬁcantly degrades the accu- racy, suggesting that Fast R-CNN suffers from using the low-level features at the high-resolution maps. In Table 2(f), we adopt Fast R-CNN on the single ﬁnest",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00097",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "scale feature map of P2. Its result (33.4 AP) is marginally",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00098",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "worse than that of using all pyramid levels (33.9 AP, Ta-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00099",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "ble 2(c)). We argue that this is because RoI pooling is a",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00100",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "warping-like operation, which is less sensitive to the re- gion’s scales. Despite the good accuracy of this variant, it is based on the RPN proposals of {Pk} and has thus already beneﬁted from the pyramid representation.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00101",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "5.2.2 Faster R-CNN (on consistent proposals)",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00102",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "In the above we used a ﬁxed set of proposals to investi- gate the detectors. But in a Faster R-CNN system [29], the RPN and Fast R-CNN must use the same network back- bone in order to make feature sharing possible. Table 3 shows the comparisons between our method and two base- lines, all using consistent backbone architectures for RPN and Fast R-CNN. Table 3(a) shows our reproduction of the baseline Faster R-CNN system as described in [16]. Under controlled settings, our FPN (Table 3(c)) is better than this strong baseline by 2.3 points AP and 3.8 points AP@0.5. Note that Table 3(a) and (b) are baselines that are much stronger than the baseline provided by He et al. [16] in Ta- ble 3(*). We ﬁnd the following implementations contribute to the gap: (i) We use an image scale of 800 pixels instead of 600 in [11, 16]; (ii) We train with 512 RoIs per image which accelerate convergence, in contrast to 64 RoIs in [11, 16]; (iii) We use 5 scale anchors instead of 4 in [16] (adding 322); (iv) A...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00103",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Table 5. More object detection results using Faster R-CNN and our",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00104",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "FPNs, evaluated on minival. Sharing features increases train",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00105",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "time by 1.5× (using 4-step training [29]), but reduces test time. ble 5, we evaluate sharing features following the 4-step training described in [29]. Similar to [29], we ﬁnd that shar-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00106",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "ing features improves accuracy by a small margin. Feature",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00107",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "sharing also reduces the testing time. Running time. With feature sharing, our FPN-based Faster R-CNN system has inference time of 0.148 seconds per image on a single NVIDIA M40 GPU for ResNet-50, and 0.172 seconds for ResNet-101. 6 As a comparison, the single-scale ResNet-50 baseline in Table 3(a) runs at 0.32 seconds. Our method introduces small extra cost by the ex- tra layers in the FPN, but has a lighter weight head. Overall our system is faster than the ResNet-based Faster R-CNN counterpart. We believe the efﬁciency and simplicity of our method will beneﬁt future research and applications.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00108",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "5.2.3 Comparing with COCO Competition Winners",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00109",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "We ﬁnd that our ResNet-101 model in Table 5 is not sufﬁ- ciently trained with the default learning rate schedule. So",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00110",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "we increase the number of mini-batches by 2 × at each",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00111",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "learning rate when training the Fast R-CNN step. This in-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00112",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "creases AP on minival to 35.6, without sharing features.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00113",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "This model is the one we submitted to the COCO detection leaderboard, shown in Table 4. We have not evaluated its feature-sharing version due to limited time, which should be slightly better as implied by Table 5.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00114",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Table 4 compares our method with the single-model re-",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00115",
+    "page": 7,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "sults of the COCO competition winners, including the 2016 winner G-RMI and the 2015 winner Faster R-CNN+++. Without adding bells and whistles , our single-model entry has surpassed these strong, heavily engineered competitors. 6These runtimes are updated from an earlier version of this paper. 7",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00116",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "5x5 5x5 5x5 160x160 [128x128] 80x80 [64x64] 320x320 [256x256] 14x14 14x14 14x14",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00117",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Figure 4. FPN for object segment proposals. The feature pyramid",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00118",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "is constructed with identical structure as for object detection. We apply a small MLP on 5×5 windows to generate dense object seg- ments with output dimension of 14×14. Shown in orange are the size of the image regions the mask corresponds to for each pyra- mid level (levels P3−5 are shown here). Both the corresponding image region size (light orange) and canonical object size (dark orange) are shown. Half octaves are handled by an MLP on 7x7 windows (7≈ 5 √ 2), not shown here. Details are in the appendix. On the test-dev set, our method increases over the ex- isting best results by 0.5 points of AP (36.2 vs. 35.7) and 3.4 points of AP@0.5 (59.1 vs. 55.7). It is worth noting that our method does not rely on image pyramids and only uses a single input image scale, but still has outstanding AP on small-scale objects. This could only be achieved by high- resolution image inputs with previous methods. Moreover, our method does not exploit many popular improvements, such as iterative regre...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00119",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "tive mining [35], context modeling [16], stronger data aug-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00120",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "mentation [22], etc. These improvements are complemen- tary to FPNs and should boost accuracy further. Recently, FPN has enabled new top results in all tracks of the COCO competition, including detection, instance segmentation, and keypoint estimation. See [14] for details. 6. Extensions: Segmentation Proposals Our method is a generic pyramid representation and can be used in applications other than object detection. In this section we use FPNs to generate segmentation proposals, following the DeepMask/SharpMask framework [27, 28]. DeepMask/SharpMask were trained on image crops for predicting instance segments and object/non-object scores. At inference time, these models are run convolutionally to generate dense proposals in an image. To generate segments at multiple scales, image pyramids are necessary [27, 28]. It is easy to adapt FPN to generate mask proposals. We use a fully convolutional setup for both training and infer- ence. We construct our feature pyramid as in Sec. 5.1 and",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00121",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "set d = 128. On top of each level of the feature pyramid, we",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00122",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "apply a small 5×5 MLP to predict 14×14 masks and object scores in a fully convolutional fashion, see Fig. 4. Addition- ally, motivated by the use of 2 scales per octave in the image pyramid of [27, 28], we use a second MLP of input size 7×7 to handle half octaves. The two MLPs play a similar role as anchors in RPN. The architecture is trained end-to-end; full implementation details are given in the appendix. image pyramid AR AR s ARm ARl time (s) DeepMask [27] ✓ 37.1 15.8 50.1 54.9 0.49 SharpMask [28] ✓ 39.8 17.4 53.1 59.1 0.77 InstanceFCN [4] ✓ 39.2 – – – 1.50† FPN Mask Results: single MLP [5×5] 43.4 32.5 49.2 53.7 0.15 single MLP [7×7] 43.5 30.0 49.6 57.8 0.19 dual MLP [5×5, 7×7] 45.7 31.9 51.5 60.8 0.24 + 2x mask resolution 46.7 31.7 53.1 63.2 0.25 + 2x train schedule 48.1 32.6 54.2 65.6 0.25",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00123",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Table 6. Instance segmentation proposals evaluated on the ﬁrst 5k",
+    "source_type": "caption"
+  },
+  {
+    "anchor_id": "anc_00124",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "COCO val images. All models are trained on the train set. DeepMask, SharpMask, and FPN use ResNet-50 while Instance- FCN uses VGG-16. DeepMask and SharpMask performance is computed with models available from https://github. com/facebookresearch/deepmask (both are the ‘zoom’ variants).†Runtimes are measured on an NVIDIA M40 GPU, ex-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00125",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "cept the InstanceFCN timing which is based on the slower K40.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00126",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "6.1. Segmentation Proposal Results Results are shown in Table 6. We report segment AR and",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00127",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "segment AR on small, medium, and large objects, always",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00128",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "for 1000 proposals. Our baseline FPN model with a single 5×5 MLP achieves an AR of 43.4. Switching to a slightly",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00129",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "larger 7×7 MLP leaves accuracy largely unchanged. Using",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00130",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "both MLPs together increases accuracy to 45.7 AR. Increas- ing mask output size from 14×14 to 28×28 increases AR",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00131",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "another point (larger sizes begin to degrade accuracy). Fi-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00132",
+    "page": 8,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "nally, doubling the training iterations increases AR to 48.1. We also report comparisons to DeepMask [27], Sharp- Mask [28], and InstanceFCN [4], the previous state of the art methods in mask proposal generation. We outperform the accuracy of these approaches by over 8.3 points AR. In particular, we nearly double the accuracy on small objects. Existing mask proposal methods [27, 28, 4] are based on densely sampled image pyramids (e.g., scaled by2{−2:0.5:1} in [27, 28]), making them computationally expensive. Our approach, based on FPNs, is substantially faster (our mod- els run at 6 to 7 FPS). These results demonstrate that our model is a generic feature extractor and can replace image pyramids for other multi-scale detection problems. 7. Conclusion We have presented a clean and simple framework for building feature pyramids inside ConvNets. Our method shows signiﬁcant improvements over several strong base- lines and competition winners. Thus, it provides a practical solution for rese...",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00133",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "A. Implementation of Segmentation Proposals We use our feature pyramid networks to efﬁciently gen- erate object segment proposals, adopting an image-centric training strategy popular for object detection [11, 29]. Our FPN mask generation model inherits many of the ideas and motivations from DeepMask/SharpMask [27, 28]. How- ever, in contrast to these models, which were trained on image crops and used a densely sampled image pyramid for inference, we perform fully-convolutional training for mask prediction on a feature pyramid. While this requires chang- ing many of the speciﬁcs, our implementation remains sim- ilar in spirit to DeepMask. Speciﬁcally, to deﬁne the label of a mask instance at each sliding window, we think of this window as being a crop on the input image, allowing us to inherit deﬁnitions of positives/negatives from DeepMask. We give more details next, see also Fig. 4 for a visualization. We construct the feature pyramid with P2−6 using the",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00134",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "same architecture as described in Sec. 5.1. We set d = 128.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00135",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Each level of our feature pyramid is used for predicting masks at a different scale. As in DeepMask, we deﬁne",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00136",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "the scale of a mask as the max of its width and height.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00137",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "Masks with scales of {32, 64, 128, 256, 512} pixels map to{P2, P3, P4, P5, P6}, respectively, and are handled by a 5×5 MLP. As DeepMask uses a pyramid with half octaves,",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00138",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "we use a second slightly larger MLP of size 7×7 (7≈ 5",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00139",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "√ 2) to handle half-octaves in our model ( e.g., a 128 √ 2 scale mask is predicted by the 7×7 MLP on P4). Objects at inter-",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00140",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "mediate scales are mapped to the nearest scale in log space.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00141",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "As the MLP must predict objects at a range of scales for each pyramid level (speciﬁcally a half octave range), some padding must be given around the canonical object size. We use 25% padding. This means that the mask output over {P2, P3, P4, P5, P6} maps to{40, 80, 160, 320, 640} sized image regions for the 5×5 MLP (and to √",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00142",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "2 larger corre-",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00143",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "sponding sizes for the 7×7 MLP). Each spatial position in the feature map is used to pre- dict a mask at a different location. Speciﬁcally, at scalePk, each spatial position in the feature map is used to predict the mask whose center falls within 2k pixels of that loca- tion (corresponding to±1 cell offset in the feature map). If no object center falls within this range, the location is con- sidered a negative, and, as in DeepMask, is used only for training the score branch and not the mask branch. The MLP we use for predicting the mask and score is fairly simple. We apply a 5×5 kernel with 512 outputs, fol- lowed by sibling fully connected layers to predict a 14×14 mask (142 outputs) and object score (1 output). The model is implemented in a fully convolutional manner (using 1×1 convolutions in place of fully connected layers). The 7 ×7 MLP for handling objects at half octave scales is identical",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00144",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "to the 5×5 MLP except for its larger input region.",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00145",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "During training, we randomly sample 2048 examples per",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00146",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "mini-batch (128 examples per image from 16 images) with",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00147",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "a positive/negative sampling ratio of 1:3. The mask loss is given 10× higher weight than the score loss. This model is trained end-to-end on 8 GPUs using synchronized SGD (2 images per GPU). We start with a learning rate of 0.03 and",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00148",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "train for 80k mini-batches, dividing the learning rate by 10",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00149",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "after 60k mini-batches. The image scale is set to 800 pixels",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00150",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "during training and testing (we do not use scale jitter). Dur- ing inference our fully-convolutional model predicts scores at all positions and scales and masks at the 1000 highest",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00151",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "scoring locations. We do not perform any non-maximum",
+    "source_type": "formula"
+  },
+  {
+    "anchor_id": "anc_00152",
+    "page": 9,
+    "section": "Abstract",
+    "bbox": null,
+    "text_span": "suppression or post-processing.",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00153",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "text_span": "References",
+    "source_type": "paragraph"
+  },
+  {
+    "anchor_id": "anc_00154",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "text_span": "[1] E. H. Adelson, C. H. Anderson, J. R. Bergen, P. J. Burt, and J. M. Ogden. Pyramid methods in image processing. RCA engineer, 1984. [2] S. Bell, C. L. Zitnick, K. Bala, and R. Girshick. Inside- outside net: Detecting objects in context with skip pooling and recurrent neural networks. In CVPR, 2016. [3] Z. Cai, Q. Fan, R. S. Feris, and N. Vasconcelos. A uniﬁed multi-scale deep convolutional neural network for fast object detection. In ECCV, 2016. [4] J. Dai, K. He, Y . Li, S. Ren, and J. Sun. Instance-sensitive fully convolutional networks. In ECCV, 2016. [5] N. Dalal and B. Triggs. Histograms of oriented gradients for human detection. In CVPR, 2005. [6] P. Doll ´ar, R. Appel, S. Belongie, and P. Perona. Fast feature pyramids for object detection. TPAMI, 2014. [7] P. F. Felzenszwalb, R. B. Girshick, D. McAllester, and D. Ra-",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00155",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "text_span": "manan. Object detection with discriminatively trained part-",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00156",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "text_span": "based models. TPAMI, 2010. [8] G. Ghiasi and C. C. Fowlkes. Laplacian pyramid reconstruc- tion and reﬁnement for semantic segmentation. In ECCV, 2016. [9] S. Gidaris and N. Komodakis. Object detection via a multi- region & semantic segmentation-aware CNN model. In ICCV, 2015. [10] S. Gidaris and N. Komodakis. Attend reﬁne repeat: Active box proposal generation via in-out localization. In BMVC, 2016. [11] R. Girshick. Fast R-CNN. In ICCV, 2015. [12] R. Girshick, J. Donahue, T. Darrell, and J. Malik. Rich fea- ture hierarchies for accurate object detection and semantic segmentation. In CVPR, 2014. [13] B. Hariharan, P. Arbel ´aez, R. Girshick, and J. Malik. Hyper- columns for object segmentation and ﬁne-grained localiza- tion. In CVPR, 2015. [14] K. He, G. Gkioxari, P. Doll ´ar, and R. Girshick. Mask r-cnn. arXiv:1703.06870, 2017. [15] K. He, X. Zhang, S. Ren, and J. Sun. Spatial pyramid pooling in deep convolutional networks for visual recognition. In ECCV. 2014. [16] K. He, X. Zhang,...",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00157",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "text_span": "[17] S. Honari, J. Yosinski, P. Vincent, and C. Pal. Recombinator networks: Learning coarse-to-ﬁne feature aggregation. In CVPR, 2016. [18] T. Kong, A. Yao, Y . Chen, and F. Sun. Hypernet: Towards ac- curate region proposal generation and joint object detection. In CVPR, 2016. [19] A. Krizhevsky, I. Sutskever, and G. Hinton. ImageNet clas- siﬁcation with deep convolutional neural networks. InNIPS, 2012. [20] Y . LeCun, B. Boser, J. S. Denker, D. Henderson, R. E. Howard, W. Hubbard, and L. D. Jackel. Backpropagation applied to handwritten zip code recognition. Neural compu- tation, 1989. [21] T.-Y . Lin, M. Maire, S. Belongie, J. Hays, P. Perona, D. Ra- manan, P. Doll´ar, and C. L. Zitnick. Microsoft COCO: Com- mon objects in context. In ECCV, 2014. [22] W. Liu, D. Anguelov, D. Erhan, C. Szegedy, and S. Reed. SSD: Single shot multibox detector. In ECCV, 2016. [23] W. Liu, A. Rabinovich, and A. C. Berg. ParseNet: Looking wider to see better. In ICLR workshop, 2016. [24] J. Long, E. Shel...",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00158",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "text_span": "A. C. Berg, and L. Fei-Fei. ImageNet Large Scale Visual",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00159",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "text_span": "Recognition Challenge. IJCV, 2015. [34] P. Sermanet, D. Eigen, X. Zhang, M. Mathieu, R. Fergus, and Y . LeCun. Overfeat: Integrated recognition, localization and detection using convolutional networks. In ICLR, 2014. [35] A. Shrivastava, A. Gupta, and R. Girshick. Training region-",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00160",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "text_span": "based object detectors with online hard example mining. In",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00161",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "text_span": "CVPR, 2016. [36] K. Simonyan and A. Zisserman. Very deep convolutional",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00162",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "text_span": "networks for large-scale image recognition. In ICLR, 2015.",
+    "source_type": "reference"
+  },
+  {
+    "anchor_id": "anc_00163",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "text_span": "[37] J. R. Uijlings, K. E. van de Sande, T. Gevers, and A. W. Smeulders. Selective search for object recognition. IJCV, 2013. [38] R. Vaillant, C. Monrocq, and Y . LeCun. Original approach for the localisation of objects in images.IEE Proc. on Vision, Image, and Signal Processing, 1994. [39] S. Zagoruyko and N. Komodakis. Wide residual networks. In BMVC, 2016. [40] S. Zagoruyko, A. Lerer, T.-Y . Lin, P. O. Pinheiro, S. Gross, S. Chintala, and P. Doll ´ar. A multipath network for object detection. In BMVC, 2016. 10",
+    "source_type": "reference"
+  }
+]

@@ -1,0 +1,1361 @@
+[
+  {
+    "block_id": "blk_00001",
+    "type": "title",
+    "content": "Realtime Multi-Person 2D Pose Estimation using Part Afﬁnity Fields∗ Zhe Cao Tomas Simon Shih-En Wei Yaser Sheikh The Robotics Institute, Carnegie Mellon University {zhecao,shihenw}@cmu.edu {tsimon,yaser}@cs.cmu.edu",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "anchor_id": "anc_00001"
+  },
+  {
+    "block_id": "blk_00002",
+    "type": "section_heading",
+    "content": "Abstract",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00002"
+  },
+  {
+    "block_id": "blk_00003",
+    "type": "paragraph",
+    "content": "We present an approach to efﬁciently detect the 2D pose of multiple people in an image. The approach uses a non- parametric representation, which we refer to as Part Afﬁnity Fields (PAFs), to learn to associate body parts with individ- uals in the image. The architecture encodes global con- text, allowing a greedy bottom-up parsing step that main- tains high accuracy while achieving realtime performance, irrespective of the number of people in the image. The ar- chitecture is designed to jointly learn part locations and their association via two branches of the same sequential prediction process. Our method placed ﬁrst in the inaugu- ral COCO 2016 keypoints challenge, and signiﬁcantly ex- ceeds the previous state-of-the-art result on the MPII Multi- Person benchmark, both in performance and efﬁciency. 1. Introduction Human 2D pose estimation—the problem of localizing",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00003"
+  },
+  {
+    "block_id": "blk_00004",
+    "type": "formula",
+    "content": "anatomical keypoints or “parts”—has largely focused on",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00004"
+  },
+  {
+    "block_id": "blk_00005",
+    "type": "paragraph",
+    "content": "ﬁnding body parts ofindividuals [8, 4, 3, 21, 33, 13, 25, 31, 6, 24]. Inferring the pose of multiple people in images, es- pecially socially engaged individuals, presents a unique set of challenges. First, each image may contain an unknown number of people that can occur at any position or scale. Second, interactions between people induce complex spa- tial interference, due to contact, occlusion, and limb articu- lations, making association of parts difﬁcult. Third, runtime complexity tends to grow with the number of people in the image, making realtime performance a challenge. A common approach [23, 9, 27, 12, 19] is to employ a person detector and perform single-person pose estima- tion for each detection. These top-down approaches di- rectly leverage existing techniques for single-person pose estimation [17, 31, 18, 28, 29, 7, 30, 5, 6, 20], but suffer from early commitment: if the person detector fails–as it is prone to do when people are in close proximity–there is no recourse to recovery. Furthermore, the runtime of these ∗Video result: https://youtu.be/pW6nZXeWlGM",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00005"
+  },
+  {
+    "block_id": "blk_00006",
+    "type": "caption",
+    "content": "Figure 1. Top: Multi-person pose estimation. Body parts belong-",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00006"
+  },
+  {
+    "block_id": "blk_00007",
+    "type": "paragraph",
+    "content": "ing to the same person are linked.Bottom left: Part Afﬁnity Fields (PAFs) corresponding to the limb connecting right elbow and right wrist. The color encodes orientation. Bottom right: A zoomed in view of the predicted PAFs. At each pixel in the ﬁeld, a 2D vector encodes the position and orientation of the limbs. top-down approaches is proportional to the number of peo- ple: for each detection, a single-person pose estimator is run, and the more people there are, the greater the computa- tional cost. In contrast, bottom-up approaches are attractive as they offer robustness to early commitment and have the potential to decouple runtime complexity from the number of people in the image. Yet, bottom-up approaches do not directly use global contextual cues from other body parts and other people. In practice, previous bottom-up meth- ods [22, 11] do not retain the gains in efﬁciency as the ﬁ- nal parse requires costly global inference. For example, the",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00007"
+  },
+  {
+    "block_id": "blk_00008",
+    "type": "formula",
+    "content": "seminal work of Pishchulin et al. [22] proposed a bottom-up",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00008"
+  },
+  {
+    "block_id": "blk_00009",
+    "type": "paragraph",
+    "content": "approach that jointly labeled part detection candidates and associated them to individual people. However, solving the",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00009"
+  },
+  {
+    "block_id": "blk_00010",
+    "type": "formula",
+    "content": "integer linear programming problem over a fully connected",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00010"
+  },
+  {
+    "block_id": "blk_00011",
+    "type": "paragraph",
+    "content": "graph is an NP-hard problem and the average processing time is on the order of hours. Insafutdinov et al. [11] built on [22] with stronger part detectors based on ResNet [10] and image-dependent pairwise scores, and vastly improved",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00011"
+  },
+  {
+    "block_id": "blk_00012",
+    "type": "formula",
+    "content": "the runtime, but the method still takes several minutes per",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00012"
+  },
+  {
+    "block_id": "blk_00013",
+    "type": "paragraph",
+    "content": "image, with a limit on the number of part proposals. The pairwise representations used in [11], are difﬁcult to regress",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00013"
+  },
+  {
+    "block_id": "blk_00014",
+    "type": "formula",
+    "content": "precisely and thus a separate logistic regression is required.",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00014"
+  },
+  {
+    "block_id": "blk_00015",
+    "type": "paragraph",
+    "content": "1 arXiv:1611.08050v2 [cs.CV] 14 Apr 2017",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00015"
+  },
+  {
+    "block_id": "blk_00016",
+    "type": "paragraph",
+    "content": "(b) Part Confidence Maps (c) Part Affinity Fields(a) Input Image (d) Bipartite Matching (e) Parsing Results",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00016"
+  },
+  {
+    "block_id": "blk_00017",
+    "type": "caption",
+    "content": "Figure 2. Overall pipeline. Our method takes the entire image as the input for a two-branch CNN to jointly predict conﬁdence maps for",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00017"
+  },
+  {
+    "block_id": "blk_00018",
+    "type": "paragraph",
+    "content": "body part detection, shown in (b), and part afﬁnity ﬁelds for parts association, shown in (c). The parsing step performs a set of bipartite matchings to associate body parts candidates (d). We ﬁnally assemble them into full body poses for all people in the image (e). In this paper, we present an efﬁcient method for multi- person pose estimation with state-of-the-art accuracy on multiple public benchmarks. We present the ﬁrst bottom-up representation of association scores via Part Afﬁnity Fields (PAFs), a set of 2D vector ﬁelds that encode the location and orientation of limbs over the image domain. We demon- strate that simultaneously inferring these bottom-up repre- sentations of detection and association encode global con- text sufﬁciently well to allow a greedy parse to achieve high-quality results, at a fraction of the computational cost. We have publically released the code for full reproducibil- ity, presenting the ﬁrst realtime system for multi-person 2D pose detection. 2. Method",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00018"
+  },
+  {
+    "block_id": "blk_00019",
+    "type": "caption",
+    "content": "Fig. 2 illustrates the overall pipeline of our method. The",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00019"
+  },
+  {
+    "block_id": "blk_00020",
+    "type": "paragraph",
+    "content": "system takes, as input, a color image of sizew×h (Fig. 2a) and produces, as output, the 2D locations of anatomical key- points for each person in the image (Fig. 2e). First, a feed- forward network simultaneously predicts a set of 2D con- ﬁdence maps S of body part locations (Fig. 2b) and a set of 2D vector ﬁelds L of part afﬁnities, which encode the",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00020"
+  },
+  {
+    "block_id": "blk_00021",
+    "type": "formula",
+    "content": "degree of association between parts (Fig. 2c). The set S =",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00021"
+  },
+  {
+    "block_id": "blk_00022",
+    "type": "paragraph",
+    "content": "(S1, S2,..., SJ ) hasJ conﬁdence maps, one per part, where",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00022"
+  },
+  {
+    "block_id": "blk_00023",
+    "type": "formula",
+    "content": "Sj∈ Rw×h,j∈{ 1...J }. The set L = ( L1, L2,..., LC)",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00023"
+  },
+  {
+    "block_id": "blk_00024",
+    "type": "paragraph",
+    "content": "hasC vector ﬁelds, one per limb 1, where Lc∈ Rw×h×2, c∈{ 1...C }, each image location in Lc encodes a 2D vec- tor (as shown in Fig. 1). Finally, the conﬁdence maps and the afﬁnity ﬁelds are parsed by greedy inference (Fig. 2d) to output the 2D keypoints for all people in the image. 2.1. Simultaneous Detection and Association Our architecture, shown in Fig. 3, simultaneously pre- dicts detection conﬁdence maps and afﬁnity ﬁelds that en- code part-to-part association. The network is split into two branches: the top branch, shown in beige, predicts the con- ﬁdence maps, and the bottom branch, shown in blue, pre- dicts the afﬁnity ﬁelds. Each branch is an iterative predic- 1We refer to part pairs as limbs for clarity, despite the fact that some pairs are not human limbs (e.g., the face). h0 ⇥w0 3⇥3 C 3⇥3 C 1⇥1 C 1⇥1 C h0 ⇥w0 Stage 1 Stage t,(t 2) Branch 1 Branch 1 3⇥3 C 3⇥3 C 3⇥3 C 3⇥3 C L1 St Lt 1⇥1 C 1⇥1 C 7⇥7 C 7⇥7 C 7⇥7 C 7⇥7 C 7⇥7 C 1⇥1 C 1⇥1 C 7⇥7 C 7⇥7 C 7⇥7 C 7⇥7 C 7⇥7 C 3⇥3 C 3⇥3 C 3⇥3 C 1⇥1 C 1⇥1 C C … F",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00024"
+  },
+  {
+    "block_id": "blk_00025",
+    "type": "paragraph",
+    "content": "t",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00025"
+  },
+  {
+    "block_id": "blk_00026",
+    "type": "paragraph",
+    "content": "1 ⇢ 1 ⇢ t Branch 2 Branch 1 Input Image 1⇥1 C 1⇥1 Ch⇥w⇥3 h0 ⇥w0 h0 ⇥w0 Loss LossLoss Convolution f1 1 Loss f1 2 ft 2 ft 1 Branch 2 S1",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00026"
+  },
+  {
+    "block_id": "blk_00027",
+    "type": "caption",
+    "content": "Figure 3. Architecture of the two-branch multi-stage CNN. Each",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00027"
+  },
+  {
+    "block_id": "blk_00028",
+    "type": "paragraph",
+    "content": "stage in the ﬁrst branch predicts conﬁdence maps St, and each stage in the second branch predicts PAFsLt. After each stage, the predictions from the two branches, along with the image features, are concatenated for next stage. tion architecture, following Wei et al. [31], which reﬁnes the predictions over successive stages,t∈{ 1,...,T }, with intermediate supervision at each stage. The image is ﬁrst analyzed by a convolutional network (initialized by the ﬁrst 10 layers of VGG-19 [26] and ﬁne- tuned), generating a set of feature maps F that is input to the ﬁrst stage of each branch. At the ﬁrst stage, the network",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00028"
+  },
+  {
+    "block_id": "blk_00029",
+    "type": "formula",
+    "content": "produces a set of detection conﬁdence maps S1 = ρ1(F)",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00029"
+  },
+  {
+    "block_id": "blk_00030",
+    "type": "formula",
+    "content": "and a set of part afﬁnity ﬁelds L1 = φ1(F), where ρ1 and",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00030"
+  },
+  {
+    "block_id": "blk_00031",
+    "type": "paragraph",
+    "content": "φ1 are the CNNs for inference at Stage 1. In each subse- quent stage, the predictions from both branches in the pre- vious stage, along with the original image features F, are concatenated and used to produce reﬁned predictions,",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00031"
+  },
+  {
+    "block_id": "blk_00032",
+    "type": "formula",
+    "content": "St = ρt(F, St−1, Lt−1),∀t≥ 2, (1)",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00032"
+  },
+  {
+    "block_id": "blk_00033",
+    "type": "formula",
+    "content": "Lt = φt(F, St−1, Lt−1),∀t≥ 2, (2)",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00033"
+  },
+  {
+    "block_id": "blk_00034",
+    "type": "paragraph",
+    "content": "whereρt andφt are the CNNs for inference at Staget.",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00034"
+  },
+  {
+    "block_id": "blk_00035",
+    "type": "caption",
+    "content": "Fig. 4 shows the reﬁnement of the conﬁdence maps and",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00035"
+  },
+  {
+    "block_id": "blk_00036",
+    "type": "paragraph",
+    "content": "afﬁnity ﬁelds across stages. To guide the network to iter- atively predict conﬁdence maps of body parts in the ﬁrst branch and PAFs in the second branch, we apply two loss functions at the end of each stage, one at each branch re- spectively. We use anL2 loss between the estimated predic- tions and the groundtruth maps and ﬁelds. Here, we weight the loss functions spatially to address a practical issue that",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00036"
+  },
+  {
+    "block_id": "blk_00037",
+    "type": "paragraph",
+    "content": "Stage 1 Stage 3 Stage 6",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00037"
+  },
+  {
+    "block_id": "blk_00038",
+    "type": "caption",
+    "content": "Figure 4. Conﬁdence maps of the right wrist (ﬁrst row) and PAFs",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00038"
+  },
+  {
+    "block_id": "blk_00039",
+    "type": "paragraph",
+    "content": "(second row) of right forearm across stages. Although there is con- fusion between left and right body parts and limbs in early stages, the estimates are increasingly reﬁned through global inference in later stages, as shown in the highlighted areas. some datasets do not completely label all people. Speciﬁ- cally, the loss functions at both branches at staget are: f t S = J∑ j=1 ∑ p W(p)·∥ St j(p)− S∗ j (p)∥2 2, (3) f t L = C∑ c=1 ∑ p W(p)·∥ Lt c(p)− L∗ c (p)∥2 2, (4) where S∗ j is the groundtruth part conﬁdence map, L∗ c is the groundtruth part afﬁnity vector ﬁeld, W is a binary mask",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00039"
+  },
+  {
+    "block_id": "blk_00040",
+    "type": "formula",
+    "content": "with W(p) = 0 when the annotation is missing at an im-",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00040"
+  },
+  {
+    "block_id": "blk_00041",
+    "type": "paragraph",
+    "content": "age location p. The mask is used to avoid penalizing the true positive predictions during training. The intermediate supervision at each stage addresses the vanishing gradient problem by replenishing the gradient periodically [31]. The overall objective is f = T∑ t=1 (f t S +f t L). (5) 2.2. Conﬁdence Maps for Part Detection To evaluate fS in Eq. (5) during training, we generate the groundtruth conﬁdence mapsS∗ from the annotated 2D keypoints. Each conﬁdence map is a 2D representation of the belief that a particular body part occurs at each pixel location. Ideally, if a single person occurs in the image, a single peak should exist in each conﬁdence map if the corresponding part is visible; if multiple people occur, there should be a peak corresponding to each visible part j for each personk. We ﬁrst generate individual conﬁdence maps S∗ j,k for each personk. Let xj,k∈ R2 be the groundtruth position of body partj for personk in the image. The value at location p∈ R2 in S∗ j,k is deﬁned as, S∗",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00041"
+  },
+  {
+    "block_id": "blk_00042",
+    "type": "formula",
+    "content": "j,k(p) = exp",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00042"
+  },
+  {
+    "block_id": "blk_00043",
+    "type": "paragraph",
+    "content": "( −||p− xj,k||2 2 σ2 ) , (6) Neck candidates Hip candidates Midpoint — Connection candidates — Correct connections — Wrong connections Predicted PAFs (a) (b) (c)",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00043"
+  },
+  {
+    "block_id": "blk_00044",
+    "type": "caption",
+    "content": "Figure 5. Part association strategies. (a) The body part detection",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00044"
+  },
+  {
+    "block_id": "blk_00045",
+    "type": "paragraph",
+    "content": "candidates (red and blue dots) for two body part types and all connection candidates (grey lines). (b) The connection results us- ing the midpoint (yellow dots) representation: correct connections (black lines) and incorrect connections (green lines) that also sat- isfy the incidence constraint. (c) The results using PAFs (yellow arrows). By encoding position and orientation over the support of",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00045"
+  },
+  {
+    "block_id": "blk_00046",
+    "type": "formula",
+    "content": "the limb, PAFs eliminate false associations.",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00046"
+  },
+  {
+    "block_id": "blk_00047",
+    "type": "paragraph",
+    "content": "whereσ controls the spread of the peak. The groundtruth conﬁdence map to be predicted by the network is an aggre-",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00047"
+  },
+  {
+    "block_id": "blk_00048",
+    "type": "formula",
+    "content": "gation of the individual conﬁdence maps via a max operator,",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00048"
+  },
+  {
+    "block_id": "blk_00049",
+    "type": "paragraph",
+    "content": "S∗",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00049"
+  },
+  {
+    "block_id": "blk_00050",
+    "type": "formula",
+    "content": "j (p) = max",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00050"
+  },
+  {
+    "block_id": "blk_00051",
+    "type": "paragraph",
+    "content": "k S∗ j,k(p). (7) 0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1 Gaussian 1 Gaussian 2 Max Average p S 0 0.2 0.4 0.6 0.8 1 Gaussian 1 Gaussian 2 Max Average S p p v v ? p x j 2 , 1 x j 1 ,k x j 2 ,k",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00051"
+  },
+  {
+    "block_id": "blk_00052",
+    "type": "formula",
+    "content": "We take the maximum of",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00052"
+  },
+  {
+    "block_id": "blk_00053",
+    "type": "paragraph",
+    "content": "the conﬁdence maps instead of the average so that the precision of close by peaks remains distinct, as illus- trated in the right ﬁgure. At test time, we predict conﬁdence maps (as shown in the ﬁrst row of Fig. 4), and obtain body",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00053"
+  },
+  {
+    "block_id": "blk_00054",
+    "type": "formula",
+    "content": "part candidates by performing non-maximum suppression.",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00054"
+  },
+  {
+    "block_id": "blk_00055",
+    "type": "paragraph",
+    "content": "2.3. Part Afﬁnity Fields for Part Association Given a set of detected body parts (shown as the red and blue points in Fig. 5a), how do we assemble them to form the full-body poses of an unknown number of people? We need a conﬁdence measure of the association for each pair of body part detections, i.e., that they belong to the same person. One possible way to measure the association is to detect an additional midpoint between each pair of parts on a limb, and check for its incidence between candidate part detections, as shown in Fig. 5b. However, when people crowd together—as they are prone to do—these midpoints are likely to support false associations (shown as green lines in Fig. 5b). Such false associations arise due to two limita- tions in the representation: (1) it encodes only the position, and not the orientation, of each limb; (2) it reduces the re- gion of support of a limb to a single point. To address these limitations, we present a novel feature representation called part afﬁnity ﬁelds that preserves both location and orientation information across the region of support of the limb (as shown in Fig. 5c). The part afﬁn- ity is a 2D vector ﬁeld for each limb, also shown in Fig. 1d: for each pixel in the area belonging to a particular limb, a",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00055"
+  },
+  {
+    "block_id": "blk_00056",
+    "type": "paragraph",
+    "content": "2D vector encodes the direction that points from one part of the limb to the other. Each type of limb has a corresponding afﬁnity ﬁeld joining its two associated body parts. Consider a single limb shown in the ﬁgure below. Let xj1,k and xj2,k be the groundtruth positions of body partsj1 andj2 from the limbc for personk in the image. If a point 0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1 Gaussian 1 Gaussian 2 Max Average p S 0 0.2 0.4 0.6 0.8 1 Gaussian 1 Gaussian 2 Max Average S p p v v ? p x j 2 , 1 x j 1 ,k x j 2 ,k p lies on the limb, the value at L∗ c,k(p) is a unit vector that points from j1 toj2; for all other points, the vector is zero-valued. To evaluate fL in Eq. 5 during training, we deﬁne the groundtruth part afﬁnity vector ﬁeld,L∗ c,k, at an image point p as L∗",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00056"
+  },
+  {
+    "block_id": "blk_00057",
+    "type": "formula",
+    "content": "c,k(p) =",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00057"
+  },
+  {
+    "block_id": "blk_00058",
+    "type": "paragraph",
+    "content": "{ v if p on limbc,k 0 otherwise. (8)",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00058"
+  },
+  {
+    "block_id": "blk_00059",
+    "type": "formula",
+    "content": "Here, v = (xj2,k− xj1,k)/||xj2,k− xj1,k||2 is the unit vec-",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00059"
+  },
+  {
+    "block_id": "blk_00060",
+    "type": "paragraph",
+    "content": "tor in the direction of the limb. The set of points on the limb is deﬁned as those within a distance threshold of the line segment, i.e., those points p for which",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00060"
+  },
+  {
+    "block_id": "blk_00061",
+    "type": "formula",
+    "content": "0≤ v· (p− xj1,k)≤lc,k and|v⊥· (p− xj1,k)|≤ σl,",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00061"
+  },
+  {
+    "block_id": "blk_00062",
+    "type": "paragraph",
+    "content": "where the limb width σl is a distance in pixels, the limb",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00062"
+  },
+  {
+    "block_id": "blk_00063",
+    "type": "formula",
+    "content": "length is lc,k =||xj2,k− xj1,k||2, and v⊥ is a vector per-",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00063"
+  },
+  {
+    "block_id": "blk_00064",
+    "type": "paragraph",
+    "content": "pendicular to v. The groundtruth part afﬁnity ﬁeld averages the afﬁnity ﬁelds of all people in the image, L∗",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00064"
+  },
+  {
+    "block_id": "blk_00065",
+    "type": "formula",
+    "content": "c (p) = 1",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00065"
+  },
+  {
+    "block_id": "blk_00066",
+    "type": "paragraph",
+    "content": "nc(p) ∑ k L∗ c,k(p), (9) wherenc(p) is the number of non-zero vectors at point p across all k people (i.e., the average at pixels where limbs of different people overlap). During testing, we measure association between candi- date part detections by computing the line integral over the corresponding PAF, along the line segment connecting the candidate part locations. In other words, we measure the alignment of the predicted PAF with the candidate limb that would be formed by connecting the detected body parts. Speciﬁcally, for two candidate part locations dj1 and dj2, we sample the predicted part afﬁnity ﬁeld,Lc along the line segment to measure the conﬁdence in their association: E = ∫ u=1 u=0 Lc (p(u))· dj2− dj1 ||dj2− dj1||2 du, (10) where p(u) interpolates the position of the two body parts dj1 anddj2,",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00066"
+  },
+  {
+    "block_id": "blk_00067",
+    "type": "formula",
+    "content": "p(u) = (1−u)dj1 +udj2. (11)",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00067"
+  },
+  {
+    "block_id": "blk_00068",
+    "type": "paragraph",
+    "content": "In practice, we approximate the integral by sampling and",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00068"
+  },
+  {
+    "block_id": "blk_00069",
+    "type": "formula",
+    "content": "summing uniformly-spaced values ofu.",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00069"
+  },
+  {
+    "block_id": "blk_00070",
+    "type": "paragraph",
+    "content": "Part j 1 Part j 2 Part j 3 d 1 j 2 d 2 j 3 z 12 j 2 j 3 (a) (b) (c) (d)",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00070"
+  },
+  {
+    "block_id": "blk_00071",
+    "type": "caption",
+    "content": "Figure 6. Graph matching. (a) Original image with part detections",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00071"
+  },
+  {
+    "block_id": "blk_00072",
+    "type": "paragraph",
+    "content": "(b) K-partite graph (c) Tree structure (d) A set of bipartite graphs 2.4. Multi-Person Parsing using PAFs",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00072"
+  },
+  {
+    "block_id": "blk_00073",
+    "type": "formula",
+    "content": "We perform non-maximum suppression on the detection",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00073"
+  },
+  {
+    "block_id": "blk_00074",
+    "type": "paragraph",
+    "content": "conﬁdence maps to obtain a discrete set of part candidate lo- cations. For each part, we may have several candidates, due to multiple people in the image or false positives (shown in",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00074"
+  },
+  {
+    "block_id": "blk_00075",
+    "type": "caption",
+    "content": "Fig. 6b). These part candidates deﬁne a large set of possible",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00075"
+  },
+  {
+    "block_id": "blk_00076",
+    "type": "paragraph",
+    "content": "limbs. We score each candidate limb using the line integral computation on the PAF, deﬁned in Eq. 10. The problem of ﬁnding the optimal parse corresponds to a K-dimensional matching problem that is known to be NP-Hard [32] (shown in Fig. 6c). In this paper, we present a greedy relaxation that consistently produces high-quality matches. We speculate the reason is that the pair-wise association scores implicitly",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00076"
+  },
+  {
+    "block_id": "blk_00077",
+    "type": "formula",
+    "content": "encode global context, due to the large receptive ﬁeld of the",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00077"
+  },
+  {
+    "block_id": "blk_00078",
+    "type": "paragraph",
+    "content": "PAF network. Formally, we ﬁrst obtain a set of body part detection",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00078"
+  },
+  {
+    "block_id": "blk_00079",
+    "type": "formula",
+    "content": "candidatesDJ for multiple people, where DJ ={dm",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00079"
+  },
+  {
+    "block_id": "blk_00080",
+    "type": "paragraph",
+    "content": "j : for j∈{ 1...J },m∈{ 1...N j}}, with Nj the number of candidates of part j, and dm j ∈ R2 is the location of the m-th detection candidate of body part j. These part detection candidates still need to be associated with other parts from the same person—in other words, we need to ﬁnd the pairs of part detections that are in fact con- nected limbs. We deﬁne a variable zmn j1j2 ∈ {0, 1} to in- dicate whether two detection candidates dm j1 and dn j2 are connected, and the goal is to ﬁnd the optimal assignment",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00080"
+  },
+  {
+    "block_id": "blk_00081",
+    "type": "formula",
+    "content": "for the set of all possible connections, Z = {zmn",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00081"
+  },
+  {
+    "block_id": "blk_00082",
+    "type": "paragraph",
+    "content": "j1j2 : forj1,j 2∈{ 1...J },m∈{ 1...N j1},n∈{ 1...N j2}}. If we consider a single pair of partsj1 andj2 (e.g., neck and right hip) for the c-th limb, ﬁnding the optimal associ-",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00082"
+  },
+  {
+    "block_id": "blk_00083",
+    "type": "formula",
+    "content": "ation reduces to a maximum weight bipartite graph match-",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00083"
+  },
+  {
+    "block_id": "blk_00084",
+    "type": "paragraph",
+    "content": "ing problem [32]. This case is shown in Fig. 5b. In this graph matching problem, nodes of the graph are the body part detection candidates Dj1 andDj2, and the edges are all possible connections between pairs of detection candi- dates. Additionally, each edge is weighted by Eq. 10—the part afﬁnity aggregate. A matching in a bipartite graph is a subset of the edges chosen in such a way that no two edges",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00084"
+  },
+  {
+    "block_id": "blk_00085",
+    "type": "formula",
+    "content": "share a node. Our goal is to ﬁnd a matching with maximum",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00085"
+  },
+  {
+    "block_id": "blk_00086",
+    "type": "formula",
+    "content": "weight for the chosen edges, max Zc",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00086"
+  },
+  {
+    "block_id": "blk_00087",
+    "type": "formula",
+    "content": "Ec = max",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00087"
+  },
+  {
+    "block_id": "blk_00088",
+    "type": "formula",
+    "content": "Zc ∑ m∈Dj1 ∑ n∈Dj2 Emn·zmn j1j2, (12)",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00088"
+  },
+  {
+    "block_id": "blk_00089",
+    "type": "paragraph",
+    "content": "s.t. ∀m∈D j1, ∑ n∈Dj2 zmn j1j2≤ 1, (13) ∀n∈D j2, ∑ m∈Dj1 zmn j1j2≤ 1, (14) whereEc is the overall weight of the matching from limb type c,Zc is the subset of Z for limb type c, Emn is the part afﬁnity between parts dm j1 and dn j2 deﬁned in Eq. 10. Eqs. 13 and 14 enforce no two edges share a node, i.e., no two limbs of the same type (e.g., left forearm) share a part. We can use the Hungarian algorithm [14] to obtain the op- timal matching. When it comes to ﬁnding the full body pose of multiple",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00089"
+  },
+  {
+    "block_id": "blk_00090",
+    "type": "formula",
+    "content": "people, determiningZ is aK-dimensional matching prob-",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00090"
+  },
+  {
+    "block_id": "blk_00091",
+    "type": "paragraph",
+    "content": "lem. This problem is NP Hard [32] and many relaxations exist. In this work, we add two relaxations to the optimiza-",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00091"
+  },
+  {
+    "block_id": "blk_00092",
+    "type": "formula",
+    "content": "tion, specialized to our domain. First, we choose a minimal",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00092"
+  },
+  {
+    "block_id": "blk_00093",
+    "type": "paragraph",
+    "content": "number of edges to obtain a spanning tree skeleton of hu- man pose rather than using the complete graph, as shown in",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00093"
+  },
+  {
+    "block_id": "blk_00094",
+    "type": "caption",
+    "content": "Fig. 6c. Second, we further decompose the matching prob-",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00094"
+  },
+  {
+    "block_id": "blk_00095",
+    "type": "paragraph",
+    "content": "lem into a set of bipartite matching subproblems and de-",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00095"
+  },
+  {
+    "block_id": "blk_00096",
+    "type": "formula",
+    "content": "termine the matching in adjacent tree nodes independently,",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00096"
+  },
+  {
+    "block_id": "blk_00097",
+    "type": "paragraph",
+    "content": "as shown in Fig. 6d. We show detailed comparison results",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00097"
+  },
+  {
+    "block_id": "blk_00098",
+    "type": "formula",
+    "content": "in Section 3.1, which demonstrate that minimal greedy in-",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00098"
+  },
+  {
+    "block_id": "blk_00099",
+    "type": "paragraph",
+    "content": "ference well-approximate the global solution at a fraction of the computational cost. The reason is that the relation- ship between adjacent tree nodes is modeled explicitly by PAFs, but internally, the relationship between nonadjacent tree nodes is implicitly modeled by the CNN. This property",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00099"
+  },
+  {
+    "block_id": "blk_00100",
+    "type": "formula",
+    "content": "emerges because the CNN is trained with a large receptive",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00100"
+  },
+  {
+    "block_id": "blk_00101",
+    "type": "paragraph",
+    "content": "ﬁeld, and PAFs from non-adjacent tree nodes also inﬂuence the predicted PAF. With these two relaxations, the optimization is decom- posed simply as: max Z E = C∑ c=1 max Zc Ec. (15) We therefore obtain the limb connection candidates for each limb type independently using Eqns. 12- 14. With all limb connection candidates, we can assemble the connections that share the same part detection candidates into full-body poses of multiple people. Our optimization scheme over the tree structure is orders of magnitude faster than the op- timization over the fully connected graph [22, 11]. 3. Results We evaluate our method on two benchmarks for multi- person pose estimation: (1) the MPII human multi-person dataset [2] and (2) the COCO 2016 keypoints challenge dataset [15]. These two datasets collect images in diverse scenarios that contain many real-world challenges such as crowding, scale variation, occlusion, and contact. Our ap- proach set the state-of-the-art on the inaugural COCO 2016 Method Hea Sho Elb Wri Hip Kne Ank mAPs/image Subset of 288 images as in [22]Deepcut [22]73.4 71.8 57.9 39.9 56.7 44.0 32.054.1 57995Iqbal et al. [12]70.0 65.2 56.4 46.1 52.7 47.9 44.554.7 10DeeperCut [11]87.9 84.0 71.9 63.9 68.8 63.8 58.171.2 230Ours 93.7 91.4 81.4 72.5 77.7 73.0 68.179.7 0.005 Full testing setDeeperCut [11]78.4 72.5 60.2 51.0 57.2 52.0 45.459.5 485Iqbal et al. [12]58.4 53.9 44.5 35.0 42.2 36.7 31.143.1 10Ours (one scale)89.0 84.9 74.9 64.2 71.0 65.6 58.172.5 0.005Ours 91.2 87.6 77.7 66.8 75.4 68.9 61.775.6 0.005",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00101"
+  },
+  {
+    "block_id": "blk_00102",
+    "type": "caption",
+    "content": "Table 1. Results on the MPII dataset. Top: Comparison result on",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00102"
+  },
+  {
+    "block_id": "blk_00103",
+    "type": "paragraph",
+    "content": "the testing subset. Middle: Comparison results on the whole test- ing set. Testing without scale search is denoted as “(one scale)”. Method Hea Sho Elb Wri Hip Kne Ank mAP s/image",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00103"
+  },
+  {
+    "block_id": "blk_00104",
+    "type": "caption",
+    "content": "Fig. 6b 91.8 90.8 80.6 69.5 78.9 71.4 63.8 78.3 362",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00104"
+  },
+  {
+    "block_id": "blk_00105",
+    "type": "caption",
+    "content": "Fig. 6c 92.2 90.8 80.2 69.2 78.5 70.7 62.6 77.6 43",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00105"
+  },
+  {
+    "block_id": "blk_00106",
+    "type": "caption",
+    "content": "Fig. 6d 92.0 90.7 80.0 69.4 78.4 70.1 62.3 77.4 0.005",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00106"
+  },
+  {
+    "block_id": "blk_00107",
+    "type": "caption",
+    "content": "Fig. 6d (sep)92.4 90.4 80.9 70.8 79.5 73.1 66.5 79.1 0.005",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00107"
+  },
+  {
+    "block_id": "blk_00108",
+    "type": "caption",
+    "content": "Table 2. Comparison of different structures on our validation set.",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00108"
+  },
+  {
+    "block_id": "blk_00109",
+    "type": "paragraph",
+    "content": "keypoints challenge [1], and signiﬁcantly exceeds the previ- ous state-of-the-art result on the MPII multi-person bench- mark. We also provide runtime analysis to quantify the efﬁ- ciency of the system. Fig. 10 shows some qualitative results from our algorithm. 3.1. Results on the MPII Multi-Person Dataset For comparison on the MPII dataset, we use the toolkit [22] to measure mean Average Precision (mAP) of all body parts based on the PCKh threshold. Table 1 com- pares mAP performance between our method and other approaches on the same subset of 288 testing images as in [22], and the entire MPI testing set, and self-comparison on our own validation set. Besides these measures, we com- pare the average inference/optimization time per image in seconds. For the 288 images subset, our method outper- forms previous state-of-the-art bottom-up methods [11] by 8.5% mAP. Remarkably, our inference time is 6 orders of magnitude less. We report a more detailed runtime anal- ysis in Section 3.3. For the entire MPII testing set, our method without scale search already outperforms previous",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00109"
+  },
+  {
+    "block_id": "blk_00110",
+    "type": "formula",
+    "content": "state-of-the-art methods by a large margin, i.e., 13% abso-",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00110"
+  },
+  {
+    "block_id": "blk_00111",
+    "type": "paragraph",
+    "content": "lute increase on mAP. Using a 3 scale search (×0.7,×1 and ×1.3) further increases the performance to75.6% mAP. The mAP comparison with previous bottom-up approaches in- dicate the effectiveness of our novel feature representation, PAFs, to associate body parts. Based on the tree structure, our greedy parsing method achieves better accuracy than a graphcut optimization formula based on a fully connected graph structure [22, 11]. In Table 2, we show comparison results on different skeleton structures as shown in Fig. 6 on our validation set, i.e., 343 images excluded from the MPII training set. We train our model based on a fully connected graph, and com- pare results by selecting all edges (Fig. 6b, approximately",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00111"
+  },
+  {
+    "block_id": "blk_00112",
+    "type": "formula",
+    "content": "solved by Integer Linear Programming), and minimal tree",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00112"
+  },
+  {
+    "block_id": "blk_00113",
+    "type": "paragraph",
+    "content": "edges (Fig. 6c, approximately solved by Integer Linear Pro-",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00113"
+  },
+  {
+    "block_id": "blk_00114",
+    "type": "paragraph",
+    "content": "Normalized distance 0.1 0.2 0.3 0.4 0.5 Mean average precision % 0 10 20 30 40 50 60 70 80 90 100 GT detection GT connection PAFs with mask PAFs Two-midpoint One-midpoint Normalized distance 0.1 0.2 0.3 0.4 0.5 Mean average precision % 0 10 20 30 40 50 60 70 80 90 100 1-stage 2-stage 3-stage 4-stage 5-stage 6-stage (a) (b)",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00114"
+  },
+  {
+    "block_id": "blk_00115",
+    "type": "caption",
+    "content": "Figure 7. mAP curves over different PCKh threshold on MPII val-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00115"
+  },
+  {
+    "block_id": "blk_00116",
+    "type": "paragraph",
+    "content": "idation set. (a) mAP curves of self-comparison experiments. (b) mAP curves of PAFs across stages.",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00116"
+  },
+  {
+    "block_id": "blk_00117",
+    "type": "formula",
+    "content": "gramming, and Fig. 6d, solved by the greedy algorithm pre-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00117"
+  },
+  {
+    "block_id": "blk_00118",
+    "type": "paragraph",
+    "content": "sented in this paper). Their similar performance shows that",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00118"
+  },
+  {
+    "block_id": "blk_00119",
+    "type": "formula",
+    "content": "it sufﬁces to use minimal edges. We trained another model",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00119"
+  },
+  {
+    "block_id": "blk_00120",
+    "type": "formula",
+    "content": "that only learns the minimal edges to fully utilize the net-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00120"
+  },
+  {
+    "block_id": "blk_00121",
+    "type": "paragraph",
+    "content": "work capacity—the method presented in this paper—that is denoted as Fig. 6d (sep). This approach outperforms Fig. 6c and even Fig. 6b, while maintaining efﬁciency. The reason is that the much smaller number of part association chan- nels (13 edges of a tree vs 91 edges of a graph) makes it easier for training convergence.",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00121"
+  },
+  {
+    "block_id": "blk_00122",
+    "type": "caption",
+    "content": "Fig. 7a shows an ablation analysis on our validation",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00122"
+  },
+  {
+    "block_id": "blk_00123",
+    "type": "paragraph",
+    "content": "set. For the threshold of PCKh-0.5, the result using PAFs outperforms the results using the midpoint representation, speciﬁcally, it is 2.9% higher than one-midpoint and 2.3% higher than two intermediate points. The PAFs, which en- codes both position and orientation information of human limbs, is better able to distinguish the common cross-over cases, e.g., overlapping arms. Training with masks of un- labeled persons further improves the performance by 2.3% because it avoids penalizing the true positive prediction in the loss during training. If we use the ground-truth keypoint location with our parsing algorithm, we can obtain a mAP of 88.3%. In Fig. 7a, the mAP of our parsing with GT detec- tion is constant across different PCKh thresholds due to no localization error. Using GT connection with our keypoint detection achieves a mAP of 81.6%. It is notable that our parsing algorithm based on PAFs achieves a similar mAP as using GT connections (79.4% vs 81.6%). This indicates parsing based on PAFs is quite robust in associating correct part detections. Fig. 7b shows a comparison of performance across stages. The mAP increases monotonically with the iterative reﬁnement framework. Fig. 4 shows the qualitative improvement of the predictions over stages. 3.2. Results on the COCO Keypoints Challenge The COCO training set consists of over 100K person in- stances labeled with over 1 million total keypoints (i.e. body parts). The testing set contains “test-challenge”, “test-dev” and “test-standard” subsets, which have roughly 20K im- ages each. The COCO evaluation deﬁnes the object key- Team AP AP50 AP75 APM APL Test-challenge Ours 60.5 83.4 66.4 55.1 68.1 G-RMI [19] 59.8 81.0 65.1 56.7 66.7 DL-61 53.3 75.1 48.5 55.5 54.8 R4D 49.7 74.3 54.5 45.6 55.6 Test-dev Ours 61.8 84.9 67.5 57.1 68.2 G-RMI [19] 60.5 82.2 66.2 57.6 66.6 DL-61 54.4 75.3 50.9 58.3 54.3 R4D 51.4 75.0 55.9 47.4 56.7",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00123"
+  },
+  {
+    "block_id": "blk_00124",
+    "type": "caption",
+    "content": "Table 3. Results on the COCO 2016 keypoint challenge. Top: re-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00124"
+  },
+  {
+    "block_id": "blk_00125",
+    "type": "paragraph",
+    "content": "sults on test-challenge. Bottom: results on test-dev (top methods",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00125"
+  },
+  {
+    "block_id": "blk_00126",
+    "type": "formula",
+    "content": "only). AP50 is for OKS = 0.5, APL is for large scale persons.",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00126"
+  },
+  {
+    "block_id": "blk_00127",
+    "type": "paragraph",
+    "content": "point similarity (OKS) and uses the mean average preci- sion (AP) over 10 OKS thresholds as main competition met- ric [1]. The OKS plays the same role as the IoU in object detection. It is calculated from scale of the person and the distance between predicted points and GT points. Table 3 shows results from top teams in the challenge. It is notewor- thy that our method has lower accuracy than the top-down methods on people of smaller scales (AP M ). The reason is",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00127"
+  },
+  {
+    "block_id": "blk_00128",
+    "type": "formula",
+    "content": "that our method has to deal with a much larger scale range",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00128"
+  },
+  {
+    "block_id": "blk_00129",
+    "type": "paragraph",
+    "content": "spanned by all people in the image in one shot. In con- trast, top-down methods can rescale the patch of each de-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00129"
+  },
+  {
+    "block_id": "blk_00130",
+    "type": "formula",
+    "content": "tected area to a larger size and thus suffer less degradation",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00130"
+  },
+  {
+    "block_id": "blk_00131",
+    "type": "paragraph",
+    "content": "at smaller scales.",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00131"
+  },
+  {
+    "block_id": "blk_00132",
+    "type": "section_heading",
+    "content": "Method AP AP50 AP75 APM APL",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00132"
+  },
+  {
+    "block_id": "blk_00133",
+    "type": "paragraph",
+    "content": "GT Bbox + CPM [11] 62.7 86.0 69.3 58.5 70.6 SSD [16] + CPM [11] 52.7 71.1 57.2 47.0 64.2 Ours - 6 stages 58.4 81.5 62.6 54.4 65.1 + CPM reﬁnement 61.0 84.9 67.5 56.3 69.3",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00133"
+  },
+  {
+    "block_id": "blk_00134",
+    "type": "caption",
+    "content": "Table 4. Self-comparison experiments on the COCO validation set.",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00134"
+  },
+  {
+    "block_id": "blk_00135",
+    "type": "paragraph",
+    "content": "In Table 4, we report self-comparisons on a subset of the COCO validation set, i.e., 1160 images that are ran- domly selected. If we use the GT bounding box and a sin- gle person CPM [31], we can achieve a upper-bound for the top-down approach using CPM, which is 62.7% AP. If we use the state-of-the-art object detector, Single Shot MultiBox Detector (SSD)[16], the performance drops 10%. This comparison indicates the performance of top-down ap- proaches rely heavily on the person detector. In contrast, our bottom-up method achieves 58.4% AP. If we reﬁne the results of our method by applying a single person CPM on each rescaled region of the estimated persons parsed by our method, we gain an 2.6% overall AP increase. Note that we only update estimations on predictions that both meth- ods agree well enough, resulting in improved precision and",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00135"
+  },
+  {
+    "block_id": "blk_00136",
+    "type": "formula",
+    "content": "recall. We expect a larger scale search can further improve",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00136"
+  },
+  {
+    "block_id": "blk_00137",
+    "type": "paragraph",
+    "content": "the performance of our bottom-up method. Fig. 8 shows a breakdown of errors of our method on the COCO valida- tion set. Most of the false positives come from imprecise localization, other than background confusion. This indi- cates there is more improvement space in capturing spatial dependencies than in recognizing body parts appearances.",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00137"
+  },
+  {
+    "block_id": "blk_00138",
+    "type": "paragraph",
+    "content": "Number of people 0 5 10 15 20 Runtime (ms) 0 100 200 300 400 500 Top-down Bottom-up CNN processing Parsing recall 0 0.2 0.4 0.6 0.8 1 precision 0 0.2 0.4 0.6 0.8 1 [.626] C75 [.826] C50 [.918] Loc [.931] BG [1.00] FN recall 0 0.2 0.4 0.6 0.8 1 precision 0 0.2 0.4 0.6 0.8 1 [.692] C75 [.862] C50 [.919] Loc [.950] BG [1.00] FN recall 0 0.2 0.4 0.6 0.8 1 precision 0 0.2 0.4 0.6 0.8 1 [.588] C75 [.811] C50 [.929] Loc [.931] BG [1.00] FN",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00138"
+  },
+  {
+    "block_id": "blk_00139",
+    "type": "formula",
+    "content": "(a) PR curve - all people (b) PR curve - large scale person (c) PR curve - medium scale person (d) Runtime analysis",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00139"
+  },
+  {
+    "block_id": "blk_00140",
+    "type": "caption",
+    "content": "Figure 8. AP performance on COCO validation set in (a), (b), and (c) for Section 3.2, and runtime analysis in (d) for Section 3.3.",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00140"
+  },
+  {
+    "block_id": "blk_00141",
+    "type": "paragraph",
+    "content": "( a ) ( c ) ( d ) ( e ) ( f ) ( b )",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00141"
+  },
+  {
+    "block_id": "blk_00142",
+    "type": "caption",
+    "content": "Figure 9. Common failure cases: (a) rare pose or appearance, (b) missing or false parts detection, (c) overlapping parts, i.e., part detections",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00142"
+  },
+  {
+    "block_id": "blk_00143",
+    "type": "paragraph",
+    "content": "shared by two persons, (d) wrong connection associating parts from two persons, (e-f): false positives on statues or animals. 3.3. Runtime Analysis To analyze the runtime performance of our method, we collect videos with a varying number of people. The origi- nal frame size is 1080× 1920, which we resize to 368× 654 during testing to ﬁt in GPU memory. The runtime anal- ysis is performed on a laptop with one NVIDIA GeForce GTX-1080 GPU. In Fig. 8d, we use person detection and single-person CPM as a top-down comparison, where the runtime is roughly proportional to the number of people in the image. In contrast, the runtime of our bottom-up ap- proach increases relatively slowly with the increasing num- ber of people. The runtime consists of two major parts: (1) CNN processing time whose runtime complexity is O(1), constant with varying number of people; (2) Multi-person parsing time whose runtime complexity is O(n2), wheren represents the number of people. However, the parsing time does not signiﬁcantly inﬂuence the overall runtime because it is two orders of magnitude less than the CNN process- ing time, e.g., for 9 people, the parsing takes 0.58 ms while CNN takes 99.6 ms. Our method has achieved the speed of 8.8 fps for a video with 19 people. 4. Discussion Moments of social signiﬁcance, more than anything else, compel people to produce photographs and videos. Our photo collections tend to capture moments of personal signiﬁcance: birthdays, weddings, vacations, pilgrimages, sports events, graduations, family portraits, and so on. To enable machines to interpret the signiﬁcance of such pho- tographs, they need to have an understanding of people in images. Machines, endowed with such perception in real- time, would be able to react to and even participate in the individual and social behavior of people. In this paper, we consider a critical component of such perception: realtime algorithms to detect the 2D pose of multiple people in images. We present an explicit nonpara- metric representation of the keypoints association that en- codes both position and orientation of human limbs. Sec- ond, we design an architecture for jointly learning parts de- tection and parts association. Third, we demonstrate that a greedy parsing algorithm is sufﬁcient to produce high- quality parses of body poses, that maintains efﬁciency even as the number of people in the image increases. We show representative failure cases in Fig. 9. We have publicly re- leased our code (including the trained models) to ensure full reproducibility and to encourage future research in the area. Acknowledgements We acknowledge the effort from the authors of the MPII and COCO human pose datasets. These datasets make 2D human pose estimation in the wild possible. This research was supported in part by ONR Grants N00014-15-1-2358 and N00014-14-1-0595.",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00143"
+  },
+  {
+    "block_id": "blk_00144",
+    "type": "section_heading",
+    "content": "References",
+    "page": 7,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00144"
+  },
+  {
+    "block_id": "blk_00145",
+    "type": "reference",
+    "content": "[1] MSCOCO keypoint evaluation metric. http://mscoco. org/dataset/#keypoints-eval. 5, 6 [2] M. Andriluka, L. Pishchulin, P. Gehler, and B. Schiele. 2D human pose estimation: new benchmark and state of the art analysis. In CVPR, 2014. 5 [3] M. Andriluka, S. Roth, and B. Schiele. Pictorial structures revisited: people detection and articulated pose estimation. In CVPR, 2009. 1",
+    "page": 7,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00145"
+  },
+  {
+    "block_id": "blk_00146",
+    "type": "caption",
+    "content": "Figure 10. Results containing viewpoint and appearance variation, occlusion, crowding, contact, and other common imaging artifacts.",
+    "page": 8,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00146"
+  },
+  {
+    "block_id": "blk_00147",
+    "type": "reference",
+    "content": "[4] M. Andriluka, S. Roth, and B. Schiele. Monocular 3D pose estimation and tracking by detection. In CVPR, 2010. 1 [5] V . Belagiannis and A. Zisserman. Recurrent human pose es- timation. In 12th IEEE International Conference and Work- shops on Automatic Face and Gesture Recognition (FG) , 2017. 1 [6] A. Bulat and G. Tzimiropoulos. Human pose estimation via convolutional part heatmap regression. In ECCV, 2016. 1 [7] X. Chen and A. Yuille. Articulated pose estimation by a graphical model with image dependent pairwise relations. In NIPS, 2014. 1 [8] P. F. Felzenszwalb and D. P. Huttenlocher. Pictorial struc- tures for object recognition. In IJCV, 2005. 1 [9] G. Gkioxari, B. Hariharan, R. Girshick, and J. Malik. Us- ing k-poselets for detecting people and localizing their key- points. In CVPR, 2014. 1 [10] K. He, X. Zhang, S. Ren, and J. Sun. Deep residual learning for image recognition. In CVPR, 2016. 1 [11] E. Insafutdinov, L. Pishchulin, B. Andres, M. Andriluka, and B. Schiele. Deepercut: A deeper, stronger, and faster multi- person pose estimation model. In ECCV, 2016. 1, 5, 6 [12] U. Iqbal and J. Gall. Multi-person pose estimation with local joint-to-person associations. In ECCV Workshops, Crowd Understanding, 2016. 1, 5 [13] S. Johnson and M. Everingham. Clustered pose and nonlin- ear appearance models for human pose estimation. InBMVC, 2010. 1 [14] H. W. Kuhn. The hungarian method for the assignment prob-",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00147"
+  },
+  {
+    "block_id": "blk_00148",
+    "type": "reference",
+    "content": "lem. In Naval research logistics quarterly. Wiley Online Li-",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00148"
+  },
+  {
+    "block_id": "blk_00149",
+    "type": "reference",
+    "content": "brary, 1955. 5 [15] T.-Y . Lin, M. Maire, S. Belongie, J. Hays, P. Perona, D. Ra- manan, P. Doll´ar, and C. L. Zitnick. Microsoft COCO: com- mon objects in context. In ECCV, 2014. 5 [16] W. Liu, D. Anguelov, D. Erhan, C. Szegedy, and S. Reed. Ssd: Single shot multibox detector. In ECCV, 2016. 6 [17] A. Newell, K. Yang, and J. Deng. Stacked hourglass net- works for human pose estimation. In ECCV, 2016. 1 [18] W. Ouyang, X. Chu, and X. Wang. Multi-source deep learn- ing for human pose estimation. In CVPR, 2014. 1 [19] G. Papandreou, T. Zhu, N. Kanazawa, A. Toshev, J. Tomp- son, C. Bregler, and K. Murphy. Towards accurate multi-person pose estimation in the wild. arXiv preprint arXiv:1701.01779, 2017. 1, 6 [20] T. Pﬁster, J. Charles, and A. Zisserman. Flowing convnets for human pose estimation in videos. In ICCV, 2015. 1 [21] L. Pishchulin, M. Andriluka, P. Gehler, and B. Schiele. Pose- let conditioned pictorial structures. In CVPR, 2013. 1 [22] L. Pishchulin, E. Insafutdinov, S. Tang, B. Andres, M. An- driluka, P. Gehler, and B. Schiele. Deepcut: Joint subset partition and labeling for multi person pose estimation. In CVPR, 2016. 1, 5 [23] L. Pishchulin, A. Jain, M. Andriluka, T. Thorm ¨ahlen, and B. Schiele. Articulated people detection and pose estimation: Reshaping the future. In CVPR, 2012. 1 [24] V . Ramakrishna, D. Munoz, M. Hebert, J. A. Bagnell, and Y . Sheikh. Pose machines: Articulated pose estimation via inference machines. In ECCV, 2014. 1 [25] D. Ramanan, D. A. Forsyth, and A. Zisserman. Strike a Pose: Tracking people by ﬁnding stylized poses. In CVPR, 2005. 1 [26] K. Simonyan and A. Zisserman. Very deep convolutional",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00149"
+  },
+  {
+    "block_id": "blk_00150",
+    "type": "reference",
+    "content": "networks for large-scale image recognition. In ICLR, 2015.",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00150"
+  },
+  {
+    "block_id": "blk_00151",
+    "type": "reference",
+    "content": "2 [27] M. Sun and S. Savarese. Articulated part-based model for joint object detection and pose estimation. In ICCV, 2011. 1 [28] J. Tompson, R. Goroshin, A. Jain, Y . LeCun, and C. Bregler. Efﬁcient object localization using convolutional networks. In CVPR, 2015. 1 [29] J. J. Tompson, A. Jain, Y . LeCun, and C. Bregler. Joint train- ing of a convolutional network and a graphical model for human pose estimation. In NIPS, 2014. 1 [30] A. Toshev and C. Szegedy. Deeppose: Human pose estima- tion via deep neural networks. In CVPR, 2014. 1 [31] S.-E. Wei, V . Ramakrishna, T. Kanade, and Y . Sheikh. Con- volutional pose machines. In CVPR, 2016. 1, 2, 3, 6 [32] D. B. West et al. Introduction to graph theory , volume 2. Prentice hall Upper Saddle River, 2001. 4, 5 [33] Y . Yang and D. Ramanan. Articulated human detection with ﬂexible mixtures of parts. In TPAMI, 2013. 1",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00151"
+  }
+]

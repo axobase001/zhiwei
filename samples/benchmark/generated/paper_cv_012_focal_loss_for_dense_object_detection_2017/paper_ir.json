@@ -1,0 +1,3295 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "单阶段目标检测器在训练时面临严重的前景-背景类别不平衡问题，导致其精度长期落后于两阶段检测器。",
+      "anchors": [
+        "anc_00009",
+        "anc_00012",
+        "anc_00035",
+        "anc_00036",
+        "anc_00038"
+      ]
+    },
+    "motivation": {
+      "summary": "两阶段检测器通过候选区域生成和采样启发式方法缓解了类别不平衡，但单阶段检测器需要处理大量密集采样的候选位置（约10万个），其中绝大多数是简单的背景样本，导致训练效率低下且模型可能退化。",
+      "anchors": [
+        "anc_00014",
+        "anc_00016",
+        "anc_00018",
+        "anc_00020",
+        "anc_00036"
+      ]
+    },
+    "core_idea": {
+      "summary": "提出一种新的损失函数——焦点损失（Focal Loss），通过动态缩放交叉熵损失，降低易分类样本的权重，使模型在训练时更关注难分类的样本，从而解决单阶段检测器中的类别不平衡问题。",
+      "anchors": [
+        "anc_00005",
+        "anc_00007",
+        "anc_00022",
+        "anc_00044",
+        "anc_00065",
+        "anc_00066"
+      ]
+    },
+    "method": {
+      "summary": "设计了一个名为RetinaNet的单阶段目标检测器，其核心是使用焦点损失函数。RetinaNet采用特征金字塔网络（FPN）作为骨干网络，并包含分类子网络和边界框回归子网络。",
+      "anchors": [
+        "anc_00089",
+        "anc_00090",
+        "anc_00092",
+        "anc_00105",
+        "anc_00107",
+        "anc_00109",
+        "anc_00111",
+        "anc_00112"
+      ]
+    },
+    "experiments": {
+      "summary": "在COCO数据集上进行了广泛的实验，包括消融研究（分析α、γ等超参数）、与在线困难样本挖掘（OHEM）的对比、以及与当时最先进的单阶段和两阶段检测器的比较。",
+      "anchors": [
+        "anc_00128",
+        "anc_00130",
+        "anc_00131",
+        "anc_00133",
+        "anc_00141",
+        "anc_00143",
+        "anc_00145",
+        "anc_00151",
+        "anc_00153",
+        "anc_00154",
+        "anc_00156",
+        "anc_00158",
+        "anc_00161",
+        "anc_00162",
+        "anc_00163",
+        "anc_00164",
+        "anc_00166",
+        "anc_00173",
+        "anc_00174",
+        "anc_00175",
+        "anc_00182",
+        "anc_00183",
+        "anc_00185",
+        "anc_00186",
+        "anc_00187",
+        "anc_00193",
+        "anc_00196",
+        "anc_00197",
+        "anc_00199"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "1. 焦点损失能有效解决单阶段检测器中的类别不平衡问题。2. 使用焦点损失训练的RetinaNet在精度上超越了所有现有的单阶段和两阶段检测器。3. 焦点损失的具体形式并非关键，其他变体也能取得类似效果。",
+        "anchors": [
+          "anc_00005",
+          "anc_00007",
+          "anc_00022",
+          "anc_00044",
+          "anc_00065",
+          "anc_00066",
+          "anc_00069",
+          "anc_00071",
+          "anc_00073",
+          "anc_00074",
+          "anc_00075",
+          "anc_00148",
+          "anc_00149",
+          "anc_00150",
+          "anc_00153",
+          "anc_00154",
+          "anc_00156",
+          "anc_00158",
+          "anc_00161",
+          "anc_00162",
+          "anc_00163",
+          "anc_00164",
+          "anc_00166",
+          "anc_00173",
+          "anc_00185",
+          "anc_00186",
+          "anc_00187",
+          "anc_00197",
+          "anc_00199",
+          "anc_00201",
+          "anc_00202",
+          "anc_00205",
+          "anc_00215",
+          "anc_00216",
+          "anc_00218",
+          "anc_00219"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "论文主要关注类别不平衡问题，对于其他挑战（如小目标检测）的改进有限。实验表明，在极高帧率要求下，RetinaNet可能不如专门为速度优化的网络（如YOLO）。",
+        "anchors": [
+          "anc_00196"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "骨干网络 (Backbone Network)",
+        "label": "特征提取",
+        "summary": "使用ResNet-FPN作为骨干网络，从输入图像中提取多尺度特征图。",
+        "description": "骨干网络是一个现成的卷积网络，负责计算整个输入图像的卷积特征图。论文中使用了ResNet-50-FPN和ResNet-101-FPN。",
+        "type": "backbone",
+        "anchors": [
+          "anc_00089",
+          "anc_00090",
+          "anc_00092",
+          "anc_00105"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "特征金字塔网络 (FPN)",
+        "label": "多尺度特征融合",
+        "summary": "在骨干网络之上构建特征金字塔，以生成多尺度的特征表示。",
+        "description": "FPN骨干网络负责生成多尺度的特征金字塔。论文中使用了C=256个通道，并包含P3到P7层，其中P7层用于改进大目标检测。",
+        "type": "feature_pyramid",
+        "anchors": [
+          "anc_00089",
+          "anc_00090",
+          "anc_00092",
+          "anc_00101",
+          "anc_00105"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "分类子网络 (Classification Subnet)",
+        "label": "目标分类",
+        "summary": "对特征金字塔的每一层进行卷积分类，预测每个空间位置的锚框属于各个目标类别的概率。",
+        "description": "分类子网络在骨干网络的输出上执行卷积目标分类。对于每个空间位置，有A=9个锚框，每个锚框预测K个类别的分类目标。",
+        "type": "classification_subnet",
+        "anchors": [
+          "anc_00089",
+          "anc_00096",
+          "anc_00109",
+          "anc_00111"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "边界框回归子网络 (Box Regression Subnet)",
+        "label": "边界框回归",
+        "summary": "预测每个锚框与真实边界框之间的偏移量。",
+        "description": "边界框回归子网络与分类子网络结构类似，但输出4A个线性值，用于预测每个锚框相对于真实边界框的偏移。该子网络是类别无关的。",
+        "type": "regression_subnet",
+        "anchors": [
+          "anc_00089",
+          "anc_00097",
+          "anc_00099",
+          "anc_00111",
+          "anc_00112"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "焦点损失 (Focal Loss)",
+        "label": "损失函数",
+        "summary": "一种动态缩放的交叉熵损失，通过调制因子降低易分类样本的权重，聚焦于难分类样本。",
+        "description": "焦点损失定义为 FL(pt) = -αt (1-pt)^γ log(pt)，其中pt是模型对真实类别的预测概率，γ是聚焦参数（γ≥0），αt是平衡因子。当γ=0时，退化为标准的交叉熵损失。",
+        "type": "loss_function",
+        "anchors": [
+          "anc_00005",
+          "anc_00007",
+          "anc_00044",
+          "anc_00065",
+          "anc_00066",
+          "anc_00069",
+          "anc_00071"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "模型初始化 (Model Initialization)",
+        "label": "训练技巧",
+        "summary": "通过设置前景类别的先验概率π（如0.01）来初始化模型，以稳定训练初期。",
+        "description": "为了解决类别不平衡导致的训练不稳定问题，论文引入了‘先验’概念，将模型对前景类别的初始预测概率设置为较低的值π（如0.01）。这通过修改分类子网络最后一层卷积的偏置b来实现：b = -log((1-π)/π)。",
+        "type": "initialization",
+        "anchors": [
+          "anc_00081",
+          "anc_00082",
+          "anc_00084",
+          "anc_00085",
+          "anc_00122",
+          "anc_00123",
+          "anc_00125",
+          "anc_00135",
+          "anc_00137"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "推理过程 (Inference)",
+        "label": "推理",
+        "summary": "在推理时，RetinaNet是一个单一的全卷积网络，对预测结果进行解码并应用非极大值抑制。",
+        "description": "推理时，RetinaNet由ResNet-FPN骨干网络、分类子网络和边界框回归子网络组成。预测结果在所有层级上合并，并使用阈值为0.05的非极大值抑制（NMS）来产生最终检测结果。",
+        "type": "inference",
+        "anchors": [
+          "anc_00112",
+          "anc_00113"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "特征提取",
+        "description": "骨干网络提取的特征被送入特征金字塔网络进行多尺度融合。",
+        "anchors": [
+          "anc_00089",
+          "anc_00090",
+          "anc_00092",
+          "anc_00105"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "特征输入",
+        "description": "特征金字塔的多尺度特征图被送入分类子网络进行目标分类。",
+        "anchors": [
+          "anc_00089",
+          "anc_00096",
+          "anc_00109",
+          "anc_00111"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_004",
+        "label": "特征输入",
+        "description": "特征金字塔的多尺度特征图被送入边界框回归子网络进行位置回归。",
+        "anchors": [
+          "anc_00089",
+          "anc_00097",
+          "anc_00099",
+          "anc_00111",
+          "anc_00112"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_005",
+        "label": "计算损失",
+        "description": "分类子网络的输出（预测概率）与真实标签一起用于计算焦点损失。",
+        "anchors": [
+          "anc_00005",
+          "anc_00007",
+          "anc_00044",
+          "anc_00065",
+          "anc_00066",
+          "anc_00069",
+          "anc_00071"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "label": "计算损失",
+        "description": "边界框回归子网络的输出与真实边界框一起用于计算平滑L1损失，并与焦点损失求和得到总训练损失。",
+        "anchors": [
+          "anc_00141"
+        ]
+      },
+      {
+        "source": "node_006",
+        "target": "node_003",
+        "label": "初始化",
+        "description": "模型初始化技巧应用于分类子网络的最后一层，以稳定训练。",
+        "anchors": [
+          "anc_00081",
+          "anc_00082",
+          "anc_00084",
+          "anc_00085",
+          "anc_00122",
+          "anc_00123",
+          "anc_00125",
+          "anc_00135",
+          "anc_00137"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_007",
+        "label": "预测输出",
+        "description": "在推理时，分类子网络的输出用于预测目标类别。",
+        "anchors": [
+          "anc_00112",
+          "anc_00113"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_007",
+        "label": "预测输出",
+        "description": "在推理时，边界框回归子网络的输出用于预测边界框位置。",
+        "anchors": [
+          "anc_00112",
+          "anc_00113"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00009",
+        "anc_00014",
+        "anc_00016",
+        "anc_00033",
+        "anc_00086",
+        "anc_00088",
+        "anc_00089"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00005",
+        "anc_00007",
+        "anc_00022",
+        "anc_00044",
+        "anc_00065",
+        "anc_00066",
+        "anc_00069",
+        "anc_00071",
+        "anc_00073",
+        "anc_00074",
+        "anc_00075",
+        "anc_00089",
+        "anc_00090",
+        "anc_00092",
+        "anc_00105",
+        "anc_00107",
+        "anc_00109",
+        "anc_00111",
+        "anc_00112"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "使用标准交叉熵损失训练单阶段检测器，由于类别不平衡，大量简单背景样本主导损失，导致训练效率低下且精度不高。",
+        "after": "使用焦点损失，通过调制因子 (1-pt)^γ 自动降低易分类样本（pt较大）的损失权重，使模型更关注难分类样本。",
+        "why_it_matters": "这直接解决了单阶段检测器训练中的核心障碍——类别不平衡，使得无需复杂的采样策略（如OHEM）即可高效训练所有样本，并显著提升检测精度。",
+        "anchors": [
+          "anc_00007",
+          "anc_00009",
+          "anc_00022",
+          "anc_00036",
+          "anc_00038",
+          "anc_00044",
+          "anc_00065"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "两阶段检测器通过候选区域生成和采样启发式（如固定前景背景比1:3）来缓解类别不平衡。",
+        "after": "单阶段检测器RetinaNet直接使用焦点损失，无需两阶段级联或采样启发式，通过损失函数本身解决不平衡问题。",
+        "why_it_matters": "简化了检测流程，使单阶段检测器在保持速度优势的同时，能够达到甚至超越两阶段检测器的精度。",
+        "anchors": [
+          "anc_00009",
+          "anc_00014",
+          "anc_00016",
+          "anc_00033",
+          "anc_00086",
+          "anc_00088",
+          "anc_00089"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "模型初始化通常采用标准方法（如高斯初始化），在类别极度不平衡时可能导致训练初期不稳定。",
+        "after": "引入‘先验’π（如0.01）来初始化分类子网络最后一层的偏置，使模型在训练初期对前景类别的预测概率较低，从而稳定训练。",
+        "why_it_matters": "提高了在极端类别不平衡场景下训练的稳定性，对交叉熵和焦点损失都有效。",
+        "anchors": [
+          "anc_00081",
+          "anc_00082",
+          "anc_00084",
+          "anc_00085",
+          "anc_00122",
+          "anc_00123",
+          "anc_00125",
+          "anc_00135",
+          "anc_00137"
+        ],
+        "delta_id": "delta_3"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "name": "交叉熵损失 (Cross Entropy Loss)",
+        "latex": "CE(p_t) = -\\log(p_t)",
+        "variables": [
+          {
+            "name": "p_t",
+            "description": "模型对真实类别的预测概率。当真实标签y=1时，p_t = p；当y=-1时，p_t = 1-p。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00004",
+              "anc_00050",
+              "anc_00054"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "标准的二元分类损失函数，用于衡量预测概率与真实标签之间的差异。",
+        "anchors": [
+          "anc_00004",
+          "anc_00050",
+          "anc_00054"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "name": "焦点损失 (Focal Loss)",
+        "latex": "FL(p_t) = -\\alpha_t (1 - p_t)^\\gamma \\log(p_t)",
+        "variables": [
+          {
+            "name": "p_t",
+            "description": "模型对真实类别的预测概率。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00005",
+              "anc_00050",
+              "anc_00054"
+            ]
+          },
+          {
+            "name": "\\gamma",
+            "description": "聚焦参数，控制调制因子的强度。γ≥0，论文中发现γ=2效果最佳。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00005",
+              "anc_00007",
+              "anc_00065",
+              "anc_00066",
+              "anc_00069",
+              "anc_00071",
+              "anc_00115"
+            ]
+          },
+          {
+            "name": "\\alpha_t",
+            "description": "平衡因子，用于平衡正负样本的重要性。论文中对于γ=2，α=0.25效果最佳。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00058",
+              "anc_00065",
+              "anc_00120",
+              "anc_00158",
+              "anc_00161"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "在标准交叉熵损失前乘以调制因子 (1-p_t)^γ。当样本被正确分类（p_t较大）时，调制因子接近0，损失被大幅降低；当样本被错误分类（p_t较小）时，调制因子接近1，损失几乎不变。这使得模型在训练时更关注难分类的样本。",
+        "anchors": [
+          "anc_00005",
+          "anc_00007",
+          "anc_00044",
+          "anc_00065",
+          "anc_00066",
+          "anc_00069",
+          "anc_00071",
+          "anc_00073",
+          "anc_00074",
+          "anc_00075"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "name": "模型初始化偏置 (Initialization Bias)",
+        "latex": "b = -\\log((1 - \\pi) / \\pi)",
+        "variables": [
+          {
+            "name": "b",
+            "description": "分类子网络最后一层卷积的偏置初始化值。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00125"
+            ]
+          },
+          {
+            "name": "\\pi",
+            "description": "前景类别的先验概率，论文中设置为0.01。",
+            "confidence": "high",
+            "anchors": [
+              "anc_00085",
+              "anc_00125",
+              "anc_00135",
+              "anc_00146"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "通过设置偏置b，使得模型在训练开始时对前景类别的预测概率p约为π（一个很小的值），从而避免大量背景样本在训练初期主导损失，提高训练稳定性。",
+        "anchors": [
+          "anc_00085",
+          "anc_00122",
+          "anc_00123",
+          "anc_00125",
+          "anc_00135",
+          "anc_00137"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "在COCO test-dev数据集上，RetinaNet-101-800模型（使用尺度抖动和更长训练时间）达到了40.8 AP，超越了当时所有单阶段和两阶段检测器。",
+      "anchors": [
+        "anc_00011",
+        "anc_00024",
+        "anc_00185",
+        "anc_00186",
+        "anc_00187",
+        "anc_00197",
+        "anc_00199"
+      ]
+    },
+    "ablation": {
+      "description": "进行了广泛的消融实验，包括：1) 不同α值对CE损失的影响；2) 不同γ值对焦点损失的影响；3) 不同α和γ组合的影响；4) 与在线困难样本挖掘（OHEM）的对比；5) 不同骨干网络（ResNet-50 vs ResNet-101）和输入图像尺度的影响。",
+      "anchors": [
+        "anc_00128",
+        "anc_00130",
+        "anc_00131",
+        "anc_00133",
+        "anc_00141",
+        "anc_00143",
+        "anc_00145",
+        "anc_00151",
+        "anc_00153",
+        "anc_00154",
+        "anc_00156",
+        "anc_00158",
+        "anc_00161",
+        "anc_00162",
+        "anc_00163",
+        "anc_00164",
+        "anc_00166",
+        "anc_00173",
+        "anc_00174",
+        "anc_00175",
+        "anc_00182",
+        "anc_00183"
+      ]
+    },
+    "robustness": {
+      "description": "论文分析了焦点损失对易分类和难分类样本的损失分布影响（图4），并展示了不同γ值下损失分布的累积分布函数，证明了焦点损失能有效将注意力集中在难分类样本上。",
+      "anchors": [
+        "anc_00148",
+        "anc_00149",
+        "anc_00150",
+        "anc_00162",
+        "anc_00163",
+        "anc_00164",
+        "anc_00166"
+      ]
+    },
+    "scaling": {
+      "description": "实验了不同的输入图像尺度（400-800像素）和骨干网络深度（ResNet-50和ResNet-101），展示了精度与速度的权衡关系（图2）。",
+      "anchors": [
+        "anc_00010",
+        "anc_00011",
+        "anc_00131",
+        "anc_00187",
+        "anc_00193",
+        "anc_00196"
+      ]
+    },
+    "case_study": {
+      "description": "论文提供了焦点损失变体（FL*）的实验（表3，图5，图6，图7），证明了焦点损失的具体形式并非关键，其他变体也能取得类似效果。",
+      "anchors": [
+        "anc_00201",
+        "anc_00202",
+        "anc_00205",
+        "anc_00215",
+        "anc_00216",
+        "anc_00218",
+        "anc_00219"
+      ]
+    },
+    "human_eval": {
+      "description": "未提及人工评估实验。",
+      "anchors": []
+    },
+    "benchmark": {
+      "description": "主要在COCO数据集上进行评估，使用标准的AP指标。",
+      "anchors": [
+        "anc_00141",
+        "anc_00143",
+        "anc_00185"
+      ]
+    },
+    "efficiency": {
+      "description": "论文报告了不同模型配置下的推理速度（毫秒）和精度（AP），并绘制了速度-精度权衡曲线（图2）。训练时间在10到35小时之间。",
+      "anchors": [
+        "anc_00010",
+        "anc_00141",
+        "anc_00187",
+        "anc_00193",
+        "anc_00196"
+      ]
+    },
+    "experiments": [
+      {
+        "description": "在COCO test-dev数据集上，RetinaNet-101-800模型（使用尺度抖动和更长训练时间）达到了40.8 AP，超越了当时所有单阶段和两阶段检测器。",
+        "anchors": [
+          "anc_00011",
+          "anc_00024",
+          "anc_00185",
+          "anc_00186",
+          "anc_00187",
+          "anc_00197",
+          "anc_00199"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "main_result_1",
+        "dataset": [
+          "COCO test-dev"
+        ],
+        "baseline": [
+          "Faster R-CNN",
+          "其他单阶段和两阶段检测器"
+        ],
+        "metrics": [
+          "AP"
+        ],
+        "result_summary": "RetinaNet-101-800达到40.8 AP，超越所有现有检测器。",
+        "what_it_tries_to_prove": "证明使用焦点损失训练的RetinaNet在精度上超越了所有现有的单阶段和两阶段检测器。",
+        "evidence_strength": "强"
+      },
+      {
+        "description": "进行了广泛的消融实验，包括：1) 不同α值对CE损失的影响；2) 不同γ值对焦点损失的影响；3) 不同α和γ组合的影响；4) 与在线困难样本挖掘（OHEM）的对比；5) 不同骨干网络（ResNet-50 vs ResNet-101）和输入图像尺度的影响。",
+        "anchors": [
+          "anc_00128",
+          "anc_00130",
+          "anc_00131",
+          "anc_00133",
+          "anc_00141",
+          "anc_00143",
+          "anc_00145",
+          "anc_00151",
+          "anc_00153",
+          "anc_00154",
+          "anc_00156",
+          "anc_00158",
+          "anc_00161",
+          "anc_00162",
+          "anc_00163",
+          "anc_00164",
+          "anc_00166",
+          "anc_00173",
+          "anc_00174",
+          "anc_00175",
+          "anc_00182",
+          "anc_00183"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "ablation",
+        "name": "ablation_2",
+        "dataset": [
+          "COCO trainval35k",
+          "COCO minival"
+        ],
+        "baseline": [
+          "标准交叉熵损失",
+          "α平衡交叉熵损失",
+          "OHEM"
+        ],
+        "metrics": [
+          "AP"
+        ],
+        "result_summary": "焦点损失（γ=2, α=0.25）显著优于其他损失函数和采样策略。",
+        "what_it_tries_to_prove": "验证焦点损失各超参数（α, γ）的有效性，并证明其优于OHEM等采样策略。",
+        "evidence_strength": "强"
+      },
+      {
+        "description": "论文分析了焦点损失对易分类和难分类样本的损失分布影响（图4），并展示了不同γ值下损失分布的累积分布函数，证明了焦点损失能有效将注意力集中在难分类样本上。",
+        "anchors": [
+          "anc_00148",
+          "anc_00149",
+          "anc_00150",
+          "anc_00162",
+          "anc_00163",
+          "anc_00164",
+          "anc_00166"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "robustness",
+        "name": "robustness_3",
+        "dataset": [
+          "COCO"
+        ],
+        "baseline": [
+          "标准交叉熵损失"
+        ],
+        "metrics": [
+          "累积分布函数"
+        ],
+        "result_summary": "焦点损失能有效将注意力集中在难分类样本上，降低易分类样本的权重。",
+        "what_it_tries_to_prove": "从损失分布角度分析焦点损失的工作机制，证明其能聚焦于难分类样本。",
+        "evidence_strength": "强"
+      },
+      {
+        "description": "实验了不同的输入图像尺度（400-800像素）和骨干网络深度（ResNet-50和ResNet-101），展示了精度与速度的权衡关系（图2）。",
+        "anchors": [
+          "anc_00010",
+          "anc_00011",
+          "anc_00131",
+          "anc_00187",
+          "anc_00193",
+          "anc_00196"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "scaling",
+        "name": "scaling_4",
+        "dataset": [
+          "COCO test-dev"
+        ],
+        "baseline": [
+          "其他单阶段和两阶段检测器"
+        ],
+        "metrics": [
+          "AP",
+          "推理速度（ms）"
+        ],
+        "result_summary": "RetinaNet在不同配置下均能实现良好的精度-速度权衡，形成所有检测器的上包络线。",
+        "what_it_tries_to_prove": "展示RetinaNet在不同计算预算下的性能，证明其在速度和精度上的优势。",
+        "evidence_strength": "强"
+      },
+      {
+        "description": "论文提供了焦点损失变体（FL*）的实验（表3，图5，图6，图7），证明了焦点损失的具体形式并非关键，其他变体也能取得类似效果。",
+        "anchors": [
+          "anc_00201",
+          "anc_00202",
+          "anc_00205",
+          "anc_00215",
+          "anc_00216",
+          "anc_00218",
+          "anc_00219"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "case_study",
+        "name": "case_study_5",
+        "dataset": [
+          "COCO"
+        ],
+        "baseline": [
+          "标准焦点损失"
+        ],
+        "metrics": [
+          "AP"
+        ],
+        "result_summary": "焦点损失变体（FL*）能达到与标准焦点损失相似的性能。",
+        "what_it_tries_to_prove": "证明焦点损失的具体形式并非关键，其他变体也能取得类似效果。",
+        "evidence_strength": "中"
+      },
+      {
+        "description": "主要在COCO数据集上进行评估，使用标准的AP指标。",
+        "anchors": [
+          "anc_00141",
+          "anc_00143",
+          "anc_00185"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "benchmark",
+        "name": "benchmark_6",
+        "dataset": [
+          "COCO"
+        ],
+        "baseline": [],
+        "metrics": [
+          "AP"
+        ],
+        "result_summary": "所有实验均在COCO数据集上使用标准AP指标进行评估。",
+        "what_it_tries_to_prove": "提供统一的评估基准。",
+        "evidence_strength": "强"
+      },
+      {
+        "description": "论文报告了不同模型配置下的推理速度（毫秒）和精度（AP），并绘制了速度-精度权衡曲线（图2）。训练时间在10到35小时之间。",
+        "anchors": [
+          "anc_00010",
+          "anc_00141",
+          "anc_00187",
+          "anc_00193",
+          "anc_00196"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "efficiency",
+        "name": "efficiency_7",
+        "dataset": [
+          "COCO test-dev"
+        ],
+        "baseline": [
+          "其他单阶段和两阶段检测器"
+        ],
+        "metrics": [
+          "AP",
+          "推理速度（ms）",
+          "训练时间（小时）"
+        ],
+        "result_summary": "RetinaNet在不同配置下实现了良好的效率，训练时间在10-35小时之间。",
+        "what_it_tries_to_prove": "评估RetinaNet的计算效率和训练成本。",
+        "evidence_strength": "强"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim_id": "claim_001",
+        "claim": "单阶段检测器精度落后于两阶段检测器的主要原因是训练时遇到的极端前景-背景类别不平衡。",
+        "evidence_source_type": "实验分析",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00009",
+          "anc_00012",
+          "anc_00035",
+          "anc_00036",
+          "anc_00038"
+        ],
+        "risk_flags": [],
+        "evidence": [
+          {
+            "evidence_id": "evidence_001",
+            "description": "论文指出单阶段检测器评估10^4-10^5个候选位置，但只有少数包含目标，导致训练效率低下和模型退化。",
+            "anchors": [
+              "anc_00035",
+              "anc_00036",
+              "anc_00038"
+            ],
+            "strength": "强"
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_002",
+        "claim": "提出的焦点损失能有效解决类别不平衡问题，通过动态降低易分类样本的权重，使模型聚焦于难分类样本。",
+        "evidence_source_type": "理论推导与实验验证",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00005",
+          "anc_00007",
+          "anc_00022",
+          "anc_00044",
+          "anc_00065",
+          "anc_00066",
+          "anc_00069",
+          "anc_00071",
+          "anc_00073",
+          "anc_00074",
+          "anc_00075",
+          "anc_00148",
+          "anc_00149",
+          "anc_00150",
+          "anc_00153",
+          "anc_00154",
+          "anc_00156",
+          "anc_00158",
+          "anc_00161",
+          "anc_00162",
+          "anc_00163",
+          "anc_00164",
+          "anc_00166",
+          "anc_00173"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evidence_002",
+            "description": "焦点损失通过调制因子(1-pt)^γ自动降低易分类样本的权重，使模型聚焦于难分类样本。",
+            "anchors": [
+              "anc_00005",
+              "anc_00007",
+              "anc_00044",
+              "anc_00065",
+              "anc_00066",
+              "anc_00069",
+              "anc_00071",
+              "anc_00073",
+              "anc_00074",
+              "anc_00075"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_003",
+            "description": "消融实验表明焦点损失（γ=2, α=0.25）显著优于标准交叉熵损失和α平衡交叉熵损失。",
+            "anchors": [
+              "anc_00153",
+              "anc_00154",
+              "anc_00156",
+              "anc_00158",
+              "anc_00161"
+            ],
+            "strength": "强"
+          },
+          {
+            "evidence_id": "evidence_004",
+            "description": "损失分布分析显示焦点损失能有效将注意力集中在难分类样本上。",
+            "anchors": [
+              "anc_00148",
+              "anc_00149",
+              "anc_00150",
+              "anc_00162",
+              "anc_00163",
+              "anc_00164",
+              "anc_00166"
+            ],
+            "strength": "强"
+          }
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_003",
+        "claim": "使用焦点损失训练的RetinaNet在COCO数据集上达到了当时最高的检测精度，超越了所有现有的单阶段和两阶段检测器。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00011",
+          "anc_00024",
+          "anc_00185",
+          "anc_00186",
+          "anc_00187",
+          "anc_00197",
+          "anc_00199"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evidence_005",
+            "description": "RetinaNet-101-800模型在COCO test-dev上达到40.8 AP，超越所有现有检测器。",
+            "anchors": [
+              "anc_00011",
+              "anc_00024",
+              "anc_00185",
+              "anc_00186",
+              "anc_00187",
+              "anc_00197",
+              "anc_00199"
+            ],
+            "strength": "强"
+          }
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_004",
+        "claim": "焦点损失的具体形式并非关键，其他变体（如FL*）也能取得类似效果。",
+        "evidence_source_type": "实验验证",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00081",
+          "anc_00201",
+          "anc_00202",
+          "anc_00205",
+          "anc_00215",
+          "anc_00216",
+          "anc_00218",
+          "anc_00219"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evidence_006",
+            "description": "焦点损失变体（FL*）的实验表明，其他变体也能达到与标准焦点损失相似的性能。",
+            "anchors": [
+              "anc_00201",
+              "anc_00202",
+              "anc_00205",
+              "anc_00215",
+              "anc_00216",
+              "anc_00218",
+              "anc_00219"
+            ],
+            "strength": "中"
+          }
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_005",
+        "claim": "通过设置前景类别的先验概率π来初始化模型，可以提高训练稳定性。",
+        "evidence_source_type": "实验验证",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00081",
+          "anc_00082",
+          "anc_00084",
+          "anc_00085",
+          "anc_00122",
+          "anc_00123",
+          "anc_00125",
+          "anc_00135",
+          "anc_00137",
+          "anc_00145",
+          "anc_00146"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evidence_007",
+            "description": "模型初始化技巧（设置先验π=0.01）提高了训练稳定性，对交叉熵和焦点损失都有效。",
+            "anchors": [
+              "anc_00081",
+              "anc_00082",
+              "anc_00084",
+              "anc_00085",
+              "anc_00122",
+              "anc_00123",
+              "anc_00125",
+              "anc_00135",
+              "anc_00137",
+              "anc_00145",
+              "anc_00146"
+            ],
+            "strength": "强"
+          }
+        ],
+        "risk_flags": []
+      },
+      {
+        "claim_id": "claim_006",
+        "claim": "焦点损失比在线困难样本挖掘（OHEM）等采样策略更有效。",
+        "evidence_source_type": "对比实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00133",
+          "anc_00173",
+          "anc_00174",
+          "anc_00175",
+          "anc_00182",
+          "anc_00183"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evidence_008",
+            "description": "对比实验表明，焦点损失比OHEM等采样策略更有效，AP差距达3.2。",
+            "anchors": [
+              "anc_00133",
+              "anc_00173",
+              "anc_00174",
+              "anc_00175",
+              "anc_00182",
+              "anc_00183"
+            ],
+            "strength": "强"
+          }
+        ],
+        "risk_flags": []
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "焦点损失 (Focal Loss)",
+        "definition": "一种动态缩放的交叉熵损失函数，通过调制因子 (1-pt)^γ 降低易分类样本的权重，使模型在训练时更关注难分类的样本。",
+        "anchors": [
+          "anc_00005",
+          "anc_00007",
+          "anc_00044",
+          "anc_00065",
+          "anc_00066"
+        ],
+        "appears_in": [
+          "anc_00005",
+          "anc_00007",
+          "anc_00044",
+          "anc_00065",
+          "anc_00066"
+        ]
+      },
+      {
+        "term": "类别不平衡 (Class Imbalance)",
+        "definition": "在单阶段目标检测训练中，前景（目标）样本数量远少于背景（非目标）样本数量的现象，比例可达1:1000。",
+        "anchors": [
+          "anc_00009",
+          "anc_00035",
+          "anc_00036",
+          "anc_00044"
+        ],
+        "appears_in": [
+          "anc_00009",
+          "anc_00035",
+          "anc_00036",
+          "anc_00044"
+        ]
+      },
+      {
+        "term": "RetinaNet",
+        "definition": "论文提出的一个单阶段目标检测器，其核心创新是使用焦点损失函数。它由ResNet-FPN骨干网络、分类子网络和边界框回归子网络组成。",
+        "anchors": [
+          "anc_00011",
+          "anc_00024",
+          "anc_00033",
+          "anc_00089",
+          "anc_00105",
+          "anc_00107"
+        ],
+        "appears_in": [
+          "anc_00011",
+          "anc_00024",
+          "anc_00033",
+          "anc_00089",
+          "anc_00105",
+          "anc_00107"
+        ]
+      },
+      {
+        "term": "特征金字塔网络 (FPN)",
+        "definition": "一种用于构建多尺度特征表示的网络结构，通过自上而下的路径和横向连接融合不同层级的特征。",
+        "anchors": [
+          "anc_00011",
+          "anc_00020",
+          "anc_00089",
+          "anc_00090",
+          "anc_00092",
+          "anc_00105"
+        ],
+        "appears_in": [
+          "anc_00011",
+          "anc_00020",
+          "anc_00089",
+          "anc_00090",
+          "anc_00092",
+          "anc_00105"
+        ]
+      },
+      {
+        "term": "锚框 (Anchor Boxes)",
+        "definition": "在特征图的每个空间位置预定义的一组具有不同尺度和长宽比的参考边界框，用于预测目标的位置。",
+        "anchors": [
+          "anc_00033",
+          "anc_00089",
+          "anc_00094",
+          "anc_00096",
+          "anc_00097",
+          "anc_00099",
+          "anc_00109",
+          "anc_00111",
+          "anc_00112"
+        ],
+        "appears_in": [
+          "anc_00033",
+          "anc_00089",
+          "anc_00094",
+          "anc_00096",
+          "anc_00097",
+          "anc_00099",
+          "anc_00109",
+          "anc_00111",
+          "anc_00112"
+        ]
+      },
+      {
+        "term": "在线困难样本挖掘 (OHEM)",
+        "definition": "一种训练策略，通过选择损失最高的样本来构建小批量，以关注难分类的样本。",
+        "anchors": [
+          "anc_00015",
+          "anc_00021",
+          "anc_00037",
+          "anc_00117",
+          "anc_00133",
+          "anc_00173",
+          "anc_00174",
+          "anc_00175",
+          "anc_00182",
+          "anc_00183"
+        ],
+        "appears_in": [
+          "anc_00015",
+          "anc_00021",
+          "anc_00037",
+          "anc_00117",
+          "anc_00133",
+          "anc_00173",
+          "anc_00174",
+          "anc_00175",
+          "anc_00182",
+          "anc_00183"
+        ]
+      },
+      {
+        "term": "先验概率π (Prior π)",
+        "definition": "在模型初始化时，为前景类别设置的一个较低的初始预测概率（如0.01），用于稳定训练初期。",
+        "anchors": [
+          "anc_00085",
+          "anc_00125",
+          "anc_00135",
+          "anc_00146"
+        ],
+        "appears_in": [
+          "anc_00085",
+          "anc_00125",
+          "anc_00135",
+          "anc_00146"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        "COCO (Common Objects in Context) 目标检测数据集"
+      ],
+      "required_models": [
+        "ResNet-50",
+        "ResNet-101",
+        "特征金字塔网络 (FPN)"
+      ],
+      "required_compute": "论文中提到训练时间在10到35小时之间，具体取决于模型配置。需要GPU进行训练。",
+      "code_available": "是，论文提到源代码在 https://github.com/facebookresearch/Detectron [12] 可用。",
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 准备COCO数据集，并按照论文描述进行划分（trainval35k用于训练，minival用于验证，test-dev用于测试）。",
+          "anchors": [
+            "anc_00141",
+            "anc_00143"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 实现或使用现有的ResNet-FPN骨干网络。",
+          "anchors": [
+            "anc_00089",
+            "anc_00090",
+            "anc_00092",
+            "anc_00105"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 实现RetinaNet的分类子网络和边界框回归子网络。",
+          "anchors": [
+            "anc_00089",
+            "anc_00096",
+            "anc_00097",
+            "anc_00099",
+            "anc_00109",
+            "anc_00111",
+            "anc_00112"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "4. 实现焦点损失函数，包括调制因子 (1-pt)^γ 和平衡因子αt。",
+          "anchors": [
+            "anc_00005",
+            "anc_00007",
+            "anc_00044",
+            "anc_00065",
+            "anc_00066",
+            "anc_00069",
+            "anc_00071"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "5. 实现模型初始化技巧，将分类子网络最后一层的偏置初始化为 b = -log((1-π)/π)，其中π=0.01。",
+          "anchors": [
+            "anc_00081",
+            "anc_00082",
+            "anc_00084",
+            "anc_00085",
+            "anc_00122",
+            "anc_00123",
+            "anc_00125",
+            "anc_00135",
+            "anc_00137"
+          ]
+        },
+        {
+          "step": "step_6",
+          "description": "6. 配置训练参数：初始学习率0.01，在60k和80k迭代时除以10；总迭代次数90k；权重衰减0.0001；动量0.9；数据增强仅使用水平翻转。",
+          "anchors": [
+            "anc_00141"
+          ]
+        },
+        {
+          "step": "step_7",
+          "description": "7. 训练损失为焦点损失与边界框回归的平滑L1损失之和。",
+          "anchors": [
+            "anc_00141"
+          ]
+        },
+        {
+          "step": "step_8",
+          "description": "8. 在推理时，合并所有层级的预测，并应用阈值为0.05的非极大值抑制（NMS）。",
+          "anchors": [
+            "anc_00112",
+            "anc_00113"
+          ]
+        },
+        {
+          "step": "step_9",
+          "description": "9. 在COCO minival上进行消融实验，调整超参数（如γ和α）。",
+          "anchors": [
+            "anc_00128",
+            "anc_00130",
+            "anc_00131",
+            "anc_00133",
+            "anc_00141",
+            "anc_00143",
+            "anc_00145",
+            "anc_00151",
+            "anc_00153",
+            "anc_00154",
+            "anc_00156",
+            "anc_00158",
+            "anc_00161"
+          ]
+        },
+        {
+          "step": "step_10",
+          "description": "10. 在COCO test-dev上评估最终模型，并与论文报告的结果进行比较。",
+          "anchors": [
+            "anc_00185",
+            "anc_00186",
+            "anc_00187",
+            "anc_00197",
+            "anc_00199"
+          ]
+        }
+      ],
+      "missing_details": [],
+      "risk_points": []
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-03T15:10:56+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_cv_012_focal_loss_for_dense_object_detection_2017",
+    "title": "Focal Loss for Dense Object Detection",
+    "authors": [
+      "Tsung-Yi Lin",
+      "Priya Goyal",
+      "Ross B. Girshick",
+      "Kaiming He",
+      "Piotr Dollár"
+    ],
+    "venue": "IEEE International Conference on Computer Vision",
+    "year": 2017,
+    "arxiv_id": null,
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-03T15:09:04+00:00",
+    "paper_type": "Computer Vision / Object Detection / Top-cited Computer Vision paper",
+    "citation_count": 31097,
+    "influential_citation_count": 3490,
+    "semantic_scholar_id": "79cfb51a51fc093f66aac8e858afe2e14d4a1f20",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/79cfb51a51fc093f66aac8e858afe2e14d4a1f20",
+    "importance_rank": 12,
+    "selection_source": "semantic_scholar_top_cited_cv_open_pdf_2026_05_03",
+    "open_access_pdf_url": "http://arxiv.org/pdf/1708.02002",
+    "fields_of_study": [
+      "Computer Science"
+    ],
+    "publication_types": [
+      "JournalArticle",
+      "Conference"
+    ]
+  },
+  "anchors": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Focal Loss for Dense Object Detection",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Tsung-Yi Lin Priya Goyal Ross Girshick Kaiming He Piotr Doll ´ar",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Facebook AI Research (FAIR) 0 0.2 0.4 0.6 0.8 1 probability of ground truth class 0 1 2 3 4 5loss = 0 = 0.5 = 1 = 2 = 5 well-classi/f_ied examples well-classi/f_ied examples",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "CE(pt) =− log(pt)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "FL(pt) =−(1−pt)γ log(pt)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Figure 1. We propose a novel loss we term the Focal Loss that",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "adds a factor (1− pt)γ to the standard cross entropy criterion. Settingγ >0 reduces the relative loss for well-classiﬁed examples (pt >. 5), putting more focus on hard, misclassiﬁed examples. As our experiments will demonstrate, the proposed focal loss enables training highly accurate dense object detectors in the presence of vast numbers of easy background examples.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Abstract",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "The highest accuracy object detectors to date are based on a two-stage approach popularized by R-CNN, where a classiﬁer is applied to a sparse set of candidate object lo- cations. In contrast, one-stage detectors that are applied over a regular, dense sampling of possible object locations have the potential to be faster and simpler, but have trailed the accuracy of two-stage detectors thus far. In this paper, we investigate why this is the case. We discover that the ex- treme foreground-background class imbalance encountered during training of dense detectors is the central cause. We propose to address this class imbalance by reshaping the standard cross entropy loss such that it down-weights the loss assigned to well-classiﬁed examples. Our novel Focal Loss focuses training on a sparse set of hard examples and prevents the vast number of easy negatives from overwhelm- ing the detector during training. To evaluate the effective- ness of our loss, we design and train a simple dense det...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 2. Speed (ms) versus accuracy (AP) on COCOtest-dev.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Enabled by the focal loss, our simple one-stage RetinaNet detec- tor outperforms all previous one-stage and two-stage detectors, in- cluding the best reported Faster R-CNN [28] system from [20]. We show variants of RetinaNet with ResNet-50-FPN (blue circles) and ResNet-101-FPN (orange diamonds) at ﬁve scales (400-800 pixels). Ignoring the low-accuracy regime (AP <25), RetinaNet forms an upper envelope of all current detectors, and an improved variant (not shown) achieves 40.8 AP. Details are given in§5. 1. Introduction Current state-of-the-art object detectors are based on a two-stage, proposal-driven mechanism. As popularized in the R-CNN framework [11], the ﬁrst stage generates a sparse set of candidate object locations and the second stage classiﬁes each candidate location as one of the foreground classes or as background using a convolutional neural net- work. Through a sequence of advances [10, 28, 20, 14], this two-stage framework consistently achieves top accuracy on the challe...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tectors, such as the Feature Pyramid Network (FPN) [20] or Mask R-CNN [14] variants of Faster R-CNN [28]. To achieve this result, we identify class imbalance during train- ing as the main obstacle impeding one-stage detector from achieving state-of-the-art accuracy and propose a new loss",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "function that eliminates this barrier.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Class imbalance is addressed in R-CNN-like detectors by a two-stage cascade and sampling heuristics. The pro- posal stage ( e.g., Selective Search [35], EdgeBoxes [39], DeepMask [24, 25], RPN [28]) rapidly narrows down the number of candidate object locations to a small number (e.g., 1-2k), ﬁltering out most background samples. In the second classiﬁcation stage, sampling heuristics, such as a ﬁxed foreground-to-background ratio (1:3), or online hard",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "example mining (OHEM) [31], are performed to maintain a",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "manageable balance between foreground and background. In contrast, a one-stage detector must process a much",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "larger set of candidate object locations regularly sampled",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "across an image. In practice this often amounts to enumer- ating ∼100k locations that densely cover spatial positions, scales, and aspect ratios. While similar sampling heuris- tics may also be applied, they are inefﬁcient as the training",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "procedure is still dominated by easily classiﬁed background",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "examples. This inefﬁciency is a classic problem in object detection that is typically addressed via techniques such as",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "bootstrapping [33, 29] or hard example mining [37, 8, 31].",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00022",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "In this paper, we propose a new loss function that acts as a more effective alternative to previous approaches for dealing with class imbalance. The loss function is a dy- namically scaled cross entropy loss, where the scaling factor decays to zero as conﬁdence in the correct class increases, see Figure 1. Intuitively, this scaling factor can automati- cally down-weight the contribution of easy examples during training and rapidly focus the model on hard examples. Ex- periments show that our proposed Focal Loss enables us to train a high-accuracy, one-stage detector that signiﬁcantly outperforms the alternatives of training with the sampling",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "heuristics or hard example mining, the previous state-of-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00024",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the-art techniques for training one-stage detectors. Finally, we note that the exact form of the focal loss is not crucial, and we show other instantiations can achieve similar results. To demonstrate the effectiveness of the proposed focal loss, we design a simple one-stage object detector called RetinaNet, named for its dense sampling of object locations in an input image. Its design features an efﬁcient in-network feature pyramid and use of anchor boxes. It draws on a va- riety of recent ideas from [22, 6, 28, 20]. RetinaNet is efﬁ- cient and accurate; our best model, based on a ResNet-101- FPN backbone, achieves a COCO test-dev AP of 39.1 while running at 5 fps, surpassing the previously best pub- lished single-model results from both one and two-stage de- tectors, see Figure 2. 2. Related Work Classic Object Detectors: The sliding-window paradigm, in which a classiﬁer is applied on a dense image grid, has a long and rich history. One of the earliest successes is the classic work...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "described next, quickly came to dominate object detection.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Two-stage Detectors: The dominant paradigm in modern",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00027",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "object detection is based on a two-stage approach. As pio- neered in the Selective Search work [35], the ﬁrst stage gen- erates a sparse set of candidate proposals that should con- tain all objects while ﬁltering out the majority of negative locations, and the second stage classiﬁes the proposals into foreground classes / background. R-CNN [11] upgraded the second-stage classiﬁer to a convolutional network yielding",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00028",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "large gains in accuracy and ushering in the modern era of",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "object detection. R-CNN was improved over the years, both in terms of speed [15, 10] and by using learned object pro- posals [6, 24, 28]. Region Proposal Networks (RPN) inte- grated proposal generation with the second-stage classiﬁer",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "into a single convolution network, forming the Faster R-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00031",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "CNN framework [28]. Numerous extensions to this frame- work have been proposed, e.g. [20, 31, 32, 16, 14]. One-stage Detectors: OverFeat [30] was one of the ﬁrst modern one-stage object detector based on deep networks. More recently SSD [22, 9] and YOLO [26, 27] have re- newed interest in one-stage methods. These detectors have been tuned for speed but their accuracy trails that of two- stage methods. SSD has a 10-20% lower AP, while YOLO focuses on an even more extreme speed/accuracy trade-off. See Figure 2. Recent work showed that two-stage detectors can be made fast simply by reducing input image resolution and the number of proposals, but one-stage methods trailed",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "in accuracy even with a larger compute budget [17]. In con-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00033",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "trast, the aim of this work is to understand if one-stage de- tectors can match or surpass the accuracy of two-stage de- tectors while running at similar or faster speeds. The design of our RetinaNet detector shares many simi- larities with previous dense detectors, in particular the con- cept of ‘anchors’ introduced by RPN [28] and use of fea- tures pyramids as in SSD [22] and FPN [20]. We empha- size that our simple detector achieves top results not based on innovations in network design but due to our novel loss. 2",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Class Imbalance: Both classic one-stage object detection methods, like boosted detectors [37, 5] and DPMs [8], and",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00035",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "more recent methods, like SSD [22], face a large class",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "imbalance during training. These detectors evaluate 104- 105 candidate locations per image but only a few loca- tions contain objects. This imbalance causes two problems: (1) training is inefﬁcient as most locations are easy nega- tives that contribute no useful learning signal; (2) en masse, the easy negatives can overwhelm training and lead to de- generate models. A common solution is to perform some",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00037",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "form of hard negative mining [33, 37, 8, 31, 22] that sam-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00038",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ples hard examples during training or more complex sam- pling/reweighing schemes [2]. In contrast, we show that our proposed focal loss naturally handles the class imbalance faced by a one-stage detector and allows us to efﬁciently train on all examples without sampling and without easy",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00039",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "negatives overwhelming the loss and computed gradients.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Robust Estimation: There has been much interest in de- signing robust loss functions (e.g., Huber loss [13]) that re- duce the contribution ofoutliers by down-weighting the loss",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00041",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "of examples with large errors (hard examples). In contrast,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00042",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "rather than addressing outliers, our focal loss is designed to address class imbalance by down-weighting inliers (easy examples) such that their contribution to the total loss is",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00043",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "small even if their number is large. In other words, the focal",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "loss performs the opposite role of a robust loss: it focuses training on a sparse set of hard examples. 3. Focal Loss The Focal Loss is designed to address the one-stage ob- ject detection scenario in which there is an extreme im- balance between foreground and background classes during training (e.g., 1:1000). We introduce the focal loss starting from the cross entropy (CE) loss for binary classiﬁcation1:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00045",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "CE(p,y ) =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00046",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "{",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00047",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "− log(p) ify = 1",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00048",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "− log(1−p) otherwise. (1)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "In the abovey∈{± 1} speciﬁes the ground-truth class and p∈ [0, 1] is the model’s estimated probability for the class",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00050",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "with labely = 1. For notational convenience, we deﬁnept:",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "pt = {",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00052",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "p ify = 1",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00053",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1−p otherwise, (2)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "and rewrite CE(p,y ) = CE(pt) =− log(pt).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "The CE loss can be seen as the blue (top) curve in Fig- ure 1. One notable property of this loss, which can be easily seen in its plot, is that even examples that are easily clas- siﬁed (pt ≫ .5) incur a loss with non-trivial magnitude.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "When summed over a large number of easy examples, these",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00057",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "small loss values can overwhelm the rare class. 1Extending the focal loss to the multi-class case is straightforward and works well; for simplicity we focus on the binary loss in this work. 3.1. Balanced Cross Entropy A common method for addressing class imbalance is to introduce a weighting factorα∈ [0, 1] for class 1 and 1−α for class−1. In practice α may be set by inverse class fre- quency or treated as a hyperparameter to set by cross valida-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00058",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tion. For notational convenience, we deﬁneαt analogously",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00059",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "to how we deﬁnedpt. We write theα-balanced CE loss as:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00060",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "CE(pt) =−αt log(pt). (3)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00061",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "This loss is a simple extension to CE that we consider as an experimental baseline for our proposed focal loss. 3.2. Focal Loss Deﬁnition",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00062",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "As our experiments will show, the large class imbalance",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "encountered during training of dense detectors overwhelms the cross entropy loss. Easily classiﬁed negatives comprise",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00064",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the majority of the loss and dominate the gradient. While",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00065",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "α balances the importance of positive/negative examples, it does not differentiate between easy/hard examples. Instead, we propose to reshape the loss function to down-weight easy examples and thus focus training on hard negatives. More formally, we propose to add a modulating factor (1−pt)γ to the cross entropy loss, with tunable focusing",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00066",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "parameterγ≥ 0. We deﬁne the focal loss as:",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "FL(pt) =−(1−pt)γ log(pt). (4)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00068",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "The focal loss is visualized for several values of γ ∈ [0, 5] in Figure 1. We note two properties of the focal loss. (1) When an example is misclassiﬁed and pt is small, the modulating factor is near 1 and the loss is unaffected. As pt→ 1, the factor goes to 0 and the loss for well-classiﬁed examples is down-weighted. (2) The focusing parameter γ smoothly adjusts the rate at which easy examples are down-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "weighted. When γ = 0, FL is equivalent to CE, and asγ is",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00070",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "increased the effect of the modulating factor is likewise in-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00071",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "creased (we foundγ = 2 to work best in our experiments).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00072",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Intuitively, the modulating factor reduces the loss contri- bution from easy examples and extends the range in which",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00073",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "an example receives low loss. For instance, with γ = 2, an",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00074",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "example classiﬁed withpt = 0.9 would have 100× lower",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00075",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "loss compared with CE and with pt≈ 0.968 it would have",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00076",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1000× lower loss. This in turn increases the importance of correcting misclassiﬁed examples (whose loss is scaled",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00077",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "down by at most 4× forpt≤.5 andγ = 2).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00078",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "In practice we use anα-balanced variant of the focal loss:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00079",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "FL(pt) =−αt(1−pt)γ log(pt). (5)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00080",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "We adopt this form in our experiments as it yields slightly improved accuracy over the non-α-balanced form. Finally, we note that the implementation of the loss layer combines the sigmoid operation for computing p with the loss com- putation, resulting in greater numerical stability. 3",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00081",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "While in our main experimental results we use the focal loss deﬁnition above, its precise form is not crucial. In the appendix we consider other instantiations of the focal loss and demonstrate that these can be equally effective. 3.3. Class Imbalance and Model Initialization Binary classiﬁcation models are by default initialized to",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00082",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "have equal probability of outputting either y =−1 or 1.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00083",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Under such an initialization, in the presence of class imbal-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00084",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ance, the loss due to the frequent class can dominate total",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00085",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "loss and cause instability in early training. To counter this, we introduce the concept of a ‘prior’ for the value of p es- timated by the model for the rare class (foreground) at the start of training. We denote the prior byπ and set it so that the model’s estimatedp for examples of the rare class is low, e.g. 0.01. We note that this is a change in model initializa- tion (see§4.1) and not of the loss function. We found this to improve training stability for both the cross entropy and focal loss in the case of heavy class imbalance. 3.4. Class Imbalance and Two-stage Detectors Two-stage detectors are often trained with the cross en- tropy loss without use ofα-balancing or our proposed loss. Instead, they address class imbalance through two mech-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00086",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "anisms: (1) a two-stage cascade and (2) biased minibatch",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00087",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "sampling. The ﬁrst cascade stage is an object proposal mechanism [35, 24, 28] that reduces the nearly inﬁnite set of possible object locations down to one or two thousand. Importantly, the selected proposals are not random, but are likely to correspond to true object locations, which removes the vast majority of easy negatives. When training the sec- ond stage, biased sampling is typically used to construct",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00088",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "minibatches that contain, for instance, a 1:3 ratio of posi-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00089",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tive to negative examples. This ratio is like an implicit α- balancing factor that is implemented via sampling. Our pro- posed focal loss is designed to address these mechanisms in a one-stage detection system directly via the loss function. 4. RetinaNet Detector RetinaNet is a single, uniﬁed network composed of a backbone network and two task-speciﬁc subnetworks. The backbone is responsible for computing a convolutional fea- ture map over an entire input image and is an off-the-self convolutional network. The ﬁrst subnet performs convo- lutional object classiﬁcation on the backbone’s output; the second subnet performs convolutional bounding box regres- sion. The two subnetworks feature a simple design that we propose speciﬁcally for one-stage, dense detection, see Fig- ure 3. While there are many possible choices for the details of these components, most design parameters are not partic- ularly sensitive to exact values as shown in the experiments. We describe each component of Retin...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00090",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "haveC = 256 channels. Details of the pyramid generally",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00091",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "follow [20] with a few modest differences. 2 While many design choices are not crucial, we emphasize the use of the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00092",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "FPN backbone is; preliminary experiments using features",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00093",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "from only the ﬁnal ResNet layer yielded low AP. Anchors: We use translation-invariant anchor boxes simi- lar to those in the RPN variant in [20]. The anchors have areas of 322 to 5122 on pyramid levels P3 to P7, respec- tively. As in [20], at each pyramid level we use anchors at three aspect ratios{1:2, 1:1, 2:1}. For denser scale cover- age than in [20], at each level we add anchors of sizes {20, 21/3, 22/3} of the original set of 3 aspect ratio anchors. This",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00094",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "improve AP in our setting. In total there areA = 9 anchors",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00095",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "per level and across levels they cover the scale range 32 - 813 pixels with respect to the network’s input image. Each anchor is assigned a length K one-hot vector of",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00096",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "classiﬁcation targets, where K is the number of object",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00097",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "classes, and a 4-vector of box regression targets. We use",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00098",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the assignment rule from RPN [28] but modiﬁed for multi- class detection and with adjusted thresholds. Speciﬁcally, anchors are assigned to ground-truth object boxes using an intersection-over-union (IoU) threshold of 0.5; and to back- ground if their IoU is in [0, 0.4). As each anchor is assigned to at most one object box, we set the corresponding entry in its length K label vector to 1 and all other entries to 0. If an anchor is unassigned, which may happen with overlap in [0.4, 0.5), it is ignored during training. Box regression",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00099",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "targets are computed as the offset between each anchor and",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00100",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "its assigned object box, or omitted if there is no assignment. 2RetinaNet uses feature pyramid levels P3 toP7, whereP3 toP5 are computed from the output of the corresponding ResNet residual stage (C3 throughC5) using top-down and lateral connections just as in [20], P6 is obtained via a 3 ×3 stride-2 conv on C5, and P7 is computed by apply- ing ReLU followed by a 3 ×3 stride-2 conv on P6. This differs slightly from [20]: (1) we don’t use the high-resolution pyramid levelP2 for com- putational reasons, (2) P6 is computed by strided convolution instead of",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00101",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "downsampling, and (3) we include P7 to improve large object detection.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00102",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "These minor modiﬁcations improve speed while maintaining accuracy.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00103",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00104",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "class+box subnets class subnet box subnet W×H ×256 W×H ×256 W×H ×4A W×H ×256 W×H ×256 W×H ×KA×4 ×4 + + class+box subnets class+box subnets (a) ResNet (b) feature pyramid net (c) class subnet (top) (d) box subnet (bottom)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00105",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 3. The one-stage RetinaNet network architecture uses a Feature Pyramid Network (FPN) [20] backbone on top of a feedforward",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00106",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ResNet architecture [16] (a) to generate a rich, multi-scale convolutional feature pyramid (b). To this backbone RetinaNet attaches two subnetworks, one for classifying anchor boxes (c) and one for regressing from anchor boxes to ground-truth object boxes (d). The network",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00107",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "design is intentionally simple, which enables this work to focus on a novel focal loss function that eliminates the accuracy gap between our",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00108",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "one-stage detector and state-of-the-art two-stage detectors like Faster R-CNN with FPN [20] while running at faster speeds. Classiﬁcation Subnet: The classiﬁcation subnet predicts the probability of object presence at each spatial position for each of theA anchors andK object classes. This subnet is a small FCN attached to each FPN level; parameters of this subnet are shared across all pyramid levels. Its design is simple. Taking an input feature map with C channels from a given pyramid level, the subnet applies four 3 ×3 conv layers, each withC ﬁlters and each followed by ReLU activations, followed by a 3×3 conv layer with KA ﬁlters. Finally sigmoid activations are attached to output the KA binary predictions per spatial location, see Figure 3 (c). We",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00109",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "useC = 256 andA = 9 in most experiments.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00110",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "In contrast to RPN [28], our object classiﬁcation subnet is deeper, uses only 3×3 convs, and does not share param- eters with the box regression subnet (described next). We found these higher-level design decisions to be more im- portant than speciﬁc values of hyperparameters. Box Regression Subnet: In parallel with the object classi- ﬁcation subnet, we attach another small FCN to each pyra- mid level for the purpose of regressing the offset from each anchor box to a nearby ground-truth object, if one exists. The design of the box regression subnet is identical to the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00111",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "classiﬁcation subnet except that it terminates in 4A linear",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00112",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "outputs per spatial location, see Figure 3 (d). For each of the A anchors per spatial location, these 4 outputs pre- dict the relative offset between the anchor and the ground- truth box (we use the standard box parameterization from R- CNN [11]). We note that unlike most recent work, we use a class-agnostic bounding box regressor which uses fewer pa- rameters and we found to be equally effective. The object classiﬁcation subnet and the box regression subnet, though sharing a common structure, use separate parameters. 4.1. Inference and Training Inference: RetinaNet forms a single FCN comprised of a ResNet-FPN backbone, a classiﬁcation subnet, and a box regression subnet, see Figure 3. As such, inference involves simply forwarding an image through the network. To im- prove speed, we only decode box predictions from at most 1k top-scoring predictions per FPN level, after threshold- ing detector conﬁdence at 0.05. The top predictions from",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00113",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "all levels are merged and non-maximum suppression with a",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00114",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "threshold of 0.5 is applied to yield the ﬁnal detections. Focal Loss: We use the focal loss introduced in this work as the loss on the output of the classiﬁcation subnet. As we",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00115",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "will show in§5, we ﬁnd thatγ = 2 works well in practice",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00116",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "and the RetinaNet is relatively robust to γ∈ [0.5, 5]. We emphasize that when training RetinaNet, the focal loss is applied to all ∼100k anchors in each sampled image. This stands in contrast to common practice of using heuristic",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00117",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "sampling (RPN) or hard example mining (OHEM, SSD) to",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00118",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "select a small set of anchors (e.g., 256) for each minibatch.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00119",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "The total focal loss of an image is computed as the sum of the focal loss over all ∼100k anchors, normalized by the number of anchors assigned to a ground-truth box. We per- form the normalization by the number of assigned anchors, not total anchors, since the vast majority of anchors are easy negatives and receive negligible loss values under the focal loss. Finally we note that α, the weight assigned to the rare class, also has a stable range, but it interacts with γ mak- ing it necessary to select the two together (see Tables 1a and 1b). In general α should be decreased slightly as γ is",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00120",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "increased (forγ = 2,α = 0.25 works best).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00121",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Initialization: We experiment with ResNet-50-FPN and ResNet-101-FPN backbones [20]. The base ResNet-50 and ResNet-101 models are pre-trained on ImageNet1k; we use the models released by [16]. New layers added for FPN are initialized as in [20]. All new conv layers except the ﬁnal",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00122",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "one in the RetinaNet subnets are initialized with biasb = 0",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00123",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "and a Gaussian weight ﬁll withσ = 0.01. For the ﬁnal conv",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00124",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "layer of the classiﬁcation subnet, we set the bias initializa-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00125",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tion to b = − log((1−π)/π), where π speciﬁes that at",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00126",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "5",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00127",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "α AP AP 50 AP75 .10 0.0 0.0 0.0 .25 10.8 16.0 11.7 .50 30.2 46.7 32.8 .75 31.1 49.4 33.0 .90 30.8 49.7 32.3 .99 28.7 47.4 29.9 .999 25.1 41.7 26.1",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00128",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(a) Varyingα for CE loss (γ = 0)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00129",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "γ α AP AP 50 AP75 0 .75 31.1 49.4 33.0 0.1 .75 31.4 49.9 33.1 0.2 .75 31.9 50.7 33.4 0.5 .50 32.9 51.7 35.2 1.0 .25 33.7 52.0 36.2 2.0 .25 34.0 52.5 36.5 5.0 .25 32.2 49.6 34.8 (b) Varyingγ for FL (w. optimalα) #sc #ar AP AP 50 AP75 1 1 30.3 49.0 31.8 2 1 31.9 50.0 34.0 3 1 31.8 49.4 33.7 1 3 32.4 52.3 33.9 2 3 34.2 53.1 36.5 3 3 34.0 52.5 36.5 4 3 33.8 52.1 36.2 (c) Varying anchor scales and aspects method batch nms AP AP 50 AP75size thr OHEM 128 .7 31.1 47.2 33.2 OHEM 256 .7 31.8 48.8 33.9 OHEM 512 .7 30.6 47.0 32.6 OHEM 128 .5 32.8 50.3 35.1 OHEM 256 .5 31.0 47.4 33.0 OHEM 512 .5 27.6 42.0 29.2 OHEM 1:3 128 .5 31.1 47.2 33.2 OHEM 1:3 256 .5 28.3 42.4 30.3 OHEM 1:3 512 .5 24.0 35.5 25.8 FL n/a n/a 36.0 54.9 38.7 (d) FL vs. OHEM baselines (with ResNet-101-FPN) depth scale AP AP 50 AP75 APS APM APL time 50 400 30.5 47.8 32.7 11.2 33.8 46.1 64 50 500 32.5 50.9 34.8 13.9 35.8 46.7 72 50 600 34.3 53.2 36.9 16.2 37.4 47.4 98 50 700 35.1 54.2 37.7 18.0 39.3 46.4 121 50 800 35.7 55.0 38.5 1...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00130",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 1. Ablation experiments for RetinaNet and Focal Loss (FL). All models are trained on trainval35k and tested on minival",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00131",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "unless noted. If not speciﬁed, default values are: γ = 2 ; anchors for 3 scales and 3 aspect ratios; ResNet-50-FPN backbone; and a 600",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00132",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "pixel train and test image scale. (a) RetinaNet withα-balanced CE achieves at most 31.1 AP. (b) In contrast, using FL with the same exact network gives a 2.9 AP gain and is fairly robust to exact γ/α settings. (c) Using 2-3 scale and 3 aspect ratio anchors yields good results",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00133",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "after which point performance saturates. (d) FL outperforms the best variants of online hard example mining (OHEM) [31, 22] by over 3",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00134",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "points AP. (e) Accuracy/Speed trade-off of RetinaNet ontest-dev for various network depths and image scales (see also Figure 2). the start of training every anchor should be labeled as fore-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00135",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ground with conﬁdence of ∼π. We use π = .01 in all ex-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00136",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "periments, although results are robust to the exact value. As",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00137",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "explained in§3.3, this initialization prevents the large num-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00138",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ber of background anchors from generating a large, desta-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00139",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "bilizing loss value in the ﬁrst iteration of training. Optimization: RetinaNet is trained with stochastic gradi- ent descent (SGD). We use synchronized SGD over 8 GPUs",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00140",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "with a total of 16 images per minibatch (2 images per GPU).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00141",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Unless otherwise speciﬁed, all models are trained for 90k it- erations with an initial learning rate of 0.01, which is then divided by 10 at 60k and again at 80k iterations. We use horizontal image ﬂipping as the only form of data augmen- tation unless otherwise noted. Weight decay of 0.0001 and momentum of 0.9 are used. The training loss is the sum the focal loss and the standard smoothL1 loss used for box regression [10]. Training time ranges between 10 and 35 hours for the models in Table 1e. 5. Experiments We present experimental results on the bounding box detection track of the challenging COCO benchmark [21]. For training, we follow common practice [1, 20] and use the COCO trainval35k split (union of 80k images from train and a random 35k subset of images from the 40k im- age val split). We report lesion and sensitivity studies by",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00142",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "evaluating on the minival split (the remaining 5k images",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00143",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "from val). For our main results, we report COCO AP on the test-dev split, which has no public labels and requires use of the evaluation server. 5.1. Training Dense Detection We run numerous experiments to analyze the behavior of the loss function for dense detection along with various optimization strategies. For all experiments we use depth 50 or 101 ResNets [16] with a Feature Pyramid Network (FPN) [20] constructed on top. For all ablation studies we use an image scale of 600 pixels for training and testing. Network Initialization: Our ﬁrst attempt to train Reti- naNet uses standard cross entropy (CE) loss without any modiﬁcations to the initialization or learning strategy. This fails quickly, with the network diverging during training. However, simply initializing the last layer of our model such",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00144",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "that the prior probability of detecting an object is π = .01",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00145",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(see§4.1) enables effective learning. Training RetinaNet with ResNet-50 and this initialization already yields a re- spectable AP of 30.2 on COCO. Results are insensitive to",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00146",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the exact value ofπ so we useπ =.01 for all experiments.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00147",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "6",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00148",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "0 .2 .4 .6 .8 1 fraction of foreground examples 0 0.2 0.4 0.6 0.8 1 cumulative normalized loss = 0 = 0.5 = 1 = 2 0 .2 .4 .6 .8 1 fraction of background examples 0 0.2 0.4 0.6 0.8 1 cumulative normalized loss = 0 = 0.5 = 1 = 2",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00149",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 4. Cumulative distribution functions of the normalized loss for positive and negative samples for different values ofγ for a converged",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00150",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "model. The effect of changingγ on the distribution of the loss for positive examples is minor. For negatives, however, increasingγ heavily",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00151",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "concentrates the loss on hard examples, focusing nearly all attention away from easy negatives. Balanced Cross Entropy: Our next attempt to improve learning involved using the α-balanced CE loss described in§3.1. Results for various α are shown in Table 1a. Set-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00152",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tingα =.75 gives a gain of 0.9 points AP.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00153",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Focal Loss: Results using our proposed focal loss are shown in Table 1b. The focal loss introduces one new hy- perparameter, the focusing parameter γ, that controls the",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00154",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "strength of the modulating term. When γ = 0 , our loss is",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00155",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "equivalent to the CE loss. As γ increases, the shape of the loss changes so that “easy” examples with low loss get fur-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00156",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ther discounted, see Figure 1. FL shows large gains over",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00157",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "CE as γ is increased. With γ = 2 , FL yields a 2.9 AP im-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00158",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "provement over theα-balanced CE loss. For the experiments in Table 1b, for a fair comparison we ﬁnd the best α for each γ. We observe that lower α’s are selected for higher γ’s (as easy negatives are down- weighted, less emphasis needs to be placed on the posi- tives). Overall, however, the beneﬁt of changingγ is much",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00159",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "larger, and indeed the best α’s ranged in just [.25,.75] (we",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00160",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "testedα∈ [.01,. 999]). We useγ = 2.0 withα =.25 for all",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00161",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "experiments butα =.5 works nearly as well (.4 AP lower).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00162",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Analysis of the Focal Loss: To understand the focal loss better, we analyze the empirical distribution of the loss of a converged model. For this, we take take our default ResNet-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00163",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "101 600-pixel model trained with γ = 2 (which has 36.0",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00164",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "AP). We apply this model to a large number of random im-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00165",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ages and sample the predicted probability for∼107 negative windows and ∼105 positive windows. Next, separately for positives and negatives, we compute FL for these samples, and normalize the loss such that it sums to one. Given the normalized loss, we can sort the loss from lowest to highest and plot its cumulative distribution function (CDF) for both positive and negative samples and for different settings for",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00166",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "γ (even though model was trained withγ = 2).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00167",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Cumulative distribution functions for positive and nega- tive samples are shown in Figure 4. If we observe the pos- itive samples, we see that the CDF looks fairly similar for different values of γ. For example, approximately 20% of the hardest positive samples account for roughly half of the positive loss, as γ increases more of the loss gets concen-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00168",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "trated in the top 20% of examples, but the effect is minor.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00169",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "The effect of γ on negative samples is dramatically dif-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00170",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ferent. For γ = 0, the positive and negative CDFs are quite",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00171",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "similar. However, asγ increases, substantially more weight becomes concentrated on the hard negative examples. In",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00172",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "fact, with γ = 2 (our default setting), the vast majority of",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00173",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the loss comes from a small fraction of samples. As can be seen, FL can effectively discount the effect of easy nega- tives, focusing all attention on the hard negative examples. Online Hard Example Mining (OHEM): [31] proposed to improve training of two-stage detectors by construct-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00174",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ing minibatches using high-loss examples. Speciﬁcally, in",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00175",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "OHEM each example is scored by its loss, non-maximum",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00176",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "suppression (nms) is then applied, and a minibatch is con-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00177",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "structed with the highest-loss examples. The nms threshold and batch size are tunable parameters. Like the focal loss, OHEM puts more emphasis on misclassiﬁed examples, but unlike FL, OHEM completely discards easy examples. We also implement a variant of OHEM used in SSD [22]: after",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00178",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "applying nms to all examples, the minibatch is constructed",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00179",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "to enforce a 1:3 ratio between positives and negatives to",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00180",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "help ensure each minibatch has enough positives.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00181",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "We test both OHEM variants in our setting of one-stage",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00182",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "detection which has large class imbalance. Results for the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00183",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "original OHEM strategy and the ‘OHEM 1:3’ strategy for selected batch sizes and nms thresholds are shown in Ta- ble 1d. These results use ResNet-101, our baseline trained with FL achieves 36.0 AP for this setting. In contrast, the best setting for OHEM (no 1:3 ratio, batch size 128, nms of .5) achieves 32.8 AP. This is a gap of 3.2 AP, showing FL is more effective than OHEM for training dense detectors. We note that we tried other parameter setting and variants for OHEM but did not achieve better results. Hinge Loss: Finally, in early experiments, we attempted to train with the hinge loss [13] on pt, which sets loss to 0 above a certain value ofpt. However, this was unstable and we did not manage to obtain meaningful results. Results exploring alternate loss functions are in the appendix. 7",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00184",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "backbone AP AP 50 AP75 APS APM APL Two-stage methods Faster R-CNN+++ [16] ResNet-101-C4 34.9 55.7 37.4 15.6 38.7 50.9 Faster R-CNN w FPN [20] ResNet-101-FPN 36.2 59.1 39.0 18.2 39.0 48.2 Faster R-CNN by G-RMI [17] Inception-ResNet-v2 [34] 34.7 55.5 36.7 13.5 38.1 52.0 Faster R-CNN w TDM [32] Inception-ResNet-v2-TDM 36.8 57.7 39.2 16.2 39.8 52.1 One-stage methods YOLOv2 [27] DarkNet-19 [27] 21.6 44.0 19.2 5.0 22.4 35.5 SSD513 [22, 9] ResNet-101-SSD 31.2 50.4 33.3 10.2 34.5 49.8 DSSD513 [9] ResNet-101-DSSD 33.2 53.3 35.2 13.0 35.4 51.1 RetinaNet (ours) ResNet-101-FPN 39.1 59.1 42.3 21.8 42.7 50.2 RetinaNet (ours) ResNeXt-101-FPN 40.8 61.1 44.1 24.1 44.2 51.2",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00185",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 2. Object detection single-model results (bounding box AP), vs. state-of-the-art on COCO test-dev. We show results for our",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00186",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "RetinaNet-101-800 model, trained with scale jitter and for 1.5× longer than the same model from Table 1e. Our model achieves top results,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00187",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "outperforming both one-stage and two-stage models. For a detailed breakdown of speed versus accuracy see Table 1e and Figure 2.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00188",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "5.2. Model Architecture Design Anchor Density: One of the most important design fac- tors in a one-stage detection system is how densely it covers the space of possible image boxes. Two-stage detectors can classify boxes at any position, scale, and aspect ratio using a region pooling operation [10]. In contrast, as one-stage detectors use a ﬁxed sampling grid, a popular approach for achieving high coverage of boxes in these approaches is to use multiple ‘anchors’ [28] at each spatial position to cover boxes of various scales and aspect ratios. We sweep over the number of scale and aspect ratio an- chors used at each spatial position and each pyramid level in FPN. We consider cases from a single square anchor at each location to 12 anchors per location spanning 4 sub-octave",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00189",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "scales (2k/4, for k≤ 3) and 3 aspect ratios [0.5, 1, 2]. Re-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00190",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "sults using ResNet-50 are shown in Table 1c. A surprisingly good AP (30.3) is achieved using just one square anchor. However, the AP can be improved by nearly 4 points (to 34.0) when using 3 scales and 3 aspect ratios per location. We used this setting for all other experiments in this work. Finally, we note that increasing beyond 6-9 anchors did not shown further gains. Thus while two-stage systems can classify arbitrary boxes in an image, the saturation of per- formance w.r.t. density implies the higher potential density of two-stage systems may not offer an advantage.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00191",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Speed versus Accuracy: Larger backbone networks yield",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00192",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "higher accuracy, but also slower inference speeds. Likewise for input image scale (deﬁned by the shorter image side). We show the impact of these two factors in Table 1e. In",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00193",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 2 we plot the speed/accuracy trade-off curve for Reti-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00194",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "naNet and compare it to recent methods using public num- bers on COCO test-dev. The plot reveals that RetinaNet, enabled by our focal loss, forms an upper envelope over all existing methods, discounting the low-accuracy regime. RetinaNet with ResNet-101-FPN and a 600 pixel image scale (which we denote by RetinaNet-101-600 for simplic- ity) matches the accuracy of the recently published ResNet- 101-FPN Faster R-CNN [20], while running in 122 ms per image compared to 172 ms (both measured on an Nvidia",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00195",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "M40 GPU). Using larger scales allows RetinaNet to sur-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00196",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "pass the accuracy of all two-stage approaches, while still being faster. For faster runtimes, there is only one operating point (500 pixel input) at which using ResNet-50-FPN im- proves over ResNet-101-FPN. Addressing the high frame rate regime will likely require special network design, as in [27], and is beyond the scope of this work. We note that after publication, faster and more accurate results can now be obtained by a variant of Faster R-CNN from [12]. 5.3. Comparison to State of the Art We evaluate RetinaNet on the challenging COCO dataset and compare test-dev results to recent state-of-the-art methods including both one-stage and two-stage models. Results are presented in Table 2 for our RetinaNet-101-800 model trained using scale jitter and for 1.5× longer than the models in Table 1e (giving a 1.3 AP gain). Compared to ex- isting one-stage methods, our approach achieves a healthy 5.9 point AP gap (39.1vs. 33.2) with the closest competitor, DSSD [9], while also being faster,...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00197",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "gap above the top-performing Faster R-CNN model based",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00198",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "on Inception-ResNet-v2-TDM [32]. Plugging in ResNeXt- 32x8d-101-FPN [38] as the RetinaNet backbone further im- proves results another 1.7 AP, surpassing 40 AP on COCO. 6. Conclusion In this work, we identify class imbalance as the pri- mary obstacle preventing one-stage object detectors from",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00199",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "surpassing top-performing, two-stage methods. To address",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00200",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "this, we propose the focal loss which applies a modulat- ing term to the cross entropy loss in order to focus learn- ing on hard negative examples. Our approach is simple and highly effective. We demonstrate its efﬁcacy by designing a fully convolutional one-stage detector and report exten- sive experimental analysis showing that it achieves state- of-the-art accuracy and speed. Source code is available at https://github.com/facebookresearch/Detectron [12]. 8",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00201",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "-5 0 5 xt 0 1 2 3 4 5loss CE FL =2 FL* =2, =1 FL* =4, =0",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00202",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 5. Focal loss variants compared to the cross entropy as a",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00203",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "function of xt = yx. Both the original FL and alternate variant",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00204",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "FL∗ reduce the relative loss for well-classiﬁed examples (xt > 0). loss γ β AP AP 50 AP75 CE – – 31.1 49.4 33.0 FL 2.0 – 34.0 52.5 36.5 FL∗ 2.0 1.0 33.8 52.7 36.3 FL∗ 4.0 0.0 33.9 51.8 36.4",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00205",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 3. Results of FL and FL∗ versus CE for select settings.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00206",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Appendix A: Focal Loss* The exact form of the focal loss is not crucial. We now show an alternate instantiation of the focal loss that has sim- ilar properties and yields comparable results. The following also gives more insights into properties of the focal loss. We begin by considering both cross entropy (CE) and the focal loss (FL) in a slightly different form than in the main text. Speciﬁcally, we deﬁne a quantityxt as follows:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00207",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "xt =yx, (6)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00208",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "wherey∈{± 1} speciﬁes the ground-truth class as before.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00209",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "We can then write pt = σ(xt) (this is compatible with the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00210",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "deﬁnition ofpt in Equation 2). An example is correctly clas- siﬁed whenxt > 0, in which casept >. 5. We can now deﬁne an alternate form of the focal loss in terms ofxt. We deﬁnep∗ t and FL∗ as follows: p∗",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00211",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "t =σ(γxt +β), (7)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00212",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "FL∗ =− log(p∗",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00213",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "t )/γ. (8) FL∗ has two parameters,γ andβ, that control the steepness and shift of the loss curve. We plot FL∗ for two selected set- tings ofγ andβ in Figure 5 alongside CE and FL. As can be",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00214",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "seen, like FL, FL ∗ with the selected parameters diminishes",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00215",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the loss assigned to well-classiﬁed examples. We trained RetinaNet-50-600 using identical settings as before but we swap out FL for FL∗ with the selected param- eters. These models achieve nearly the same AP as those trained with FL, see Table 3. In other words, FL ∗ is a rea- sonable alternative for the FL that works well in practice. -10 -5 0 5 10 xt -1.2 -1 -0.8 -0.6 -0.4 -0.2 0 gradient CE FL =2 FL* =2, =1 FL* =4, =0",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00216",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 6. Derivates of the loss functions from Figure 5 w.r.t.x.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00217",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "-5 0 5 xt 0 1 2 3 4 5loss AP > 33.5 AP < 33.5",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00218",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 7. Effectiveness of FL∗ with various settingsγ andβ. The",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00219",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "plots are color coded such that effective settings are shown in blue. We found that variousγ andβ settings gave good results. In Figure 7 we show results for RetinaNet-50-600 with FL∗ for a wide set of parameters. The loss plots are color coded such that effective settings (models converged and with AP",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00220",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "over 33.5) are shown in blue. We used α = .25 in all ex-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00221",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "periments for simplicity. As can be seen, losses that reduce weights of well-classiﬁed examples (xt > 0) are effective. More generally, we expect any loss function with similar properties as FL or FL∗ to be equally effective. Appendix B: Derivatives For reference, derivates for CE, FL, and FL∗ w.r.t.x are: dCE",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00222",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "dx =y(pt− 1) (9)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00223",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "dFL",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00224",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "dx =y(1−pt)γ(γpt log(pt) +pt− 1) (10)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00225",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "dFL∗",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00226",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "dx =y(p∗",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00227",
+      "page": 9,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "t− 1) (11) Plots for selected settings are shown in Figure 6. For all loss functions, the derivative tends to -1 or 0 for high-conﬁdence predictions. However, unlike CE, for effective settings of both FL and FL∗, the derivative is small as soon asxt > 0. 9",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00228",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "References",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00229",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[1] S. Bell, C. L. Zitnick, K. Bala, and R. Girshick. Inside- outside net: Detecting objects in context with skip pooling and recurrent neural networks. In CVPR, 2016. 6",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00230",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[2] S. R. Bulo, G. Neuhold, and P. Kontschieder. Loss max-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00231",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "pooling for semantic image segmentation. In CVPR, 2017. 3 [3] J. Dai, Y . Li, K. He, and J. Sun. R-FCN: Object detection via region-based fully convolutional networks. In NIPS, 2016. 1 [4] N. Dalal and B. Triggs. Histograms of oriented gradients for human detection. In CVPR, 2005. 2 [5] P. Doll ´ar, Z. Tu, P. Perona, and S. Belongie. Integral channel features. In BMVC, 2009. 2, 3 [6] D. Erhan, C. Szegedy, A. Toshev, and D. Anguelov. Scalable object detection using deep neural networks. InCVPR, 2014. 2 [7] M. Everingham, L. Van Gool, C. K. Williams, J. Winn, and A. Zisserman. The PASCAL Visual Object Classes (VOC) Challenge. IJCV, 2010. 2 [8] P. F. Felzenszwalb, R. B. Girshick, and D. McAllester. Cas- cade object detection with deformable part models. InCVPR, 2010. 2, 3 [9] C.-Y . Fu, W. Liu, A. Ranga, A. Tyagi, and A. C. Berg. DSSD: Deconvolutional single shot detector. arXiv:1701.06659, 2016. 1, 2, 8 [10] R. Girshick. Fast R-CNN. In ICCV, 2015. 1, 2, 4, 6, 8 [11] R. Girshick, J. Dona...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00232",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "based object detectors with online hard example mining. In",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00233",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "CVPR, 2016. 2, 3, 6, 7 [32] A. Shrivastava, R. Sukthankar, J. Malik, and A. Gupta. Be- yond skip connections: Top-down modulation for object de- tection. arXiv:1612.06851, 2016. 2, 8 [33] K.-K. Sung and T. Poggio. Learning and Example Selection for Object and Pattern Detection. In MIT A.I. Memo No. 1521, 1994. 2, 3 [34] C. Szegedy, S. Ioffe, V . Vanhoucke, and A. A. Alemi. Inception-v4, inception-resnet and the impact of residual connections on learning. In AAAI Conference on Artiﬁcial Intelligence, 2017. 8 [35] J. R. Uijlings, K. E. van de Sande, T. Gevers, and A. W. Smeulders. Selective search for object recognition. IJCV, 2013. 2, 4 [36] R. Vaillant, C. Monrocq, and Y . LeCun. Original approach for the localisation of objects in images.IEE Proc. on Vision, Image, and Signal Processing, 1994. 2 [37] P. Viola and M. Jones. Rapid object detection using a boosted cascade of simple features. In CVPR, 2001. 2, 3 [38] S. Xie, R. Girshick, P. Doll ´ar, Z. Tu, and K. He. Aggregated residual...",
+      "source_type": "reference"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "warnings": [
+      {
+        "code": "ok",
+        "message": "Grounding verification passed with current v1 checks.",
+        "target": null,
+        "severity": "info"
+      }
+    ],
+    "anchor_count": 233
+  }
+}

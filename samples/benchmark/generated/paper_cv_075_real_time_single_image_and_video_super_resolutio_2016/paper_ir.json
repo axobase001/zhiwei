@@ -1,0 +1,2018 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "单图像超分辨率（SISR）任务中，现有基于深度神经网络的方法通常先使用双三次插值等单一滤波器将低分辨率（LR）图像上采样到高分辨率（HR）空间，然后在HR空间进行重建。这种做法是次优的，并增加了计算复杂度。",
+      "anchors": [
+        "anc_00003"
+      ]
+    },
+    "motivation": {
+      "summary": "在HR空间进行超分辨率操作计算成本高昂，且非自适应的上采样（如双三次插值）无法为重建问题提供额外信息。需要一种更高效、更有效的架构，能够在LR空间进行特征提取，并学习自适应的上采样滤波器。",
+      "anchors": [
+        "anc_00003",
+        "anc_00012",
+        "anc_00013"
+      ]
+    },
+    "core_idea": {
+      "summary": "提出一种新颖的卷积神经网络架构（ESPCN），在LR空间进行特征提取，并在最后一层引入高效的亚像素卷积层（sub-pixel convolution layer），通过学习一组上采样滤波器，直接将LR特征图转换为HR输出图像。这避免了在HR空间进行大部分计算，显著降低了计算复杂度。",
+      "anchors": [
+        "anc_00003",
+        "anc_00015",
+        "anc_00018",
+        "anc_00030",
+        "anc_00038"
+      ]
+    },
+    "method": {
+      "summary": "网络由多个卷积层在LR空间提取特征，最后一层是亚像素卷积层。该层对LR特征图进行卷积，生成通道数为C·r²的输出，然后通过周期性混洗（Periodic Shuffling, PS）操作将这些通道重新排列成rH×rW×C的HR图像。训练使用均方误差（MSE）作为损失函数。",
+      "anchors": [
+        "anc_00020",
+        "anc_00021",
+        "anc_00022",
+        "anc_00023",
+        "anc_00024",
+        "anc_00025",
+        "anc_00030",
+        "anc_00032",
+        "anc_00033",
+        "anc_00034",
+        "anc_00035",
+        "anc_00043",
+        "anc_00044"
+      ]
+    },
+    "experiments": {
+      "summary": "在多个公开图像数据集（Set5, Set14, BSD300, BSD500, SuperTexture）和视频数据集（Xiph, Ultra Video Group）上进行了评估。与双三次插值、SRCNN和TNRD等方法进行了比较，评估了PSNR、运行时间和视觉质量。",
+      "anchors": [
+        "anc_00046",
+        "anc_00049",
+        "anc_00051",
+        "anc_00052",
+        "anc_00053",
+        "anc_00063",
+        "anc_00064",
+        "anc_00066",
+        "anc_00068",
+        "anc_00069",
+        "anc_00070",
+        "anc_00071",
+        "anc_00072",
+        "anc_00073",
+        "anc_00075",
+        "anc_00076",
+        "anc_00077",
+        "anc_00078",
+        "anc_00079",
+        "anc_00080",
+        "anc_00081",
+        "anc_00082"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "1. 在LR空间进行特征提取并使用亚像素卷积层进行上采样，比在HR空间进行操作更优且计算效率更高。2. ESPCN在图像和视频超分辨率任务上，比之前的CNN方法（如SRCNN）实现了显著的性能提升（图像+0.15dB，视频+0.39dB）和数量级的速度提升。3. 该方法能够在单个K2 GPU上实现1080p视频的实时超分辨率。",
+        "anchors": [
+          "anc_00003",
+          "anc_00012",
+          "anc_00015",
+          "anc_00016",
+          "anc_00017",
+          "anc_00018",
+          "anc_00071",
+          "anc_00072",
+          "anc_00073",
+          "anc_00075",
+          "anc_00082"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "论文未明确讨论方法的局限性。潜在的局限性可能包括：对特定上采样因子需要训练单独的网络；模型性能可能依赖于训练数据的质量和规模；以及对于非常大的上采样因子，性能可能下降。",
+        "anchors": []
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "低分辨率输入",
+        "label": "Input",
+        "summary": "网络的输入是低分辨率（LR）图像，尺寸为H×W×C。",
+        "description": "输入图像ILR，尺寸为H×W×C，其中C是颜色通道数。与之前方法不同，此输入直接进入网络，无需预先上采样。",
+        "type": "data",
+        "anchors": [
+          "anc_00020"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "LR空间特征提取",
+        "label": "Feature Extraction",
+        "summary": "多个卷积层在低分辨率空间提取特征图。",
+        "description": "使用L-1个卷积层在LR空间进行特征提取。第l层的输出为f_l(I_LR; W_{1:l}, b_{1:l}) = φ(W_l * f_{l-1}(I_LR) + b_l)，其中φ是激活函数（如tanh），W_l和b_l是可学习参数。",
+        "type": "operation",
+        "anchors": [
+          "anc_00021",
+          "anc_00022",
+          "anc_00023",
+          "anc_00024",
+          "anc_00025"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "亚像素卷积层",
+        "label": "Sub-pixel Convolution",
+        "summary": "最后一层卷积层，将LR特征图转换为HR图像。",
+        "description": "最后一层f_L对LR特征图进行卷积，生成一个H×W×(C·r²)的张量，其中r是上采样因子。该层不应用非线性激活函数。",
+        "type": "operation",
+        "anchors": [
+          "anc_00032",
+          "anc_00033",
+          "anc_00035"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "周期性混洗操作",
+        "label": "Periodic Shuffling",
+        "summary": "将亚像素卷积层的输出重排为高分辨率图像。",
+        "description": "操作PS将形状为H×W×(C·r²)的张量T重排为形状为rH×rW×C的张量。数学描述为：PS(T)_{x,y,c} = T_{⌊x/r⌋, ⌊y/r⌋, C·r·mod(y,r) + C·mod(x,r) + c}。",
+        "type": "operation",
+        "anchors": [
+          "anc_00033",
+          "anc_00034"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "高分辨率输出",
+        "label": "Output",
+        "summary": "网络的输出是重建的高分辨率（HR）图像，尺寸为rH×rW×C。",
+        "description": "最终输出的HR图像I_SR，尺寸为rH×rW×C。",
+        "type": "data",
+        "anchors": [
+          "anc_00032"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "损失函数",
+        "label": "Loss Function",
+        "summary": "使用像素级均方误差（MSE）作为训练目标。",
+        "description": "损失函数ℓ(W_{1:L}, b_{1:L}) = (1/(r²HW)) * Σ_{x=1}^{rH} Σ_{y=1}^{rW} (I^HR_{x,y} - f^L_{x,y}(I_LR))²。",
+        "type": "objective",
+        "anchors": [
+          "anc_00043",
+          "anc_00044"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "输入特征",
+        "description": "低分辨率图像输入到特征提取模块。",
+        "anchors": [
+          "anc_00020"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "特征图",
+        "description": "LR空间提取的特征图传递到亚像素卷积层。",
+        "anchors": [
+          "anc_00025",
+          "anc_00032"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "卷积输出",
+        "description": "亚像素卷积层的输出（H×W×C·r²）传递到周期性混洗操作。",
+        "anchors": [
+          "anc_00033"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "label": "重排结果",
+        "description": "周期性混洗操作生成最终的高分辨率图像。",
+        "anchors": [
+          "anc_00034"
+        ]
+      },
+      {
+        "source": "node_005",
+        "target": "node_006",
+        "label": "预测输出",
+        "description": "网络输出的HR图像用于计算与真实HR图像的损失。",
+        "anchors": [
+          "anc_00043",
+          "anc_00044"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00003",
+        "anc_00012",
+        "anc_00013",
+        "anc_00015"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00003",
+        "anc_00015",
+        "anc_00018",
+        "anc_00030",
+        "anc_00038"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "在HR空间进行特征提取和重建，计算复杂度高（与r²成正比）。",
+        "after": "在LR空间进行特征提取，仅在最后一层进行上采样，计算复杂度大幅降低。",
+        "why_it_matters": "显著减少了计算量和内存消耗，使得实时处理高分辨率视频成为可能。",
+        "anchors": [
+          "anc_00003",
+          "anc_00012",
+          "anc_00015",
+          "anc_00016",
+          "anc_00017",
+          "anc_00018"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "使用固定的、非自适应的上采样滤波器（如双三次插值）。",
+        "after": "使用可学习的、自适应的亚像素卷积滤波器，为每个特征图学习特定的上采样模式。",
+        "why_it_matters": "自适应滤波器能更好地重建高频细节，提升重建质量。",
+        "anchors": [
+          "anc_00003",
+          "anc_00013",
+          "anc_00030",
+          "anc_00038"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "上采样操作在网络开始前完成（预处理步骤）。",
+        "after": "上采样操作集成在网络的最后一层（亚像素卷积层）。",
+        "why_it_matters": "将上采样作为可学习的网络组件，实现了端到端的优化，并可能学习到更优的上采样策略。",
+        "anchors": [
+          "anc_00015",
+          "anc_00018",
+          "anc_00038"
+        ],
+        "delta_id": "delta_3"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "f_l(I_{LR}; W_{1:l}, b_{1:l}) = \\phi(W_l * f_{l-1}(I_{LR}) + b_l)",
+        "variables": [
+          {
+            "name": "f_l",
+            "description": "第l层的输出特征图",
+            "confidence": "high",
+            "anchors": [
+              "anc_00021",
+              "anc_00023"
+            ]
+          },
+          {
+            "name": "I_{LR}",
+            "description": "低分辨率输入图像",
+            "confidence": "high",
+            "anchors": [
+              "anc_00020",
+              "anc_00021"
+            ]
+          },
+          {
+            "name": "W_l",
+            "description": "第l层的卷积权重张量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00021",
+              "anc_00024"
+            ]
+          },
+          {
+            "name": "b_l",
+            "description": "第l层的偏置向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00021",
+              "anc_00024"
+            ]
+          },
+          {
+            "name": "\\phi",
+            "description": "非线性激活函数（如tanh）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00021",
+              "anc_00060"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "描述了网络中第l层（l < L）的前向传播过程。在低分辨率空间对输入或前一层特征图进行卷积，并应用非线性激活函数。",
+        "anchors": [
+          "anc_00021",
+          "anc_00022",
+          "anc_00023",
+          "anc_00024"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "I_{SR} = f_L(I_{LR}) = PS(W_L * f_{L-1}(I_{LR}) + b_L)",
+        "variables": [
+          {
+            "name": "I_{SR}",
+            "description": "重建的高分辨率图像",
+            "confidence": "high",
+            "anchors": [
+              "anc_00032"
+            ]
+          },
+          {
+            "name": "f_L",
+            "description": "最后一层（亚像素卷积层）的函数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00032"
+            ]
+          },
+          {
+            "name": "W_L",
+            "description": "最后一层的卷积权重张量，形状为n_{L-1} × (C·r²) × k_L × k_L",
+            "confidence": "high",
+            "anchors": [
+              "anc_00035"
+            ]
+          },
+          {
+            "name": "b_L",
+            "description": "最后一层的偏置向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00032"
+            ]
+          },
+          {
+            "name": "PS",
+            "description": "周期性混洗操作",
+            "confidence": "high",
+            "anchors": [
+              "anc_00033",
+              "anc_00034"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "描述了最后一层的操作。首先对LR特征图进行卷积，生成通道数为C·r²的张量，然后通过周期性混洗操作将其重排为HR图像。这是实现高效上采样的关键。",
+        "anchors": [
+          "anc_00032",
+          "anc_00033"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "PS(T)_{x,y,c} = T_{\\lfloor x/r \\rfloor, \\lfloor y/r \\rfloor, C \\cdot r \\cdot \\text{mod}(y,r) + C \\cdot \\text{mod}(x,r) + c}",
+        "variables": [
+          {
+            "name": "PS(T)",
+            "description": "周期性混洗操作后的输出张量，形状为rH×rW×C",
+            "confidence": "high",
+            "anchors": [
+              "anc_00034"
+            ]
+          },
+          {
+            "name": "T",
+            "description": "输入张量，形状为H×W×(C·r²)",
+            "confidence": "high",
+            "anchors": [
+              "anc_00034"
+            ]
+          },
+          {
+            "name": "x, y",
+            "description": "输出图像的空间坐标",
+            "confidence": "high",
+            "anchors": [
+              "anc_00034"
+            ]
+          },
+          {
+            "name": "c",
+            "description": "输出图像的颜色通道索引",
+            "confidence": "high",
+            "anchors": [
+              "anc_00034"
+            ]
+          },
+          {
+            "name": "r",
+            "description": "上采样因子",
+            "confidence": "high",
+            "anchors": [
+              "anc_00019",
+              "anc_00034"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "定义了周期性混洗操作的具体数学形式。它将输入张量T中位于(⌊x/r⌋, ⌊y/r⌋)位置、特定通道组合的元素，映射到输出图像(x, y, c)位置。这实现了从LR特征图到HR图像的像素重排。",
+        "anchors": [
+          "anc_00034"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "latex": "\\ell(W_{1:L}, b_{1:L}) = \\frac{1}{r^2 H W} \\sum_{x=1}^{rH} \\sum_{y=1}^{rW} (I^{HR}_{x,y} - f^L_{x,y}(I_{LR}))^2",
+        "variables": [
+          {
+            "name": "\\ell",
+            "description": "均方误差损失函数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00043"
+            ]
+          },
+          {
+            "name": "I^{HR}",
+            "description": "真实的高分辨率图像",
+            "confidence": "high",
+            "anchors": [
+              "anc_00043"
+            ]
+          },
+          {
+            "name": "f^L_{x,y}(I_{LR})",
+            "description": "网络预测的HR图像在(x,y)位置的像素值",
+            "confidence": "high",
+            "anchors": [
+              "anc_00043"
+            ]
+          },
+          {
+            "name": "H, W",
+            "description": "LR图像的高度和宽度",
+            "confidence": "high",
+            "anchors": [
+              "anc_00043"
+            ]
+          },
+          {
+            "name": "r",
+            "description": "上采样因子",
+            "confidence": "high",
+            "anchors": [
+              "anc_00019",
+              "anc_00043"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "训练网络使用的损失函数。计算预测的HR图像与真实HR图像之间所有像素的均方误差。这是驱动网络学习重建能力的优化目标。",
+        "anchors": [
+          "anc_00043",
+          "anc_00044"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "在多个图像和视频基准数据集上，与双三次插值、SRCNN和TNRD进行比较。ESPCN在PSNR上优于SRCNN，接近或超过TNRD，并且在速度上实现了数量级的提升。",
+      "metrics": [
+        "PSNR (dB)",
+        "运行时间 (ms)"
+      ],
+      "datasets": [
+        "Set5",
+        "Set14",
+        "BSD300",
+        "BSD500",
+        "SuperTexture",
+        "Xiph视频",
+        "Ultra Video Group视频"
+      ],
+      "anchors": [
+        "anc_00071",
+        "anc_00072",
+        "anc_00076",
+        "anc_00077",
+        "anc_00078",
+        "anc_00079",
+        "anc_00080",
+        "anc_00081",
+        "anc_00082"
+      ]
+    },
+    "ablation": {
+      "description": "比较了使用ReLU和tanh作为激活函数的性能。结果表明tanh在SISR任务上表现更好。",
+      "metrics": [
+        "PSNR (dB)"
+      ],
+      "datasets": [
+        "Set5",
+        "Set14",
+        "BSD300",
+        "BSD500",
+        "SuperTexture"
+      ],
+      "anchors": [
+        "anc_00060",
+        "anc_00062",
+        "anc_00071",
+        "anc_00072"
+      ]
+    },
+    "robustness": {
+      "description": "未知。论文未明确讨论模型对不同退化类型、噪声水平或域外数据的鲁棒性。",
+      "metrics": "unknown",
+      "datasets": "unknown",
+      "anchors": []
+    },
+    "scaling": {
+      "description": "评估了不同上采样因子（3倍和4倍）下的性能。结果表明方法在不同因子下均有效。",
+      "metrics": [
+        "PSNR (dB)"
+      ],
+      "datasets": [
+        "Set5",
+        "Set14",
+        "BSD300",
+        "BSD500",
+        "SuperTexture"
+      ],
+      "anchors": [
+        "anc_00076",
+        "anc_00077"
+      ]
+    },
+    "case_study": {
+      "description": "提供了多个图像（如Baboon, Comic, Monarch）和视频帧的视觉比较示例，展示了ESPCN相比其他方法能产生更清晰、对比度更高的图像。",
+      "metrics": [
+        "视觉质量"
+      ],
+      "datasets": [
+        "Set14",
+        "BSD500"
+      ],
+      "anchors": [
+        "anc_00051",
+        "anc_00052",
+        "anc_00053",
+        "anc_00069",
+        "anc_00070"
+      ]
+    },
+    "human_eval": {
+      "description": "未知。论文未报告人类评估实验。",
+      "metrics": "unknown",
+      "datasets": "unknown",
+      "anchors": []
+    },
+    "benchmark": {
+      "description": "在扩展的基准数据集上进行了评估，包括Set5, Set14, BSD300, BSD500, SuperTexture以及两个视频数据集。",
+      "metrics": [
+        "PSNR (dB)"
+      ],
+      "datasets": [
+        "Set5",
+        "Set14",
+        "BSD300",
+        "BSD500",
+        "SuperTexture",
+        "Xiph",
+        "Ultra Video Group"
+      ],
+      "anchors": [
+        "anc_00076",
+        "anc_00077",
+        "anc_00078",
+        "anc_00079",
+        "anc_00080",
+        "anc_00081"
+      ]
+    },
+    "efficiency": {
+      "description": "详细评估了运行时间。ESPCN在Set14上处理单张图像平均仅需4.7毫秒（K2 GPU），比SRCNN快约10倍以上。在1080p视频上实现了实时处理。",
+      "metrics": [
+        "运行时间 (ms)",
+        "速度提升倍数"
+      ],
+      "datasets": [
+        "Set14",
+        "Xiph视频",
+        "Ultra Video Group视频"
+      ],
+      "anchors": [
+        "anc_00010",
+        "anc_00011",
+        "anc_00073",
+        "anc_00075",
+        "anc_00082"
+      ]
+    },
+    "experiments": [
+      {
+        "description": "在多个图像和视频基准数据集上，与双三次插值、SRCNN和TNRD进行比较。ESPCN在PSNR上优于SRCNN，接近或超过TNRD，并且在速度上实现了数量级的提升。",
+        "metrics": [
+          "PSNR (dB)",
+          "运行时间 (ms)"
+        ],
+        "datasets": [
+          "Set5",
+          "Set14",
+          "BSD300",
+          "BSD500",
+          "SuperTexture",
+          "Xiph视频",
+          "Ultra Video Group视频"
+        ],
+        "anchors": [
+          "anc_00071",
+          "anc_00072",
+          "anc_00076",
+          "anc_00077",
+          "anc_00078",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081",
+          "anc_00082"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "main_result_1",
+        "dataset": [
+          "Set5",
+          "Set14",
+          "BSD300",
+          "BSD500",
+          "SuperTexture",
+          "Xiph视频",
+          "Ultra Video Group视频"
+        ],
+        "baseline": [
+          "双三次插值",
+          "SRCNN",
+          "TNRD"
+        ],
+        "result_summary": "ESPCN在PSNR上优于SRCNN，接近或超过TNRD，并且在速度上实现了数量级的提升。",
+        "what_it_tries_to_prove": "证明ESPCN在重建质量和计算效率上均优于现有CNN方法。",
+        "evidence_strength": "强"
+      },
+      {
+        "description": "比较了使用ReLU和tanh作为激活函数的性能。结果表明tanh在SISR任务上表现更好。",
+        "metrics": [
+          "PSNR (dB)"
+        ],
+        "datasets": [
+          "Set5",
+          "Set14",
+          "BSD300",
+          "BSD500",
+          "SuperTexture"
+        ],
+        "anchors": [
+          "anc_00060",
+          "anc_00062",
+          "anc_00071",
+          "anc_00072"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "ablation",
+        "name": "ablation_2",
+        "dataset": [
+          "Set5",
+          "Set14",
+          "BSD300",
+          "BSD500",
+          "SuperTexture"
+        ],
+        "baseline": [
+          "ReLU"
+        ],
+        "result_summary": "tanh激活函数在SISR任务上比ReLU表现更好。",
+        "what_it_tries_to_prove": "确定最佳的激活函数选择。",
+        "evidence_strength": "中"
+      },
+      {
+        "description": "评估了不同上采样因子（3倍和4倍）下的性能。结果表明方法在不同因子下均有效。",
+        "metrics": [
+          "PSNR (dB)"
+        ],
+        "datasets": [
+          "Set5",
+          "Set14",
+          "BSD300",
+          "BSD500",
+          "SuperTexture"
+        ],
+        "anchors": [
+          "anc_00076",
+          "anc_00077"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "scaling",
+        "name": "scaling_3",
+        "dataset": [
+          "Set5",
+          "Set14",
+          "BSD300",
+          "BSD500",
+          "SuperTexture"
+        ],
+        "baseline": [],
+        "result_summary": "ESPCN在3倍和4倍上采样因子下均有效。",
+        "what_it_tries_to_prove": "验证方法对不同上采样因子的泛化能力。",
+        "evidence_strength": "强"
+      },
+      {
+        "description": "提供了多个图像（如Baboon, Comic, Monarch）和视频帧的视觉比较示例，展示了ESPCN相比其他方法能产生更清晰、对比度更高的图像。",
+        "metrics": [
+          "视觉质量"
+        ],
+        "datasets": [
+          "Set14",
+          "BSD500"
+        ],
+        "anchors": [
+          "anc_00051",
+          "anc_00052",
+          "anc_00053",
+          "anc_00069",
+          "anc_00070"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "case_study",
+        "name": "case_study_4",
+        "dataset": [
+          "Set14",
+          "BSD500"
+        ],
+        "baseline": [
+          "双三次插值",
+          "SRCNN",
+          "TNRD"
+        ],
+        "result_summary": "ESPCN产生更清晰、对比度更高的图像。",
+        "what_it_tries_to_prove": "通过视觉示例展示ESPCN的重建质量优势。",
+        "evidence_strength": "中"
+      },
+      {
+        "description": "在扩展的基准数据集上进行了评估，包括Set5, Set14, BSD300, BSD500, SuperTexture以及两个视频数据集。",
+        "metrics": [
+          "PSNR (dB)"
+        ],
+        "datasets": [
+          "Set5",
+          "Set14",
+          "BSD300",
+          "BSD500",
+          "SuperTexture",
+          "Xiph",
+          "Ultra Video Group"
+        ],
+        "anchors": [
+          "anc_00076",
+          "anc_00077",
+          "anc_00078",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "benchmark",
+        "name": "benchmark_5",
+        "dataset": [
+          "Set5",
+          "Set14",
+          "BSD300",
+          "BSD500",
+          "SuperTexture",
+          "Xiph",
+          "Ultra Video Group"
+        ],
+        "baseline": [
+          "双三次插值",
+          "SRCNN",
+          "TNRD"
+        ],
+        "result_summary": "在扩展基准上ESPCN表现优异。",
+        "what_it_tries_to_prove": "在更广泛的数据集上验证方法的性能。",
+        "evidence_strength": "强"
+      },
+      {
+        "description": "详细评估了运行时间。ESPCN在Set14上处理单张图像平均仅需4.7毫秒（K2 GPU），比SRCNN快约10倍以上。在1080p视频上实现了实时处理。",
+        "metrics": [
+          "运行时间 (ms)",
+          "速度提升倍数"
+        ],
+        "datasets": [
+          "Set14",
+          "Xiph视频",
+          "Ultra Video Group视频"
+        ],
+        "anchors": [
+          "anc_00010",
+          "anc_00011",
+          "anc_00073",
+          "anc_00075",
+          "anc_00082"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "efficiency",
+        "name": "efficiency_6",
+        "dataset": [
+          "Set14",
+          "Xiph视频",
+          "Ultra Video Group视频"
+        ],
+        "baseline": [
+          "SRCNN"
+        ],
+        "result_summary": "ESPCN比SRCNN快10倍以上，实现实时1080p视频超分辨率。",
+        "what_it_tries_to_prove": "证明ESPCN的计算效率优势。",
+        "evidence_strength": "强"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim_id": "claim_001",
+        "claim_text": "在LR空间进行特征提取并使用亚像素卷积层进行上采样，比在HR空间进行操作更优且计算效率更高。",
+        "evidence_source_type": "实验结果（PSNR和运行时间比较）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00003",
+          "anc_00012",
+          "anc_00015",
+          "anc_00016",
+          "anc_00017",
+          "anc_00018",
+          "anc_00071",
+          "anc_00072",
+          "anc_00073",
+          "anc_00075",
+          "anc_00082"
+        ],
+        "risk_flags": [],
+        "evidence": [
+          {
+            "evidence_id": "evidence_001",
+            "description": "Table 2显示ESPCN在多个数据集上PSNR优于SRCNN，Table 3和4显示在视频上也优于SRCNN。",
+            "anchors": [
+              "anc_00076",
+              "anc_00077",
+              "anc_00078",
+              "anc_00079",
+              "anc_00080",
+              "anc_00081"
+            ]
+          },
+          {
+            "evidence_id": "evidence_002",
+            "description": "Figure 2和Section 3.5显示ESPCN运行时间比SRCNN快10倍以上。",
+            "anchors": [
+              "anc_00010",
+              "anc_00011",
+              "anc_00073",
+              "anc_00075"
+            ]
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_002",
+        "claim_text": "ESPCN在图像和视频超分辨率任务上，比之前的CNN方法（如SRCNN）实现了显著的性能提升（图像+0.15dB，视频+0.39dB）和数量级的速度提升。",
+        "evidence_source_type": "定量实验结果（PSNR差值和运行时间比较）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00071",
+          "anc_00072",
+          "anc_00076",
+          "anc_00077",
+          "anc_00078",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081",
+          "anc_00082"
+        ],
+        "risk_flags": [],
+        "evidence": [
+          {
+            "evidence_id": "evidence_003",
+            "description": "Table 2显示图像平均PSNR提升+0.15dB（ESPCN 28.11 vs SRCNN 27.98）。",
+            "anchors": [
+              "anc_00076",
+              "anc_00077"
+            ]
+          },
+          {
+            "evidence_id": "evidence_004",
+            "description": "Table 3和4显示视频平均PSNR提升+0.39dB。",
+            "anchors": [
+              "anc_00078",
+              "anc_00079",
+              "anc_00080",
+              "anc_00081"
+            ]
+          },
+          {
+            "evidence_id": "evidence_005",
+            "description": "Section 3.5和Figure 2显示速度提升10倍以上。",
+            "anchors": [
+              "anc_00073",
+              "anc_00075",
+              "anc_00082"
+            ]
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_003",
+        "claim_text": "该方法能够在单个K2 GPU上实现1080p视频的实时超分辨率。",
+        "evidence_source_type": "运行时间测量",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00003",
+          "anc_00075",
+          "anc_00082"
+        ],
+        "risk_flags": [],
+        "evidence": [
+          {
+            "evidence_id": "evidence_006",
+            "description": "Section 3.5报告在K2 GPU上处理1080p视频实现实时。",
+            "anchors": [
+              "anc_00075",
+              "anc_00082"
+            ]
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_004",
+        "claim_text": "使用tanh作为激活函数比ReLU在SISR任务上表现更好。",
+        "evidence_source_type": "消融实验（PSNR比较）",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00060",
+          "anc_00062",
+          "anc_00071",
+          "anc_00072"
+        ],
+        "risk_flags": [
+          "结论基于有限的实验设置（91张图像和ImageNet训练）"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evidence_007",
+            "description": "Table 1显示tanh模型在多个数据集上PSNR高于ReLU模型。",
+            "anchors": [
+              "anc_00071",
+              "anc_00072"
+            ]
+          }
+        ]
+      },
+      {
+        "claim_id": "claim_005",
+        "claim_text": "亚像素卷积层比反卷积层在训练时更高效。",
+        "evidence_source_type": "理论分析（计算复杂度比较）",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00045",
+          "anc_00046"
+        ],
+        "risk_flags": [
+          "缺乏直接的运行时间对比实验"
+        ],
+        "evidence": [
+          {
+            "evidence_id": "evidence_008",
+            "description": "Section 2.2分析亚像素卷积层比反卷积层快log2(r²)倍。",
+            "anchors": [
+              "anc_00045",
+              "anc_00046"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "SISR",
+        "definition": "单图像超分辨率（Single Image Super-Resolution），从单张低分辨率图像重建高分辨率图像的任务。",
+        "anchors": [
+          "anc_00005"
+        ],
+        "appears_in": [
+          "anc_00005"
+        ]
+      },
+      {
+        "term": "LR",
+        "definition": "低分辨率（Low Resolution）。",
+        "anchors": [
+          "anc_00003"
+        ],
+        "appears_in": [
+          "anc_00003"
+        ]
+      },
+      {
+        "term": "HR",
+        "definition": "高分辨率（High Resolution）。",
+        "anchors": [
+          "anc_00003"
+        ],
+        "appears_in": [
+          "anc_00003"
+        ]
+      },
+      {
+        "term": "ESPCN",
+        "definition": "高效亚像素卷积神经网络（Efficient Sub-Pixel Convolutional Neural Network），本文提出的网络架构。",
+        "anchors": [
+          "anc_00006",
+          "anc_00038"
+        ],
+        "appears_in": [
+          "anc_00006",
+          "anc_00038"
+        ]
+      },
+      {
+        "term": "亚像素卷积层",
+        "definition": "本文提出的一种新型网络层，通过卷积和周期性混洗操作，直接将LR特征图转换为HR图像。",
+        "anchors": [
+          "anc_00030",
+          "anc_00038"
+        ],
+        "appears_in": [
+          "anc_00030",
+          "anc_00038"
+        ]
+      },
+      {
+        "term": "周期性混洗 (PS)",
+        "definition": "一种操作，将形状为H×W×(C·r²)的张量重排为形状为rH×rW×C的张量，实现从LR特征图到HR图像的像素重排。",
+        "anchors": [
+          "anc_00033",
+          "anc_00034"
+        ],
+        "appears_in": [
+          "anc_00033",
+          "anc_00034"
+        ]
+      },
+      {
+        "term": "上采样因子 (r)",
+        "definition": "图像分辨率放大的倍数。",
+        "anchors": [
+          "anc_00019"
+        ],
+        "appears_in": [
+          "anc_00019"
+        ]
+      },
+      {
+        "term": "PSNR",
+        "definition": "峰值信噪比（Peak Signal-to-Noise Ratio），衡量图像重建质量的指标，单位为dB，值越高越好。",
+        "anchors": [
+          "anc_00010",
+          "anc_00011"
+        ],
+        "appears_in": [
+          "anc_00010",
+          "anc_00011"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        "91张训练图像（Timofte数据集）",
+        "ImageNet（用于训练更大模型）",
+        "Set5, Set14, BSD300, BSD500, SuperTexture（测试图像）",
+        "Xiph视频数据库",
+        "Ultra Video Group视频数据库"
+      ],
+      "required_models": [
+        "ESPCN（本文提出）",
+        "SRCNN 9-5-5 ImageNet模型（用于比较）",
+        "TNRD 7×7 5阶段模型（用于比较）"
+      ],
+      "required_compute": "单个NVIDIA K2 GPU（用于训练和推理）",
+      "code_available": "论文未明确提供代码链接。但提到了使用Python/Theano实现，并参考了SRCNN和TNRD的公开代码。",
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 数据准备：下载并预处理训练（91张图像或ImageNet）和测试数据集。生成LR-HR图像对（通过高斯模糊和下采样）。",
+          "anchors": [
+            "anc_00046",
+            "anc_00049",
+            "anc_00057"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 模型实现：根据论文描述实现ESPCN网络架构，包括LR空间卷积层和亚像素卷积层（含周期性混洗操作）。",
+          "anchors": [
+            "anc_00020",
+            "anc_00021",
+            "anc_00022",
+            "anc_00023",
+            "anc_00024",
+            "anc_00025",
+            "anc_00030",
+            "anc_00032",
+            "anc_00033",
+            "anc_00034",
+            "anc_00035"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 训练：使用MSE损失函数训练网络。设置学习率（初始0.01，最终0.0001），最后一层学习率降低10倍。训练直至收敛（约100个epoch无改善后停止）。",
+          "anchors": [
+            "anc_00043",
+            "anc_00044",
+            "anc_00060"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "4. 评估：在测试数据集上计算PSNR。比较运行时间（在K2 GPU上）。",
+          "anchors": [
+            "anc_00071",
+            "anc_00072",
+            "anc_00073",
+            "anc_00075",
+            "anc_00076",
+            "anc_00077",
+            "anc_00078",
+            "anc_00079",
+            "anc_00080",
+            "anc_00081",
+            "anc_00082"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "5. 视频处理：将训练好的模型应用于视频帧，实现逐帧超分辨率。",
+          "anchors": [
+            "anc_00075",
+            "anc_00082"
+          ]
+        }
+      ],
+      "missing_details": [],
+      "risk_points": []
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-03T16:51:02+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_cv_075_real_time_single_image_and_video_super_resolutio_2016",
+    "title": "Real-Time Single Image and Video Super-Resolution Using an Efficient Sub-Pixel Convolutional Neural Network",
+    "authors": [
+      "Wenzhe Shi",
+      "Jose Caballero",
+      "Ferenc Huszár",
+      "J. Totz",
+      "Andrew P. Aitken",
+      "Rob Bishop",
+      "D. Rueckert",
+      "Zehan Wang"
+    ],
+    "venue": "Computer Vision and Pattern Recognition",
+    "year": 2016,
+    "arxiv_id": "1609.05158",
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-03T16:49:27+00:00",
+    "paper_type": "Computer Vision / Pose Estimation / Computer Vision / Video Understanding / Computer Vision / CNN / Computer Vision / Top-cited Computer Vision paper",
+    "citation_count": 5888,
+    "influential_citation_count": 446,
+    "semantic_scholar_id": "03a5b2aac53443e6078f0f63b35d4f95d6d54c5d",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/03a5b2aac53443e6078f0f63b35d4f95d6d54c5d",
+    "importance_rank": 75,
+    "selection_source": "semantic_scholar_top_cited_cv_open_pdf_2026_05_03",
+    "open_access_pdf_url": "http://arxiv.org/pdf/1609.05158",
+    "fields_of_study": [
+      "Computer Science",
+      "Mathematics"
+    ],
+    "publication_types": [
+      "JournalArticle",
+      "Conference"
+    ],
+    "abstract": "Recently, several models based on deep neural networks have achieved great success in terms of both reconstruction accuracy and computational performance for single image super-resolution. In these methods, the low resolution (LR) input image is upscaled to the high resolution (HR) space using a single filter, commonly bicubic interpolation, before reconstruction. This means that the super-resolution (SR) operation is performed in HR space. We demonstrate that this is sub-optimal and adds computational complexity. In this paper, we present the first convolutional neural network (CNN) capable of real-time SR of 1080p videos on a single K2 GPU. To achieve this, we propose a novel CNN architecture where the feature maps are extracted in the LR space. In addition, we introduce an efficient sub-pixel convolution layer which learns an array of upscaling filters to upscale the final LR feature maps into the HR output. By doing so, we effectively replace the handcrafted bicubic filter in the SR pipeline with more complex upscaling filters specifically trained for each feature map, whilst also reducing the computational complexity of the overall SR operation. We evaluate the proposed approach using images and videos from publicly available datasets and show that it performs significantly better (+0.15dB on Images and +0.39dB on Videos) and is an order of magnitude faster than previous CNN-based methods."
+  },
+  "anchors": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Real-Time Single Image and Video Super-Resolution Using an Efﬁcient Sub-Pixel Convolutional Neural Network Wenzhe Shi1, Jose Caballero1, Ferenc Husz´ar1, Johannes Totz1, Andrew P. Aitken1, Rob Bishop1, Daniel Rueckert1, Zehan Wang1 1Twitter 1{wshi,jcaballero,fhuszar,jtotz,aitken,rbishop,zehanw}@twitter.com",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Abstract",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Recently, several models based on deep neural networks have achieved great success in terms of both reconstruction accuracy and computational performance for single image super-resolution. In these methods, the low resolution (LR) input image is upscaled to the high resolution (HR) space using a single ﬁlter, commonly bicubic interpolation, before reconstruction. This means that the super-resolution (SR) operation is performed in HR space. We demonstrate that this is sub-optimal and adds computational complexity. In this paper, we present the ﬁrst convolutional neural network (CNN) capable of real-time SR of 1080p videos on a single K2 GPU. To achieve this, we propose a novel CNN architec- ture where the feature maps are extracted in the LR space. In addition, we introduce an efﬁcient sub-pixel convolution layer which learns an array of upscaling ﬁlters to upscale the ﬁnal LR feature maps into the HR output. By doing so, we effectively replace the handcrafted bicubic ﬁlter in the SR p...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "have multiple solutions, of which determining the correct",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "solution is non-trivial. A key assumption that underlies many SR techniques is that much of the high-frequency data is redundant and thus can be accurately reconstructed from low frequency components. SR is therefore an inference problem, and thus relies on our model of the statistics of images in question. Many methods assume multiple images are available as LR instances of the same scene with different perspectives, i.e. with unique prior afﬁne transformations. These can be categorised as multi-image SR methods [1, 11] and exploit explicit redundancy by constraining the ill-posed problem with additional information and attempting to invert the downsampling process. However, these methods usually require computationally complex image registration and fusion stages, the accuracy of which directly impacts the quality of the result. An alternative family of methods are single image super-resolution (SISR) techniques [45]. These techniques seek to learn implicit redundancy that is presen...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 1. The proposed efﬁcient sub-pixel convolutional neural network (ESPCN), with two convolution layers for feature maps extraction,",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "and a sub-pixel convolution layer that aggregates the feature maps from LR space and builds the SR image in a single step. based [9, 18, 46, 12] and patch-based [2, 43, 52, 13, 54, 40, 5] methods. A detailed review of more generic SISR methods can be found in [45]. One family of approaches that has recently thrived in tackling the SISR problem is sparsity-based techniques. Sparse coding is an effective mechanism that assumes any natural image can be sparsely represented in a transform domain. This transform domain is usually a dictionary of image atoms [25, 10], which can be learnt through a training process that tries to discover the correspondence between LR and HR patches. This dictionary is able to embed the prior knowledge necessary to constrain the ill-posed problem of super-resolving unseen data. This approach is proposed in the methods of [47, 8]. A drawback of sparsity-based techniques is that introducing the sparsity constraint through a nonlinear reconstruction is generally...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "train on large image databases such as ImageNet [30] in",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "order to learn nonlinear mappings of LR and HR image patches. Stacked collaborative local auto-encoders are used in [4] to super-resolve the LR image layer by layer. Os- endorfer et al. [27] suggested a method for SISR based on an extension of the predictive convolutional sparse coding framework [29]. A multiple layer convolutional neural net- work (CNN) inspired by sparse-coding methods is proposed in [7]. Chen et. al. [3] proposed to use multi-stage trainable nonlinear reaction diffusion (TNRD) as an alternative to CNN where the weights and the nonlinearity is trainable. Wang et. al [44] trained a cascaded sparse coding network from end to end inspired by LISTA (Learning iterative shrinkage and thresholding algorithm) [16] to fully exploit the natural sparsity of images. The network structure is not limited to neural networks, for example, a random forest [31] has also been successfully used for SISR.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 2. Plot of the trade-off between accuracy and speed for",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "different methods when performing SR upscaling with a scale",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "factor of 3. The results presents the mean PSNR and run-time over the images from Set14 run on a single CPU core clocked at 2.0 GHz. 1.2. Motivations and contributions With the development of CNN, the efﬁciency of the al- gorithms, especially their computational and memory cost, gains importance [36]. The ﬂexibility of deep network mod- els to learn nonlinear relationships has been shown to attain superior reconstruction accuracy compared to previously hand-crafted models [27, 7, 44, 31, 3]. To super-resolve a LR image into HR space, it is necessary to increase the resolution of the LR image to match that of the HR image at some point. In Osendorfer et al. [27], the image resolution is increased in the middle of the network gradually. Another popular approach is to increase the resolution before or at the ﬁrst layer of the network [7, 44, 3]. However, this approach has a number of drawbacks. Firstly, in- creasing the resolution of the LR images before the image enhancement step increa...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "image resolution. Secondly, interpolation methods typically used to accomplish the task, such as bicubic interpolation [7, 44, 3], do not bring additional information to solve the ill-posed reconstruction problem. Learning upscaling ﬁlters was brieﬂy suggested in the footnote of Dong et.al. [6]. However, the importance of integrating it into the CNN as part of the SR operation was not fully recognised and the option not explored. Additionally, as noted by Dong et al. [6], there are no efﬁcient implementations of a convolution layer whose",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "output size is larger than the input size and well-optimized",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "implementations such as convnet [21] do not trivially allow such behaviour. In this paper, contrary to previous works, we propose to increase the resolution from LR to HR only at the very end of the network and super-resolve HR data from LR",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "feature maps. This eliminates the need to perform most",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "of the SR operation in the far larger HR resolution. For",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "this purpose, we propose an efﬁcient sub-pixel convolution layer to learn the upscaling operation for image and video super-resolution. The advantages of these contributions are two fold: • In our network, upscaling is handled by the last layer of the network. This means each LR image is di- rectly fed to the network and feature extraction occurs through nonlinear convolutions in LR space. Due to the reduced input resolution, we can effectively use a smaller ﬁlter size to integrate the same information while maintaining a given contextual area. The resolu- tion and ﬁlter size reduction lower the computational and memory complexity substantially enough to allow super-resolution of high deﬁnition (HD) videos in real- time as shown in Sec. 3.5. • For a network withL layers, we learnnL−1 upscaling ﬁlters for the nL−1 feature maps as opposed to one upscaling ﬁlter for the input image. In addition, not using an explicit interpolation ﬁlter means that the net- work implicitly learns the proc...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "deterministic and known: to produce ILR from IHR, we",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ﬁrst convolveIHR using a Gaussian ﬁlter - thus simulating the camera’s point spread function - then downsample the image by a factor of r. We will refer to r as the upscaling ratio. In general, both ILR and IHR can have C colour channels, thus they are represented as real-valued tensors of sizeH×W×C andrH×rW×C, respectively. To solve the SISR problem, the SRCNN proposed in [7] recovers from an upscaled and interpolated version of ILR instead of ILR. To recover ISR, a 3 layer convolutional network is used. In this section we propose a novel network architecture, as illustrated in Fig. 1, to avoid upscaling ILR before feeding it into the network. In our architecture, we ﬁrst apply al layer convolutional neural network directly to the LR image, and then apply a sub-pixel convolution layer that upscales the LR feature maps to produce ISR. For a network composed ofL layers, the ﬁrstL−1 layers can be described as follows:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "f 1(ILR;W1,b 1) = φ",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00022",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "( W1∗ ILR +b1 ) , (1)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "f l(ILR;W1:l,b 1:l) = φ",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00024",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "( Wl∗f l−1( ILR) +bl ) , (2) Where Wl,b l,l ∈ (1,L − 1) are learnable network weights and biases respectively. Wl is a 2D convolution tensor of sizenl−1×nl×kl×kl, wherenl is the number of",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "features at layer l,n0 = C, andkl is the ﬁlter size at layer",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "l. The biases bl are vectors of length nl. The nonlinearity function (or activation function) φ is applied element-wise and is ﬁxed. The last layerf L has to convert the LR feature maps to a HR image ISR. 2.1. Deconvolution layer The addition of a deconvolution layer is a popular",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00027",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "choice for recovering resolution from max-pooling and",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00028",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "other image down-sampling layers. This approach has been successfully used in visualizing layer activations [49] and for generating semantic segmentations using high level features from the network [24]. It is trivial to show that the bicubic interpolation used in SRCNN is a special case of the deconvolution layer, as suggested already in [24, 7]. The deconvolution layer proposed in [50] can be seen as multiplication of each input pixel by a ﬁlter element-wise with stride r, and sums over the resulting output windows also known as backwards convolution [24].",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 3. The ﬁrst-layer ﬁlters trained on ImageNet with an up-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "scaling factor of 3. The ﬁlters are sorted based on their variances. 2.2. Efﬁcient sub-pixel convolution layer The other way to upscale a LR image is convolution with fractional stride of 1 r in the LR space as mentioned by [24], which can be naively implemented by interpolation, perforate [27] or un-pooling [49] from LR space to HR space followed by a convolution with a stride of 1 in HR space. These implementations increase the computational cost by a factor of r2, since convolution happens in HR space. Alternatively, a convolution with stride of 1 r in the LR space with a ﬁlter Ws of size ks with weight spacing 1 r would activate different parts of Ws for the convolution. The weights that fall between the pixels are simply not activated and do not need to be calculated. The number of activation patterns is exactly r2. Each activation pat- tern, according to its location, has at most ⌈ ks r⌉2 weights activated. These patterns are periodically activated during the convolution of the...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00031",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "operation when mod (ks,r ) = 0 :",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ISR =f L(ILR) =PS",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00033",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "( WL∗f L−1(ILR) +bL ) , (3) wherePS is an periodic shufﬂing operator that rear- ranges the elements of aH×W×C·r2 tensor to a tensor of shape rH×rW×C. The effects of this operation are illustrated in Fig. 1. Mathematically, this operation can be described in the following way",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "PS (T )x,y,c =T⌊x/r⌋,⌊y/r⌋,C·r·mod(y,r)+C·mod(x,r)+c (4)",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00035",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "The convolution operator WL thus has shape nL−1× r2C×kL×kL. Note that we do not apply nonlinearity to the outputs of the convolution at the last layer. It is easy to",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "see that whenkL = ks",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00037",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "r and mod (ks,r ) = 0 it is equivalent",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00038",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "to sub-pixel convolution in the LR space with the ﬁlterWs. We will refer to our new layer as the sub-pixel convolution layer and our network as efﬁcient sub-pixel convolutional neural network (ESPCN). This last layer produces a HR image from LR feature maps directly with one upscaling ﬁlter for each feature map as shown in Fig. 4. Given a training set consisting of HR image examples IHR",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00039",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "n ,n = 1 ...N , we generate the corresponding LR",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "images ILR",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00041",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "n ,n = 1...N , and calculate the pixel-wise mean",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00042",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "squared error (MSE) of the reconstruction as an objective function to train the network:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00043",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ℓ(W1:L,b 1:L) = 1",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "r2HW rH∑ x=1 rW∑ x=1 ( IHR x,y−f L x,y(ILR) )2 (5) It is noticeable that the implementation of the above periodic shufﬂing can be avoided in training time. Instead of shufﬂing the output as part of the layer, we can pre- shufﬂe the training data to match the output of the layer",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00045",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "beforePS . Thus our proposed layer is log2r2 times faster",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00046",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "compared to deconvolution layer in training and r2 times faster compared to implementations using various forms of upscaling before convolution. 3. Experiments The detailed report of quantitative evaluation includ- ing the original data including images and videos, down- sampled data, super-resolved data, overall and individual scores and run-times on a K2 GPU are provided in the supplemental material1. 3.1. Datasets During the evaluation, we used publicly available bench- mark datasets including the Timofte dataset [40] widely used by SISR papers [7, 44, 3] which provides source code for multiple methods, 91 training images and two test datasets Set5 and Set14 which provides 5 and 14 images; The Berkeley segmentation dataset [26] BSD300 and BSD500 which provides 100 and 200 images for testing and the super texture dataset [5] which provides 136 texture images. For our ﬁnal models, we use 50,000 randomly selected images from ImageNet [30] for the training. Following previous works, we...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00047",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "luminance channel in YCbCr colour space in this section",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00048",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "because humans are more sensitive to luminance changes",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "[31]. For each upscaling factor, we train a speciﬁc network. For video experiments we use 1080p HD videos from the publicly available Xiph database2, which has been used to report video SR results in previous methods [37, 23]. The database contains a collection of 8 HD videos approx- imately 10 seconds in length and with width and height 1920× 1080. In addition, we also use the Ultra Video 1Supplemental material https://twitter.box.com/s/ 47bhw60d066imhh88i2icqnbu7lwiza2 2Xiph.org Video Test Media [derf’s collection] https://media. xiph.org/video/derf/",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00050",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 4. The last-layer ﬁlters trained on ImageNet with an upscaling factor of 3: (a) shows weights from SRCNN 9-5-5 model [7], (b)",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "shows weights from ESPCN (ImageNetrelu) model and (c) weights from (b) after thePS operation applied to the r2 channels. The ﬁlters are in their default ordering. (a) Baboon Original (b) Bicubic / 23.21db (c) SRCNN [7] / 23.67db (d) TNRD [3] / 23.62db (e) ESPCN / 23.72db (f) Comic Original (g) Bicubic / 23.12db (h) SRCNN [7] / 24.56db (i) TNRD [3] / 24.68db (j) ESPCN / 24.82db (k) Monarch Original (l) Bicubic / 29.43db (m) SRCNN [7] / 32.81db (n) TNRD [3] / 33.62db (o) ESPCN / 33.66db",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00052",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 5. Super-resolution examples for ”Baboon”, ”Comic” and ”Monarch” from Set14 with an upscaling factor of 3. PSNR values are",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00053",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "shown under each sub-ﬁgure.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Group database3, containing 7 videos of 1920× 1080 in size and 5 seconds in length. 3.2. Implementation details",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "For the ESPCN, we set l = 3 , (f1,n 1) = (5 , 64),",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(f2,n 2) = (3 , 32) and f3 = 3 in our evaluations. The",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00057",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "choice of the parameter is inspired by SRCNN’s 3 layer 9-5- 5 model and the equations in Sec. 2.2. In the training phase, 17r× 17r pixel sub-images are extracted from the training ground truth images IHR, where r is the upscaling factor. To synthesize the low-resolution samplesILR, we blur IHR using a Gaussian ﬁlter and sub-sample it by the upscaling factor. The sub-images are extracted from original images",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00058",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "with a stride of (17−∑mod (f, 2))×r from IHR and a",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00059",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "stride of 17−∑mod (f, 2) from ILR. This ensures that",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00060",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "all pixels in the original image appear once and only once as the ground truth of the training data. We choose tanh instead ofrelu as the activation function for the ﬁnal model motivated by our experimental results. The training stops after no improvement of the cost function is observed after 100 epochs. Initial learning rate is set to 0.01 and ﬁnal learning rate is set to 0.0001 and updated gradually when the improvement of the cost function is smaller than a threshold µ. The ﬁnal layer learns 10 times slower as in [7]. The training takes roughly three hours on a K2 GPU on 91 images, and seven days on images from ImageNet [30] for upscaling factor of 3. We use the PSNR as the performance metric to evaluate our models. PSNR of SRCNN and Chen’s models on our extended benchmark set are calculated based on the Matlab code and models provided by [7, 3]. 3.3. Image super-resolution results 3.3.1 Beneﬁts of the sub-pixel convolution layer In this section, we demonstrate the positive effect...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00061",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ilarity to designed features including the log-Gabor ﬁlters",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00062",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "[48], wavelets [20] and Haar features [42]. It is noticeable that despite each ﬁlter is independent in LR space, our independent ﬁlters is actually smooth in the HR space after PS . Compared to SRCNN’s last layer ﬁlters, our ﬁnal layer ﬁlters has complex patterns for different feature maps, it also has much richer and more meaningful representations. We also evaluated the effect oftanh activation function based on the above model trained on 91 images and Ima- geNet images. Results in Tab. 1 suggests thattanh function performs better for SISR compared torelu. The results for ImageNet images withtanh activation is shown in Tab. 2.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "3.3.2 Comparison to the state-of-the-art",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00064",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "In this section, we show ESPCN trained on ImageNet compared to results from SRCNN [7] and the TNRD [3]",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00065",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "which is currently the best performing approach published.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00066",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "For simplicity, we do not show results which are known to be worse than [3]. For the interested reader, the results of other previous methods can be found in [31]. We choose to compare against the best SRCNN 9-5-5 ImageNet model in this section [7]. And for [3], results are calculated based on the 7× 7 5 stages model. Our results shown in Tab. 2 are signiﬁcantly better than the SRCNN 9-5-5 ImageNet model, whilst being close to,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "and in some cases out-performing, the TNRD [3]. Although",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00068",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "TNRD uses a single bicubic interpolation to upscale the in- put image to HR space, it possibly beneﬁts from a trainable nonlinearity function. This trainable nonlinearity function is not exclusive from our network and will be interesting to explore in the future. Visual comparison of the super- resolved images is given in Fig. 5 and Fig. 6, the CNN methods create a much sharper and higher contrast images, ESPCN provides noticeably improvement over SRCNN. 3.4. Video super-resolution results In this section, we compare the ESPCN trained models against single frame bicubic interpolation and SRCNN [7] on two popular video benchmarks. One big advantage of our network is its speed. This makes it an ideal candidate for video SR which allows us to super-resolve the videos frame by frame. Our results shown in Tab. 3 and Tab. 4 are better than the SRCNN 9-5-5 ImageNet model. The improvement is more signiﬁcant than the results on the image data, this maybe due to differences between datasets. Si...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(a) 14092 Original (b) Bicubic / 29.06db (c) SRCNN [7] / 29.74db (d) TNRD [3] / 29.74db (e) ESPCN / 29.78db (f) 335094 Original (g) Bicubic / 22.24db (h) SRCNN [7] / 23.96db (i) TNRD [3] / 24.15db (j) ESPCN / 24.14db (k) 384022 Original (l) Bicubic / 25.42db (m) SRCNN [7] / 26.72db (n) TNRD [3] / 26.74db (o) ESPCN / 26.86db",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00070",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 6. Super-resolution examples for ”14092”, ”335094” and ”384022” from BSD500 with an upscaling factor of 3. PSNR values are",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00071",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "shown under each sub-ﬁgure. Dataset Scale SRCNN (91) ESPCN (91 relu) ESPCN (91) SRCNN (ImageNet) ESPCN (ImageNet relu) Set5 3 32.39 32.39 32.55 32.52 33.00 Set14 3 29.00 28.97 29.08 29.14 29.42 BSD300 3 28.21 28.20 28.26 28.29 28.52 BSD500 3 28.28 28.27 28.34 28.37 28.62 SuperTexture 3 26.37 26.38 26.42 26.41 26.69 Average 3 27.76 27.76 27.82 27.83 28.09",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00072",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 1. The mean PSNR (dB) for different models. Best results for each category are shown in bold. There is signiﬁcant difference",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00073",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "between the PSNRs of the proposed method and other methods (p-value < 0.001 with paired t-test). 3.5. Run time evaluations In this section, we evaluated our best model’s run time on Set144 with an upscale factor of 3. We evaluate the run time of other methods [2, 51, 39] from the Matlab codes provided by [40] and [31]. For methods which use convolutions in- cluding our own, a python/theano implementation is used to improve the efﬁciency based on the Matlab codes provided in [7, 3]. The results are presented in Fig. 2. Our model runs a magnitude faster than the fastest methods published so far. Compared to SRCNN 9-5-5 ImageNet model, the number of convolution required to super-resolve one image isr×r times smaller and the number of total parameters of the model is 2.5 times smaller. The total complexity of the 4It should be noted our results outperform all other algorithms in",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00074",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "accuracy on the larger BSD datasets. However, the use of Set14 on a single",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00075",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "CPU core is selected here in order to allow a straight-forward comparison with results from previous published results [31, 6]. super-resolution operation is thus 2.5×r×r times lower. We have achieved a stunning average speed of 4.7ms for super-resolving one single image fromSet14 on a K2 GPU. Utilising the amazing speed of the network, it will be inter- esting to explore ensemble prediction using independently trained models as discussed in [36] to achieve better SR performance in the future. We also evaluated run time of 1080 HD video super- resolution using videos from the Xiph and the Ultra Video Group database. With upscale factor of 3, SRCNN 9-5-5 ImageNet model takes 0.435s per frame whilst our ESPCN model takes only 0.038s per frame. With upscale factor of 4, SRCNN 9-5-5 ImageNet model takes 0.434s per frame whilst our ESPCN model takes only 0.029s per frame.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00076",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Dataset Scale Bicubic SRCNN TNRD ESPCN Set5 3 30.39 32.75 33.17 33.13 Set14 3 27.54 29.30 29.46 29.49 BSD300 3 27.21 28.41 28.50 28.54 BSD500 3 27.26 28.48 28.59 28.64 SuperTexture 3 25.40 26.60 26.66 26.70 Average 3 26.74 27.98 28.07 28.11 Set5 4 28.42 30.49 30.85 30.90 Set14 4 26.00 27.50 27.68 27.73 BSD300 4 25.96 26.90 27.00 27.06 BSD500 4 25.97 26.92 27.00 27.07 SuperTexture 4 23.97 24.93 24.95 25.07 Average 4 25.40 26.38 26.45 26.53",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00077",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 2. The mean PSNR (dB) of different methods evaluated on",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00078",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "our extended benchmark set. Where SRCNN stands for the SR- CNN 9-5-5 ImageNet model [7], TNRD stands for the Trainable Nonlinear Reaction Diffusion Model from [3] and ESPCN stands for our ImageNet model with tanh activation. Best results for each category are shown in bold. There is signiﬁcant difference between the PSNRs of the proposed method and SRCNN (p-value < 0.01 with paired ttest) Dataset Scale Bicubic SRCNN ESPCN SunFlower 3 41.72 43.29 43.36 Station2 3 36.42 38.17 38.32 PedestrianArea 3 37.65 39.21 39.27 SnowMnt 3 26.00 27.23 27.20 Aspen 3 32.75 34.65 34.61 OldTownCross 3 31.20 32.44 32.53 DucksTakeOff 3 26.71 27.66 27.69 CrowdRun 3 26.87 28.26 28.39 Average 3 32.41 33.86 33.92 SunFlower 4 38.99 40.57 41.00 Station2 4 34.13 35.72 35.91 PedestrianArea 4 35.49 36.94 36.94 SnowMnt 4 24.14 24.87 25.13 Aspen 4 30.06 31.51 31.83 OldTownCross 4 29.49 30.43 30.54 DucksTakeOff 4 24.85 25.44 25.64 CrowdRun 4 25.21 26.24 26.40 Average 4 30.30 31.47 31.67",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00079",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 3. Results on HD videos from Xiph database. Where",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00080",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "SRCNN stands for the SRCNN 9-5-5 ImageNet model [7] and ESPCN stands for our ImageNet model with tanh activation. Best results for each category are shown in bold. There is signiﬁcant difference between the PSNRs of the proposed method and SRCNN (p-value < 0.01 with paired t-test) 4. Conclusion In this paper, we demonstrate that a non-adaptive up- scaling at the ﬁrst layer provides worse results than an adaptive upscaling for SISR and requires more computa- tional complexity. To address the problem, we propose to perform the feature extraction stages in the LR space instead of HR space. To do that we propose a novel sub-pixel convolution layer which is capable of super-resolving LR data into HR space with very little additional computational Dataset Scale Bicubic SRCNN ESPCN Bosphorus 3 39.38 41.07 41.25 ReadySetGo 3 34.64 37.33 37.37 Beauty 3 39.77 40.46 40.54 YachtRide 3 34.51 36.07 36.18 ShakeNDry 3 38.79 40.26 40.47 HoneyBee 3 40.97 42.66 42.89 Jockey 3 41.86 43.62 43.73 Average 3...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00081",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 4. Results on HD videos fromUltra Video Groupdatabase.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00082",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Where SRCNN stands for the SRCNN 9-5-5 ImageNet model [7] and ESPCN stands for our ImageNet model with tanh activation. Best results for each category are shown in bold. There is signiﬁcant difference between the PSNRs of the proposed method and SRCNN (p-value < 0.01 with paired t-test) cost compared to a deconvolution layer [50] at training time. Evaluation performed on an extended bench mark data set with upscaling factor of 4 shows that we have a signiﬁcant speed (> 10×) and performance (+0.15dB on Images and +0.39dB on videos) boost compared to the previous CNN approach with more parameters [7] (5-3-3 vs 9-5-5). This makes our model the ﬁrst CNN model that is capable of SR HD videos in real time on a single GPU. 5. Future work A reasonable assumption when processing video in- formation is that most of a scene’s content is shared by neighbouring video frames. Exceptions to this assumption are scene changes and objects sporadically appearing or disappearing from the scene. This crea...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00083",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "References",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00084",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[1] S. Borman and R. L. Stevenson. Super-Resolution from Image Sequences - A Review.Midwest Symposium on Circuits and Systems, pages 374–378, 1998. 1 [2] H. Chang, D.-Y . Yeung, and Y . Xiong. Super-resolution through neighbor embedding. In IEEE Computer Society Conference on Computer Vision and Pattern Recognition (CVPR), volume 1, pages I–I. IEEE, 2004. 2, 7",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00085",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[3] Y . Chen and T. Pock. Trainable nonlinear reaction diffusion: A ﬂexible framework for fast and effective image restoration. arXiv preprint arXiv:1508.02848, 2015. 2, 3, 4, 5, 6, 7, 8 [4] Z. Cui, H. Chang, S. Shan, B. Zhong, and X. Chen. Deep network cascade for image super-resolution. In European Conference on Computer Vision (ECCV), pages 49–64. Springer, 2014. 2 [5] D. Dai, R. Timofte, and L. Van Gool. Jointly optimized regressors for image super-resolution. In Eurographics, volume 7, page 8, 2015. 2, 4 [6] C. Dong, C. C. Loy, K. He, and X. Tang. Learning a deep convolutional network for image super-resolution. In European Conference on Computer Vision (ECCV), pages 184–199. Springer, 2014. 3, 6, 7 [7] C. Dong, C. C. Loy, K. He, and X. Tang. Image super-resolution using deep convolutional networks. IEEE Transactions on Pattern Analysis and Machine Intelligence (TPAMI), 2015. 2, 3, 4, 5, 6, 7, 8 [8] W. Dong, L. Zhang, G. Shi, and X. Wu. Image deblurring and super- resolution by a...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00086",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "segmentation algorithms and measuring ecological statistics. In",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00087",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Proc. 8th Int’l Conf. Computer Vision , volume 2, pages 416–423, July 2001. 4 [27] C. Osendorfer, H. Soyer, and P. van der Smagt. Image super- resolution with fast approximate convolutional sparse coding. In Neural Information Processing, pages 250–257. Springer, 2014. 2, 4 [28] S. Peled and Y . Yeshurun. Superresolution in MRI: application to human white matter ﬁber tract visualization by diffusion tensor imaging. Magnetic resonance in medicine : ofﬁcial journal of the Society of Magnetic Resonance in Medicine / Society of Magnetic Resonance in Medicine, 45(1):29–35, 2001. 1 [29] C. Poultney, S. Chopra, Y . L. Cun, et al. Efﬁcient learning of sparse representations with an energy-based model. In Advances in neural information processing systems, pages 1137–1144, 2006. 2 [30] O. Russakovsky, J. Deng, H. Su, J. Krause, S. Satheesh, S. Ma, Z. Huang, A. Karpathy, A. Khosla, M. Bernstein, et al. Imagenet",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00088",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "large scale visual recognition challenge. International Journal of",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00089",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "Computer Vision, pages 1–42, 2014. 2, 4, 6 [31] S. Schulter, C. Leistner, and H. Bischof. Fast and accurate image upscaling with super-resolution forests. In IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , pages 3791– 3799, 2015. 2, 3, 4, 6, 7 [32] O. Shahar, A. Faktor, and M. Irani. Space-time super-resolution from a single video. In IEEE Conference on Computer Vision and Pattern Recognition (CVPR), pages 3353–3360. IEEE, 2011. 8 [33] W. Shi, J. Caballero, C. Ledig, X. Zhuang, W. Bai, K. Bhatia, A. Marvao, T. Dawes, D. ORegan, and D. Rueckert. Cardiac image super-resolution with global correspondence using multi-atlas patchmatch. In K. Mori, I. Sakuma, Y . Sato, C. Barillot, and N. Navab, editors,Medical Image Computing and Computer Assisted Intervention (MICCAI), volume 8151 of LNCS, pages 9–16. 2013. 1 [34] K. Simonyan and A. Zisserman. Very deep convolutional networks",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00090",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "for large-scale image recognition. arXiv preprint arXiv:1409.1556,",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00091",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "2014. 2 [35] J. Sun, Z. Xu, and H.-Y . Shum. Gradient proﬁle prior and its applications in image super-resolution and enhancement. IEEE Transactions on Image Processing, 20(6):1529–1542, 2011. 1 [36] C. Szegedy, W. Liu, Y . Jia, P. Sermanet, S. Reed, D. Anguelov, D. Erhan, V . Vanhoucke, and A. Rabinovich. Going deeper with convolutions. In CVPR 2015, 2015. 2, 7 [37] H. Takeda, P. Milanfar, M. Protter, and M. Elad. Super-resolution without explicit subpixel motion estimation. IEEE Transactions on Image Processing, 18(9):1958–1975, 2009. 4 [38] M. W. Thornton, P. M. Atkinson, and D. a. Holland. Sub-pixel map- ping of rural land cover objects from ﬁne spatial resolution satellite sensor imagery using super-resolution pixel-swapping. International Journal of Remote Sensing, 27(3):473–491, 2006. 1 [39] R. Timofte, V . De, and L. Van Gool. Anchored neighborhood regres- sion for fast example-based super-resolution. In IEEE International Conference on Computer Vision (ICCV) , pages 1920–1927...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00092",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[41] D. Tran, L. Bourdev, R. Fergus, L. Torresani, and M. Paluri. Learning spatiotemporal features with 3d convolutional networks. arXiv preprint arXiv:1412.0767, 2015. 8 [42] P. Viola and M. Jones. Rapid object detection using a boosted cascade of simple features. In IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , volume 1, pages I–511. IEEE, 2001. 6 [43] S. Wang, L. Zhang, Y . Liang, and Q. Pan. Semi-coupled dictionary learning with applications to image super-resolution and photo- sketch synthesis. In IEEE Conference on Computer Vision and Pattern Recognition (CVPR), pages 2216–2223. IEEE, 2012. 2 [44] Z. Wang, D. Liu, J. Yang, W. Han, and T. Huang. Deeply improved sparse coding for image super-resolution. arXiv preprint arXiv:1507.08905, 2015. 2, 3, 4 [45] C.-Y . Yang, C. Ma, and M.-H. Yang. Single-image super-resolution: A benchmark. In European Conference on Computer Vision (ECCV), pages 372–386. Springer, 2014. 1, 2 [46] J. Yang, Z. Lin, and S. Cohen. Fast i...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00093",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "using modiﬁed log-gabor ﬁlters. InPattern Recognition, 2006. ICPR",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00094",
+      "page": 10,
+      "section": "References",
+      "bbox": null,
+      "text_span": "2006. 18th International Conference on , volume 4, pages 461–464. IEEE, 2006. 6 [49] M. D. Zeiler and R. Fergus. Visualizing and understanding convolu- tional networks. In Computer Vision–ECCV 2014, pages 818–833. Springer, 2014. 2, 3, 4 [50] M. D. Zeiler, G. W. Taylor, and R. Fergus. Adaptive deconvolutional networks for mid and high level feature learning. In IEEE Inter- national Conference on Computer Vision (ICCV), pages 2018–2025. IEEE, 2011. 3, 8 [51] R. Zeyde, M. Elad, and M. Protter. On single image scale-up using sparse-representations. In Curves and Surfaces , pages 711–730. Springer, 2012. 7 [52] K. Zhang, X. Gao, D. Tao, and X. Li. Multi-scale dictionary for single image super-resolution. In IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , pages 1114–1121. IEEE, 2012. 2 [53] L. Zhang, H. Zhang, H. Shen, and P. Li. A super-resolution reconstruction algorithm for surveillance images. Signal Processing, 90(3):848–859, 2010. 1 [54] Y . Zhu, Y . Zhang, and A....",
+      "source_type": "reference"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "warnings": [
+      {
+        "code": "ok",
+        "message": "Grounding verification passed with current v1 checks.",
+        "target": null,
+        "severity": "info"
+      }
+    ],
+    "anchor_count": 94
+  }
+}

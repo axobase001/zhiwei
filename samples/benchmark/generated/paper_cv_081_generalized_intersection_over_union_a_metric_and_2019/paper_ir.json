@@ -1,0 +1,2822 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "传统边界框回归中使用的距离损失（如ℓ1、ℓ2范数）与评估指标IoU之间存在优化目标不一致的问题，导致优化效果不佳。",
+      "anchors": [
+        "anc_00003",
+        "anc_00005",
+        "anc_00010",
+        "anc_00012",
+        "anc_00014"
+      ]
+    },
+    "motivation": {
+      "summary": "IoU作为最流行的评估指标，但在非重叠边界框情况下存在梯度为零的平台问题，无法直接用作损失函数进行优化。需要一种既能作为评估指标又能作为损失函数的广义IoU。",
+      "anchors": [
+        "anc_00005",
+        "anc_00028",
+        "anc_00048"
+      ]
+    },
+    "core_idea": {
+      "summary": "提出广义交并比（GIoU），它在保持IoU所有优点的同时，解决了其在非重叠情况下的优化难题，可同时作为评估指标和回归损失。",
+      "anchors": [
+        "anc_00024",
+        "anc_00030",
+        "anc_00032",
+        "anc_00036",
+        "anc_00037",
+        "anc_00038",
+        "anc_00044"
+      ]
+    },
+    "method": {
+      "summary": "通过引入最小外接矩形C，定义GIoU = IoU - |C \\ (A ∪ B)| / |C|，并推导出其作为损失函数的解析解和梯度计算方法（算法2）。",
+      "anchors": [
+        "anc_00024",
+        "anc_00044",
+        "anc_00047",
+        "anc_00048",
+        "anc_00049",
+        "anc_00051",
+        "anc_00055",
+        "anc_00057",
+        "anc_00059",
+        "anc_00061",
+        "anc_00063",
+        "anc_00065",
+        "anc_00069",
+        "anc_00071",
+        "anc_00073",
+        "anc_00075",
+        "anc_00076",
+        "anc_00079",
+        "anc_00081",
+        "anc_00083",
+        "anc_00085",
+        "anc_00087",
+        "anc_00089",
+        "anc_00090",
+        "anc_00091",
+        "anc_00093"
+      ]
+    },
+    "experiments": {
+      "summary": "在YOLO v3、Faster R-CNN和Mask R-CNN上，用GIoU损失替换原有的MSE或ℓ1-smooth损失，在PASCAL VOC和MS COCO数据集上进行评估。",
+      "anchors": [
+        "anc_00135",
+        "anc_00136",
+        "anc_00138",
+        "anc_00140",
+        "anc_00141",
+        "anc_00142",
+        "anc_00144",
+        "anc_00145",
+        "anc_00146",
+        "anc_00147",
+        "anc_00148",
+        "anc_00149",
+        "anc_00150",
+        "anc_00154",
+        "anc_00157",
+        "anc_00158",
+        "anc_00159",
+        "anc_00160",
+        "anc_00161",
+        "anc_00163",
+        "anc_00164",
+        "anc_00165",
+        "anc_00166",
+        "anc_00167",
+        "anc_00169",
+        "anc_00170",
+        "anc_00174",
+        "anc_00178",
+        "anc_00180",
+        "anc_00184",
+        "anc_00185"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "GIoU损失能持续提升目标检测性能；GIoU在非重叠情况下仍有梯度；GIoU损失比IoU损失更稳定。",
+        "anchors": [
+          "anc_00147",
+          "anc_00157",
+          "anc_00167",
+          "anc_00185",
+          "anc_00005",
+          "anc_00028",
+          "anc_00048",
+          "anc_00096",
+          "anc_00097",
+          "anc_00121",
+          "anc_00122",
+          "anc_00124",
+          "anc_00125",
+          "anc_00128",
+          "anc_00134",
+          "anc_00096",
+          "anc_00097",
+          "anc_00104",
+          "anc_00105",
+          "anc_00107",
+          "anc_00109",
+          "anc_00111",
+          "anc_00112",
+          "anc_00114",
+          "anc_00116",
+          "anc_00118",
+          "anc_00120"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "仅针对轴对齐的2D边界框，未扩展到3D或非轴对齐情况；在某些情况下（如YOLO v3），分类损失的平衡可能需要进一步调优。",
+        "anchors": [
+          "anc_00044",
+          "anc_00157"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "IoU定义与问题",
+        "label": "基础概念",
+        "summary": "IoU是评估两个形状相似性的标准指标，但在非重叠情况下梯度为零，无法直接优化。",
+        "description": "IoU = |A ∩ B| / |A ∪ B|。当两个边界框不重叠时，IoU=0且梯度为零，导致优化停滞。",
+        "type": "concept",
+        "anchors": [
+          "anc_00003",
+          "anc_00005",
+          "anc_00020",
+          "anc_00022",
+          "anc_00028"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "GIoU定义",
+        "label": "核心创新",
+        "summary": "提出广义交并比（GIoU），通过引入最小外接矩形来度量非重叠情况下的距离。",
+        "description": "GIoU = IoU - |C \\ (A ∪ B)| / |C|，其中C是A和B的最小外接矩形。GIoU的取值范围为[-1, 1]。",
+        "type": "formula",
+        "anchors": [
+          "anc_00024",
+          "anc_00030",
+          "anc_00032",
+          "anc_00036",
+          "anc_00037",
+          "anc_00038"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "GIoU作为损失函数",
+        "label": "方法实现",
+        "summary": "将GIoU转化为损失函数L_GIoU = 1 - GIoU，并推导出用于反向传播的梯度计算算法。",
+        "description": "算法2详细描述了如何计算两个边界框的IoU和GIoU，包括交集、并集、最小外接矩形面积的计算，以及梯度的传播。",
+        "type": "algorithm",
+        "anchors": [
+          "anc_00044",
+          "anc_00047",
+          "anc_00048",
+          "anc_00049",
+          "anc_00051",
+          "anc_00055",
+          "anc_00057",
+          "anc_00059",
+          "anc_00061",
+          "anc_00063",
+          "anc_00065",
+          "anc_00069",
+          "anc_00071",
+          "anc_00073",
+          "anc_00075",
+          "anc_00076",
+          "anc_00079",
+          "anc_00081",
+          "anc_00083",
+          "anc_00085",
+          "anc_00087",
+          "anc_00089",
+          "anc_00090",
+          "anc_00091",
+          "anc_00093"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "损失稳定性分析",
+        "label": "理论分析",
+        "summary": "证明GIoU损失在任何预测值下都是有界的，且在非重叠情况下仍有梯度。",
+        "description": "L_IoU的范围是[0,1]，L_GIoU的范围是[0,2]。当IoU=0时，L_GIoU = 1 + (A_c - U)/A_c，通过最小化该损失可以促使边界框重叠。",
+        "type": "analysis",
+        "anchors": [
+          "anc_00096",
+          "anc_00097",
+          "anc_00104",
+          "anc_00105",
+          "anc_00107",
+          "anc_00109",
+          "anc_00111",
+          "anc_00112",
+          "anc_00114",
+          "anc_00116",
+          "anc_00118",
+          "anc_00120",
+          "anc_00121",
+          "anc_00122",
+          "anc_00124",
+          "anc_00125",
+          "anc_00126",
+          "anc_00128",
+          "anc_00130",
+          "anc_00131",
+          "anc_00132",
+          "anc_00133",
+          "anc_00134",
+          "anc_00135"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "实验设置",
+        "label": "实验验证",
+        "summary": "在主流目标检测器（YOLO v3, Faster R-CNN, Mask R-CNN）上替换默认损失为GIoU损失，并在标准数据集上评估。",
+        "description": "使用PASCAL VOC 2007和MS COCO 2018数据集。评估指标包括基于IoU和GIoU的mAP（AP, AP75）。",
+        "type": "experiment",
+        "anchors": [
+          "anc_00135",
+          "anc_00136",
+          "anc_00138",
+          "anc_00140",
+          "anc_00141",
+          "anc_00142",
+          "anc_00144",
+          "anc_00145",
+          "anc_00146",
+          "anc_00147",
+          "anc_00148",
+          "anc_00149",
+          "anc_00150",
+          "anc_00154",
+          "anc_00157",
+          "anc_00158",
+          "anc_00159",
+          "anc_00160",
+          "anc_00161",
+          "anc_00163",
+          "anc_00164",
+          "anc_00165",
+          "anc_00166",
+          "anc_00167",
+          "anc_00169",
+          "anc_00170",
+          "anc_00174",
+          "anc_00178",
+          "anc_00180",
+          "anc_00184",
+          "anc_00185"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_002",
+        "label": "问题驱动",
+        "description": "IoU的优化缺陷促使了GIoU的提出。",
+        "anchors": [
+          "anc_00003",
+          "anc_00005",
+          "anc_00024"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "定义到实现",
+        "description": "将GIoU的数学定义转化为可用于神经网络训练的损失函数和算法。",
+        "anchors": [
+          "anc_00024",
+          "anc_00044",
+          "anc_00047",
+          "anc_00048"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "实现到分析",
+        "description": "对实现的损失函数进行理论上的稳定性分析。",
+        "anchors": [
+          "anc_00093",
+          "anc_00096",
+          "anc_00097"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_005",
+        "label": "方法应用",
+        "description": "将GIoU损失集成到现有检测框架中进行实验验证。",
+        "anchors": [
+          "anc_00093",
+          "anc_00135"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00003",
+        "anc_00005",
+        "anc_00010",
+        "anc_00012",
+        "anc_00014",
+        "anc_00017",
+        "anc_00018",
+        "anc_00019"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00024",
+        "anc_00030",
+        "anc_00032",
+        "anc_00036",
+        "anc_00037",
+        "anc_00038",
+        "anc_00044",
+        "anc_00047",
+        "anc_00048",
+        "anc_00049",
+        "anc_00051",
+        "anc_00055",
+        "anc_00057",
+        "anc_00059",
+        "anc_00061",
+        "anc_00063",
+        "anc_00065",
+        "anc_00069",
+        "anc_00071",
+        "anc_00073",
+        "anc_00075",
+        "anc_00076",
+        "anc_00079",
+        "anc_00081",
+        "anc_00083",
+        "anc_00085",
+        "anc_00087",
+        "anc_00089",
+        "anc_00090",
+        "anc_00091",
+        "anc_00093"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "损失函数与评估指标（IoU）不一致，优化目标存在偏差。",
+        "after": "损失函数（GIoU）与评估指标（IoU或GIoU）高度一致，直接优化评估指标。",
+        "why_it_matters": "消除了优化目标与最终评估指标之间的差距，理论上能获得更好的局部最优解。",
+        "anchors": [
+          "anc_00003",
+          "anc_00005",
+          "anc_00044"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "IoU损失在边界框不重叠时梯度为零，无法指导优化。",
+        "after": "GIoU损失在非重叠情况下仍有梯度，能推动边界框向重叠方向移动。",
+        "why_it_matters": "解决了IoU损失的优化平台问题，使训练过程更稳定、收敛更快。",
+        "anchors": [
+          "anc_00005",
+          "anc_00028",
+          "anc_00048",
+          "anc_00096",
+          "anc_00097",
+          "anc_00121",
+          "anc_00122",
+          "anc_00124",
+          "anc_00125",
+          "anc_00128",
+          "anc_00134",
+          "anc_00135"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "ℓn范数损失对尺度敏感，不同尺度的相同重叠程度会有不同的损失值。",
+        "after": "GIoU损失像IoU一样具有尺度不变性。",
+        "why_it_matters": "提升了损失函数对目标尺度变化的鲁棒性。",
+        "anchors": [
+          "anc_00010",
+          "anc_00014"
+        ],
+        "delta_id": "delta_3"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "IoU = \\frac{|A \\cap B|}{|A \\cup B|}",
+        "variables": [
+          {
+            "name": "A",
+            "description": "预测边界框",
+            "confidence": "high",
+            "anchors": [
+              "anc_00020"
+            ]
+          },
+          {
+            "name": "B",
+            "description": "真实边界框",
+            "confidence": "high",
+            "anchors": [
+              "anc_00020"
+            ]
+          },
+          {
+            "name": "|A ∩ B|",
+            "description": "交集面积",
+            "confidence": "high",
+            "anchors": [
+              "anc_00020"
+            ]
+          },
+          {
+            "name": "|A ∪ B|",
+            "description": "并集面积",
+            "confidence": "high",
+            "anchors": [
+              "anc_00020"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "衡量两个边界框重叠程度的标准指标，值域[0,1]。",
+        "anchors": [
+          "anc_00020",
+          "anc_00022"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "GIoU = IoU - \\frac{|C \\setminus (A \\cup B)|}{|C|}",
+        "variables": [
+          {
+            "name": "C",
+            "description": "包含A和B的最小外接矩形",
+            "confidence": "high",
+            "anchors": [
+              "anc_00024"
+            ]
+          },
+          {
+            "name": "|C \\setminus (A ∪ B)|",
+            "description": "最小外接矩形中不属于A∪B的区域面积",
+            "confidence": "high",
+            "anchors": [
+              "anc_00024"
+            ]
+          },
+          {
+            "name": "|C|",
+            "description": "最小外接矩形的面积",
+            "confidence": "high",
+            "anchors": [
+              "anc_00024"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "在IoU基础上，惩罚了两个框之间的空隙（最小外接矩形中未被覆盖的区域），从而在非重叠情况下也能度量距离。",
+        "anchors": [
+          "anc_00024",
+          "anc_00030",
+          "anc_00032",
+          "anc_00036",
+          "anc_00037",
+          "anc_00038"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "L_{GIoU} = 1 - GIoU",
+        "variables": [
+          {
+            "name": "L_GIoU",
+            "description": "GIoU损失",
+            "confidence": "high",
+            "anchors": [
+              "anc_00093"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "将相似性度量GIoU转化为损失函数，值域[0,2]。最小化该损失等价于最大化GIoU。",
+        "anchors": [
+          "anc_00093"
+        ]
+      },
+      {
+        "formula_id": "formula_004",
+        "latex": "L_{GIoU} = 1 + \\frac{A_c - U}{A_c} \\quad (\\text{when } IoU=0)",
+        "variables": [
+          {
+            "name": "A_c",
+            "description": "最小外接矩形面积|C|",
+            "confidence": "high",
+            "anchors": [
+              "anc_00122",
+              "anc_00125"
+            ]
+          },
+          {
+            "name": "U",
+            "description": "并集面积|A ∪ B|",
+            "confidence": "high",
+            "anchors": [
+              "anc_00122",
+              "anc_00125"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "当两个框不重叠时，GIoU损失简化为该形式。最小化该损失会促使并集面积U增大（即框靠近）或最小外接矩形面积A_c减小（即框对齐），从而推动重叠。",
+        "anchors": [
+          "anc_00121",
+          "anc_00122",
+          "anc_00124",
+          "anc_00125",
+          "anc_00126",
+          "anc_00128",
+          "anc_00130",
+          "anc_00131",
+          "anc_00132",
+          "anc_00133",
+          "anc_00134"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "在YOLO v3、Faster R-CNN和Mask R-CNN上，使用GIoU损失替代原有损失，在PASCAL VOC和MS COCO数据集上均获得性能提升。",
+      "anchors": [
+        "anc_00147",
+        "anc_00157",
+        "anc_00167",
+        "anc_00185"
+      ]
+    },
+    "ablation": {
+      "description": "对比了三种损失：原始损失（MSE/ℓ1-smooth）、IoU损失（L_IoU）和GIoU损失（L_GIoU）。GIoU损失 consistently 优于其他两者。",
+      "anchors": [
+        "anc_00147",
+        "anc_00157",
+        "anc_00167",
+        "anc_00185"
+      ]
+    },
+    "robustness": {
+      "description": "GIoU损失对尺度不变，且在非重叠情况下仍有梯度，理论上比IoU损失更鲁棒。实验显示在不同IoU阈值下性能更稳定。",
+      "anchors": [
+        "anc_00010",
+        "anc_00014",
+        "anc_00096",
+        "anc_00097",
+        "anc_00163",
+        "anc_00164",
+        "anc_00165"
+      ]
+    },
+    "scaling": {
+      "description": "在不同规模的检测器（单阶段YOLO v3，两阶段Faster/Mask R-CNN）和不同数据集（VOC, COCO）上均有效。",
+      "anchors": [
+        "anc_00135",
+        "anc_00141",
+        "anc_00159",
+        "anc_00169"
+      ]
+    },
+    "case_study": {
+      "description": "图5和图6展示了使用不同损失训练的模型在COCO验证集上的定性结果，GIoU损失通常产生更准确的边界框。",
+      "anchors": [
+        "anc_00186",
+        "anc_00188"
+      ]
+    },
+    "human_eval": {
+      "description": "未提及人工评估。",
+      "anchors": []
+    },
+    "benchmark": {
+      "description": "在PASCAL VOC 2007测试集和MS COCO 2018验证集/测试集上进行评估。使用标准mAP（基于IoU阈值）和基于GIoU阈值的mAP。",
+      "anchors": [
+        "anc_00135",
+        "anc_00136",
+        "anc_00138",
+        "anc_00140",
+        "anc_00141",
+        "anc_00144",
+        "anc_00145",
+        "anc_00146",
+        "anc_00150",
+        "anc_00154",
+        "anc_00170",
+        "anc_00174",
+        "anc_00178",
+        "anc_00180",
+        "anc_00184"
+      ]
+    },
+    "efficiency": {
+      "description": "未详细讨论计算开销，但提到GIoU损失的计算（算法2）是可行的，且梯度计算良好。",
+      "anchors": [
+        "anc_00047",
+        "anc_00048"
+      ]
+    },
+    "experiments": [
+      {
+        "description": "在YOLO v3、Faster R-CNN和Mask R-CNN上，使用GIoU损失替代原有损失，在PASCAL VOC和MS COCO数据集上均获得性能提升。",
+        "anchors": [
+          "anc_00147",
+          "anc_00157",
+          "anc_00167",
+          "anc_00185"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "main_result_1",
+        "dataset": [
+          "PASCAL VOC 2007",
+          "MS COCO 2018"
+        ],
+        "baseline": [
+          "MSE loss (YOLO v3)",
+          "ℓ1-smooth loss (Faster/Mask R-CNN)"
+        ],
+        "metrics": [
+          "mAP (IoU)",
+          "mAP (GIoU)",
+          "AP75"
+        ],
+        "result_summary": "在YOLO v3、Faster R-CNN和Mask R-CNN上，使用GIoU损失替代原有损失，在PASCAL VOC和MS COCO数据集上均获得性能提升。",
+        "what_it_tries_to_prove": "GIoU损失能持续提升目标检测器的性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "对比了三种损失：原始损失（MSE/ℓ1-smooth）、IoU损失（L_IoU）和GIoU损失（L_GIoU）。GIoU损失 consistently 优于其他两者。",
+        "anchors": [
+          "anc_00147",
+          "anc_00157",
+          "anc_00167",
+          "anc_00185"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "ablation",
+        "name": "ablation_2",
+        "dataset": [
+          "PASCAL VOC 2007",
+          "MS COCO 2018"
+        ],
+        "baseline": [
+          "MSE loss (YOLO v3)",
+          "ℓ1-smooth loss (Faster/Mask R-CNN)",
+          "IoU loss (L_IoU)"
+        ],
+        "metrics": [
+          "mAP (IoU)",
+          "mAP (GIoU)",
+          "AP75"
+        ],
+        "result_summary": "对比了三种损失：原始损失（MSE/ℓ1-smooth）、IoU损失（L_IoU）和GIoU损失（L_GIoU）。GIoU损失 consistently 优于其他两者。",
+        "what_it_tries_to_prove": "GIoU损失比IoU损失和原始损失更有效。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "GIoU损失对尺度不变，且在非重叠情况下仍有梯度，理论上比IoU损失更鲁棒。实验显示在不同IoU阈值下性能更稳定。",
+        "anchors": [
+          "anc_00010",
+          "anc_00014",
+          "anc_00096",
+          "anc_00097",
+          "anc_00163",
+          "anc_00164",
+          "anc_00165"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "robustness",
+        "name": "robustness_3",
+        "dataset": [
+          "PASCAL VOC 2007"
+        ],
+        "baseline": [
+          "ℓ1-smooth loss",
+          "IoU loss (L_IoU)"
+        ],
+        "metrics": [
+          "mAP at different IoU thresholds"
+        ],
+        "result_summary": "GIoU损失对尺度不变，且在非重叠情况下仍有梯度，理论上比IoU损失更鲁棒。实验显示在不同IoU阈值下性能更稳定。",
+        "what_it_tries_to_prove": "GIoU损失比IoU损失更鲁棒和稳定。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "在不同规模的检测器（单阶段YOLO v3，两阶段Faster/Mask R-CNN）和不同数据集（VOC, COCO）上均有效。",
+        "anchors": [
+          "anc_00135",
+          "anc_00141",
+          "anc_00159",
+          "anc_00169"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "scaling",
+        "name": "scaling_4",
+        "dataset": [
+          "PASCAL VOC 2007",
+          "MS COCO 2018"
+        ],
+        "baseline": [
+          "YOLO v3",
+          "Faster R-CNN",
+          "Mask R-CNN"
+        ],
+        "metrics": [
+          "mAP (IoU)",
+          "mAP (GIoU)",
+          "AP75"
+        ],
+        "result_summary": "在不同规模的检测器（单阶段YOLO v3，两阶段Faster/Mask R-CNN）和不同数据集（VOC, COCO）上均有效。",
+        "what_it_tries_to_prove": "GIoU损失具有通用性，适用于不同架构和数据集。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "图5和图6展示了使用不同损失训练的模型在COCO验证集上的定性结果，GIoU损失通常产生更准确的边界框。",
+        "anchors": [
+          "anc_00186",
+          "anc_00188"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "case_study",
+        "name": "case_study_5",
+        "dataset": [
+          "MS COCO 2018"
+        ],
+        "baseline": [
+          "MSE loss (YOLO v3)",
+          "ℓ1-smooth loss (Mask R-CNN)",
+          "IoU loss (L_IoU)"
+        ],
+        "metrics": [
+          "定性视觉比较"
+        ],
+        "result_summary": "图5和图6展示了使用不同损失训练的模型在COCO验证集上的定性结果，GIoU损失通常产生更准确的边界框。",
+        "what_it_tries_to_prove": "GIoU损失能产生更准确的边界框回归结果。",
+        "evidence_strength": "moderate"
+      },
+      {
+        "description": "在PASCAL VOC 2007测试集和MS COCO 2018验证集/测试集上进行评估。使用标准mAP（基于IoU阈值）和基于GIoU阈值的mAP。",
+        "anchors": [
+          "anc_00135",
+          "anc_00136",
+          "anc_00138",
+          "anc_00140",
+          "anc_00141",
+          "anc_00144",
+          "anc_00145",
+          "anc_00146",
+          "anc_00150",
+          "anc_00154",
+          "anc_00170",
+          "anc_00174",
+          "anc_00178",
+          "anc_00180",
+          "anc_00184"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "benchmark",
+        "name": "benchmark_6",
+        "dataset": [
+          "PASCAL VOC 2007",
+          "MS COCO 2018"
+        ],
+        "baseline": [
+          "MSE loss (YOLO v3)",
+          "ℓ1-smooth loss (Faster/Mask R-CNN)"
+        ],
+        "metrics": [
+          "mAP (IoU)",
+          "mAP (GIoU)",
+          "AP75"
+        ],
+        "result_summary": "在PASCAL VOC 2007测试集和MS COCO 2018验证集/测试集上进行评估。使用标准mAP（基于IoU阈值）和基于GIoU阈值的mAP。",
+        "what_it_tries_to_prove": "GIoU损失在标准基准测试上表现良好。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "未详细讨论计算开销，但提到GIoU损失的计算（算法2）是可行的，且梯度计算良好。",
+        "anchors": [
+          "anc_00047",
+          "anc_00048"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "efficiency",
+        "name": "efficiency_7",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "未详细讨论计算开销，但提到GIoU损失的计算（算法2）是可行的，且梯度计算良好。",
+        "what_it_tries_to_prove": "GIoU损失在计算上是可行的。",
+        "evidence_strength": "weak"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "GIoU损失能持续提升目标检测器的性能。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00147",
+          "anc_00157",
+          "anc_00167",
+          "anc_00185"
+        ],
+        "risk_flags": [
+          "性能提升幅度因检测器和数据集而异；在YOLO v3上，分类损失的平衡可能影响最终AP。"
+        ],
+        "claim_id": "claim_1",
+        "evidence": [
+          {
+            "evidence_id": "evidence_1",
+            "description": "在YOLO v3上，使用GIoU损失替代MSE损失，在PASCAL VOC 2007测试集上，基于IoU的mAP从0.461提升到0.477（相对提升3.45%），基于GIoU的mAP从0.451提升到0.469（相对提升4.08%）。",
+            "anchors": [
+              "anc_00147"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_2",
+            "description": "在YOLO v3上，使用GIoU损失替代MSE损失，在MS COCO 2018验证集上，基于IoU的mAP从0.314提升到0.333（相对提升5.71%），基于GIoU的mAP从0.333提升到0.362（相对提升8.01%）。",
+            "anchors": [
+              "anc_00157"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_3",
+            "description": "在Faster R-CNN上，使用GIoU损失替代ℓ1-smooth损失，在PASCAL VOC 2007测试集上，基于IoU的mAP从0.698提升到0.708（相对提升1.43%），基于GIoU的mAP从0.698提升到0.711（相对提升1.86%）。",
+            "anchors": [
+              "anc_00167"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_4",
+            "description": "在Mask R-CNN上，使用GIoU损失替代ℓ1-smooth损失，在MS COCO 2018测试集上，基于IoU的mAP从0.368提升到0.377（相对提升2.45%），基于GIoU的mAP从0.399提升到0.409（相对提升2.51%）。",
+            "anchors": [
+              "anc_00185"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "GIoU在非重叠边界框情况下仍有梯度，解决了IoU的优化平台问题。",
+        "evidence_source_type": "理论分析",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00005",
+          "anc_00028",
+          "anc_00048",
+          "anc_00096",
+          "anc_00097",
+          "anc_00121",
+          "anc_00122",
+          "anc_00124",
+          "anc_00125",
+          "anc_00128",
+          "anc_00134"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_2",
+        "evidence": [
+          {
+            "evidence_id": "evidence_5",
+            "description": "当两个边界框不重叠时，IoU=0且梯度为零，导致优化停滞。",
+            "anchors": [
+              "anc_00005",
+              "anc_00028"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_6",
+            "description": "GIoU损失在非重叠情况下仍有梯度，能推动边界框向重叠方向移动。",
+            "anchors": [
+              "anc_00048",
+              "anc_00096",
+              "anc_00097"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_7",
+            "description": "当IoU=0时，L_GIoU = 1 + (A_c - U)/A_c，通过最小化该损失可以促使边界框重叠。",
+            "anchors": [
+              "anc_00121",
+              "anc_00122",
+              "anc_00124",
+              "anc_00125",
+              "anc_00128",
+              "anc_00134"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "GIoU损失比IoU损失更稳定，且在任何预测值下都有界。",
+        "evidence_source_type": "理论分析",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00096",
+          "anc_00097",
+          "anc_00104",
+          "anc_00105",
+          "anc_00107",
+          "anc_00109",
+          "anc_00111",
+          "anc_00112",
+          "anc_00114",
+          "anc_00116",
+          "anc_00118",
+          "anc_00120"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_3",
+        "evidence": [
+          {
+            "evidence_id": "evidence_8",
+            "description": "L_IoU的范围是[0,1]，L_GIoU的范围是[0,2]。",
+            "anchors": [
+              "anc_00111",
+              "anc_00112",
+              "anc_00120"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_9",
+            "description": "对于任何预测值Bp，IoU的分母（并集U）不会为零，因此L_IoU有界。",
+            "anchors": [
+              "anc_00104",
+              "anc_00105",
+              "anc_00107",
+              "anc_00109"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_10",
+            "description": "对于任何预测值Bp，GIoU的分母（最小外接矩形面积A_c）不会为零，且A_c ≥ U，因此L_GIoU有界。",
+            "anchors": [
+              "anc_00114",
+              "anc_00116",
+              "anc_00118"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "GIoU作为损失函数，直接优化了评估指标，是更优的目标。",
+        "evidence_source_type": "理论论证",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00003",
+          "anc_00005",
+          "anc_00044"
+        ],
+        "risk_flags": [
+          "直接优化指标在实践中可能因其他损失（如分类损失）的干扰而效果打折。"
+        ],
+        "claim_id": "claim_4",
+        "evidence": [
+          {
+            "evidence_id": "evidence_11",
+            "description": "损失函数与评估指标（IoU）不一致，优化目标存在偏差。",
+            "anchors": [
+              "anc_00003",
+              "anc_00005"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_12",
+            "description": "GIoU可以同时作为评估指标和回归损失，直接优化评估指标。",
+            "anchors": [
+              "anc_00044"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "GIoU损失具有尺度不变性。",
+        "evidence_source_type": "理论推导",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00010",
+          "anc_00014"
+        ],
+        "risk_flags": [
+          "实验中未专门设计尺度变化的消融实验来验证。"
+        ],
+        "claim_id": "claim_5",
+        "evidence": [
+          {
+            "evidence_id": "evidence_13",
+            "description": "IoU具有尺度不变性，因为它是基于面积的比值。",
+            "anchors": [
+              "anc_00010"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_14",
+            "description": "ℓn范数损失对尺度敏感，不同尺度的相同重叠程度会有不同的损失值。",
+            "anchors": [
+              "anc_00014"
+            ],
+            "strength": "strong"
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "IoU": "交并比，衡量两个集合重叠程度的指标，定义为交集面积除以并集面积。",
+    "GIoU": "广义交并比，在IoU基础上引入最小外接矩形来度量非重叠情况下的距离。",
+    "mAP": "平均精度均值，目标检测中常用的评估指标，基于不同召回率下的精度平均值。",
+    "AP75": "在IoU阈值为0.75时计算的平均精度。",
+    "ℓ1-smooth损失": "Fast R-CNN中使用的平滑L1损失，对异常值更鲁棒。",
+    "MSE损失": "均方误差损失，YOLO v3中用于边界框回归的损失。",
+    "最小外接矩形": "能够完全包含两个边界框的最小矩形，用于计算GIoU。",
+    "边界框回归": "预测目标边界框坐标的过程，是目标检测的关键步骤。",
+    "terms": []
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        "PASCAL VOC 2007",
+        "MS COCO 2018"
+      ],
+      "required_models": [
+        "YOLO v3 (Darknet-608)",
+        "Faster R-CNN (ResNet-50)",
+        "Mask R-CNN (ResNet-50)"
+      ],
+      "required_compute": "未明确说明，但训练深度学习目标检测模型通常需要GPU。",
+      "code_available": "是，论文提到了使用的代码库：YOLO v3的Darknet实现，Faster/Mask R-CNN的Detectron.pytorch实现。",
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "1. 准备PASCAL VOC 2007和MS COCO 2018数据集。",
+          "anchors": [
+            "anc_00135",
+            "anc_00136",
+            "anc_00138",
+            "anc_00140",
+            "anc_00141"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "2. 获取YOLO v3、Faster R-CNN和Mask R-CNN的基线代码和预训练模型。",
+          "anchors": [
+            "anc_00141",
+            "anc_00158",
+            "anc_00159"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "3. 实现GIoU损失函数（算法2），并替换原有检测器中的回归损失（MSE或ℓ1-smooth）。",
+          "anchors": [
+            "anc_00044",
+            "anc_00047",
+            "anc_00048",
+            "anc_00049",
+            "anc_00051",
+            "anc_00055",
+            "anc_00057",
+            "anc_00059",
+            "anc_00061",
+            "anc_00063",
+            "anc_00065",
+            "anc_00069",
+            "anc_00071",
+            "anc_00073",
+            "anc_00075",
+            "anc_00076",
+            "anc_00079",
+            "anc_00081",
+            "anc_00083",
+            "anc_00085",
+            "anc_00087",
+            "anc_00089",
+            "anc_00090",
+            "anc_00091",
+            "anc_00093"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "4. 按照论文描述的训练协议进行训练（如YOLO v3训练50K迭代，Faster R-CNN训练20K迭代等）。",
+          "anchors": [
+            "anc_00141",
+            "anc_00159",
+            "anc_00161",
+            "anc_00165",
+            "anc_00166"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "5. 在验证集上调整超参数（如损失权重，论文中提到将IoU/GIoU损失乘以10）。",
+          "anchors": [
+            "anc_00161"
+          ]
+        },
+        {
+          "step": "step_6",
+          "description": "6. 在测试集上评估，使用基于IoU和GIoU阈值的mAP指标。",
+          "anchors": [
+            "anc_00135",
+            "anc_00136",
+            "anc_00138",
+            "anc_00140",
+            "anc_00141",
+            "anc_00144",
+            "anc_00145",
+            "anc_00146",
+            "anc_00150",
+            "anc_00154",
+            "anc_00170",
+            "anc_00174",
+            "anc_00178",
+            "anc_00180",
+            "anc_00184"
+          ]
+        }
+      ],
+      "missing_details": [],
+      "risk_points": []
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-03T17:35:00+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_cv_081_generalized_intersection_over_union_a_metric_and_2019",
+    "title": "Generalized Intersection Over Union: A Metric and a Loss for Bounding Box Regression",
+    "authors": [
+      "S. H. Rezatofighi",
+      "Nathan Tsoi",
+      "JunYoung Gwak",
+      "Amir Sadeghian",
+      "I. Reid",
+      "S. Savarese"
+    ],
+    "venue": "Computer Vision and Pattern Recognition",
+    "year": 2019,
+    "arxiv_id": "1902.09630",
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-03T17:33:36+00:00",
+    "paper_type": "Computer Vision / Object Detection / Top-cited Computer Vision paper",
+    "citation_count": 5496,
+    "influential_citation_count": 328,
+    "semantic_scholar_id": "889c81b4d7b7ed43a3f69f880ea60b0572e02e27",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/889c81b4d7b7ed43a3f69f880ea60b0572e02e27",
+    "importance_rank": 81,
+    "selection_source": "semantic_scholar_top_cited_cv_open_pdf_2026_05_03",
+    "open_access_pdf_url": "https://arxiv.org/pdf/1902.09630",
+    "fields_of_study": [
+      "Computer Science"
+    ],
+    "publication_types": [
+      "JournalArticle",
+      "Conference"
+    ],
+    "abstract": "Intersection over Union (IoU) is the most popular evaluation metric used in the object detection benchmarks. However, there is a gap between optimizing the commonly used distance losses for regressing the parameters of a bounding box and maximizing this metric value. The optimal objective for a metric is the metric itself. In the case of axis-aligned 2D bounding boxes, it can be shown that IoU can be directly used as a regression loss. However, IoU has a plateau making it infeasible to optimize in the case of non-overlapping bounding boxes. In this paper, we address the this weakness by introducing a generalized version of IoU as both a new loss and a new metric. By incorporating this generalized IoU ( GIoU) as a loss into the state-of-the art object detection frameworks, we show a consistent improvement on their performance using both the standard, IoU based, and new, GIoU based, performance measures on popular object detection benchmarks such as PASCAL VOC and MS COCO."
+  },
+  "anchors": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Generalized Intersection over Union: A Metric and A Loss for Bounding Box Regression Hamid Rezatoﬁghi1,2 Nathan Tsoi1 JunYoung Gwak1 Amir Sadeghian1,3 Ian Reid2 Silvio Savarese1 1Computer Science Department, Stanford University, United states 2School of Computer Science, The University of Adelaide, Australia 3Aibee Inc, USA hamidrt@stanford.edu",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Abstract",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Intersection over Union (IoU) is the most popular evalu- ation metric used in the object detection benchmarks. How- ever , there is a gap between optimizing the commonly used distance losses for regressing the parameters of a bounding",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "box and maximizing this metric value. The optimal objec-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tive for a metric is the metric itself. In the case of axis- aligned 2D bounding boxes, it can be shown that IoU can be directly used as a regression loss. However , IoU has a plateau making it infeasible to optimize in the case of non- overlapping bounding boxes. In this paper , we address the weaknesses of IoU by introducing a generalized version as both a new loss and a new metric. By incorporating this generalized IoU (GIoU ) as a loss into the state-of-the art object detection frameworks, we show a consistent improve- ment on their performance using both the standard, IoU based, and new, GIoU based, performance measures on popular object detection benchmarks such as PASCAL VOC and MS COCO. 1. Introduction Bounding box regression is one of the most fundamental components in many 2D/3D computer vision tasks. Tasks such as object localization, multiple object detection, ob- ject tracking and instance level segmentation rely on ac-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "curate bounding box regression. The dominant trend for",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "improving performance of applications utilizing deep neu- ral networks is to propose either a better architecture back- bone [15, 13] or a better strategy to extract reliable local features [6]. However, one opportunity for improvement that is widely ignored is the replacement of the surrogate regression losses such as ℓ1 and ℓ2-norms, with a metric loss calculated based on Intersection over Union (IoU ). ||.||2 = 8.41 IoU= 0.26 GIoU= 0.23 ||.||2 = 8.41 IoU= 0.49 GIoU= 0.41 ||.||2 = 8.41 IoU= 0.65 GIoU= 0.65 (a) ||.||1 = 9.07 IoU = 0.27 GIoU = 0.24 ||.||1 = 9.07 IoU = 0.59 GIoU = 0.59 ||.||1 = 9.07 IoU = 0.66 GIoU = 0.62 (b)",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 1. Two sets of examples (a) and (b) with the bounding",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 1,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "boxes represented by (a) two corners (x1, y1, x2, y2) and (b) cen- ter and size (xc, yc, w, h). For all three cases in each set (a) ℓ2- norm distance,||.||2, and (b) ℓ1-norm distance,||.||1, between the representation of two rectangles are exactly same value, but their IoU and GIoU values are very different. IoU , also known as Jaccard index, is the most commonly used metric for comparing the similarity between two arbi- trary shapes. IoU encodes the shape properties of the ob- jects under comparison, e.g. the widths, heights and loca- tions of two bounding boxes, into the region property and then calculates a normalized measure that focuses on their 1 arXiv:1902.09630v2 [cs.CV] 15 Apr 2019",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "areas (or volumes). This property makes IoU invariant to the scale of the problem under consideration. Due to this appealing property, all performance measures used to eval- uate for segmentation [2, 1, 25, 14], object detection [14, 4], and tracking [11, 10] rely on this metric. However, it can be shown that there is not a strong cor-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "relation between minimizing the commonly used losses,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "e.g. ℓn-norms, deﬁned on parametric representation of two bounding boxes in 2D/3D and improving their IoU values. For example, consider the simple 2D scenario in Fig. 1 (a), where the predicted bounding box (black rectangle), and the ground truth box (green rectangle), are represented by their top-left and bottom-right corners, i.e. (x1, y1, x2, y2). For simplicity, let’s assume that the distance, e.g. ℓ2-norm, be- tween one of the corners of two boxes is ﬁxed. Therefore any predicted bounding box where the second corner lies on a circle with a ﬁxed radius centered on the second corner of the green rectangle (shown by a gray dashed line cir- cle) will have exactly the same ℓ2-norm distance from the ground truth box; however their IoU values can be signiﬁ-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "cantly different (Fig. 1 (a)). The same argument can be ex-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "tended to any other representation and loss, e.g. Fig. 1 (b). It is intuitive that a good local optimum for these types of objectives may not necessarily be a local optimum forIoU . Moreover, in contrast to IoU , ℓn-norm objectives deﬁned based on the aforementioned parametric representations are not invariant to the scale of the problem. To this end, several pairs of bounding boxes with the same level of overlap, but different scales due to e.g. perspective, will have different objective values. In addition, some representations may suf- fer from lack of regularization between the different types of parameters used for the representation. For example, in the center and size representation, (xc, yc) is deﬁned on the location space while (w, h) belongs to the size space. Com- plexity increases as more parameters are incorporated, e.g. rotation, or when adding more dimensions to the problem. To alleviate some of the aforementioned problems, state-of- the-art object detectors introduce t...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "detection. It is used to determine true positives and false",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 2,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "positives in a set of predictions. When usingIoU as an eval- uation metric an accuracy threshold must be chosen. For instance in the PASCAL VOC challenge [4], the widely re- ported detection accuracy measure, i.e. mean Average Pre- cision (mAP), is calculated based on a ﬁxedIoU threshold, i.e. 0.5. However, an arbitrary choice of the IoU threshold does not fully reﬂect the localization performance of dif- ferent methods. Any localization accuracy higher than the threshold is treated equally. In order to make this perfor- mance measure less sensitive to the choice of IoU thresh- old, the MS COCO Benchmark challenge [14] averages mAP across multiple IoU thresholds. 1Extension provided in supp. material",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Bounding box representations and losses: In 2D ob- ject detection, learning bounding box parameters is crucial. Various bounding box representations and losses have been proposed in the literature. Redmon et al. in YOLO v1[19] propose a direct regression on the bounding box parameters with a small tweak to predict square root of the bounding box size to remedy scale sensitivity. Girshicket al. [5] in R- CNN parameterize the bounding box representation by pre- dicting location and size offsets from a prior bounding box calculated using a selective search algorithm [23]. To al- leviate scale sensitivity of the representation, the bounding",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "box size offsets are deﬁned in log-space. Then, an ℓ2-norm",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "objective, also known as MSE loss, is used as the objective to optimize. Later, in Fast R-CNN [7], Girshick proposes ℓ1-smooth loss to make the learning more robust against outliers. Ren et al . [22] propose the use of a set of dense prior bounding boxes, known as anchor boxes, followed by a regression to small variations on bounding box locations and sizes. However, this makes training the bounding box scores more difﬁcult due to signiﬁcant class imbalance be- tween positive and negative samples. To mitigate this prob- lem, the authors later introduce focal loss [13], which is orthogonal to the main focus of our paper. Most popular object detectors [20, 21, 3, 12, 13, 16] uti- lize some combination of the bounding box representations and losses mentioned above. These considerable efforts have yielded signiﬁcant improvement in object detection. We show there may be some opportunity for further im- provement in localization with the use of GIoU , as their bounding box regression losses...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "IoU =|A∩ B|",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "|A∪ B| (1) Two appealing features, which make this similarity mea- sure popular for evaluating many 2D/3D computer vision tasks are as follows: Algorithm 1: Generalized Intersection over Union input : Two arbitrary convex shapes: A, B⊆ S∈ Rn output: GIoU 1 For A and B, ﬁnd the smallest enclosing convex objectC, where C⊆ S∈ Rn",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00022",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2 IoU =|A∩ B|",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "|A∪ B|",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00024",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "3 GIoU = IoU−|C\\(A∪ B)|",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "|C|",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "• IoU as a distance, e.g.LIoU = 1−IoU , is a metric (by",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00027",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "mathematical deﬁnition) [9]. It meansLIoU fulﬁlls all properties of a metric such as non-negativity, identity of indiscernibles, symmetry and triangle inequality. • IoU is invariant to the scale of the problem. This means that the similarity between two arbitrary shapes A and B is independent from the scale of their space S (the proof is provided in supp. material). However, IoU has a major weakness:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00028",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "• If|A∩B| = 0, IoU (A, B) = 0 . In this case, IoU does",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "not reﬂect if two shapes are in vicinity of each other or very far from each other. To address this issue, we propose a general extension to IoU , namely Generalized Intersection over Union GIoU . For two arbitrary convex shapes (volumes) A, B⊆ S∈ Rn, we ﬁrst ﬁnd the smallest convex shapes C⊆ S∈ Rn enclosing both A and B2. For comparing two speciﬁc types of geometric shapes, C can be from the same type. For example, two arbitrary ellipsoids, C could be the smallest ellipsoids enclosing them. Then we calculate a ratio be- tween the volume (area) occupied by C excluding A and B and divide by the total volume (area) occupied by C. This represents a normalized measure that focuses on the empty volume (area) between A and B. Finally GIoU is attained by subtracting this ratio from the IoU value. The calcula- tion of GIoU is summarized in Alg. 1. GIoU as a new metric has the following properties: 3",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1. Similar to IoU , GIoU as a distance, e.g.LGIoU =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00031",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1− GIoU , holding all properties of a metric such as non-negativity, identity of indiscernibles, symmetry and triangle inequality. 2. Similar to IoU , GIoU is invariant to the scale of the problem. 3. GIoU is always a lower bound for IoU , i.e.∀A, B⊆",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "S GIoU (A, B)≤ IoU (A, B), and this lower bound",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00033",
+      "page": 3,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "becomes tighter when A and B have a stronger shape 2Extension to non-convex cases has been provided in supp. material. 3Their proof has been provided in supp. material.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "similarity and proximity, i.e. limA→B GIoU (A, B) =",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00035",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "IoU (A, B).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4.∀A, B ⊆ S, 0 ≤ IoU (A, B) ≤ 1, but GIoU",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00037",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "has a symmetric range, i.e. ∀A, B ⊆ S, −1 ≤",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00038",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "GIoU (A, B)≤ 1.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00039",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "I) Similar to IoU , the value1 occurs only when two",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "objects overlay perfectly,i.e. if|A∪B| =|A∩B|,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00041",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "then GIoU = IoU = 1",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00042",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "II) GIoU value asymptotically converges to -1 when the ratio between occupying regions of two shapes, |A∪ B|, and the volume (area) of the enclosing shape |C| tends to zero, i.e. lim |A∪B| |C| →0",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00043",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "GIoU (A, B) =−1 .",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "In summary, this generalization keeps the major proper- ties of IoU while rectifying its weakness. Therefore, GIoU can be a proper substitute for IoU in all performance mea- sures used in 2D/3D computer vision tasks. In this paper, we only focus on 2D object detection where we can easily derive an analytical solution for GIoU to apply it as both metric and loss. The extension to non-axis aligned 3D cases is left as future work. 3.1. GIoU as Loss for Bounding Box Regression So far, we introduced GIoU as a metric for any two ar- bitrary shapes. However as is the case withIoU , there is no analytical solution for calculating intersection between two arbitrary shapes and/or for ﬁnding the smallest enclosing convex object for them. Fortunately, for the 2D object detection task where the task is to compare two axis aligned bounding boxes, we can show that GIoU has a straightforward solution. In this case, the intersection and the smallest enclosing objects both have rectangular shapes. It c...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00045",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "comparing each vertices’ coordinates using min and max",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00046",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "functions. To check if two bounding boxes overlap, a con- dition must also be checked. Therefore, we have an exact solution to calculate IoU and GIoU .",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00047",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Since back-propagating min, max and piece-wise linear",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00048",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "functions, e.g. Relu, are feasible, it can be shown that every component in Alg. 2 has a well-behaved derivative. There- fore, IoU or GIoU can be directly used as a loss, i.e.LIoU orLGIoU , for optimizing deep neural network based object detectors. In this case, we are directly optimizing a metric as loss, which is an optimal choice for the metric. However, in all non-overlapping cases, IoU has zero gradient, which affects both training quality and convergence rate. GIoU , in contrast, has a gradient in all possible cases, including non-overlapping situations. In addition, using property 3, Algorithm 2: IoU and GIoU as bounding box losses input : Predicted Bp and ground truth Bg bounding box coordinates:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Bp = (xp",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00050",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1, yp 1 , xp 2, yp",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2 ), Bg = (xg",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00052",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1, yg 1 , xg 2, yg 2 ). output:LIoU ,LGIoU .",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00053",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1 For the predicted box Bp, ensuring xp",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2 > x p 1 and yp 2 > y p 1: ˆxp",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1 = min(xp",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1, xp 2), ˆxp",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00057",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2 = max(xp",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00058",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1, xp 2), ˆyp",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00059",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1 = min(yp",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00060",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1 , yp 2 ), ˆyp",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00061",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2 = max(yp",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00062",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1 , yp 2 ).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2 Calculating area of Bg: Ag = (xg",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00064",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2− xg 1)× (yg 2− yg 1 ).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00065",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "3 Calculating area of Bp: Ap = (ˆxp",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00066",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2− ˆxp 1)× (ˆyp 2− ˆyp 1 ).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4 Calculating intersectionI between Bp and Bg:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00068",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "xI",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1 = max(ˆxp",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00070",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1, xg 1), xI",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00071",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2 = min(ˆxp",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00072",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2, xg 2), yI",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00073",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1 = max(ˆyp",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00074",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1 , yg 1 ), yI",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00075",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2 = min(ˆyp",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00076",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2 , yg 2 ), I = { (xI 2− xI 1 )× (yI 2− yI 1 ) if xI 2 > x I 1 , yI 2 > y I 1 0 otherwise.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00077",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "5 Finding the coordinate of smallest enclosing box Bc:",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00078",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "xc",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00079",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1 = min(ˆxp",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00080",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1, xg 1), xc",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00081",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2 = max(ˆxp",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00082",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2, xg 2), yc",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00083",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1 = min(ˆyp",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00084",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1 , yg 1 ), yc",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00085",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2 = max(ˆyp",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00086",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2 , yg 2 ).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00087",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "6 Calculating area of Bc: Ac = (xc",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00088",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "2− xc 1)× (yc 2− yc 1).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00089",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "7 IoU =I",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00090",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "U , whereU = Ap + Ag−I .",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00091",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "8 GIoU = IoU− Ac−U",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00092",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Ac .",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00093",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "9 LIoU = 1− IoU , LGIoU = 1− GIoU .",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00094",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "we show that GIoU has a strong correlation with IoU , especially in high IoU values. We also demonstrate this correlation qualitatively in Fig. 2 by taking over 10K ran- dom samples from the coordinates of two 2D rectangles. In",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00095",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 2, we also observe that in the case of low overlap, e.g.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00096",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "IoU≤ 0.2 and GIoU≤ 0.2, GIoU has the opportunity to",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00097",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "change more dramatically compared to IoU . To this end, GIoU can potentially have a steeper gradient in any possi- ble state in these cases compared to IoU . Therefore, opti- mizing GIoU as loss,LGIoU can be a better choice com- pared to LIoU , no matter which IoU -based performance measure is ultimately used. Our experimental results ver- ify this claim. Loss Stability: We also investigate if there exist any ex- treme cases which make the loss unstable/undeﬁned given any value for the predicted outputs. -1 -0.8 -0.6 -0.4 -0.2 0 0.2 0.4 0.6 0.8 1 GIoU 0 0.2 0.4 0.6 0.8 1 IoU Overlapping samples",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00098",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Line IoU = GIoU",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00099",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Non-overlaping samples",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00100",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Line IoU = 0 & GIoU < 0",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00101",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Figure 2. Correlation between GIoU and IOU for overlapping and",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00102",
+      "page": 4,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "non-overlapping samples.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00103",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Considering the ground truth bounding box,Bg is a rect- angle with area bigger than zero, i.e. Ag > 0. Alg. 2 ( 1) and the Conditions in Alg. 2 (4) respectively ensure the pre- dicted area Ap and intersectionI are non-negative values,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00104",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "i.e. Ap≥ 0 andI≥ 0∀Bp∈ R4. Therefore unionU > 0",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00105",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "for any predicted value of Bp = ( xp",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00106",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1, yp 1, xp 2, yp 2) ∈ R4.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00107",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "This ensures that the denominator in IoU cannot be zero",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00108",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "for any predicted value of outputs. Moreover, for any val-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00109",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "ues of Bp = ( xp",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00110",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "1, yp 1, xp 2, yp 2)∈ R4, union is always bigger",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00111",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "than intersection, i.e.U≥I . Consequently,LIoU is always",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00112",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "bounded, i.e. 0≤L IoU≤ 1∀Bp∈ R4.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00113",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "To check the stability of LGIoU , the extra term, i.e. Ac−U Ac , should always be a deﬁned and bounded value. It can be easily perceived that the smallest enclosing box Bc cannot be smaller than Bg for all predicted values. There-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00114",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "fore the denominator in Ac−U",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00115",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Ac is always a positive non-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00116",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "zero value, because Ac ≥ Ag∀Bp ∈ R4 and Ag ≥ 0.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00117",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Moreover, the area of the smallest enclosing box cannot be",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00118",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "smaller than union for any value of predictions,i.e. Ac≥U",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00119",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "∀Bp∈ R4. Therefore, the extra term in GIoU is positive and bounded. Consequently,LGIoU is always bounded, i.e.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00120",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "0≤L GIoU≤ 2∀Bp∈ R4.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00121",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "LGIoU behaviour when IoU = 0: For GIoU loss, we",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00122",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "haveLGIoU = 1− GIoU = 1 + Ac−U",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00123",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Ac − IoU . In the case",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00124",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "when Bg and Bp do not overlap, i.e.I = 0 and IoU = 0 ,",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00125",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "GIoU loss simpliﬁes toLGIoU = 1 + Ac−U",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00126",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Ac = 2 − U",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00127",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Ac .",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00128",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "In this case, by minimizing LGIoU , we actually maximize",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00129",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the term U Ac . This term is a normalized measure between 0",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00130",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "and 1, i.e. 0≤ U",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00131",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Ac ≤ 1, and is maximized when the area",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00132",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "of the smallest enclosing box Ac is minimized while the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00133",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "unionU = Ag + Ap, or more precisely the area of predicted",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00134",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "bounding box Ap, is maximized. To accomplish this, the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00135",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "vertices of the predicted bounding box Bp should move in a direction that encourages Bg and Bp to overlap, making IoU̸= 0. 4. Experimental Results We evaluate our new bounding box regression loss LGIoU by incorporating it into the most popular 2D object detectors such as Faster R-CNN [22], Mask R-CNN [6] and YOLO v3 [21]. To this end, we replace their default regression losses withLGIoU , i.e. we replace ℓ1-smooth in Faster /Mask-RCNN [22, 6] and MSE in YOLO v3 [21]. We also compare the baseline losses againstLIoU 4. Dataset. We train all detection baselines and report all the results on two standard object detection benchmarks, i.e. the PASCAL VOC [4] and the Microsoft Common Objects in Context (MS COCO) [14] challenges. The details of their training protocol and their evaluation have 4All source codes including the evaluation scripts, the training codes, trained models and all loss implementations in PyTorch, TensorFlow and darknet are available at: https://giou.stanford.edu. been p...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00136",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "in order to determine true positives and false positives.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00137",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "The main performance measure used in this benchmark is shown by AP, which is averaging mAP across different",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00138",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "value of IoU thresholds, i.e. IoU = {.5, .55,··· , .95}.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00139",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Additionally, we modify this evaluation script to useGIoU instead of IoU as a metric to decide about true positives and false positives. Therefore, we report another value for AP by averaging mAP across different values of GIoU",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00140",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "thresholds, GIoU ={.5, .55,··· , .95}. We also report the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00141",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "mAP value for IoU and GIoU thresholds equal to 0.75, shown as AP75 in the tables. All detection baselines have also been evaluated using the test set of the MS COCO 2018 dataset, where the an- notations are not accessible for the evaluation. Therefore in this case, we are only able to report results using the stan- dard performance measure, i.e. IoU . 4.1. YOLO v3 Training protocol. We used the original Darknet imple- mentation of YOLO v3 released by the authors 5. For base- line results (training using MSE loss), we used DarkNet- 608 as backbone network architecture in all experiments and followed exactly their training protocol using the re- ported default parameters and the number of iteration on each benchmark. To train YOLO v3 using IoU and GIoU losses, we simply replace the bounding box regression MSE loss withLIoU andLGIoU losses explained in Alg. 2. Con- sidering the additional MSE loss on classiﬁcation and since we replace an unbounded distance loss such as MSE dis- tance wit...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00142",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "the classiﬁcation loss. However, we performed a very min-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00143",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "imal effort to regularize these new regression losses against 5Available at: https://pjreddie.com/darknet/yolo/",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00144",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Table 1. Comparison between the performance of YOLO v3 [21] trained",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00145",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "using its own loss (MSE) as well as LIoU and LGIoU losses. The results are reported on the test set of PASCAL VOC 2007. Loss /",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00146",
+      "page": 6,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Evaluation AP AP75",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00147",
+      "page": 6,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "IoU GIoU IoU GIoU MSE [21] .461 .451 .486 .467 LIoU .466 .460 .504 .498 Relative improv % 1.08% 2.02% 3.70% 6.64% LGIoU .477 .469 .513 .499 Relative improv % 3.45% 4.08% 5.56% 6.85% the MSE classiﬁcation loss. PASCAL VOC 2007. Following the original code’s training protocol, we trained the network using each loss on both training and validation set of the dataset up to 50K iterations. Their performance using the best network model for each loss has been evaluated using the PASCAL VOC 2007 test and the results have been reported in Tab. 1. Considering both standard IoU based and new GIoU based performance measures, the results in Tab. 1 show that training YOLO v3 usingLGIoU as regression loss can considerably improve its performance compared to its own regression loss (MSE). Moreover, incorporating LIoU as regression loss can slightly improve the performance of YOLO v3 on this benchmark. However, the improvement is inferior compared to the case where it is trained byLGIoU . MS COCO. Fo...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00148",
+      "page": 6,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Figure 3. The classiﬁcation loss and accuracy (average IoU )",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00149",
+      "page": 6,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "against training iterations when YOLO v3 [21] was trained using its standard (MSE) loss as well asLIoU andLGIoU losses.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00150",
+      "page": 6,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Table 2. Comparison between the performance of YOLO v3 [21] trained",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00151",
+      "page": 6,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "using its own loss (MSE) as well as LIoU and LGIoU losses. The results are reported on 5K of the 2014 validation set of MS COCO . Loss /",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00152",
+      "page": 6,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Evaluation AP AP75",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00153",
+      "page": 6,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "IoU GIoU IoU GIoU MSE [21] 0.314 0.302 0.329 0.317 LIoU 0.322 0.313 0.345 0.335 Relative improv % 2.55% 3.64% 4.86% 5.68% LGIoU 0.335 0.325 0.359 0.348 Relative improv % 6.69% 7.62% 9.12% 9.78%",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00154",
+      "page": 6,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Table 3. Comparison between the performance of YOLO v3 [21] trained",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00155",
+      "page": 6,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "using its own loss (MSE) as well as using LIoU and LGIoU losses. The results are reported on the test set of MS COCO 2018 . Loss /",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00156",
+      "page": 6,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Evaluation AP AP75",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00157",
+      "page": 6,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "MSE [21] .314 .333 LIoU .321 .348 Relative improv % 2.18% 4.31% LGIoU .333 .362 Relative improv % 5.71% 8.01% sure. We believe the localization accuracy for YOLO v3 signiﬁcantly improves whenLGIoU loss is used (Fig. 3 (a)). However, with the current naive tuning of regularization pa- rameters, balancing bounding box loss vs. classiﬁcation loss, the classiﬁcation scores may not be optimal, compared to the baseline (Fig. 3 (b)). Since AP based performance measure is considerably affected by small classiﬁcation er- ror, we believe the results can be further improved with a better search for regularization parameters. 4.2. Faster R-CNN and Mask R-CNN Training protocol. We used the latest PyTorch imple- mentations of Faster R-CNN [22] and Mask R-CNN [6] 6,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00158",
+      "page": 6,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "released by Facebook research. This code is analogous to",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00159",
+      "page": 6,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "the original Caffe2 implementation 7. For baseline results (trained using ℓ1-smooth), we used ResNet-50 the backbone network architecture for both Faster R-CNN and Mask R- CNN in all experiments and followed their training proto- col using the reported default parameters and the number of iteration on each benchmark. To train Faster R-CNN and Mask R-CNN using IoU and GIoU losses, we replaced their ℓ1-smooth loss in the ﬁnal bounding box reﬁnement stage withLIoU andLGIoU losses explained in Alg. 2. Sim-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00160",
+      "page": 6,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "ilar to the YOLO v3 experiment, we undertook minimal ef-",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00161",
+      "page": 6,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "fort to regularize the new regression loss against the other losses such as classiﬁcation and segmentation losses. We simply multipliedLIoU andLGIoU losses by a factor of 10 for all experiments. PASCAL VOC 2007. Since there is no instance mask annotation available in this dataset, we did not evaluate Mask R-CNN on this dataset. Therefore, we only trained Faster R-CNN using the aforementioned bounding box re- 6https://github.com/roytseng-tw/Detectron.pytorch 7https://github.com/facebookresearch/Detectron",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00162",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "0.5 0.6 0.7 0.8 0.9 1 IoU Threshold 0 0.1 0.2 0.3 0.4 0.5 0.6mAP IoU loss GIoU loss Default loss",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00163",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Figure 4. mAP value against different IoU thresholds, i.e. .5≤",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00164",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "IoU ≤ .95, for Faster R-CNN trained using ℓ1-smooth (green),",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00165",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "LIoU (blue) andLGIoU (red) losses. gression losses on the training set of the dataset for 20k iter-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00166",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "ations. Then, we searched for the best-performing model on",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00167",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "the validation set over different parameters such as the num- ber of training iterations and bounding box regression loss regularizer. The ﬁnal results on the test set of the dataset have been reported in Tab. 4. According to both standard IoU based and new GIoU based performance measure, the results in Tab. 4 show that training Faster R-CNN using LGIoU as the bounding box regression loss can consistently improve its performance compared to its own regression loss ( ℓ1-smooth). More- over, incorporatingLIoU as the regression loss can slightly improve the performance of Faster R-CNN on this bench- mark. The improvement is inferior compared to the case where it is trained using LGIoU , see Fig. 4, where we vi- sualized different values of mAP against different value of",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00168",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "IoU thresholds, i.e. .5≤ IoU≤ .95.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00169",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "MS COCO. Similarly, we trained both Faster R-CNN and Mask R-CNN using each of the aforementioned bound- ing box regression losses on the MS COCO 2018 training dataset for 95K iterations. The results for the best model on the validation set of MS COCO 2018 for Faster R-CNN and Mask R-CNN have been reported in Tables 5 and 7 respec- tively. We have also compared them on the MS COCO 2018 Challenge by submitting their results to the COCO server. All results using the IoU based performance measure are also reported in Tables 6 and 8.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00170",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Table 4. Comparison between the performance of Faster R-CNN [22]",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00171",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "trained using its own loss (ℓ1-smooth) as well as LIoU and LGIoU losses. The results are reported on the test set of PASCAL VOC 2007 . Loss /",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00172",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Evaluation AP AP75",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00173",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "IoU GIoU IoU GIoU ℓ1-smooth [22] .370 .361 .358 .346 LIoU .384 .375 .395 .382 Relative improv. % 3.78% 3.88% 10.34% 10.40% LGIoU .392 .382 .404 .395 Relative improv. % 5.95% 5.82% 12.85% 14.16%",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00174",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Table 5. Comparison between the performance of Faster R-CNN [22]",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00175",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "trained using its own loss (ℓ1-smooth) as well as LIoU and LGIoU losses. The results are reported on the validation set of MS COCO 2018. Loss /",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00176",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Evaluation AP AP75",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00177",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "IoU GIoU IoU GIoU ℓ1-smooth [22] .360 .351 .390 .379 LIoU .368 .358 .396 .385 Relative improv.% 2.22% 1.99% 1.54% 1.58% LGIoU .369 .360 .398 .388 Relative improv. % 2.50% 2.56% 2.05% 2.37%",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00178",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Table 6. Comparison between the performance of Faster R-CNN [22]",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00179",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "trained using its own loss (ℓ1-smooth) as well as LIoU and LGIoU losses. The results are reported on the test set of MS COCO 2018 . Loss / Metric AP AP75 ℓ1-smooth [22] .364 .392 LIoU .373 .403 Relative improv.% 2.47% 2.81% LGIoU .373 .404 Relative improv.% 2.47% 3.06%",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00180",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Table 7. Comparison between the performance of Mask R-CNN [6]",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00181",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "trained using its own loss (ℓ1-smooth) as well as LIoU and LGIoU losses. The results are reported on the validation set of MS COCO 2018 . Loss /",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00182",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Evaluation AP AP75",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00183",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "IoU GIoU IoU GIoU ℓ1-smooth [6] .366 .356 .397 .385 LIoU .374 .364 .404 .393 Relative improv.% 2.19% 2.25% 1.76% 2.08% LGIoU .376 .366 .405 .395 Relative improv. % 2.73% 2.81% 2.02% 2.60%",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00184",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Table 8. Comparison between the performance of Mask R-CNN [6]",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00185",
+      "page": 7,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "trained using its own loss (ℓ1-smooth) as well as LIoU and LGIoU losses. The results are reported on the test set of MS COCO 2018 . Loss / Metric AP AP75 ℓ1-smooth [6] .368 .399 LIoU .377 .408 Relative improv.% 2.45% 2.26% LGIoU .377 .409 Relative improv.% 2.45% 2.51% Similar to the above experiments, detection accuracy improves by using LGIoU as regression loss over ℓ1- smooth [22, 6]. However, the amount of improvement be- tween different losses is less than previous experiments. This may be due to several factors. First, the detection an- chor boxes on Faster R-CNN [22] and Mask R-CNN [6] are more dense than YOLO v3 [21], resulting in less frequent scenarios whereLGIoU has an advantage over LIoU such as non-overlapping bounding boxes. Second, the bound- ing box regularization parameter has been naively tuned on PASCAL VOC, leading to sub-optimal result on MS COCO [14].",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00186",
+      "page": 8,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Figure 5. Example results from COCO validation using YOLO v3 [21] trained using (left to right)LGIoU ,LIoU , and MSE losses. Ground",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00187",
+      "page": 8,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "truth is shown by a solid line and predictions are represented with dashed lines.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00188",
+      "page": 8,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Figure 6. Two example results from COCO validation using Mask R-CNN [6] trained using (left to right)LGIoU ,LIoU , ℓ1-smooth losses.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00189",
+      "page": 8,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Ground truth is shown by a solid line and predictions are represented with dashed lines. 5. Conclusion In this paper, we introduced a generalization to IoU as a new metric, namely GIoU , for comparing any two arbi- trary shapes. We showed that this new metric has all of the appealing properties which IoU has while addressing its weakness. Therefore it can be a good alternative in all performance measures in 2D/3D vision tasks relying on the IoU metric. We also provided an analytical solution for calculating GIoU between two axis-aligned rectangles. We showed that the derivative of GIoU as a distance can be computed and it can be used as a bounding box regression loss. By in- corporating it into the state-of-the art object detection algo- rithms, we consistently improved their performance on pop- ular object detection benchmarks such as PASCAL VOC and MS COCO using both the commonly used performance measures and also our new accuracy measure, i.e. GIoU based average precision. Since th...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00190",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "References",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00191",
+      "page": 8,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[1] H. Alhaija, S. Mustikovela, L. Mescheder, A. Geiger, and C. Rother. Augmented reality meets computer vision: Efﬁ- cient data generation for urban driving scenes. International Journal of Computer Vision (IJCV), 2018. 2 [2] M. Cordts, M. Omran, S. Ramos, T. Rehfeld, M. Enzweiler, R. Benenson, U. Franke, S. Roth, and B. Schiele. The cityscapes dataset for semantic urban scene understanding. In Proc. of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2016. 2 [3] J. Dai, Y . Li, K. He, and J. Sun. R-fcn: Object detection via region-based fully convolutional networks. In Advances in neural information processing systems , pages 379–387, 2016. 3 [4] M. Everingham, L. Van Gool, C. K. I. Williams, J. Winn, and A. Zisserman. The pascal visual object classes (voc) chal-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00192",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "lenge. International Journal of Computer Vision, 88(2):303– 338, June 2010. 2, 5 [5] R. Girshick, J. Donahue, T. Darrell, and J. Malik. Rich fea- ture hierarchies for accurate object detection and semantic segmentation. In Proceedings of the IEEE conference on computer vision and pattern recognition , pages 580–587, 2014. 2, 3 [6] K. He, G. Gkioxari, P. Doll ´ar, and R. Girshick. Mask r-cnn. In Computer Vision (ICCV), 2017 IEEE International Con- ference on, pages 2980–2988. IEEE, 2017. 1, 5, 6, 7, 8 [7] K. He, X. Zhang, S. Ren, and J. Sun. Deep residual learn- ing for image recognition. In Proceedings of the IEEE con- ference on computer vision and pattern recognition , pages 770–778, 2016. 3 [8] B. Jiang, R. Luo, J. Mao, T. Xiao, and Y . Jiang. Acquisi- tion of localization conﬁdence for accurate object detection. In Proceedings, European Conference on Computer Vision (ECCV) workshops, 2018. 3 [9] S. Kosub. A note on the triangle inequality for the jaccard distance. arXiv preprint a...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00193",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "multi-target tracking. CoRR, abs/1504.01942, 2015. 2",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00194",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[12] T.-Y . Lin, P. Doll´ar, R. Girshick, K. He, B. Hariharan, and S. Belongie. Feature pyramid networks for object detection. In Computer Vision and Pattern Recognition (CVPR), 2017 IEEE Conference on, pages 936–944. IEEE, 2017. 3 [13] T.-Y . Lin, P. Goyal, R. Girshick, K. He, and P. Doll´ar. Focal loss for dense object detection. IEEE transactions on pattern analysis and machine intelligence, 2018. 1, 3 [14] T.-Y . Lin, M. Maire, S. Belongie, J. Hays, P. Perona, D. Ra- manan, P. Doll´ar, and C. L. Zitnick. Microsoft coco: Com- mon objects in context. InEuropean conference on computer vision, pages 740–755. Springer, 2014. 2, 5, 7 [15] S. Liu, L. Qi, H. Qin, J. Shi, and J. Jia. Path aggregation network for instance segmentation. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recogni- tion, pages 8759–8768, 2018. 1 [16] W. Liu, D. Anguelov, D. Erhan, C. Szegedy, S. Reed, C.- Y . Fu, and A. C. Berg. Ssd: Single shot multibox detector. In European conference on com...",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00195",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "softmax loss: A tractable surrogate for the optimization of",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00196",
+      "page": 9,
+      "section": "References",
+      "bbox": null,
+      "text_span": "the intersection-over-union measure in neural networks. In Proc. of the IEEE Conference on Computer Vision and Pat- tern Recognition (CVPR), 2018. 3 [18] M. A. Rahman and Y . Wang. Optimizing intersection-over- union in deep neural networks for image segmentation. In International Symposium on Visual Computing , pages 234– 244, 2016. 3 [19] J. Redmon, S. Divvala, R. Girshick, and A. Farhadi. You only look once: Uniﬁed, real-time object detection. In Pro- ceedings of the IEEE conference on computer vision and pat- tern recognition, pages 779–788, 2016. 2, 3 [20] J. Redmon and A. Farhadi. Yolo9000: Better, faster, stronger. arXiv preprint arXiv:1612.08242, 2016. 3 [21] J. Redmon and A. Farhadi. Yolov3: An incremental improve- ment. arXiv, 2018. 3, 5, 6, 7, 8 [22] S. Ren, K. He, R. Girshick, and J. Sun. Faster r-cnn: Towards real-time object detection with region proposal networks. In Advances in neural information processing systems , pages 91–99, 2015. 2, 3, 5, 6, 7 [23] J. R. Uijlings...",
+      "source_type": "reference"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "warnings": [
+      {
+        "code": "ok",
+        "message": "Grounding verification passed with current v1 checks.",
+        "target": null,
+        "severity": "info"
+      }
+    ],
+    "anchor_count": 196
+  }
+}

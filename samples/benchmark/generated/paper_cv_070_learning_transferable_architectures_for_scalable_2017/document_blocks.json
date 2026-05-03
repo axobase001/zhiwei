@@ -1,0 +1,1478 @@
+[
+  {
+    "block_id": "blk_00001",
+    "type": "title",
+    "content": "Learning Transferable Architectures for Scalable Image Recognition Barret Zoph Google Brain barretzoph@google.com Vijay Vasudevan Google Brain vrv@google.com Jonathon Shlens Google Brain shlens@google.com Quoc V . Le Google Brain qvl@google.com",
+    "page": 1,
+    "section": null,
+    "bbox": null,
+    "anchor_id": "anc_00001"
+  },
+  {
+    "block_id": "blk_00002",
+    "type": "section_heading",
+    "content": "Abstract",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00002"
+  },
+  {
+    "block_id": "blk_00003",
+    "type": "paragraph",
+    "content": "Developing neural network image classiﬁcation models often requires signiﬁcant architecture engineering. In this paper, we study a method to learn the model architectures directly on the dataset of interest. As this approach is ex-",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00003"
+  },
+  {
+    "block_id": "blk_00004",
+    "type": "formula",
+    "content": "pensive when the dataset is large, we propose to search for",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00004"
+  },
+  {
+    "block_id": "blk_00005",
+    "type": "paragraph",
+    "content": "an architectural building block on a small dataset and then",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00005"
+  },
+  {
+    "block_id": "blk_00006",
+    "type": "formula",
+    "content": "transfer the block to a larger dataset. The key contribu-",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00006"
+  },
+  {
+    "block_id": "blk_00007",
+    "type": "paragraph",
+    "content": "tion of this work is the design of a new search space (which we call the “NASNet search space”) which enables trans- ferability. In our experiments, we search for the best con- volutional layer (or “cell”) on the CIFAR-10 dataset and then apply this cell to the ImageNet dataset by stacking to- gether more copies of this cell, each with their own parame- ters to design a convolutional architecture, which we name a “NASNet architecture”. We also introduce a new regu- larization technique called ScheduledDropPath that signif- icantly improves generalization in the NASNet models. On CIFAR-10 itself, a NASNet found by our method achieves 2.4% error rate, which is state-of-the-art. Although the cell is not searched for directly on ImageNet, a NASNet con- structed from the best cell achieves, among the published works, state-of-the-art accuracy of 82.7% top-1 and 96.2% top-5 on ImageNet. Our model is 1.2% better in top-1 accu- racy than the best human-invented architectures while hav- ing 9 billion fewer FLOPS – a reduction of 28% in compu- tational demand from the previous state-of-the-art model. When evaluated at different levels of computational cost, accuracies of NASNets exceed those of the state-of-the-art human-designed models. For instance, a small version of NASNet also achieves 74% top-1 accuracy, which is 3.1% better than equivalently-sized, state-of-the-art models for mobile platforms. Finally, the image features learned from image classiﬁcation are generically useful and can be trans- ferred to other computer vision problems. On the task of ob- ject detection, the learned features by NASNet used with the Faster-RCNN framework surpass state-of-the-art by 4.0% achieving 43.1% mAP on the COCO dataset. 1. Introduction Developing neural network image classiﬁcation models often requires signiﬁcantarchitecture engineering. Starting",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00007"
+  },
+  {
+    "block_id": "blk_00008",
+    "type": "formula",
+    "content": "from the seminal work of [32] on using convolutional archi-",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00008"
+  },
+  {
+    "block_id": "blk_00009",
+    "type": "paragraph",
+    "content": "tectures [17, 34] for ImageNet [11] classiﬁcation, succes- sive advancements through architecture engineering have achieved impressive results [53, 59, 20, 60, 58, 68]. In this paper, we study a new paradigm of designing con- volutional architectures and describe a scalable method to optimize convolutional architectures on a dataset of inter- est, for instance the ImageNet classiﬁcation dataset. Our approach is inspired by the recently proposed Neural Ar- chitecture Search (NAS) framework [71], which uses a re- inforcement learning search method to optimize architec- ture conﬁgurations. Applying NAS, or any other search",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00009"
+  },
+  {
+    "block_id": "blk_00010",
+    "type": "formula",
+    "content": "methods, directly to a large dataset, such as the ImageNet",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00010"
+  },
+  {
+    "block_id": "blk_00011",
+    "type": "paragraph",
+    "content": "dataset, is however computationally expensive. We there- fore propose to search for a good architecture on a proxy dataset, for example the smaller CIFAR-10 dataset, and then transfer the learned architecture to ImageNet. We achieve this transferrability by designing a search space (which we call “the NASNet search space”) so that the complexity of the architecture is independent of the depth of the network and the size of input images. More concretely, all convolu- tional networks in our search space are composed of convo- lutional layers (or “cells”) with identical structure but dif- ferent weights. Searching for the best convolutional archi- tectures is therefore reduced to searching for the best cell structure. Searching for the best cell structure has two main beneﬁts: it is much faster than searching for an entire net- work architecture and the cell itself is more likely to gener- alize to other problems. In our experiments, this approach signiﬁcantly accelerates the search for the best architectures using CIFAR-10 by a factor of 7× and learns architectures that successfully transfer to ImageNet. Our main result is that the best architecture found on CIFAR-10, called NASNet, achieves state-of-the-art ac- curacy when transferred to ImageNet classiﬁcation with- out much modiﬁcation. On ImageNet, NASNet achieves, among the published works, state-of-the-art accuracy of 82.7% top-1 and 96.2% top-5. This result amounts to a 1 arXiv:1707.07012v4 [cs.CV] 11 Apr 2018",
+    "page": 1,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00011"
+  },
+  {
+    "block_id": "blk_00012",
+    "type": "paragraph",
+    "content": "1.2% improvement in top-1 accuracy than the best human- invented architectures while having 9 billion fewer FLOPS. On CIFAR-10 itself, NASNet achieves 2.4% error rate, which is also state-of-the-art. Additionally, by simply varying the number of the con- volutional cells and number of ﬁlters in the convolutional cells, we can create different versions of NASNets with dif- ferent computational demands. Thanks to this property of the cells, we can generate a family of models that achieve accuracies superior to all human-invented models at equiv- alent or smaller computational budgets [60, 29]. Notably, the smallest version of NASNet achieves 74.0% top-1 ac- curacy on ImageNet, which is 3.1% better than previously",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00012"
+  },
+  {
+    "block_id": "blk_00013",
+    "type": "formula",
+    "content": "engineered architectures targeted towards mobile and em-",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00013"
+  },
+  {
+    "block_id": "blk_00014",
+    "type": "paragraph",
+    "content": "bedded vision tasks [24, 70]. Finally, we show that the image features learned by NASNets are generically useful and transfer to other com- puter vision problems. In our experiments, the features learned by NASNets from ImageNet classiﬁcation can be combined with the Faster-RCNN framework [47] to achieve state-of-the-art on COCO object detection task for both the",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00014"
+  },
+  {
+    "block_id": "blk_00015",
+    "type": "formula",
+    "content": "largest as well as mobile-optimized models. Our largest",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00015"
+  },
+  {
+    "block_id": "blk_00016",
+    "type": "paragraph",
+    "content": "NASNet model achieves 43.1% mAP, which is 4% better than previous state-of-the-art. 2. Related Work The proposed method is related to previous work in hy- perparameter optimization [44, 4, 5, 54, 55, 6, 40] – es- pecially recent approaches in designing architectures such as Neural Fabrics [48], DiffRNN [41], MetaQNN [3] and DeepArchitect [43]. A more ﬂexible class of methods for designing architecture is evolutionary algorithms [65, 16, 57, 30, 46, 42, 67], yet they have not had as much success",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00016"
+  },
+  {
+    "block_id": "blk_00017",
+    "type": "formula",
+    "content": "at large scale. Xie and Yuille [67] also transferred learned",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00017"
+  },
+  {
+    "block_id": "blk_00018",
+    "type": "paragraph",
+    "content": "architectures from CIFAR-10 to ImageNet but performance of these models (top-1 accuracy 72.1%) are notably below previous state-of-the-art (Table 2). The concept of having one neural network interact with a second neural network to aid the learning process, or learn- ing to learn or meta-learning [23, 49] has attracted much attention in recent years [1, 62, 14, 19, 35, 45, 15]. Most",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00018"
+  },
+  {
+    "block_id": "blk_00019",
+    "type": "formula",
+    "content": "of these approaches have not been scaled to large problems",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00019"
+  },
+  {
+    "block_id": "blk_00020",
+    "type": "paragraph",
+    "content": "like ImageNet. An exception is the recent work focused on learning an optimizer for ImageNet classiﬁcation that achieved notable improvements [64]. The design of our search space took much inspira- tion from LSTMs [22], and Neural Architecture Search Cell [71]. The modular structure of the convolutional cell is also related to previous methods on ImageNet such as VGG [53], Inception [59, 60, 58], ResNet/ResNext [20, 68], and Xception/MobileNet [9, 24]. 3. Method Our work makes use of search methods to ﬁnd good con- volutional architectures on a dataset of interest. The main search method we use in this work is the Neural Architec- ture Search (NAS) framework proposed by [71]. In NAS, a controller recurrent neural network (RNN) samples child networks with different architectures. The child networks are trained to convergence to obtain some accuracy on a held-out validation set. The resulting accuracies are used to update the controller so that the controller will generate better architectures over time. The controller weights are updated with policy gradient (see Figure 1). The controller (RNN) Train a child network! with architecture A to ! convergence to get ! validation accuracy R Sample architecture A! with probability p Scale gradient of p by R! to update the controller",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00020"
+  },
+  {
+    "block_id": "blk_00021",
+    "type": "caption",
+    "content": "Figure 1. Overview of Neural Architecture Search [71]. A con-",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00021"
+  },
+  {
+    "block_id": "blk_00022",
+    "type": "paragraph",
+    "content": "troller RNN predicts architectureA from a search space with prob- ability p. A child network with architecture A is trained to con- vergence achieving accuracy R. Scale the gradients of p by R to update the RNN controller. The main contribution of this work is the design of a novel search space, such that the best architecture found",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00022"
+  },
+  {
+    "block_id": "blk_00023",
+    "type": "formula",
+    "content": "on the CIFAR-10 dataset would scale to larger, higher-",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00023"
+  },
+  {
+    "block_id": "blk_00024",
+    "type": "paragraph",
+    "content": "resolution image datasets across a range of computational settings. We name this search space the NASNet search space as it gives rise to NASNet, the best architecture found in our experiments. One inspiration for the NASNet search space is the realization that architecture engineering with CNNs often identiﬁes repeated motifs consisting of com- binations of convolutional ﬁlter banks, nonlinearities and a prudent selection of connections to achieve state-of-the-art results (such as the repeated modules present in the Incep- tion and ResNet models [59, 20, 60, 58]). These observa- tions suggest that it may be possible for the controller RNN to predict a generic convolutional cell expressed in terms of these motifs. This cell can then be stacked in series to han- dle inputs of arbitrary spatial dimensions and ﬁlter depth. In our approach, the overall architectures of the convo-",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00024"
+  },
+  {
+    "block_id": "blk_00025",
+    "type": "formula",
+    "content": "lutional nets are manually predetermined. They are com-",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00025"
+  },
+  {
+    "block_id": "blk_00026",
+    "type": "paragraph",
+    "content": "posed of convolutional cells repeated many times where each convolutional cell has the same architecture, but dif- ferent weights. To easily build scalable architectures for images of any size, we need two types of convolutional cells to serve two main functions when taking in a feature map",
+    "page": 2,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00026"
+  },
+  {
+    "block_id": "blk_00027",
+    "type": "caption",
+    "content": "Figure 2. Scalable architectures for image classiﬁcation consist of",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00027"
+  },
+  {
+    "block_id": "blk_00028",
+    "type": "paragraph",
+    "content": "two repeated motifs termed Normal Cell and Reduction Cell. This diagram highlights the model architecture for CIFAR-10 and Ima- geNet. The choice for the number of times the Normal Cells that gets stacked between reduction cells, N, can vary in our experi- ments. as input: (1) convolutional cells that return a feature map of the same dimension, and (2) convolutional cells that return a feature map where the feature map height and width is re- duced by a factor of two. We name the ﬁrst type and second type of convolutional cells Normal Cell and Reduction Cell respectively. For the Reduction Cell, we make the initial operation applied to the cell’s inputs have a stride of two to reduce the height and width. All of our operations that we consider for building our convolutional cells have an option of striding.",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00028"
+  },
+  {
+    "block_id": "blk_00029",
+    "type": "caption",
+    "content": "Figure 2 shows our placement of Normal and Reduction",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00029"
+  },
+  {
+    "block_id": "blk_00030",
+    "type": "paragraph",
+    "content": "Cells for CIFAR-10 and ImageNet. Note on ImageNet we",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00030"
+  },
+  {
+    "block_id": "blk_00031",
+    "type": "formula",
+    "content": "have more Reduction Cells, since the incoming image size",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00031"
+  },
+  {
+    "block_id": "blk_00032",
+    "type": "paragraph",
+    "content": "is 299x299 compared to 32x32 for CIFAR. The Reduction and Normal Cell could have the same architecture, but we empirically found it beneﬁcial to learn two separate archi- tectures. We use a common heuristic to double the number of ﬁlters in the output whenever the spatial activation size is reduced in order to maintain roughly constant hidden state dimension [32, 53]. Importantly, much like Inception and ResNet models [59, 20, 60, 58], we consider the number of motif repetitions N and the number of initial convolutional ﬁlters as free parameters that we tailor to the scale of an image classiﬁcation problem. What varies in the convolutional nets is the structures of the Normal and Reduction Cells, which are searched by the controller RNN. The structures of the cells can be searched within a search space deﬁned as follows (see Appendix,",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00032"
+  },
+  {
+    "block_id": "blk_00033",
+    "type": "caption",
+    "content": "Figure 7 for schematic). In our search space, each cell re-",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00033"
+  },
+  {
+    "block_id": "blk_00034",
+    "type": "paragraph",
+    "content": "ceives as input two initial hidden states hi and hi−1 which are the outputs of two cells in previous two lower layers or the input image. The controller RNN recursively pre- dicts the rest of the structure of the convolutional cell, given these two initial hidden states (Figure 3). The predictions of the controller for each cell are grouped into B blocks, where each block has 5 prediction steps made by 5 distinct",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00034"
+  },
+  {
+    "block_id": "blk_00035",
+    "type": "formula",
+    "content": "softmax classiﬁers corresponding to discrete choices of the",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00035"
+  },
+  {
+    "block_id": "blk_00036",
+    "type": "paragraph",
+    "content": "elements of a block: Step 1. Select a hidden state from hi, hi−1 or from the set of hidden states created in previous blocks. Step 2. Select a second hidden state from the same options as in Step 1. Step 3. Select an operation to apply to the hidden state selected in Step 1. Step 4. Select an operation to apply to the hidden state selected in Step 2. Step 5. Select a method to combine the outputs of Step 3 and 4 to create a new hidden state. The algorithm appends the newly-created hidden state to the set of existing hidden states as a potential input in sub- sequent blocks. The controller RNN repeats the above 5 prediction steps B times corresponding to the B blocks in",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00036"
+  },
+  {
+    "block_id": "blk_00037",
+    "type": "formula",
+    "content": "a convolutional cell. In our experiments, selecting B = 5",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00037"
+  },
+  {
+    "block_id": "blk_00038",
+    "type": "paragraph",
+    "content": "provides good results, although we have not exhaustively searched this space due to computational limitations. In steps 3 and 4, the controller RNN selects an operation to apply to the hidden states. We collected the following set of operations based on their prevalence in the CNN litera- ture: • identity • 1x3 then 3x1 convolution • 1x7 then 7x1 convolution • 3x3 dilated convolution",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00038"
+  },
+  {
+    "block_id": "blk_00039",
+    "type": "formula",
+    "content": "• 3x3 average pooling • 3x3 max pooling",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00039"
+  },
+  {
+    "block_id": "blk_00040",
+    "type": "formula",
+    "content": "• 5x5 max pooling • 7x7 max pooling",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00040"
+  },
+  {
+    "block_id": "blk_00041",
+    "type": "paragraph",
+    "content": "• 1x1 convolution • 3x3 convolution • 3x3 depthwise-separable conv • 5x5 depthwise-seperable conv • 7x7 depthwise-separable conv In step 5 the controller RNN selects a method to combine the two hidden states, either (1) element-wise addition be- tween two hidden states or (2) concatenation between two hidden states along the ﬁlter dimension. Finally, all of the unused hidden states generated in the convolutional cell are concatenated together in depth to provide the ﬁnal cell out- put. To allow the controller RNN to predict both Normal Cell and Reduction Cell, we simply make the controller have 2 × 5B predictions in total, where the ﬁrst 5B predictions are for the Normal Cell and the second 5B predictions are for the Reduction Cell.",
+    "page": 3,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00041"
+  },
+  {
+    "block_id": "blk_00042",
+    "type": "formula",
+    "content": "softmax! layer controller! hidden layer Select one! hidden state Select second! hidden state Select operation for ! ﬁrst hidden state Select operation for! second hidden state Select method to! combine hidden state repeat B times new hidden layer add",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00042"
+  },
+  {
+    "block_id": "blk_00043",
+    "type": "formula",
+    "content": "3 x 3 conv 2 x 2 maxpool",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00043"
+  },
+  {
+    "block_id": "blk_00044",
+    "type": "paragraph",
+    "content": "hidden layer Bhidden layer A",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00044"
+  },
+  {
+    "block_id": "blk_00045",
+    "type": "caption",
+    "content": "Figure 3. Controller model architecture for recursively constructing one block of a convolutional cell. Each block requires selecting 5",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00045"
+  },
+  {
+    "block_id": "blk_00046",
+    "type": "formula",
+    "content": "discrete parameters, each of which corresponds to the output of a softmax layer. Example constructed block shown on right. A convolu-",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00046"
+  },
+  {
+    "block_id": "blk_00047",
+    "type": "formula",
+    "content": "tional cell contains B blocks, hence the controller contains 5B softmax layers for predicting the architecture of a convolutional cell. In our",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00047"
+  },
+  {
+    "block_id": "blk_00048",
+    "type": "paragraph",
+    "content": "experiments, the number of blocks B is 5. Finally, our work makes use of the reinforcement learn- ing proposal in NAS [71]; however, it is also possible to use random search to search for architectures in the NAS- Net search space. In random search, instead of sampling",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00048"
+  },
+  {
+    "block_id": "blk_00049",
+    "type": "formula",
+    "content": "the decisions from the softmax classiﬁers in the controller",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00049"
+  },
+  {
+    "block_id": "blk_00050",
+    "type": "paragraph",
+    "content": "RNN, we can sample the decisions from the uniform distri- bution. In our experiments, we ﬁnd that random search is slightly worse than reinforcement learning on the CIFAR- 10 dataset. Although there is value in using reinforcement learning, the gap is smaller than what is found in the original work of [71]. This result suggests that 1) the NASNet search space is well-constructed such that random search can per- form reasonably well and 2) random search is a difﬁcult baseline to beat. We will compare reinforcement learning against random search in Section 4.4. 4. Experiments and Results In this section, we describe our experiments with the method described above to learn convolutional cells. In summary, all architecture searches are performed using the CIFAR-10 classiﬁcation task [31]. The controller RNN was trained using Proximal Policy Optimization (PPO) [51] by employing a global workqueue system for generating a pool of child networks controlled by the RNN. In our experi- ments, the pool of workers in the workqueue consisted of 500 GPUs. The result of this search process over 4 days yields sev- eral candidate convolutional cells. We note that this search procedure is almost7× faster than previous approaches [71] that took 28 days.1 Additionally, we demonstrate below that the resulting architecture is superior in accuracy.",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00050"
+  },
+  {
+    "block_id": "blk_00051",
+    "type": "caption",
+    "content": "Figure 4 shows a diagram of the top performing Normal",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00051"
+  },
+  {
+    "block_id": "blk_00052",
+    "type": "paragraph",
+    "content": "Cell and Reduction Cell. Note the prevalence of separable 1In particular, we note that previous architecture search [71] used 800 GPUs for 28 days resulting in 22,400 GPU-hours. The method in this pa- per uses 500 GPUs across 4 days resulting in 2,000 GPU-hours. The for- mer effort used Nvidia K40 GPUs, whereas the current efforts used faster NVidia P100s. Discounting the fact that the we use faster hardware, we estimate that the current procedure is roughly about 7× more efﬁcient. convolutions and the number of branches compared with competing architectures [53, 59, 20, 60, 58]. Subsequent experiments focus on this convolutional cell architecture,",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00052"
+  },
+  {
+    "block_id": "blk_00053",
+    "type": "formula",
+    "content": "although we examine the efﬁcacy of other, top-ranked con-",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00053"
+  },
+  {
+    "block_id": "blk_00054",
+    "type": "paragraph",
+    "content": "volutional cells in ImageNet experiments (described in Ap- pendix B) and report their results as well. We call the three networks constructed from the best three searches NASNet- A, NASNet-B and NASNet-C. We demonstrate the utility of the convolutional cells by employing this learned architecture on CIFAR-10 and a family of ImageNet classiﬁcation tasks. The latter family of tasks is explored across a few orders of magnitude in com- putational budget. After having learned the convolutional cells, several hyper-parameters may be explored to build a ﬁnal network for a given task: (1) the number of cell repeats N and (2) the number of ﬁlters in the initial convolutional cell. After selecting the number of initial ﬁlters, we use a common heuristic to double the number of ﬁlters whenever the stride is 2. Finally, we deﬁne a simple notation, e.g., 4 @ 64, to indicate these two parameters in all networks, where 4 and 64 indicate the number of cell repeats and the number of ﬁlters in the penultimate layer of the network, respectively. For complete details of of the architecture learning algo- rithm and the controller system, please refer to Appendix A. Importantly, when training NASNets, we discoveredSched- uledDropPath, a modiﬁed version of DropPath [33], to be an effective regularization method for NASNet. In Drop- Path [33], each path in the cell is stochastically dropped with some ﬁxed probability during training. In our mod- iﬁed version, ScheduledDropPath, each path in the cell is dropped out with a probability that is linearly increased over the course of training. We ﬁnd that DropPath does not work well for NASNets, while ScheduledDropPath signiﬁ- cantly improves the ﬁnal performance of NASNets in both CIFAR and ImageNet experiments.",
+    "page": 4,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00054"
+  },
+  {
+    "block_id": "blk_00055",
+    "type": "paragraph",
+    "content": "Normal Cell Reduction Cell hi hi-1 ... hi+1 concat avg! 3x3 sep! 5x5 sep! 7x7 sep! 5x5 max! 3x3 sep! 7x7 add add add add add sep! 3x3 iden! tity avg! 3x3 max! 3x3 hi hi-1 ... hi+1 concat sep! 3x3 avg! 3x3 avg! 3x3 sep! 5x5 sep! 3x3 iden! tity iden! tity sep! 3x3 sep! 5x5 avg! 3x3 add add add addadd",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00055"
+  },
+  {
+    "block_id": "blk_00056",
+    "type": "caption",
+    "content": "Figure 4. Architecture of the best convolutional cells (NASNet-A) with B = 5 blocks identiﬁed with CIFAR-10 . The input (white) is the",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00056"
+  },
+  {
+    "block_id": "blk_00057",
+    "type": "paragraph",
+    "content": "hidden state from previous activations (or input image). The output (pink) is the result of a concatenation operation across all resulting branches. Each convolutional cell is the result of B blocks. A single block is corresponds to two primitive operations (yellow) and a combination operation (green). Note that colors correspond to operations in Figure 3. 4.1. Results on CIFAR-10 Image Classiﬁcation For the task of image classiﬁcation with CIFAR-10, we",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00057"
+  },
+  {
+    "block_id": "blk_00058",
+    "type": "formula",
+    "content": "set N = 4 or 6 (Figure 2). The test accuracies of the",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00058"
+  },
+  {
+    "block_id": "blk_00059",
+    "type": "paragraph",
+    "content": "best architectures are reported in Table 1 along with other state-of-the-art models. As can be seen from the Table, a",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00059"
+  },
+  {
+    "block_id": "blk_00060",
+    "type": "formula",
+    "content": "large NASNet-A model with cutout data augmentation [12]",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00060"
+  },
+  {
+    "block_id": "blk_00061",
+    "type": "paragraph",
+    "content": "achieves a state-of-the-art error rate of 2.40% (averaged across 5 runs), which is slightly better than the previous best record of 2.56% by [12]. The best single run from our model achieves 2.19% error rate. 4.2. Results on ImageNet Image Classiﬁcation We performed several sets of experiments on ImageNet with the best convolutional cells learned from CIFAR-10. We emphasize that we merely transfer the architectures from CIFAR-10 but train all ImageNet models weights from scratch. Results are summarized in Table 2 and 3 and Figure 5. In the ﬁrst set of experiments, we train several image clas- siﬁcation systems operating on 299x299 or 331x331 reso- lution images with different experiments scaled in compu- tational demand to create models that are roughly on par in computational cost with Inception-v2 [29], Inception-v3 [60] and PolyNet [69]. We show that this family of mod- els achieve state-of-the-art performance with fewer ﬂoating point operations and parameters than comparable architec- tures. Second, we demonstrate that by adjusting the scale of the model we can achieve state-of-the-art performance at smaller computational budgets, exceeding streamlined CNNs hand-designed for this operating regime [24, 70]. Note we do not have residual connections between con- volutional cells as the models learn skip connections on their own. We empirically found manually inserting resid- ual connections between cells to not help performance. Our training setup on ImageNet is similar to [60], but please see Appendix A for details.",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00061"
+  },
+  {
+    "block_id": "blk_00062",
+    "type": "caption",
+    "content": "Table 2 shows that the convolutional cells discov-",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00062"
+  },
+  {
+    "block_id": "blk_00063",
+    "type": "paragraph",
+    "content": "ered with CIFAR-10 generalize well to ImageNet prob- lems. In particular, each model based on the convolu- tional cells exceeds the predictive performance of the cor-",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00063"
+  },
+  {
+    "block_id": "blk_00064",
+    "type": "formula",
+    "content": "responding hand-designed model. Importantly, the largest",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00064"
+  },
+  {
+    "block_id": "blk_00065",
+    "type": "paragraph",
+    "content": "model achieves a new state-of-the-art performance for Ima- geNet (82.7%) based on single, non-ensembled predictions, surpassing previous best published result by ∼1.2% [8]. Among the unpublished works, our model is on par with the best reported result of 82.7% [25], while having signif- icantly fewer ﬂoating point operations. Figure 5 shows a complete summary of our results in comparison with other published results. Note the family of models based on con- volutional cells provides an envelope over a broad class of human-invented architectures. Finally, we test how well the best convolutional cells may perform in a resource-constrained setting, e.g., mobile devices (Table 3). In these settings, the number of ﬂoat- ing point operations is severely constrained and predictive performance must be weighed against latency requirements on a device with limited computational resources. Mo- bileNet [24] and ShufﬂeNet [70] provide state-of-the-art re- sults obtaining 70.6% and 70.9 % accuracy, respectively on",
+    "page": 5,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00065"
+  },
+  {
+    "block_id": "blk_00066",
+    "type": "paragraph",
+    "content": "model depth # params error rate (%)",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00066"
+  },
+  {
+    "block_id": "blk_00067",
+    "type": "formula",
+    "content": "DenseNet (L = 40, k = 12) [26] 40 1.0M 5.24",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00067"
+  },
+  {
+    "block_id": "blk_00068",
+    "type": "formula",
+    "content": "DenseNet(L = 100, k = 12) [26] 100 7.0M 4.10",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00068"
+  },
+  {
+    "block_id": "blk_00069",
+    "type": "formula",
+    "content": "DenseNet (L = 100, k = 24) [26] 100 27.2M 3.74",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00069"
+  },
+  {
+    "block_id": "blk_00070",
+    "type": "formula",
+    "content": "DenseNet-BC (L = 100, k = 40) [26] 190 25.6M 3.46",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00070"
+  },
+  {
+    "block_id": "blk_00071",
+    "type": "paragraph",
+    "content": "Shake-Shake 26 2x32d [18] 26 2.9M 3.55 Shake-Shake 26 2x96d [18] 26 26.2M 2.86 Shake-Shake 26 2x96d + cutout [12] 26 26.2M 2.56 NAS v3 [71] 39 7.1M 4.47 NAS v3 [71] 39 37.4M 3.65 NASNet-A (6 @ 768) - 3.3M 3.41 NASNet-A (6 @ 768) + cutout - 3.3M 2.65 NASNet-A (7 @ 2304) - 27.6M 2.97 NASNet-A (7 @ 2304) + cutout - 27.6M 2.40 NASNet-B (4 @ 1152) - 2.6M 3.73 NASNet-C (4 @ 640) - 3.1M 3.59",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00071"
+  },
+  {
+    "block_id": "blk_00072",
+    "type": "caption",
+    "content": "Table 1. Performance of Neural Architecture Search and other state-of-the-art models on CIFAR-10. All results for NASNet are the mean",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00072"
+  },
+  {
+    "block_id": "blk_00073",
+    "type": "paragraph",
+    "content": "accuracy across 5 runs. 10000 20000 300000 75 70 65 80 85 # Mult-Add operations (millions) accuracy (precision @1) 40000 PolyNet Inception-v1 VGG-16 MobileNet Inception-v3 Inception-v2 ResNeXt-101 ResNet-152 Inception-v4 Inception-ResNet-v2 Xception NASNet-A (6 @ 4032) ShufﬂeNet DPN-131 NASNet-A (7 @ 1920) NASNet-A (5 @ 1538) NASNet-A (4 @ 1056) SENet 75 70 65 80 85 # parameters (millions) accuracy (precision @1) 60 80 100 120 1400 4020 NASNet-A (5 @ 1538) NASNet-A (4 @ 1056) VGG-16 PolyNet MobileNet Inception-v1 ResNeXt-101 Inception-v2 Inception-v4 Inception-ResNet-v2 ResNet-152 Xception Inception-v3 ShufﬂeNet DPN-131 NASNet-A (6 @ 4032) NASNet-A (7 @ 1920) SENet",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00073"
+  },
+  {
+    "block_id": "blk_00074",
+    "type": "caption",
+    "content": "Figure 5. Accuracy versus computational demand (left) and number of parameters (right) across top performing published CNN architec-",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00074"
+  },
+  {
+    "block_id": "blk_00075",
+    "type": "paragraph",
+    "content": "tures on ImageNet 2012 ILSVRC challenge prediction task. Computational demand is measured in the number of ﬂoating-point multiply- add operations to process a single image. Black circles indicate previously published results and red squares highlight our proposed",
+    "page": 6,
+    "section": "Abstract",
+    "bbox": null,
+    "anchor_id": "anc_00075"
+  },
+  {
+    "block_id": "blk_00076",
+    "type": "section_heading",
+    "content": "models.",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00076"
+  },
+  {
+    "block_id": "blk_00077",
+    "type": "paragraph",
+    "content": "224x224 images using ∼550M multliply-add operations. An architecture constructed from the best convolutional cells achieves superior predictive performance (74.0% ac- curacy) surpassing previous models but with comparable computational demand. In summary, we ﬁnd that the learned convolutional cells are ﬂexible across model scales achieving state-of-the-art performance across almost 2 or- ders of magnitude in computational budget. 4.3. Improved features for object detection Image classiﬁcation networks provide generic image fea- tures that may be transferred to other computer vision prob- lems [13]. One of the most important problems is the spa- tial localization of objects within an image. To further validate the performance of the family of NASNet-A net- works, we test whether object detection systems derived from NASNet-A lead to improvements in object detection [28]. To address this question, we plug in the family of NASNet-A networks pretrained on ImageNet into the Faster-RCNN object detection pipeline [47] using an open- source software platform [28]. We retrain the resulting ob- ject detection pipeline on the combined COCO training plus",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00077"
+  },
+  {
+    "block_id": "blk_00078",
+    "type": "formula",
+    "content": "validation dataset excluding 8,000 mini-validation images.",
+    "page": 6,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00078"
+  },
+  {
+    "block_id": "blk_00079",
+    "type": "paragraph",
+    "content": "Model image size # parameters Mult-Adds Top 1 Acc. (%) Top 5 Acc. (%) Inception V2 [29] 224 ×224 11.2 M 1.94 B 74.8 92.2 NASNet-A (5 @ 1538) 299 ×299 10.9 M 2.35 B 78.6 94.2 Inception V3 [60] 299 ×299 23.8 M 5.72 B 78.8 94.4 Xception [9] 299 ×299 22.8 M 8.38 B 79.0 94.5 Inception ResNet V2 [58] 299 ×299 55.8 M 13.2 B 80.1 95.1 NASNet-A (7 @ 1920) 299 ×299 22.6 M 4.93 B 80.8 95.3 ResNeXt-101 (64 x 4d) [68] 320 ×320 83.6 M 31.5 B 80.9 95.6 PolyNet [69] 331 ×331 92 M 34.7 B 81.3 95.8 DPN-131 [8] 320 ×320 79.5 M 32.0 B 81.5 95.8 SENet [25] 320 ×320 145.8 M 42.3 B 82.7 96.2 NASNet-A (6 @ 4032) 331 ×331 88.9 M 23.8 B 82.7 96.2",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00079"
+  },
+  {
+    "block_id": "blk_00080",
+    "type": "caption",
+    "content": "Table 2. Performance of architecture search and other published state-of-the-art models on ImageNet classiﬁcation. Mult-Adds indicate",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00080"
+  },
+  {
+    "block_id": "blk_00081",
+    "type": "paragraph",
+    "content": "the number of composite multiply-accumulate operations for a single image. Note that the composite multiple-accumulate operations are calculated for the image size reported in the table. Model size for [25] calculated from open-source implementation. Model # parameters Mult-Adds Top 1 Acc. (%) Top 5 Acc. (%) Inception V1 [59] 6.6M 1,448 M 69.8† 89.9 MobileNet-224 [24] 4.2 M 569 M 70.6 89.5 ShufﬂeNet (2x) [70] ∼ 5M 524 M 70.9 89.8 NASNet-A (4 @ 1056) 5.3 M 564 M 74.0 91.6 NASNet-B (4 @ 1536) 5.3M 488 M 72.8 91.3 NASNet-C (3 @ 960) 4.9M 558 M 72.5 91.0",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00081"
+  },
+  {
+    "block_id": "blk_00082",
+    "type": "caption",
+    "content": "Table 3. Performance on ImageNet classiﬁcation on a subset of models operating in a constrained computational setting, i.e., < 1.5 B",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00082"
+  },
+  {
+    "block_id": "blk_00083",
+    "type": "paragraph",
+    "content": "multiply-accumulate operations per image. All models use 224x224 images. † indicates top-1 accuracy not reported in [59] but from open-source implementation.",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00083"
+  },
+  {
+    "block_id": "blk_00084",
+    "type": "formula",
+    "content": "Model resolution mAP (mini-val) mAP (test-dev)",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00084"
+  },
+  {
+    "block_id": "blk_00085",
+    "type": "paragraph",
+    "content": "MobileNet-224 [24] 600× 600 19.8% - ShufﬂeNet (2x) [70] 600× 600 24.5%† - NASNet-A (4 @ 1056) 600× 600 29.6% - ResNet-101-FPN [36] 800 (short side) - 36.2% Inception-ResNet-v2 (G-RMI) [28] 600× 600 35.7% 35.6% Inception-ResNet-v2 (TDM) [52] 600× 1000 37.3% 36.8% NASNet-A (6 @ 4032) 800× 800 41.3% 40.7% NASNet-A (6 @ 4032) 1200× 1200 43.2% 43.1% ResNet-101-FPN (RetinaNet) [37] 800 (short side) - 39.1%",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00085"
+  },
+  {
+    "block_id": "blk_00086",
+    "type": "caption",
+    "content": "Table 4. Object detection performance on COCO on mini-val and test-dev datasets across a variety of image featurizations. All results",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00086"
+  },
+  {
+    "block_id": "blk_00087",
+    "type": "paragraph",
+    "content": "are with the Faster-RCNN object detection framework [47] from a single crop of an image. Top rows highlight mobile-optimized image",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00087"
+  },
+  {
+    "block_id": "blk_00088",
+    "type": "formula",
+    "content": "featurizations, while bottom rows indicate computationally heavy image featurizations geared towards achieving best results. All mini-val",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00088"
+  },
+  {
+    "block_id": "blk_00089",
+    "type": "paragraph",
+    "content": "results employ the same 8K subset of validation images in [28]. We perform single model evaluation using 300-500 RPN proposals per image. In other words, we only pass a sin- gle image through a single network. We evaluate the model",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00089"
+  },
+  {
+    "block_id": "blk_00090",
+    "type": "formula",
+    "content": "on the COCO mini-val [28] and test-dev dataset and report",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00090"
+  },
+  {
+    "block_id": "blk_00091",
+    "type": "paragraph",
+    "content": "the mean average precision (mAP) as computed with the standard COCO metric library [38]. We perform a simple search over learning rate schedules to identify the best pos-",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00091"
+  },
+  {
+    "block_id": "blk_00092",
+    "type": "formula",
+    "content": "sible model. Finally, we examine the behavior of two object",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00092"
+  },
+  {
+    "block_id": "blk_00093",
+    "type": "formula",
+    "content": "detection systems employing the best performing NASNet-",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00093"
+  },
+  {
+    "block_id": "blk_00094",
+    "type": "paragraph",
+    "content": "A image featurization (NASNet-A, 6 @ 4032) as well as the image featurization geared towards mobile platforms (NASNet-A, 4 @ 1056). For the mobile-optimized network, our resulting system achieves a mAP of 29.6% – exceeding previous mobile- optimized networks that employ Faster-RCNN by over 5.0% (Table 4). For the best NASNet network, our resulting",
+    "page": 7,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00094"
+  },
+  {
+    "block_id": "blk_00095",
+    "type": "paragraph",
+    "content": "network operating on images of the same spatial resolution",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00095"
+  },
+  {
+    "block_id": "blk_00096",
+    "type": "formula",
+    "content": "(800 × 800) achieves mAP = 40.7%, exceeding equivalent",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00096"
+  },
+  {
+    "block_id": "blk_00097",
+    "type": "formula",
+    "content": "object detection systems based off lesser performing image",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00097"
+  },
+  {
+    "block_id": "blk_00098",
+    "type": "paragraph",
+    "content": "featurization (i.e. Inception-ResNet-v2) by 4.0% [28, 52] (see Appendix for example detections on images and side- by-side comparisons). Finally, increasing the spatial reso- lution of the input image results in the best reported, single model result for object detection of 43.1%, surpassing the best previous best by over 4.0% [37].2 These results provide further evidence that NASNet provides superior, generic image features that may be transferred across other com- puter vision tasks. Figure 10 and Figure 11 in Appendix C show four examples of object detection results produced by NASNet-A with the Faster-RCNN framework. 4.4. Efﬁciency of architecture search methods 0 10000 20000 30000 40000 50000 Number of Models Sampled 0.890 0.895 0.900 0.905 0.910 0.915 0.920 0.925 0.930Accuracy at 20 Epochs RL Top 1 Unique Models RL Top 5 Unique Models RL Top 25 Unique Models RS Top 1 Unique Models RS Top 5 Unique Models RS Top 25 Unique Models",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00098"
+  },
+  {
+    "block_id": "blk_00099",
+    "type": "caption",
+    "content": "Figure 6. Comparing the efﬁciency of random search (RS) to re-",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00099"
+  },
+  {
+    "block_id": "blk_00100",
+    "type": "paragraph",
+    "content": "inforcement learning (RL) for learning neural architectures. The x-axis measures the total number of model architectures sampled, and the y-axis is the validation performance on CIFAR-10 after 20 epochs of training. Though what search method to use is not the focus of the paper, an open question is how effective is the rein- forcement learning search method. In this section, we study the effectiveness of reinforcement learning for architecture search on the CIFAR-10 image classiﬁcation problem and compare it to brute-force random search (considered to be a very strong baseline for black-box optimization [5]) given an equivalent amount of computational resources.",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00100"
+  },
+  {
+    "block_id": "blk_00101",
+    "type": "caption",
+    "content": "Figure 6 shows the performance of reinforcement learn-",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00101"
+  },
+  {
+    "block_id": "blk_00102",
+    "type": "paragraph",
+    "content": "ing (RL) and random search (RS) as more model architec- 2A primary advance in the best reported object detection system is the introduction of a novel loss [37]. Pairing this loss with NASNet-A image featurization may lead to even further performance gains. Additionally, performance gains are achievable through ensembling multiple inferences across multiple model instances and image crops (e.g., [28]). tures are sampled. Note that the best model identiﬁed with RL is signiﬁcantly better than the best model found by RS by over 1% as measured by on CIFAR-10. Additionally, RL ﬁnds an entire range of models that are of superior quality to random search. We observe this in the mean performance of the top-5 and top-25 models identiﬁed in RL versus RS. We take these results to indicate that although RS may pro- vide a viable search strategy, RL ﬁnds better architectures in the NASNet search space. 5. Conclusion In this work, we demonstrate how to learn scalable, con- volutional cells from data that transfer to multiple image classiﬁcation tasks. The learned architecture is quite ﬂex- ible as it may be scaled in terms of computational cost and parameters to easily address a variety of problems. In all cases, the accuracy of the resulting model exceeds all human-designed models – ranging from models designed for mobile applications to computationally-heavy models designed to achieve the most accurate results. The key insight in our approach is to design a search space that decouples the complexity of an architecture from the depth of a network. This resulting search space per- mits identifying good architectures on a small dataset (i.e., CIFAR-10) and transferring the learned architecture to im- age classiﬁcations across a range of data and computational scales. The resulting architectures approach or exceed state- of-the-art performance in both CIFAR-10 and ImageNet datasets with less computational demand than human- designed architectures [60, 29, 69]. The ImageNet re- sults are particularly important because many state-of-the- art computer vision problems (e.g., object detection [28], face detection [50], image localization [63]) derive im- age features or architectures from ImageNet classiﬁcation models. For instance, we ﬁnd that image features ob- tained from ImageNet used in combination with the Faster- RCNN framework achieves state-of-the-art object detection results. Finally, we demonstrate that we can use the re- sulting learned architecture to perform ImageNet classiﬁ- cation with reduced computational budgets that outperform",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00102"
+  },
+  {
+    "block_id": "blk_00103",
+    "type": "formula",
+    "content": "streamlined architectures targeted to mobile and embedded",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00103"
+  },
+  {
+    "block_id": "blk_00104",
+    "type": "paragraph",
+    "content": "platforms [24, 70].",
+    "page": 8,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00104"
+  },
+  {
+    "block_id": "blk_00105",
+    "type": "section_heading",
+    "content": "References",
+    "page": 8,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00105"
+  },
+  {
+    "block_id": "blk_00106",
+    "type": "reference",
+    "content": "[1] M. Andrychowicz, M. Denil, S. Gomez, M. W. Hoffman, D. Pfau, T. Schaul, and N. de Freitas. Learning to learn by gradient descent by gradient descent. In Advances in Neural Information Processing Systems, pages 3981–3989, 2016. [2] J. L. Ba, J. R. Kiros, and G. E. Hinton. Layer normalization. arXiv preprint arXiv:1607.06450, 2016.",
+    "page": 8,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00106"
+  },
+  {
+    "block_id": "blk_00107",
+    "type": "reference",
+    "content": "[3] B. Baker, O. Gupta, N. Naik, and R. Raskar. Designing neu- ral network architectures using reinforcement learning. InIn- ternational Conference on Learning Representations, 2016. [4] J. Bergstra, R. Bardenet, Y . Bengio, and B. K ´egl. Algo- rithms for hyper-parameter optimization. In Neural Infor- mation Processing Systems, 2011. [5] J. Bergstra and Y . Bengio. Random search for hyper- parameter optimization. Journal of Machine Learning Re- search, 2012.",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00107"
+  },
+  {
+    "block_id": "blk_00108",
+    "type": "reference",
+    "content": "[6] J. Bergstra, D. Yamins, and D. D. Cox. Making a science",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00108"
+  },
+  {
+    "block_id": "blk_00109",
+    "type": "reference",
+    "content": "of model search: Hyperparameter optimization in hundreds of dimensions for vision architectures. International Confer- ence on Machine Learning, 2013. [7] J. Chen, R. Monga, S. Bengio, and R. Jozefowicz. Revisiting distributed synchronous sgd. In International Conference on Learning Representations Workshop Track, 2016. [8] Y . Chen, J. Li, H. Xiao, X. Jin, S. Yan, and J. Feng. Dual path networks. arXiv preprint arXiv:1707.01083, 2017. [9] F. Chollet. Xception: Deep learning with depthwise separa- ble convolutions. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, 2017. [10] D.-A. Clevert, T. Unterthiner, and S. Hochreiter. Fast and accurate deep network learning by exponential linear units (elus). In International Conference on Learning Representa- tions, 2016. [11] J. Deng, W. Dong, R. Socher, L.-J. Li, K. Li, and L. Fei-",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00109"
+  },
+  {
+    "block_id": "blk_00110",
+    "type": "reference",
+    "content": "Fei. Imagenet: A large-scale hierarchical image database. In",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00110"
+  },
+  {
+    "block_id": "blk_00111",
+    "type": "reference",
+    "content": "IEEE Conference on Computer Vision and Pattern Recogni- tion. IEEE, 2009. [12] T. DeVries and G. W. Taylor. Improved regularization of convolutional neural networks with cutout. arXiv preprint arXiv:1708.04552, 2017. [13] J. Donahue, Y . Jia, O. Vinyals, J. Hoffman, N. Zhang, E. Tzeng, and T. Darrell. Decaf: A deep convolutional ac- tivation feature for generic visual recognition. In Interna- tional Conference on Machine Learning , volume 32, pages 647–655, 2014. [14] Y . Duan, J. Schulman, X. Chen, P. L. Bartlett, I. Sutskever, and P. Abbeel. RL 2: Fast reinforcement learning via slow reinforcement learning. arXiv preprint arXiv:1611.02779 , 2016. [15] C. Finn, P. Abbeel, and S. Levine. Model-agnostic meta- learning for fast adaptation of deep networks. In Interna- tional Conference on Machine Learning, 2017. [16] D. Floreano, P. D ¨urr, and C. Mattiussi. Neuroevolution: from architectures to learning. Evolutionary Intelligence, 2008. [17] K. Fukushima. A self-organizing neural network model for a mechanism of pattern recognition unaffected by shift in po-",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00111"
+  },
+  {
+    "block_id": "blk_00112",
+    "type": "reference",
+    "content": "sition. Biological Cybernetics, page 93202, 1980.",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00112"
+  },
+  {
+    "block_id": "blk_00113",
+    "type": "reference",
+    "content": "[18] X. Gastaldi. Shake-shake regularization of 3-branch residual networks. In International Conference on Learning Repre- sentations Workshop Track, 2017. [19] D. Ha, A. Dai, and Q. V . Le. Hypernetworks. In Interna- tional Conference on Learning Representations, 2017. [20] K. He, X. Zhang, S. Ren, and J. Sun. Deep residual learning for image recognition. In IEEE Conference on Computer Vision and Pattern Recognition, 2016. [21] K. He, X. Zhang, S. Ren, and J. Sun. Identity mappings in deep residual networks. In European Conference on Com- puter Vision, 2016. [22] S. Hochreiter and J. Schmidhuber. Long short-term memory. Neural Computation, 1997. [23] S. Hochreiter, A. Younger, and P. Conwell. Learning to learn using gradient descent. Artiﬁcial Neural Networks , pages 87–94, 2001. [24] A. G. Howard, M. Zhu, B. Chen, D. Kalenichenko, W. Wang, T. Weyand, M. Andreetto, and H. Adam. Mobilenets: Efﬁ- cient convolutional neural networks for mobile vision appli- cations. arXiv preprint arXiv:1704.04861, 2017. [25] J. Hu, L. Shen, and G. Sun. Squeeze-and-excitation net- works. arXiv preprint arXiv:1709.01507, 2017. [26] G. Huang, Z. Liu, and K. Q. Weinberger. Densely connected convolutional networks. In IEEE Conference on Computer Vision and Pattern Recognition, 2017. [27] G. Huang, Y . Sun, Z. Liu, D. Sedra, and K. Weinberger. Deep networks with stochastic depth. In European Conference on Computer Vision, 2016. [28] J. Huang, V . Rathod, C. Sun, M. Zhu, A. Korattikara, A. Fathi, I. Fischer, Z. Wojna, Y . Song, S. Guadarrama, et al. Speed/accuracy trade-offs for modern convolutional object detectors. In IEEE Conference on Computer Vision and Pat- tern Recognition, 2017. [29] S. Ioffe and C. Szegedy. Batch normalization: Accelerating deep network training by reducing internal covariate shift. In International Conference on Learning Representations , 2015. [30] R. Jozefowicz, W. Zaremba, and I. Sutskever. An empirical exploration of recurrent network architectures. In Interna- tional Conference on Learning Representations, 2015. [31] A. Krizhevsky. Learning multiple layers of features from tiny images. Technical report, University of Toronto, 2009. [32] A. Krizhevsky, I. Sutskever, and G. E. Hinton. Imagenet classiﬁcation with deep convolutional neural networks. In Advances in Neural Information Processing System, 2012. [33] G. Larsson, M. Maire, and G. Shakhnarovich. Fractalnet: Ultra-deep neural networks without residuals. arXiv preprint arXiv:1605.07648, 2016. [34] Y . LeCun, L. Bottou, Y . Bengio, and P. Haffner. Gradient- based learning applied to document recognition. Proceed- ings of the IEEE, 1998. [35] K. Li and J. Malik. Learning to optimize neural nets. arXiv preprint arXiv:1703.00441, 2017. [36] T.-Y . Lin, P. Doll´ar, R. Girshick, K. He, B. Hariharan, and S. Belongie. Feature pyramid networks for object detection. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, 2017. [37] T.-Y . Lin, P. Goyal, R. Girshick, K. He, and P. Doll ´ar. Focal loss for dense object detection. arXiv preprint arXiv:1708.02002, 2017. [38] T.-Y . Lin, M. Maire, S. Belongie, J. Hays, P. Perona, D. Ra- manan, P. Doll´ar, and C. L. Zitnick. Microsoft coco: Com- mon objects in context. In European Conference on Com- puter Vision, pages 740–755. Springer, 2014.",
+    "page": 9,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00113"
+  },
+  {
+    "block_id": "blk_00114",
+    "type": "reference",
+    "content": "[39] I. Loshchilov and F. Hutter. SGDR: Stochastic gradient de- scent with warm restarts. In International Conference on Learning Representations, 2017. [40] H. Mendoza, A. Klein, M. Feurer, J. T. Springenberg, and F. Hutter. Towards automatically-tuned neural networks. In Proceedings of the 2016 Workshop on Automatic Machine Learning, pages 58–65, 2016. [41] T. Miconi. Neural networks with differentiable structure. arXiv preprint arXiv:1606.06216, 2016. [42] R. Miikkulainen, J. Liang, E. Meyerson, A. Rawal, D. Fink, O. Francon, B. Raju, A. Navruzyan, N. Duffy, and B. Hod- jat. Evolving deep neural networks. arXiv preprint arXiv:1703.00548, 2017. [43] R. Negrinho and G. Gordon. DeepArchitect: Automatically designing and training deep architectures. arXiv preprint arXiv:1704.08792, 2017. [44] N. Pinto, D. Doukhan, J. J. DiCarlo, and D. D. Cox. A high- throughput screening approach to discovering good forms of",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00114"
+  },
+  {
+    "block_id": "blk_00115",
+    "type": "reference",
+    "content": "biologically inspired visual representation. PLoS Computa-",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00115"
+  },
+  {
+    "block_id": "blk_00116",
+    "type": "reference",
+    "content": "tional Biology, 5(11):e1000579, 2009.",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00116"
+  },
+  {
+    "block_id": "blk_00117",
+    "type": "reference",
+    "content": "[45] S. Ravi and H. Larochelle. Optimization as a model for few- shot learning. In International Conference on Learning Rep- resentations, 2017. [46] E. Real, S. Moore, A. Selle, S. Saxena, Y . L. Suematsu,",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00117"
+  },
+  {
+    "block_id": "blk_00118",
+    "type": "reference",
+    "content": "Q. Le, and A. Kurakin. Large-scale evolution of image clas-",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00118"
+  },
+  {
+    "block_id": "blk_00119",
+    "type": "reference",
+    "content": "siﬁers. In International Conference on Machine Learning , 2017. [47] S. Ren, K. He, R. Girshick, and J. Sun. Faster R-CNN: To- wards real-time object detection with region proposal net- works. In Advances in Neural Information Processing Sys- tems, pages 91–99, 2015. [48] S. Saxena and J. Verbeek. Convolutional neural fabrics. In Advances in Neural Information Processing Systems, 2016. [49] T. Schaul and J. Schmidhuber. Metalearning. Scholarpedia, 2010. [50] F. Schroff, D. Kalenichenko, and J. Philbin. Facenet: A uni- ﬁed embedding for face recognition and clustering. In Pro- ceedings of the IEEE Conference on Computer Vision and Pattern Recognition, pages 815–823, 2015. [51] J. Schulman, F. Wolski, P. Dhariwal, A. Radford, and O. Klimov. Proximal policy optimization algorithms. arXiv preprint arXiv:1707.06347, 2017. [52] A. Shrivastava, R. Sukthankar, J. Malik, and A. Gupta. Be- yond skip connections: Top-down modulation for object de- tection. arXiv preprint arXiv:1612.06851, 2016. [53] K. Simonyan and A. Zisserman. Very deep convolutional",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00119"
+  },
+  {
+    "block_id": "blk_00120",
+    "type": "reference",
+    "content": "networks for large-scale image recognition. In International",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00120"
+  },
+  {
+    "block_id": "blk_00121",
+    "type": "reference",
+    "content": "Conference on Learning Representations, 2015. [54] J. Snoek, H. Larochelle, and R. P. Adams. Practical Bayesian optimization of machine learning algorithms. In Neural In- formation Processing Systems, 2012. [55] J. Snoek, O. Rippel, K. Swersky, R. Kiros, N. Satish, N. Sun- daram, M. Patwary, M. Ali, R. P. Adams, et al. Scalable Bayesian optimization using deep neural networks. In Inter- national Conference on Machine Learning, 2015. [56] N. Srivastava, G. E. Hinton, A. Krizhevsky, I. Sutskever, and R. Salakhutdinov. Dropout: a simple way to prevent neu- ral networks from overﬁtting. Journal of Machine Learning Research, 15(1):1929–1958, 2014. [57] K. O. Stanley, D. B. D’Ambrosio, and J. Gauci. A",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00121"
+  },
+  {
+    "block_id": "blk_00122",
+    "type": "reference",
+    "content": "hypercube-based encoding for evolving large-scale neural",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00122"
+  },
+  {
+    "block_id": "blk_00123",
+    "type": "reference",
+    "content": "networks. Artiﬁcial Life, 2009. [58] C. Szegedy, S. Ioffe, V . Vanhoucke, and A. Alemi. Inception- v4, Inception-Resnet and the impact of residual connections on learning. In International Conference on Learning Rep- resentations Workshop Track, 2016. [59] C. Szegedy, W. Liu, Y . Jia, P. Sermanet, S. Reed, D. Anguelov, D. Erhan, V . Vanhoucke, and A. Rabinovich. Going deeper with convolutions. In IEEE Conference on Computer Vision and Pattern Recognition, 2015. [60] C. Szegedy, V . Vanhoucke, S. Ioffe, J. Shlens, and Z. Wojna. Rethinking the Inception architecture for computer vision. In IEEE Conference on Computer Vision and Pattern Recogni- tion, 2016. [61] D. Ulyanov, A. Vedaldi, and V . Lempitsky. Instance normal- ization: The missing ingredient for fast stylization. arXiv preprint arXiv:1607.08022, 2016. [62] J. X. Wang, Z. Kurth-Nelson, D. Tirumala, H. Soyer, J. Z. Leibo, R. Munos, C. Blundell, D. Kumaran, and M. Botvinick. Learning to reinforcement learn. arXiv preprint arXiv:1611.05763, 2016. [63] T. Weyand, I. Kostrikov, and J. Philbin. Planet-photo ge- olocation with convolutional neural networks. In European Conference on Computer Vision, 2016. [64] O. Wichrowska, N. Maheswaranathan, M. W. Hoffman, S. G. Colmenarejo, M. Denil, N. de Freitas, and J. Sohl-Dickstein. Learned optimizers that scale and generalize. arXiv preprint arXiv:1703.04813, 2017. [65] D. Wierstra, F. J. Gomez, and J. Schmidhuber. Modeling systems with internal state using evolino. In The Genetic and Evolutionary Computation Conference, 2005. [66] R. J. Williams. Simple statistical gradient-following algo- rithms for connectionist reinforcement learning. In Machine Learning, 1992. [67] L. Xie and A. Yuille. Genetic CNN. arXiv preprint arXiv:1703.01513, 2017. [68] S. Xie, R. Girshick, P. Doll ´ar, Z. Tu, and K. He. Aggregated residual transformations for deep neural networks. In Pro- ceedings of the IEEE Conference on Computer Vision and Pattern Recognition, 2017. [69] X. Zhang, Z. Li, C. C. Loy, and D. Lin. Polynet: A pursuit of structural diversity in very deep networks. In Proceed- ings of the IEEE Conference on Computer Vision and Pattern Recognition, 2017. [70] X. Zhang, X. Zhou, L. Mengxiao, and J. Sun. Shufﬂenet: An extremely efﬁcient convolutional neural network for mobile devices. arXiv preprint arXiv:1707.01083, 2017. [71] B. Zoph and Q. V . Le. Neural architecture search with rein- forcement learning. InInternational Conference on Learning Representations, 2017.",
+    "page": 10,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00123"
+  },
+  {
+    "block_id": "blk_00124",
+    "type": "reference",
+    "content": "Appendix A. Experimental Details A.1. Dataset for Architecture Search The CIFAR-10 dataset [31] consists of 60,000 32x32 RGB images across 10 classes (50,000 train and 10,000 test images). We partition a random subset of 5,000 images from the training set to use as a validation set for the con- troller RNN. All images are whitened and then undergone several data augmentation steps: we randomly crop 32x32 patches from upsampled images of size 40x40 and apply random horizontal ﬂips. This data augmentation procedure is common among related work. A.2. Controller architecture The controller RNN is a one-layer LSTM [22] with 100",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00124"
+  },
+  {
+    "block_id": "blk_00125",
+    "type": "reference",
+    "content": "hidden units at each layer and 2 × 5B softmax predictions",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00125"
+  },
+  {
+    "block_id": "blk_00126",
+    "type": "reference",
+    "content": "for the two convolutional cells (where B is typically 5) as- sociated with each architecture decision. Each of the 10B predictions of the controller RNN is associated with a prob- ability. The joint probability of a child network is the prod-",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00126"
+  },
+  {
+    "block_id": "blk_00127",
+    "type": "reference",
+    "content": "uct of all probabilities at these 10B softmaxes. This joint",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00127"
+  },
+  {
+    "block_id": "blk_00128",
+    "type": "reference",
+    "content": "probability is used to compute the gradient for the controller RNN. The gradient is scaled by the validation accuracy of the child network to update the controller RNN such that the controller assigns low probabilities for bad child networks and high probabilities for good child networks. Unlike [71], who used the REINFORCE rule [66] to up- date the controller, we employ Proximal Policy Optimiza- tion (PPO) [51] with learning rate 0.00035 because train- ing with PPO is faster and more stable. To encourage ex- ploration we also use an entropy penalty with a weight of 0.00001. In our implementation, the baseline function is an exponential moving average of previous rewards with a weight of 0.95. The weights of the controller are initialized uniformly between -0.1 and 0.1. A.3. Training of the Controller For distributed training, we use a workqueue system where all the samples generated from the controller RNN are added to a global workqueue. A free “child” worker in a distributed worker pool asks the controller for new work from the global workqueue. Once the training of the child network is complete, the accuracy on a held-out valida- tion set is computed and reported to the controller RNN. In our experiments we use a child worker pool size of 450, which means there are 450 networks being trained on 450 GPUs concurrently at any time. Upon receiving enough child model training results, the controller RNN will per- form a gradient update on its weights using PPO and then sample another batch of architectures that go into the global",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00128"
+  },
+  {
+    "block_id": "blk_00129",
+    "type": "reference",
+    "content": "workqueue. This process continues until a predetermined",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00129"
+  },
+  {
+    "block_id": "blk_00130",
+    "type": "reference",
+    "content": "number of architectures have been sampled. In our experi-",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00130"
+  },
+  {
+    "block_id": "blk_00131",
+    "type": "reference",
+    "content": "ments, this predetermined number of architectures is 20,000",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00131"
+  },
+  {
+    "block_id": "blk_00132",
+    "type": "reference",
+    "content": "which means the search process is terminated after 20,000",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00132"
+  },
+  {
+    "block_id": "blk_00133",
+    "type": "reference",
+    "content": "child models have been trained. Additionally, we update the",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00133"
+  },
+  {
+    "block_id": "blk_00134",
+    "type": "reference",
+    "content": "controller RNN with minibatches of 20 architectures. Once",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00134"
+  },
+  {
+    "block_id": "blk_00135",
+    "type": "reference",
+    "content": "the search is over, the top 250 architectures are then chosen",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00135"
+  },
+  {
+    "block_id": "blk_00136",
+    "type": "reference",
+    "content": "to train until convergence on CIFAR-10 to determine the",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00136"
+  },
+  {
+    "block_id": "blk_00137",
+    "type": "reference",
+    "content": "very best architecture. A.4. Details of architecture search space",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00137"
+  },
+  {
+    "block_id": "blk_00138",
+    "type": "reference",
+    "content": "We performed preliminary experiments to identify a ﬂex-",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00138"
+  },
+  {
+    "block_id": "blk_00139",
+    "type": "reference",
+    "content": "ible, expressive search space for neural architectures that",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00139"
+  },
+  {
+    "block_id": "blk_00140",
+    "type": "reference",
+    "content": "learn effectively. Generally, our strategy for preliminary ex-",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00140"
+  },
+  {
+    "block_id": "blk_00141",
+    "type": "reference",
+    "content": "periments involved small-scale explorations to identify how",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00141"
+  },
+  {
+    "block_id": "blk_00142",
+    "type": "reference",
+    "content": "to run large-scale architecture search.",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00142"
+  },
+  {
+    "block_id": "blk_00143",
+    "type": "reference",
+    "content": "• All convolutions employ ReLU nonlinearity. Exper-",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00143"
+  },
+  {
+    "block_id": "blk_00144",
+    "type": "reference",
+    "content": "iments with ELU nonlinearity [10] showed minimal",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00144"
+  },
+  {
+    "block_id": "blk_00145",
+    "type": "reference",
+    "content": "beneﬁt. • To ensure that the shapes always match in convolu- tional cells, 1x1 convolutions are inserted as necessary. • Unlike [24], all depthwise separable convolution do not employ Batch Normalization and/or a ReLU be- tween the depthwise and pointwise operations. • All convolutions followed an ordering of ReLU, con- volution operation and Batch Normalization following [21]. • Whenever a separable convolution is selected as an op- eration by the model architecture, the separable convo- lution is applied twice to the hidden state. We found this empirically to improve overall performance. A.5. Training with ScheduledDropPath We performed several experiments with various stochas- tic regularization methods. Naively applying dropout [56] across convolutional ﬁlters degraded performance. How- ever, we discovered a new technique calledScheduledDrop- Path, a modiﬁed version of DropPath [33], that works well in regularizing NASNets. In DropPath, we stochastically drop out each path (i.e., edge with a yellow box in Figure 4) in the cell with some ﬁxed probability. This is simi- lar to [27] and [69] where they dropout full parts of their model during training and then at test time scale the path by the probability of keeping that path during training. In- terestingly we also found that DropPath alone does not help NASNet training much, but DropPath withlinearly increas- ing the probability of dropping out a path over the course of training signiﬁcantly improves the ﬁnal performance for both CIFAR and ImageNet experiments. We name this",
+    "page": 11,
+    "section": "References",
+    "bbox": null,
+    "anchor_id": "anc_00145"
+  },
+  {
+    "block_id": "blk_00146",
+    "type": "section_heading",
+    "content": "method ScheduledDropPath.",
+    "page": 11,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00146"
+  },
+  {
+    "block_id": "blk_00147",
+    "type": "caption",
+    "content": "Figure 7. Schematic diagram of the NASNet search space. Network motifs are constructed recursively in stages termed blocks. Each",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00147"
+  },
+  {
+    "block_id": "blk_00148",
+    "type": "paragraph",
+    "content": "block consists of the controller selecting a pair of hidden states (dark gray), operations to perform on those hidden states (yellow) and a combination operation (green). The resulting hidden state is retained in the set of potential hidden states to be selected on subsequent blocks. A.6. Training of CIFAR models All of our CIFAR models use a single period cosine de- cay as in [39, 18]. All models use the momentum optimizer with momentum rate set to 0.9. All models also use L2 weight decay. Each architecture is trained for a ﬁxed 20 epochs on CIFAR-10 during the architecture search process. Additionally, we found it beneﬁcial to use the cosine learn- ing rate decay during the 20 epochs the CIFAR models were trained as this helped to further differentiate good architec- tures. We also found that having the CIFAR models use a",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00148"
+  },
+  {
+    "block_id": "blk_00149",
+    "type": "formula",
+    "content": "small N = 2 during the architecture search process allowed",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00149"
+  },
+  {
+    "block_id": "blk_00150",
+    "type": "paragraph",
+    "content": "for models to train quite quickly, while still ﬁnding cells that work well once more were stacked. A.7. Training of ImageNet models",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00150"
+  },
+  {
+    "block_id": "blk_00151",
+    "type": "formula",
+    "content": "We use ImageNet 2012 ILSVRC challenge data for large",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00151"
+  },
+  {
+    "block_id": "blk_00152",
+    "type": "paragraph",
+    "content": "scale image classiﬁcation. The dataset consists of ∼ 1.2M images labeled across 1,000 classes [11]. Overall our train- ing and testing procedures are almost identical to [60]. Im- ageNet models are trained and evaluated on 299x299 or 331x331 images using the same data augmentation proce- dures as described previously [60]. We use distributed syn- chronous SGD to train the ImageNet model with 50 work- ers (and 3 backup workers) each with a Tesla K40 GPU [7]. We use RMSProp with a decay of 0.9 and epsilon of 1.0. Evaluations are calculated using with a running average of parameters over time with a decay rate of 0.9999. We use label smoothing with a value of 0.1 for all ImageNet mod- els as done in [60]. Additionally, all models use an auxiliary classiﬁer located at 2/3 of the way up the network. The loss of the auxiliary classiﬁer is weighted by 0.4 as done in [60]. We empirically found our network to be insensitive to the number of parameters associated with this auxiliary clas- siﬁer along with the weight associated with the loss. All models also use L2 regularization. The learning rate de- cay scheme is the exponential decay scheme used in [60].",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00152"
+  },
+  {
+    "block_id": "blk_00153",
+    "type": "formula",
+    "content": "Dropout is applied to the ﬁnal softmax matrix with proba-",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00153"
+  },
+  {
+    "block_id": "blk_00154",
+    "type": "paragraph",
+    "content": "bility 0.5. B. Additional Experiments We now present two additional cells that performed well on CIFAR and ImageNet. The search spaces used for these cells are slightly different than what was used for NASNet- A. For the NASNet-B model in Figure 8 we do not concate- nate all of the unused hidden states generated in the convo- lutional cell. Instead all of the hiddenstates created within the convolutional cell, even if they are currently used, are",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00154"
+  },
+  {
+    "block_id": "blk_00155",
+    "type": "formula",
+    "content": "fed into the next layer. Note that B = 4 and there are 4 hid-",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00155"
+  },
+  {
+    "block_id": "blk_00156",
+    "type": "paragraph",
+    "content": "denstates as input to the cell as these numbers must match for this cell to be valid. We also allow addition followed by layer normalization [2] or instance normalization [61] to be predicted as two of the combination operations within the cell, along with addition or concatenation. For NASNet-C (Figure 9), we concatenate all of the un- used hidden states generated in the convolutional cell like in NASNet-A, but now we allow the prediction of addition followed by layer normalization or instance normalization like in NASNet-B.",
+    "page": 12,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00156"
+  },
+  {
+    "block_id": "blk_00157",
+    "type": "caption",
+    "content": "Figure 8. Architecture of NASNet-B convolutional cell with B =",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00157"
+  },
+  {
+    "block_id": "blk_00158",
+    "type": "paragraph",
+    "content": "4 blocks identiﬁed with CIFAR-10. The input (white) is the hidden state from previous activations (or input image). Each convolu- tional cell is the result of B blocks. A single block is corresponds to two primitive operations (yellow) and a combination operation (green). As do we not concatenate the output hidden states, each output hidden state is used as a hidden state in the future layers. Each cell takes in 4 hidden states and thus needs to also create 4 output hidden states. Each output hidden state is therefore labeled with 0, 1, 2, 3 to represent the next four layers in that order. C. Example object detection results Finally, we will present examples of object detection re- sults on the COCO dataset in Figure 10 and Figure 11. As can be seen from the ﬁgures, NASNet-A featurization works well with Faster-RCNN and gives accurate localiza- tion of objects.",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00158"
+  },
+  {
+    "block_id": "blk_00159",
+    "type": "caption",
+    "content": "Figure 9. Architecture of NASNet-C convolutional cell with B =",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00159"
+  },
+  {
+    "block_id": "blk_00160",
+    "type": "paragraph",
+    "content": "4 blocks identiﬁed with CIFAR-10. The input (white) is the hid- den state from previous activations (or input image). The output (pink) is the result of a concatenation operation across all result- ing branches. Each convolutional cell is the result of B blocks. A single block corresponds to two primitive operations (yellow) and a combination operation (green).",
+    "page": 13,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00160"
+  },
+  {
+    "block_id": "blk_00161",
+    "type": "caption",
+    "content": "Figure 10. Example detections showing improvements of object",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00161"
+  },
+  {
+    "block_id": "blk_00162",
+    "type": "paragraph",
+    "content": "detection over previous state-of-the-art model for Faster-RCNN with Inception-ResNet-v2 featurization [28] (top) and NASNet-A featurization (bottom).",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00162"
+  },
+  {
+    "block_id": "blk_00163",
+    "type": "caption",
+    "content": "Figure 11. Example detections of best performing NASNet-A fea-",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00163"
+  },
+  {
+    "block_id": "blk_00164",
+    "type": "paragraph",
+    "content": "turization with Faster-RCNN trained on COCO dataset. Top and middle images courtesy of http://wikipedia.org. Bottom image courtesy of Jonathan Huang",
+    "page": 14,
+    "section": "Method",
+    "bbox": null,
+    "anchor_id": "anc_00164"
+  }
+]

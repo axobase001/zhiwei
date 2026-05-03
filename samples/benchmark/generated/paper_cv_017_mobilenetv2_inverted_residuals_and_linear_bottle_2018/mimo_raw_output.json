@@ -1,0 +1,741 @@
+{
+  "paper_skeleton": {
+    "problem": "设计高效的移动设备神经网络架构，在保持高精度的同时显著降低计算量和内存占用，以支持实时推理。",
+    "motivation": "现有移动网络（如MobileNetV1）在精度和效率之间仍有改进空间。作者提出通过改进残差块结构（倒残差）和移除窄层中的非线性激活（线性瓶颈）来提升性能，并扩展至目标检测和语义分割任务。",
+    "core_idea": "提出MobileNetV2架构，核心创新是倒残差结构（inverted residuals）和线性瓶颈（linear bottlenecks）。倒残差在薄瓶颈层之间使用跳跃连接，中间扩展层使用轻量级深度卷积作为非线性源；线性瓶颈通过移除窄层中的非线性激活来保持表示能力。",
+    "method": "基于深度可分离卷积构建倒残差瓶颈块：先通过1x1卷积扩展通道数（扩展因子t），然后进行3x3深度卷积，最后通过1x1线性卷积压缩回低维。跳跃连接在瓶颈层之间。使用ReLU6作为非线性激活。通过宽度乘子和输入分辨率调整模型大小。",
+    "experiments": "在ImageNet分类、COCO目标检测（使用SSDLite）和PASCAL VOC语义分割（使用Mobile DeepLabv3）上评估。与MobileNetV1、ShuffleNet、NASNet等基线比较，分析精度、计算量（MAdds）、参数量和延迟。",
+    "claims": [
+      "倒残差结构比传统残差结构更高效且性能更好。",
+      "线性瓶颈对保持低维流形的信息至关重要，移除非线性激活可提升性能。",
+      "MobileNetV2在多个任务和基准上达到或超过现有移动模型的精度，同时计算量和参数量更少。",
+      "SSDLite和Mobile DeepLabv3是高效的目标检测和语义分割移动解决方案。",
+      "倒残差设计允许内存高效的推理实现。"
+    ],
+    "limitations": "论文未详细讨论在不同硬件平台上的实际部署优化；扩展因子t的选择基于经验；对于极小模型（宽度乘子<0.35）的性能未深入分析；语义分割中ASPP模块的移除会带来精度损失。"
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "深度可分离卷积",
+        "label": "基础构建块",
+        "summary": "将标准卷积分解为深度卷积和逐点卷积，大幅减少计算量。",
+        "description": "深度卷积对每个输入通道应用单个滤波器，逐点卷积通过1x1卷积组合特征。计算成本约为标准卷积的1/8到1/9。",
+        "type": "building_block",
+        "anchors": [
+          "anc_00008",
+          "anc_00009",
+          "anc_00010"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "线性瓶颈",
+        "label": "设计原则",
+        "summary": "在瓶颈层中移除非线性激活（如ReLU），以保持低维流形的信息。",
+        "description": "实验表明，在窄瓶颈层中使用非线性激活会破坏信息，导致性能下降。线性瓶颈通过保持线性变换来避免信息损失。",
+        "type": "design_principle",
+        "anchors": [
+          "anc_00010",
+          "anc_00019",
+          "anc_00021",
+          "anc_00023"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "倒残差结构",
+        "label": "核心架构",
+        "summary": "在薄瓶颈层之间使用跳跃连接，中间扩展层使用深度卷积。",
+        "description": "与传统残差连接（连接高维层）不同，倒残差连接低维瓶颈层。这提高了内存效率并略微提升了性能。",
+        "type": "architecture",
+        "anchors": [
+          "anc_00021",
+          "anc_00024",
+          "anc_00025",
+          "anc_00071",
+          "anc_00072"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "瓶颈残差块",
+        "label": "操作单元",
+        "summary": "由扩展、深度卷积和线性投影组成的残差块。",
+        "description": "具体结构：1x1卷积扩展通道（扩展因子t），3x3深度卷积（带ReLU6），1x1线性卷积压缩通道。跳跃连接在输入和输出之间。",
+        "type": "block",
+        "anchors": [
+          "anc_00026",
+          "anc_00027",
+          "anc_00028",
+          "anc_00029",
+          "anc_00031",
+          "anc_00034",
+          "anc_00035"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "MobileNetV2整体架构",
+        "label": "网络架构",
+        "summary": "由初始卷积层和19个倒残差瓶颈层组成的网络。",
+        "description": "初始层为32滤波器的卷积，随后是19个瓶颈层（见Table 2）。使用ReLU6、批归一化和dropout。通过宽度乘子和输入分辨率调整模型大小。",
+        "type": "network",
+        "anchors": [
+          "anc_00031",
+          "anc_00036",
+          "anc_00039",
+          "anc_00040",
+          "anc_00041"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "SSDLite",
+        "label": "目标检测框架",
+        "summary": "将SSD中的标准卷积替换为深度可分离卷积的移动友好版本。",
+        "description": "在MobileNetV2特征提取器上应用SSDLite，显著减少参数和计算量，同时保持竞争性精度。",
+        "type": "application",
+        "anchors": [
+          "anc_00089",
+          "anc_00093",
+          "anc_00094",
+          "anc_00095",
+          "anc_00096",
+          "anc_00097"
+        ]
+      },
+      {
+        "node_id": "node_007",
+        "title": "Mobile DeepLabv3",
+        "label": "语义分割框架",
+        "summary": "使用MobileNetV2作为特征提取器的简化DeepLabv3。",
+        "description": "在MobileNetV2的第二最后特征图上构建DeepLabv3头，使用输出步长16或8。移除ASPP模块可大幅减少计算量但略有精度损失。",
+        "type": "application",
+        "anchors": [
+          "anc_00100",
+          "anc_00101",
+          "anc_00102",
+          "anc_00103",
+          "anc_00104",
+          "anc_00105",
+          "anc_00106",
+          "anc_00107",
+          "anc_00109",
+          "anc_00110",
+          "anc_00111"
+        ]
+      },
+      {
+        "node_id": "node_008",
+        "title": "内存高效推理",
+        "label": "实现技巧",
+        "summary": "利用倒残差结构实现内存高效的推理，通过分块计算减少中间张量存储。",
+        "description": "将瓶颈块视为单个操作，内部张量可分块计算，只需存储小块中间结果。这显著降低了内存需求，适合移动设备。",
+        "type": "implementation",
+        "anchors": [
+          "anc_00048",
+          "anc_00055",
+          "anc_00056",
+          "anc_00057",
+          "anc_00058",
+          "anc_00059",
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064",
+          "anc_00065",
+          "anc_00066",
+          "anc_00067",
+          "anc_00068",
+          "anc_00069",
+          "anc_00070",
+          "anc_00071",
+          "anc_00072",
+          "anc_00073",
+          "anc_00074",
+          "anc_00075",
+          "anc_00076",
+          "anc_00077",
+          "anc_00078",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_004",
+        "label": "作为基础卷积操作",
+        "anchors": [
+          "anc_00008",
+          "anc_00010"
+        ]
+      },
+      {
+        "source": "node_002",
+        "target": "node_004",
+        "label": "指导瓶颈层设计",
+        "anchors": [
+          "anc_00019",
+          "anc_00021",
+          "anc_00023"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "定义跳跃连接方式",
+        "anchors": [
+          "anc_00021",
+          "anc_00024",
+          "anc_00025"
+        ]
+      },
+      {
+        "source": "node_004",
+        "target": "node_005",
+        "label": "组成网络基本单元",
+        "anchors": [
+          "anc_00031",
+          "anc_00039",
+          "anc_00040"
+        ]
+      },
+      {
+        "source": "node_005",
+        "target": "node_006",
+        "label": "作为特征提取器",
+        "anchors": [
+          "anc_00089",
+          "anc_00097"
+        ]
+      },
+      {
+        "source": "node_005",
+        "target": "node_007",
+        "label": "作为特征提取器",
+        "anchors": [
+          "anc_00100",
+          "anc_00102",
+          "anc_00107"
+        ]
+      },
+      {
+        "source": "node_003",
+        "target": "node_008",
+        "label": "使能内存高效实现",
+        "anchors": [
+          "anc_00048",
+          "anc_00067",
+          "anc_00071"
+        ]
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": "MobileNetV1（基于深度可分离卷积的标准残差结构）和传统残差网络（如ResNet）。",
+    "new_method": "MobileNetV2（倒残差结构和线性瓶颈）。",
+    "deltas": [
+      {
+        "before": "传统残差连接在高维层之间（如ResNet）。",
+        "after": "倒残差连接在低维瓶颈层之间。",
+        "why_it_matters": "提高了内存效率，并略微提升了精度。倒残差设计允许更高效的推理实现。",
+        "anchors": [
+          "anc_00021",
+          "anc_00024",
+          "anc_00025",
+          "anc_00048"
+        ]
+      },
+      {
+        "before": "瓶颈层中使用非线性激活（如ReLU）。",
+        "after": "瓶颈层中使用线性激活（移除非线性）。",
+        "why_it_matters": "防止非线性激活破坏低维流形中的信息，提升模型表示能力和精度。",
+        "anchors": [
+          "anc_00010",
+          "anc_00019",
+          "anc_00021",
+          "anc_00023",
+          "anc_00083",
+          "anc_00084",
+          "anc_00085"
+        ]
+      },
+      {
+        "before": "SSD使用标准卷积。",
+        "after": "SSDLite使用深度可分离卷积。",
+        "why_it_matters": "大幅减少目标检测模型的参数和计算量，使其适合移动设备。",
+        "anchors": [
+          "anc_00089",
+          "anc_00093",
+          "anc_00094",
+          "anc_00095",
+          "anc_00096",
+          "anc_00097"
+        ]
+      },
+      {
+        "before": "DeepLabv3使用ResNet等大型骨干网络。",
+        "after": "Mobile DeepLabv3使用MobileNetV2作为轻量级骨干，并简化头部。",
+        "why_it_matters": "实现高效的移动语义分割，计算量大幅减少。",
+        "anchors": [
+          "anc_00100",
+          "anc_00102",
+          "anc_00107",
+          "anc_00109",
+          "anc_00110",
+          "anc_00111"
+        ]
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "F(x) = [A \\circ N \\circ B] x",
+        "variables": [
+          {
+            "name": "F(x)",
+            "description": "瓶颈残差块的输出",
+            "confidence": "high",
+            "anchors": [
+              "anc_00072"
+            ]
+          },
+          {
+            "name": "A",
+            "description": "线性扩展变换（1x1卷积）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00073"
+            ]
+          },
+          {
+            "name": "N",
+            "description": "非线性逐通道变换（深度卷积+ReLU6）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00073",
+              "anc_00074"
+            ]
+          },
+          {
+            "name": "B",
+            "description": "线性压缩变换（1x1卷积）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00073"
+            ]
+          }
+        ],
+        "dependencies": [
+          "深度可分离卷积",
+          "线性瓶颈"
+        ],
+        "intuition": "瓶颈块由三个算子组成：线性扩展、非线性深度处理、线性压缩。这实现了倒残差结构。",
+        "anchors": [
+          "anc_00071",
+          "anc_00072",
+          "anc_00073",
+          "anc_00074"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "M(G) = \\max_{op \\in G} \\left[ \\sum_{A \\in op_{inp}} |A| + \\sum_{B \\in op_{out}} |B| + |op| \\right]",
+        "variables": [
+          {
+            "name": "M(G)",
+            "description": "计算图G的内存需求上界",
+            "confidence": "high",
+            "anchors": [
+              "anc_00064",
+              "anc_00065"
+            ]
+          },
+          {
+            "name": "op",
+            "description": "计算图中的操作",
+            "confidence": "high",
+            "anchors": [
+              "anc_00065"
+            ]
+          },
+          {
+            "name": "|A|, |B|",
+            "description": "输入/输出张量的大小",
+            "confidence": "high",
+            "anchors": [
+              "anc_00065"
+            ]
+          }
+        ],
+        "dependencies": [
+          "计算图",
+          "内存优化"
+        ],
+        "intuition": "对于具有简单并行结构（如残差连接）的图，内存需求是所有操作中输入和输出张量总大小的最大值。这指导了内存高效实现。",
+        "anchors": [
+          "anc_00062",
+          "anc_00063",
+          "anc_00064",
+          "anc_00065",
+          "anc_00066"
+        ]
+      },
+      {
+        "formula_id": "formula_003",
+        "latex": "F(x) = \\sum_{i=1}^{t} (A_i \\circ N \\circ B_i)(x)",
+        "variables": [
+          {
+            "name": "t",
+            "description": "扩展因子",
+            "confidence": "high",
+            "anchors": [
+              "anc_00079"
+            ]
+          },
+          {
+            "name": "A_i, B_i",
+            "description": "分块后的线性变换",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00079"
+            ]
+          }
+        ],
+        "dependencies": [
+          "内存高效推理",
+          "分块计算"
+        ],
+        "intuition": "通过将内部张量分成t块，每次只处理一块，从而只需存储一块中间结果，大幅降低内存需求。",
+        "anchors": [
+          "anc_00077",
+          "anc_00078",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "在ImageNet分类上，MobileNetV2在不同计算量下均优于MobileNetV1、ShuffleNet和NASNet。",
+      "anchors": [
+        "anc_00086",
+        "anc_00087",
+        "anc_00088",
+        "anc_00090",
+        "anc_00091"
+      ]
+    },
+    "ablation": {
+      "description": "消融研究验证了线性瓶颈和倒残差连接的重要性：在瓶颈层使用非线性激活会降低精度；不同跳跃连接方式的影响。",
+      "anchors": [
+        "anc_00083",
+        "anc_00084",
+        "anc_00085"
+      ]
+    },
+    "robustness": {
+      "description": "通过宽度乘子（0.35-1.4）和输入分辨率（96-224）调整模型大小，展示了性能-效率权衡曲线。",
+      "anchors": [
+        "anc_00036",
+        "anc_00082",
+        "anc_00083"
+      ]
+    },
+    "scaling": {
+      "description": "分析了扩展因子t（5-10）对性能的影响，发现小网络适合较小t，大网络适合较大t。",
+      "anchors": [
+        "anc_00031",
+        "anc_00032",
+        "anc_00033",
+        "anc_00034"
+      ]
+    },
+    "case_study": {
+      "description": "目标检测：MobileNetV2 + SSDLite在COCO上达到22.1 mAP，参数4.3M，计算0.8B MAdds，延迟200ms（Pixel 1）。语义分割：MobileNetV2 + DeepLabv3在PASCAL VOC上达到78.42 mIOU（输出步长8）。",
+      "anchors": [
+        "anc_00095",
+        "anc_00096",
+        "anc_00097",
+        "anc_00098",
+        "anc_00099",
+        "anc_00109",
+        "anc_00110",
+        "anc_00111"
+      ]
+    },
+    "human_eval": {
+      "description": "未提及人工评估。",
+      "anchors": []
+    },
+    "benchmark": {
+      "description": "在ImageNet、COCO、PASCAL VOC三个标准基准上评估。",
+      "anchors": [
+        "anc_00003",
+        "anc_00086",
+        "anc_00089",
+        "anc_00102"
+      ]
+    },
+    "efficiency": {
+      "description": "报告了计算量（MAdds）、参数量、内存占用和实际延迟（在Google Pixel 1上使用TF-Lite）。MobileNetV2比MobileNetV1更高效。",
+      "anchors": [
+        "anc_00036",
+        "anc_00043",
+        "anc_00044",
+        "anc_00045",
+        "anc_00046",
+        "anc_00091",
+        "anc_00092",
+        "anc_00093",
+        "anc_00094",
+        "anc_00095",
+        "anc_00098"
+      ]
+    }
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "倒残差结构比传统残差结构更高效且性能更好。",
+        "evidence_source_type": "实验比较（ImageNet分类、内存分析）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00021",
+          "anc_00024",
+          "anc_00025",
+          "anc_00048",
+          "anc_00086",
+          "anc_00087",
+          "anc_00088"
+        ],
+        "risk_flags": [
+          "比较基线可能不完全公平（如ShuffleNet实现细节）"
+        ]
+      },
+      {
+        "claim": "线性瓶颈对保持低维流形的信息至关重要，移除非线性激活可提升性能。",
+        "evidence_source_type": "理论分析（流形假设）和消融实验",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00010",
+          "anc_00019",
+          "anc_00021",
+          "anc_00023",
+          "anc_00083",
+          "anc_00084",
+          "anc_00085"
+        ],
+        "risk_flags": [
+          "理论分析基于假设，实验仅在小规模验证"
+        ]
+      },
+      {
+        "claim": "MobileNetV2在多个任务和基准上达到或超过现有移动模型的精度，同时计算量和参数量更少。",
+        "evidence_source_type": "多任务实验（分类、检测、分割）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00003",
+          "anc_00086",
+          "anc_00087",
+          "anc_00088",
+          "anc_00090",
+          "anc_00091",
+          "anc_00095",
+          "anc_00096",
+          "anc_00097",
+          "anc_00109",
+          "anc_00110",
+          "anc_00111"
+        ],
+        "risk_flags": [
+          "部分比较可能未使用最新基线"
+        ]
+      },
+      {
+        "claim": "SSDLite和Mobile DeepLabv3是高效的目标检测和语义分割移动解决方案。",
+        "evidence_source_type": "应用实验（COCO检测、VOC分割）",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00089",
+          "anc_00093",
+          "anc_00094",
+          "anc_00095",
+          "anc_00096",
+          "anc_00097",
+          "anc_00100",
+          "anc_00102",
+          "anc_00107",
+          "anc_00109",
+          "anc_00110",
+          "anc_00111"
+        ],
+        "risk_flags": [
+          "仅与有限基线比较（如YOLOv2、原始SSD）"
+        ]
+      },
+      {
+        "claim": "倒残差设计允许内存高效的推理实现。",
+        "evidence_source_type": "理论分析和实现技巧",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00048",
+          "anc_00055",
+          "anc_00056",
+          "anc_00057",
+          "anc_00058",
+          "anc_00059",
+          "anc_00060",
+          "anc_00061",
+          "anc_00062",
+          "anc_00063",
+          "anc_00064",
+          "anc_00065",
+          "anc_00066",
+          "anc_00067",
+          "anc_00068",
+          "anc_00069",
+          "anc_00070",
+          "anc_00071",
+          "anc_00072",
+          "anc_00073",
+          "anc_00074",
+          "anc_00075",
+          "anc_00076",
+          "anc_00077",
+          "anc_00078",
+          "anc_00079",
+          "anc_00080",
+          "anc_00081"
+        ],
+        "risk_flags": [
+          "实际内存节省依赖于框架实现，未提供广泛硬件验证"
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "倒残差（Inverted Residual）",
+        "definition": "一种残差块设计，其中跳跃连接位于薄瓶颈层之间，而不是传统残差中的高维层之间。",
+        "anchors": [
+          "anc_00021",
+          "anc_00024",
+          "anc_00025"
+        ]
+      },
+      {
+        "term": "线性瓶颈（Linear Bottleneck）",
+        "definition": "在瓶颈层中移除非线性激活（如ReLU），使用线性变换，以保持低维流形的信息。",
+        "anchors": [
+          "anc_00010",
+          "anc_00019",
+          "anc_00021",
+          "anc_00023"
+        ]
+      },
+      {
+        "term": "深度可分离卷积（Depthwise Separable Convolution）",
+        "definition": "将标准卷积分解为深度卷积（每个通道独立滤波）和逐点卷积（1x1卷积组合通道），以减少计算量。",
+        "anchors": [
+          "anc_00008",
+          "anc_00009",
+          "anc_00010"
+        ]
+      },
+      {
+        "term": "扩展因子（Expansion Factor）",
+        "definition": "在瓶颈块中，中间扩展层的通道数相对于输入通道数的倍数，通常为6。",
+        "anchors": [
+          "anc_00031",
+          "anc_00034",
+          "anc_00035"
+        ]
+      },
+      {
+        "term": "SSDLite",
+        "definition": "SSD的移动友好变体，将标准卷积替换为深度可分离卷积。",
+        "anchors": [
+          "anc_00089",
+          "anc_00093",
+          "anc_00094"
+        ]
+      },
+      {
+        "term": "Mobile DeepLabv3",
+        "definition": "使用MobileNetV2作为特征提取器的简化DeepLabv3，用于移动语义分割。",
+        "anchors": [
+          "anc_00100",
+          "anc_00102",
+          "anc_00107"
+        ]
+      },
+      {
+        "term": "宽度乘子（Width Multiplier）",
+        "definition": "一个超参数，用于均匀缩放网络每层的通道数，以控制模型大小和计算量。",
+        "anchors": [
+          "anc_00036",
+          "anc_00038"
+        ]
+      },
+      {
+        "term": "ReLU6",
+        "definition": "一种非线性激活函数，定义为min(max(0, x), 6)，对低精度计算更鲁棒。",
+        "anchors": [
+          "anc_00031"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "required_datasets": [
+      "ImageNet（分类）",
+      "COCO（目标检测）",
+      "PASCAL VOC 2012（语义分割）"
+    ],
+    "required_models": [
+      "MobileNetV2（不同宽度乘子和分辨率）",
+      "MobileNetV1",
+      "ShuffleNet",
+      "NASNet-A",
+      "SSD",
+      "YOLOv2",
+      "DeepLabv3",
+      "ResNet-101"
+    ],
+    "compute": "训练需要GPU集群；推理可在移动设备（如Google Pixel 1）上测试。具体计算资源未详细说明。",
+    "code_available": "是，论文提供了TensorFlow模型代码链接（anc_00116）。",
+    "steps": [
+      "1. 准备数据集：下载ImageNet、COCO、PASCAL VOC。",
+      "2. 实现MobileNetV2架构：根据Table 2构建网络，使用深度可分离卷积、倒残差块、线性瓶颈。",
+      "3. 训练分类模型：使用RMSProp优化器，批归一化，dropout，数据增强。",
+      "4. 实现SSDLite：在MobileNetV2特征图上构建SSD头，使用深度可分离卷积。",
+      "5. 实现Mobile DeepLabv3：在MobileNetV2第二最后特征图上构建DeepLabv3头，调整输出步长。",
+      "6. 评估：在相应基准上测试精度、计算量、参数量、延迟。",
+      "7. 消融实验：验证线性瓶颈和倒残差连接的影响。"
+    ],
+    "missing_details": [
+      "训练超参数的完整列表（如学习率调度、批大小、训练轮数）。",
+      "数据增强的具体细节。",
+      "不同硬件平台上的延迟优化细节。",
+      "扩展因子t的详细选择依据。",
+      "内存高效推理的具体实现代码。"
+    ],
+    "risk_points": [
+      "复现时可能因框架版本或硬件差异导致性能偏差。",
+      "内存高效推理技巧依赖于特定框架支持，可能不易实现。",
+      "部分比较基线（如ShuffleNet）的实现细节可能影响公平比较。"
+    ]
+  }
+}

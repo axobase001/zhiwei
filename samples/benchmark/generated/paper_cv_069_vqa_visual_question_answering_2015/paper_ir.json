@@ -1,0 +1,3258 @@
+{
+  "paper_skeleton": {
+    "problem": {
+      "summary": "视觉问答（VQA）任务：给定一张图像和一个关于该图像的自然语言问题，系统需要提供一个准确的自然语言答案。该任务需要比图像描述更细致的图像理解和复杂推理能力。",
+      "anchors": [
+        "anc_00003",
+        "anc_00005"
+      ]
+    },
+    "motivation": {
+      "summary": "现有的图像描述任务仅需粗略的场景级理解，而VQA需要更深入的视觉理解和常识推理。VQA任务可以自动评估，且问题与答案开放自由，更贴近现实世界场景（如帮助视障人士）。",
+      "anchors": [
+        "anc_00005",
+        "anc_00007"
+      ]
+    },
+    "core_idea": {
+      "summary": "提出一个大规模、开放自由的VQA数据集和任务，并提供多种基线方法和模型来评估和推动该领域的发展。",
+      "anchors": [
+        "anc_00005",
+        "anc_00016"
+      ]
+    },
+    "method": {
+      "summary": "构建了一个包含约25万张图像、76万个问题和1000万个答案的VQA数据集。提出了多种基线方法，包括随机猜测、先验回答、基于问题类型的先验、语言模型（BoW Q, LSTM Q）、视觉模型（I）以及结合视觉和语言的多模态模型（如deeper LSTM Q + norm I）。",
+      "anchors": [
+        "anc_00016",
+        "anc_00072",
+        "anc_00077",
+        "anc_00079"
+      ]
+    },
+    "experiments": {
+      "summary": "在VQA数据集上评估了多种基线方法和提出的模型。主要结果包括：语言模型单独表现良好，但结合视觉信息后性能显著提升。最佳模型（deeper LSTM Q + norm I）在开放任务上达到58.16%准确率，在多选任务上达到63.09%准确率。还进行了消融实验，分析了不同组件（如图像特征归一化、融合方式、答案数量K、词汇表大小等）的影响。",
+      "anchors": [
+        "anc_00091",
+        "anc_00094",
+        "anc_00103",
+        "anc_00104"
+      ]
+    },
+    "claims": [
+      {
+        "claim_id": "claim_1",
+        "claim": "VQA任务比图像描述需要更细致的图像理解和复杂推理。",
+        "anchors": [
+          "anc_00005",
+          "anc_00007"
+        ]
+      },
+      {
+        "claim_id": "claim_2",
+        "claim": "语言模型单独在VQA上表现良好，但结合视觉信息后性能显著提升。",
+        "anchors": [
+          "anc_00091",
+          "anc_00092",
+          "anc_00094"
+        ]
+      },
+      {
+        "claim_id": "claim_3",
+        "claim": "提出的VQA数据集和任务为评估视觉理解和常识推理提供了有效平台。",
+        "anchors": [
+          "anc_00005",
+          "anc_00016",
+          "anc_00030"
+        ]
+      },
+      {
+        "claim_id": "claim_4",
+        "claim": "最佳模型（deeper LSTM Q + norm I）显著优于单独的视觉或语言基线。",
+        "anchors": [
+          "anc_00091",
+          "anc_00092",
+          "anc_00094"
+        ]
+      },
+      {
+        "claim_id": "claim_5",
+        "claim": "ℓ2归一化图像特征和逐元素相乘融合能提升模型性能。",
+        "anchors": [
+          "anc_00104",
+          "anc_00113"
+        ]
+      },
+      {
+        "claim_id": "claim_6",
+        "claim": "模型在计数问题上表现不佳，尤其是较高数字。",
+        "anchors": [
+          "anc_00095"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "limitation": "模型在计数问题上表现不佳，尤其是较高数字的计数。",
+        "anchors": [
+          "anc_00095"
+        ]
+      },
+      {
+        "limitation": "语言模型可能利用了问题中的统计先验（如“香蕉是什么颜色？”可回答“黄色”而无需看图），导致对图像信息的依赖不足。",
+        "anchors": [
+          "anc_00091",
+          "anc_00094"
+        ]
+      },
+      {
+        "limitation": "数据集可能存在偏差，影响模型的泛化能力。",
+        "anchors": [
+          "anc_00030"
+        ]
+      },
+      {
+        "limitation": "模型在需要常识推理的问题上表现仍有提升空间。",
+        "anchors": [
+          "anc_00102",
+          "anc_00110",
+          "anc_00112"
+        ]
+      }
+    ]
+  },
+  "method_graph": {
+    "nodes": [
+      {
+        "node_id": "node_001",
+        "title": "图像通道",
+        "label": "Image Channel",
+        "summary": "提供图像的嵌入表示，使用VGGNet最后一层隐藏层的激活作为4096维图像嵌入。",
+        "description": "实验了两种嵌入：1) I：VGGNet最后一层隐藏层的激活（4096维）。2) norm I：ℓ2归一化的VGGNet最后一层隐藏层激活。VGGNet参数冻结，使用ImageNet分类预训练权重，不进行微调。",
+        "type": "feature_extraction",
+        "anchors": [
+          "anc_00077",
+          "anc_00079",
+          "anc_00084"
+        ]
+      },
+      {
+        "node_id": "node_002",
+        "title": "问题通道",
+        "label": "Question Channel",
+        "summary": "提供问题的嵌入表示，实验了三种嵌入：词袋（BoW Q）、LSTM（LSTM Q）和更深的LSTM（deeper LSTM Q）。",
+        "description": "1) Bag-of-Words Question (BoW Q)：使用问题中出现频率最高的1000个词创建词袋表示。2) LSTM Q：使用单层LSTM编码问题。3) deeper LSTM Q：使用两层LSTM编码问题。",
+        "type": "text_encoding",
+        "anchors": [
+          "anc_00077",
+          "anc_00079",
+          "anc_00084"
+        ]
+      },
+      {
+        "node_id": "node_003",
+        "title": "多模态融合",
+        "label": "Multimodal Fusion",
+        "summary": "将图像和问题嵌入进行融合，用于预测答案。",
+        "description": "将图像嵌入和问题嵌入进行逐元素相乘（element-wise multiplication），然后通过一个全连接层（带tanh非线性）和softmax层，得到K个可能答案的概率分布。K=1000个最常见答案。",
+        "type": "fusion",
+        "anchors": [
+          "anc_00079",
+          "anc_00081",
+          "anc_00083",
+          "anc_00084"
+        ]
+      },
+      {
+        "node_id": "node_004",
+        "title": "答案预测",
+        "label": "Answer Prediction",
+        "summary": "通过softmax层预测答案，使用交叉熵损失进行端到端训练。",
+        "description": "整个模型使用交叉熵损失进行端到端学习。输出层为softmax，预测K个可能答案的概率分布。",
+        "type": "prediction",
+        "anchors": [
+          "anc_00081",
+          "anc_00083",
+          "anc_00084"
+        ]
+      },
+      {
+        "node_id": "node_005",
+        "title": "基线方法",
+        "label": "Baseline Methods",
+        "summary": "包括随机猜测、先验回答、基于问题类型的先验、语言模型（BoW Q, LSTM Q）和视觉模型（I）。",
+        "description": "1) random：从训练集前1000个答案中随机选择。2) prior (“yes”)：总是回答“是”。3) per Q-type prior：根据问题类型选择最常见答案。4) BoW Q：词袋语言模型。5) LSTM Q：LSTM语言模型。6) I：仅使用图像特征。",
+        "type": "baseline",
+        "anchors": [
+          "anc_00072",
+          "anc_00091",
+          "anc_00092"
+        ]
+      },
+      {
+        "node_id": "node_006",
+        "title": "最佳模型",
+        "label": "Best Model (deeper LSTM Q + norm I)",
+        "summary": "结合两层LSTM问题编码和ℓ2归一化图像特征的多模态模型。",
+        "description": "使用两层LSTM编码问题（deeper LSTM Q），使用ℓ2归一化的VGGNet图像特征（norm I），通过逐元素相乘融合，然后通过全连接层和softmax预测答案。",
+        "type": "proposed_method",
+        "anchors": [
+          "anc_00079",
+          "anc_00094",
+          "anc_00104"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "source": "node_001",
+        "target": "node_003",
+        "label": "图像嵌入输入",
+        "anchors": [
+          "anc_00079"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_002",
+        "target": "node_003",
+        "label": "问题嵌入输入",
+        "anchors": [
+          "anc_00079"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_003",
+        "target": "node_004",
+        "label": "融合特征输入",
+        "anchors": [
+          "anc_00081",
+          "anc_00083"
+        ],
+        "description": ""
+      },
+      {
+        "source": "node_005",
+        "target": "node_004",
+        "label": "基线方法输出",
+        "anchors": [
+          "anc_00072"
+        ],
+        "description": ""
+      }
+    ]
+  },
+  "method_delta": {
+    "baseline_method": {
+      "anchors": [
+        "anc_00072",
+        "anc_00091",
+        "anc_00092"
+      ]
+    },
+    "new_method": {
+      "anchors": [
+        "anc_00079",
+        "anc_00094",
+        "anc_00104"
+      ]
+    },
+    "deltas": [
+      {
+        "before": "仅使用语言模型（如LSTM Q）或视觉模型（I）。",
+        "after": "结合语言和视觉信息的多模态模型。",
+        "why_it_matters": "多模态融合显著提升了VQA任务的性能，表明视觉信息对于准确回答问题至关重要。",
+        "anchors": [
+          "anc_00091",
+          "anc_00092",
+          "anc_00094"
+        ],
+        "delta_id": "delta_1"
+      },
+      {
+        "before": "使用未归一化的图像特征（I）。",
+        "after": "使用ℓ2归一化的图像特征（norm I）。",
+        "why_it_matters": "ℓ2归一化提升了性能（开放任务+0.16%，多选任务+0.24%），表明特征归一化有助于模型学习。",
+        "anchors": [
+          "anc_00104"
+        ],
+        "delta_id": "delta_2"
+      },
+      {
+        "before": "使用单层LSTM编码问题（LSTM Q）。",
+        "after": "使用两层LSTM编码问题（deeper LSTM Q）。",
+        "why_it_matters": "更深的LSTM可能捕获更复杂的问题语义，提升模型性能。",
+        "anchors": [
+          "anc_00079",
+          "anc_00094"
+        ],
+        "delta_id": "delta_3"
+      },
+      {
+        "before": "使用拼接（concatenation）融合图像和问题特征。",
+        "after": "使用逐元素相乘（element-wise multiplication）融合。",
+        "why_it_matters": "逐元素相乘比拼接融合效果更好（开放任务+0.95%，多选任务+1.24%），表明乘法交互更有效。",
+        "anchors": [
+          "anc_00104",
+          "anc_00113"
+        ],
+        "delta_id": "delta_4"
+      }
+    ]
+  },
+  "formula_ir": {
+    "formulas": [
+      {
+        "formula_id": "formula_001",
+        "latex": "\\text{softmax}(W \\cdot (\\text{norm}(I) \\odot \\text{LSTM}(Q)) + b)",
+        "variables": [
+          {
+            "name": "I",
+            "description": "图像特征向量（VGGNet最后一层隐藏层激活）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00077"
+            ]
+          },
+          {
+            "name": "norm(I)",
+            "description": "ℓ2归一化的图像特征",
+            "confidence": "high",
+            "anchors": [
+              "anc_00077",
+              "anc_00104"
+            ]
+          },
+          {
+            "name": "Q",
+            "description": "问题文本",
+            "confidence": "high",
+            "anchors": [
+              "anc_00077"
+            ]
+          },
+          {
+            "name": "LSTM(Q)",
+            "description": "问题经过LSTM编码后的向量",
+            "confidence": "high",
+            "anchors": [
+              "anc_00077",
+              "anc_00079"
+            ]
+          },
+          {
+            "name": "\\odot",
+            "description": "逐元素相乘",
+            "confidence": "high",
+            "anchors": [
+              "anc_00079",
+              "anc_00113"
+            ]
+          },
+          {
+            "name": "W, b",
+            "description": "全连接层的权重和偏置",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00083"
+            ]
+          },
+          {
+            "name": "K",
+            "description": "答案类别数（默认1000）",
+            "confidence": "high",
+            "anchors": [
+              "anc_00076"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "将归一化的图像特征与问题编码进行逐元素相乘，通过全连接层和softmax预测答案概率分布。乘法交互允许图像和问题特征相互调制。",
+        "anchors": [
+          "anc_00079",
+          "anc_00081",
+          "anc_00083",
+          "anc_00084"
+        ]
+      },
+      {
+        "formula_id": "formula_002",
+        "latex": "\\mathcal{L} = -\\sum_{k=1}^{K} y_k \\log(p_k)",
+        "variables": [
+          {
+            "name": "y_k",
+            "description": "真实答案的one-hot编码",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00084"
+            ]
+          },
+          {
+            "name": "p_k",
+            "description": "模型预测的答案概率",
+            "confidence": "medium",
+            "anchors": [
+              "anc_00084"
+            ]
+          },
+          {
+            "name": "K",
+            "description": "答案类别数",
+            "confidence": "high",
+            "anchors": [
+              "anc_00076"
+            ]
+          }
+        ],
+        "dependencies": [],
+        "intuition": "使用交叉熵损失进行端到端训练，优化模型预测答案与真实答案之间的差异。",
+        "anchors": [
+          "anc_00084"
+        ]
+      }
+    ]
+  },
+  "experiment_matrix": {
+    "main_result": {
+      "description": "最佳模型（deeper LSTM Q + norm I）在VQA测试集上的性能。",
+      "results": [
+        {
+          "task": "开放任务（Open-ended）",
+          "metric": "准确率",
+          "value": "58.16%",
+          "anchors": [
+            "anc_00094",
+            "anc_00134"
+          ]
+        },
+        {
+          "task": "多选任务（Multiple-choice）",
+          "metric": "准确率",
+          "value": "63.09%",
+          "anchors": [
+            "anc_00094",
+            "anc_00134"
+          ]
+        }
+      ],
+      "anchors": [
+        "anc_00094",
+        "anc_00134"
+      ]
+    },
+    "ablation": {
+      "description": "对最佳模型进行消融实验，分析不同组件的影响。",
+      "experiments": [
+        {
+          "name": "Without I Norm",
+          "description": "不使用图像特征归一化",
+          "result": "开放任务准确率下降0.16%，多选任务下降0.24%",
+          "anchors": [
+            "anc_00104"
+          ]
+        },
+        {
+          "name": "Concatenation",
+          "description": "使用拼接而非逐元素相乘融合",
+          "result": "开放任务准确率下降0.95%，多选任务下降1.24%",
+          "anchors": [
+            "anc_00104",
+            "anc_00113"
+          ]
+        },
+        {
+          "name": "K = 500",
+          "description": "使用500个最常见答案",
+          "result": "开放任务准确率下降0.82%，多选任务下降1.16%",
+          "anchors": [
+            "anc_00114",
+            "anc_00116",
+            "anc_00117"
+          ]
+        },
+        {
+          "name": "K = 2000",
+          "description": "使用2000个最常见答案",
+          "result": "开放任务准确率提升0.40%，多选任务提升1.16%",
+          "anchors": [
+            "anc_00119",
+            "anc_00121",
+            "anc_00122"
+          ]
+        },
+        {
+          "name": "Truncated Q Vocab @ 5",
+          "description": "将问题词汇表截断为出现至少5次的词",
+          "result": "开放任务准确率提升0.24%，多选任务提升0.17%",
+          "anchors": [
+            "anc_00123"
+          ]
+        },
+        {
+          "name": "Filtered Dataset",
+          "description": "使用过滤后的数据集（每个问题至少有10个答案）",
+          "result": "开放任务准确率下降1.13%，多选任务下降1.37%",
+          "anchors": [
+            "anc_00128"
+          ]
+        }
+      ],
+      "anchors": [
+        "anc_00103",
+        "anc_00104",
+        "anc_00113",
+        "anc_00114",
+        "anc_00119",
+        "anc_00123",
+        "anc_00128"
+      ]
+    },
+    "robustness": {
+      "description": "分析模型在不同问题类型和年龄组上的表现。",
+      "experiments": [
+        {
+          "name": "问题类型分析",
+          "description": "分析模型在不同问题类型（如“是/否”、“数字”、“其他”）上的准确率。",
+          "result": "模型在“是/否”问题上表现较好，在“数字”问题上表现较差，尤其是较高数字。",
+          "anchors": [
+            "anc_00095",
+            "anc_00099",
+            "anc_00101"
+          ]
+        },
+        {
+          "name": "年龄组分析",
+          "description": "分析模型在不同年龄组问题上的表现。",
+          "result": "模型在需要较低年龄组知识的问题上表现较好，在需要成人知识的问题上表现较差。",
+          "anchors": [
+            "anc_00102",
+            "anc_00110",
+            "anc_00112"
+          ]
+        }
+      ],
+      "anchors": [
+        "anc_00095",
+        "anc_00099",
+        "anc_00101",
+        "anc_00102",
+        "anc_00110",
+        "anc_00112"
+      ]
+    },
+    "scaling": {
+      "description": "分析答案数量K对性能的影响。",
+      "experiments": [
+        {
+          "name": "K = 500 vs K = 1000",
+          "description": "比较使用500和1000个答案的性能。",
+          "result": "K=1000比K=500在开放任务上高0.82%，多选任务上高1.16%。",
+          "anchors": [
+            "anc_00114",
+            "anc_00116",
+            "anc_00117"
+          ]
+        },
+        {
+          "name": "K = 1000 vs K = 2000",
+          "description": "比较使用1000和2000个答案的性能。",
+          "result": "K=2000比K=1000在开放任务上高0.40%，多选任务上高1.16%。",
+          "anchors": [
+            "anc_00119",
+            "anc_00121",
+            "anc_00122"
+          ]
+        }
+      ],
+      "anchors": [
+        "anc_00114",
+        "anc_00116",
+        "anc_00117",
+        "anc_00119",
+        "anc_00121",
+        "anc_00122"
+      ]
+    },
+    "case_study": {
+      "description": "展示模型预测的案例。",
+      "experiments": [
+        {
+          "name": "正确预测的答案分布",
+          "description": "分析模型正确预测时最常预测的答案。",
+          "result": "常见真实答案（如“是”、“否”、“2”、“白色”）在模型正确时更常被预测。",
+          "anchors": [
+            "anc_00096",
+            "anc_00108"
+          ]
+        },
+        {
+          "name": "错误预测分析",
+          "description": "分析模型在计数问题上的错误。",
+          "result": "模型在计数问题上表现不佳，尤其是较高数字（如“5”、“6”、“10”）。",
+          "anchors": [
+            "anc_00095"
+          ]
+        }
+      ],
+      "anchors": [
+        "anc_00095",
+        "anc_00096",
+        "anc_00108"
+      ]
+    },
+    "human_eval": {
+      "description": "人类在VQA任务上的表现。",
+      "experiments": [
+        {
+          "name": "人类准确率",
+          "description": "人类在开放任务和多选任务上的准确率。",
+          "result": "人类在开放任务上准确率约为83.30%，在多选任务上约为90.40%。",
+          "anchors": [
+            "anc_00161",
+            "anc_00163",
+            "anc_00164"
+          ]
+        },
+        {
+          "name": "人类共识",
+          "description": "人类回答的一致性。",
+          "result": "人类在开放任务上的一致性约为65.24%。",
+          "anchors": [
+            "anc_00161",
+            "anc_00163",
+            "anc_00164"
+          ]
+        }
+      ],
+      "anchors": [
+        "anc_00161",
+        "anc_00163",
+        "anc_00164"
+      ]
+    },
+    "benchmark": {
+      "description": "VQA数据集和挑战赛。",
+      "experiments": [
+        {
+          "name": "VQA数据集",
+          "description": "包含约25万张图像、76万个问题和1000万个答案。",
+          "result": "数据集规模远大于以往VQA数据集。",
+          "anchors": [
+            "anc_00005",
+            "anc_00016",
+            "anc_00019"
+          ]
+        },
+        {
+          "name": "VQA挑战赛",
+          "description": "组织年度VQA挑战赛和研讨会。",
+          "result": "提供了评估服务器和排行榜，促进系统性进展。",
+          "anchors": [
+            "anc_00130",
+            "anc_00132",
+            "anc_00134",
+            "anc_00135",
+            "anc_00138"
+          ]
+        }
+      ],
+      "anchors": [
+        "anc_00005",
+        "anc_00016",
+        "anc_00019",
+        "anc_00130",
+        "anc_00132",
+        "anc_00134",
+        "anc_00135",
+        "anc_00138"
+      ]
+    },
+    "efficiency": {
+      "description": "模型效率相关分析。",
+      "experiments": [
+        {
+          "name": "词汇表截断",
+          "description": "截断问题词汇表以减少参数。",
+          "result": "截断词汇表（出现至少5次）在提升性能的同时减少了65.24%的词汇量。",
+          "anchors": [
+            "anc_00123"
+          ]
+        }
+      ],
+      "anchors": [
+        "anc_00123"
+      ]
+    },
+    "experiments": [
+      {
+        "description": "最佳模型（deeper LSTM Q + norm I）在VQA测试集上的性能。",
+        "results": [
+          {
+            "task": "开放任务（Open-ended）",
+            "metric": "准确率",
+            "value": "58.16%",
+            "anchors": [
+              "anc_00094",
+              "anc_00134"
+            ]
+          },
+          {
+            "task": "多选任务（Multiple-choice）",
+            "metric": "准确率",
+            "value": "63.09%",
+            "anchors": [
+              "anc_00094",
+              "anc_00134"
+            ]
+          }
+        ],
+        "anchors": [
+          "anc_00094",
+          "anc_00134"
+        ],
+        "experiment_id": "experiment_1",
+        "type": "main_result",
+        "name": "main_result_1",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "最佳模型（deeper LSTM Q + norm I）在VQA测试集上的性能。",
+        "what_it_tries_to_prove": "最佳模型（deeper LSTM Q + norm I）在VQA测试集上的性能。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "对最佳模型进行消融实验，分析不同组件的影响。",
+        "experiments": [
+          {
+            "name": "Without I Norm",
+            "description": "不使用图像特征归一化",
+            "result": "开放任务准确率下降0.16%，多选任务下降0.24%",
+            "anchors": [
+              "anc_00104"
+            ]
+          },
+          {
+            "name": "Concatenation",
+            "description": "使用拼接而非逐元素相乘融合",
+            "result": "开放任务准确率下降0.95%，多选任务下降1.24%",
+            "anchors": [
+              "anc_00104",
+              "anc_00113"
+            ]
+          },
+          {
+            "name": "K = 500",
+            "description": "使用500个最常见答案",
+            "result": "开放任务准确率下降0.82%，多选任务下降1.16%",
+            "anchors": [
+              "anc_00114",
+              "anc_00116",
+              "anc_00117"
+            ]
+          },
+          {
+            "name": "K = 2000",
+            "description": "使用2000个最常见答案",
+            "result": "开放任务准确率提升0.40%，多选任务提升1.16%",
+            "anchors": [
+              "anc_00119",
+              "anc_00121",
+              "anc_00122"
+            ]
+          },
+          {
+            "name": "Truncated Q Vocab @ 5",
+            "description": "将问题词汇表截断为出现至少5次的词",
+            "result": "开放任务准确率提升0.24%，多选任务提升0.17%",
+            "anchors": [
+              "anc_00123"
+            ]
+          },
+          {
+            "name": "Filtered Dataset",
+            "description": "使用过滤后的数据集（每个问题至少有10个答案）",
+            "result": "开放任务准确率下降1.13%，多选任务下降1.37%",
+            "anchors": [
+              "anc_00128"
+            ]
+          }
+        ],
+        "anchors": [
+          "anc_00103",
+          "anc_00104",
+          "anc_00113",
+          "anc_00114",
+          "anc_00119",
+          "anc_00123",
+          "anc_00128"
+        ],
+        "experiment_id": "experiment_2",
+        "type": "ablation",
+        "name": "ablation_2",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "对最佳模型进行消融实验，分析不同组件的影响。",
+        "what_it_tries_to_prove": "对最佳模型进行消融实验，分析不同组件的影响。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "分析模型在不同问题类型和年龄组上的表现。",
+        "experiments": [
+          {
+            "name": "问题类型分析",
+            "description": "分析模型在不同问题类型（如“是/否”、“数字”、“其他”）上的准确率。",
+            "result": "模型在“是/否”问题上表现较好，在“数字”问题上表现较差，尤其是较高数字。",
+            "anchors": [
+              "anc_00095",
+              "anc_00099",
+              "anc_00101"
+            ]
+          },
+          {
+            "name": "年龄组分析",
+            "description": "分析模型在不同年龄组问题上的表现。",
+            "result": "模型在需要较低年龄组知识的问题上表现较好，在需要成人知识的问题上表现较差。",
+            "anchors": [
+              "anc_00102",
+              "anc_00110",
+              "anc_00112"
+            ]
+          }
+        ],
+        "anchors": [
+          "anc_00095",
+          "anc_00099",
+          "anc_00101",
+          "anc_00102",
+          "anc_00110",
+          "anc_00112"
+        ],
+        "experiment_id": "experiment_3",
+        "type": "robustness",
+        "name": "robustness_3",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "分析模型在不同问题类型和年龄组上的表现。",
+        "what_it_tries_to_prove": "分析模型在不同问题类型和年龄组上的表现。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "分析答案数量K对性能的影响。",
+        "experiments": [
+          {
+            "name": "K = 500 vs K = 1000",
+            "description": "比较使用500和1000个答案的性能。",
+            "result": "K=1000比K=500在开放任务上高0.82%，多选任务上高1.16%。",
+            "anchors": [
+              "anc_00114",
+              "anc_00116",
+              "anc_00117"
+            ]
+          },
+          {
+            "name": "K = 1000 vs K = 2000",
+            "description": "比较使用1000和2000个答案的性能。",
+            "result": "K=2000比K=1000在开放任务上高0.40%，多选任务上高1.16%。",
+            "anchors": [
+              "anc_00119",
+              "anc_00121",
+              "anc_00122"
+            ]
+          }
+        ],
+        "anchors": [
+          "anc_00114",
+          "anc_00116",
+          "anc_00117",
+          "anc_00119",
+          "anc_00121",
+          "anc_00122"
+        ],
+        "experiment_id": "experiment_4",
+        "type": "scaling",
+        "name": "scaling_4",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "分析答案数量K对性能的影响。",
+        "what_it_tries_to_prove": "分析答案数量K对性能的影响。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "展示模型预测的案例。",
+        "experiments": [
+          {
+            "name": "正确预测的答案分布",
+            "description": "分析模型正确预测时最常预测的答案。",
+            "result": "常见真实答案（如“是”、“否”、“2”、“白色”）在模型正确时更常被预测。",
+            "anchors": [
+              "anc_00096",
+              "anc_00108"
+            ]
+          },
+          {
+            "name": "错误预测分析",
+            "description": "分析模型在计数问题上的错误。",
+            "result": "模型在计数问题上表现不佳，尤其是较高数字（如“5”、“6”、“10”）。",
+            "anchors": [
+              "anc_00095"
+            ]
+          }
+        ],
+        "anchors": [
+          "anc_00095",
+          "anc_00096",
+          "anc_00108"
+        ],
+        "experiment_id": "experiment_5",
+        "type": "case_study",
+        "name": "case_study_5",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "展示模型预测的案例。",
+        "what_it_tries_to_prove": "展示模型预测的案例。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "人类在VQA任务上的表现。",
+        "experiments": [
+          {
+            "name": "人类准确率",
+            "description": "人类在开放任务和多选任务上的准确率。",
+            "result": "人类在开放任务上准确率约为83.30%，在多选任务上约为90.40%。",
+            "anchors": [
+              "anc_00161",
+              "anc_00163",
+              "anc_00164"
+            ]
+          },
+          {
+            "name": "人类共识",
+            "description": "人类回答的一致性。",
+            "result": "人类在开放任务上的一致性约为65.24%。",
+            "anchors": [
+              "anc_00161",
+              "anc_00163",
+              "anc_00164"
+            ]
+          }
+        ],
+        "anchors": [
+          "anc_00161",
+          "anc_00163",
+          "anc_00164"
+        ],
+        "experiment_id": "experiment_6",
+        "type": "human_eval",
+        "name": "human_eval_6",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "人类在VQA任务上的表现。",
+        "what_it_tries_to_prove": "人类在VQA任务上的表现。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "VQA数据集和挑战赛。",
+        "experiments": [
+          {
+            "name": "VQA数据集",
+            "description": "包含约25万张图像、76万个问题和1000万个答案。",
+            "result": "数据集规模远大于以往VQA数据集。",
+            "anchors": [
+              "anc_00005",
+              "anc_00016",
+              "anc_00019"
+            ]
+          },
+          {
+            "name": "VQA挑战赛",
+            "description": "组织年度VQA挑战赛和研讨会。",
+            "result": "提供了评估服务器和排行榜，促进系统性进展。",
+            "anchors": [
+              "anc_00130",
+              "anc_00132",
+              "anc_00134",
+              "anc_00135",
+              "anc_00138"
+            ]
+          }
+        ],
+        "anchors": [
+          "anc_00005",
+          "anc_00016",
+          "anc_00019",
+          "anc_00130",
+          "anc_00132",
+          "anc_00134",
+          "anc_00135",
+          "anc_00138"
+        ],
+        "experiment_id": "experiment_7",
+        "type": "benchmark",
+        "name": "benchmark_7",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "VQA数据集和挑战赛。",
+        "what_it_tries_to_prove": "VQA数据集和挑战赛。",
+        "evidence_strength": "strong"
+      },
+      {
+        "description": "模型效率相关分析。",
+        "experiments": [
+          {
+            "name": "词汇表截断",
+            "description": "截断问题词汇表以减少参数。",
+            "result": "截断词汇表（出现至少5次）在提升性能的同时减少了65.24%的词汇量。",
+            "anchors": [
+              "anc_00123"
+            ]
+          }
+        ],
+        "anchors": [
+          "anc_00123"
+        ],
+        "experiment_id": "experiment_8",
+        "type": "efficiency",
+        "name": "efficiency_8",
+        "dataset": [],
+        "baseline": [],
+        "metrics": [],
+        "result_summary": "模型效率相关分析。",
+        "what_it_tries_to_prove": "模型效率相关分析。",
+        "evidence_strength": "strong"
+      }
+    ]
+  },
+  "claim_evidence_map": {
+    "claims": [
+      {
+        "claim": "VQA任务比图像描述需要更细致的图像理解和复杂推理。",
+        "evidence_source_type": "论文论述",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00005",
+          "anc_00007"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_1",
+        "evidence": [
+          {
+            "evidence_id": "evidence_1_1",
+            "evidence_type": "textual",
+            "evidence_content": "As a result, a system that succeeds at VQA typically needs a more detailed understanding of the image and complex reasoning than a system producing generic image captions.",
+            "anchors": [
+              "anc_00005"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_1_2",
+            "evidence_type": "textual",
+            "evidence_content": "We are witnessing a renewed excitement in multi-discipline Artiﬁcial Intelligence (AI) research problems. In particular, research in image and video captioning that combines Computer Vision (CV), Natural Language Processing (NLP), and Knowledge Representation & Reasoning (KR) has dramatically increased in the past year.",
+            "anchors": [
+              "anc_00007"
+            ],
+            "strength": "moderate"
+          }
+        ]
+      },
+      {
+        "claim": "语言模型单独在VQA上表现良好，但结合视觉信息后性能显著提升。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00091",
+          "anc_00092",
+          "anc_00094"
+        ],
+        "risk_flags": [
+          "语言模型可能利用了问题中的统计先验，导致对图像信息的依赖不足。"
+        ],
+        "claim_id": "claim_2",
+        "evidence": [
+          {
+            "evidence_id": "evidence_2_1",
+            "evidence_type": "quantitative",
+            "evidence_content": "the language-alone methods (per Q-type prior, BoW Q, LSTM Q) that ignore the image perform surprisingly well, with BoW Q achieving 48.09% on open-ended (53.68% on multiple-choice) and LSTM Q achieving 48.76% on open-ended (54.75% on multiple-choice); both outperforming the vision-alone model (I) that completely ignores the question performs rather poorly (open-ended: 28.13% / multiple-choice: 30.53%).",
+            "anchors": [
+              "anc_00091",
+              "anc_00092"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_2_2",
+            "evidence_type": "quantitative",
+            "evidence_content": "The accuracy of our best model (deeper LSTM Q + norm I) on VQA test-standard is 58.16% (open-ended) / 63.09% (multiple-choice). We can see that our model is able to signiﬁcantly outperform both the vision-alone and language-alone baselines.",
+            "anchors": [
+              "anc_00094"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "提出的VQA数据集和任务为评估视觉理解和常识推理提供了有效平台。",
+        "evidence_source_type": "数据集分析",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00005",
+          "anc_00016",
+          "anc_00030"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_3",
+        "evidence": [
+          {
+            "evidence_id": "evidence_3_1",
+            "evidence_type": "quantitative",
+            "evidence_content": "We provide a dataset containing ∼0.25M images, ∼0.76M questions, and ∼10M answers (www.visualqa.org), and discuss the information it provides.",
+            "anchors": [
+              "anc_00005"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_3_2",
+            "evidence_type": "textual",
+            "evidence_content": "We present a large dataset that contains 204,721 images from the MS COCO dataset and a newly created abstract scene dataset that contains 50,000 scenes. The MS COCO dataset has images depicting diverse and complex scenes that are effective at eliciting compelling and diverse questions.",
+            "anchors": [
+              "anc_00016"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_3_3",
+            "evidence_type": "textual",
+            "evidence_content": "By having a wide variety of question types and difﬁculty, we may be able to measure the continual progress of both visual understanding and commonsense reasoning.",
+            "anchors": [
+              "anc_00030"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "最佳模型（deeper LSTM Q + norm I）显著优于单独的视觉或语言基线。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00091",
+          "anc_00092",
+          "anc_00094"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_4",
+        "evidence": [
+          {
+            "evidence_id": "evidence_4_1",
+            "evidence_type": "quantitative",
+            "evidence_content": "The accuracy of our best model (deeper LSTM Q + norm I) on VQA test-standard is 58.16% (open-ended) / 63.09% (multiple-choice). We can see that our model is able to signiﬁcantly outperform both the vision-alone and language-alone baselines.",
+            "anchors": [
+              "anc_00094"
+            ],
+            "strength": "strong"
+          },
+          {
+            "evidence_id": "evidence_4_2",
+            "evidence_type": "quantitative",
+            "evidence_content": "the vision-alone model (I) that completely ignores the question performs rather poorly (open-ended: 28.13% / multiple-choice: 30.53%). In fact, on open-ended task, the vision-alone model (I) performs worse than the prior (“yes”) baseline, which ignores both the image and question (responding to every question with a “yes”). Interestingly, the language-alone methods (per Q-type prior, BoW Q, LSTM Q) that ignore the image perform surprisingly well, with BoW Q achieving 48.09% on open-ended (53.68% on multiple-choice) and LSTM Q achieving 48.76% on open-ended (54.75% on multiple-choice); both outperforming the vision-alone model.",
+            "anchors": [
+              "anc_00091",
+              "anc_00092"
+            ],
+            "strength": "strong"
+          }
+        ]
+      },
+      {
+        "claim": "ℓ2归一化图像特征和逐元素相乘融合能提升模型性能。",
+        "evidence_source_type": "消融实验",
+        "support_strength": "中",
+        "anchors": [
+          "anc_00104",
+          "anc_00113"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_5",
+        "evidence": [
+          {
+            "evidence_id": "evidence_5_1",
+            "evidence_type": "quantitative",
+            "evidence_content": "ℓ2-normalization of image features boosts the performance by 0.16% for open-ended task and by 0.24% for multiple-choice task.",
+            "anchors": [
+              "anc_00104"
+            ],
+            "strength": "moderate"
+          },
+          {
+            "evidence_id": "evidence_5_2",
+            "evidence_type": "quantitative",
+            "evidence_content": "element-wise fusion performs better by 0.95% for open-ended task and by 1.24% for multiple-choice task.",
+            "anchors": [
+              "anc_00113"
+            ],
+            "strength": "moderate"
+          }
+        ]
+      },
+      {
+        "claim": "模型在计数问题上表现不佳，尤其是较高数字。",
+        "evidence_source_type": "实验结果",
+        "support_strength": "强",
+        "anchors": [
+          "anc_00095"
+        ],
+        "risk_flags": [],
+        "claim_id": "claim_6",
+        "evidence": [
+          {
+            "evidence_id": "evidence_6_1",
+            "evidence_type": "quantitative",
+            "evidence_content": "is somewhat underwhelming for counts ( e.g., “2”, “1”, “3”), and particularly poor for higher counts ( e.g., “5”, “6”, “10”, “8”, “7”).",
+            "anchors": [
+              "anc_00095"
+            ],
+            "strength": "strong"
+          }
+        ]
+      }
+    ]
+  },
+  "glossary": {
+    "terms": [
+      {
+        "term": "VQA (Visual Question Answering)",
+        "definition": "视觉问答任务：给定一张图像和一个关于该图像的自然语言问题，系统需要提供一个准确的自然语言答案。",
+        "anchors": [
+          "anc_00003",
+          "anc_00005"
+        ],
+        "appears_in": [
+          "anc_00003",
+          "anc_00005"
+        ]
+      },
+      {
+        "term": "MS COCO",
+        "definition": "微软通用物体上下文数据集，包含大量日常场景图像和标注。",
+        "anchors": [
+          "anc_00016",
+          "anc_00027"
+        ],
+        "appears_in": [
+          "anc_00016",
+          "anc_00027"
+        ]
+      },
+      {
+        "term": "VGGNet",
+        "definition": "一种深度卷积神经网络架构，用于图像特征提取。",
+        "anchors": [
+          "anc_00077",
+          "anc_00104"
+        ],
+        "appears_in": [
+          "anc_00077",
+          "anc_00104"
+        ]
+      },
+      {
+        "term": "LSTM (Long Short-Term Memory)",
+        "definition": "一种循环神经网络架构，用于处理序列数据（如问题文本）。",
+        "anchors": [
+          "anc_00077",
+          "anc_00079"
+        ],
+        "appears_in": [
+          "anc_00077",
+          "anc_00079"
+        ]
+      },
+      {
+        "term": "softmax",
+        "definition": "一种激活函数，将向量转换为概率分布。",
+        "anchors": [
+          "anc_00075",
+          "anc_00081",
+          "anc_00083"
+        ],
+        "appears_in": [
+          "anc_00075",
+          "anc_00081",
+          "anc_00083"
+        ]
+      },
+      {
+        "term": "交叉熵损失",
+        "definition": "一种用于分类任务的损失函数，衡量预测概率分布与真实分布之间的差异。",
+        "anchors": [
+          "anc_00084"
+        ],
+        "appears_in": [
+          "anc_00084"
+        ]
+      },
+      {
+        "term": "ℓ2归一化",
+        "definition": "将向量缩放为单位长度，常用于特征预处理。",
+        "anchors": [
+          "anc_00077",
+          "anc_00104"
+        ],
+        "appears_in": [
+          "anc_00077",
+          "anc_00104"
+        ]
+      },
+      {
+        "term": "逐元素相乘",
+        "definition": "两个向量对应元素相乘，用于多模态特征融合。",
+        "anchors": [
+          "anc_00079",
+          "anc_00113"
+        ],
+        "appears_in": [
+          "anc_00079",
+          "anc_00113"
+        ]
+      }
+    ]
+  },
+  "reproduction_roadmap": {
+    "reproduction": {
+      "required_datasets": [
+        {
+          "name": "VQA数据集",
+          "description": "包含约25万张图像、76万个问题和1000万个答案。",
+          "anchors": [
+            "anc_00005",
+            "anc_00016"
+          ]
+        },
+        {
+          "name": "MS COCO数据集",
+          "description": "用于提供真实图像。",
+          "anchors": [
+            "anc_00016",
+            "anc_00027"
+          ]
+        }
+      ],
+      "required_models": [
+        {
+          "name": "VGGNet",
+          "description": "用于提取图像特征。",
+          "anchors": [
+            "anc_00077",
+            "anc_00104"
+          ]
+        },
+        {
+          "name": "LSTM",
+          "description": "用于编码问题文本。",
+          "anchors": [
+            "anc_00077",
+            "anc_00079"
+          ]
+        }
+      ],
+      "required_compute": "论文未明确说明计算资源需求，但训练深度神经网络模型通常需要GPU。",
+      "code_available": "论文提供了演示网站（http://cloudcv.org/vqa），但未明确说明是否开源代码。",
+      "steps": [
+        {
+          "step": "step_1",
+          "description": "下载VQA数据集和MS COCO数据集。",
+          "anchors": [
+            "anc_00005",
+            "anc_00016"
+          ]
+        },
+        {
+          "step": "step_2",
+          "description": "预处理图像和问题文本。",
+          "anchors": [
+            "anc_00077"
+          ]
+        },
+        {
+          "step": "step_3",
+          "description": "使用预训练的VGGNet提取图像特征（可选择是否进行ℓ2归一化）。",
+          "anchors": [
+            "anc_00077",
+            "anc_00104"
+          ]
+        },
+        {
+          "step": "step_4",
+          "description": "构建LSTM模型编码问题文本（可选择单层或两层LSTM）。",
+          "anchors": [
+            "anc_00077",
+            "anc_00079"
+          ]
+        },
+        {
+          "step": "step_5",
+          "description": "将图像和问题特征进行逐元素相乘融合。",
+          "anchors": [
+            "anc_00079",
+            "anc_00113"
+          ]
+        },
+        {
+          "step": "step_6",
+          "description": "通过全连接层和softmax层预测答案（K=1000个最常见答案）。",
+          "anchors": [
+            "anc_00076",
+            "anc_00081",
+            "anc_00083"
+          ]
+        },
+        {
+          "step": "step_7",
+          "description": "使用交叉熵损失进行端到端训练。",
+          "anchors": [
+            "anc_00084"
+          ]
+        },
+        {
+          "step": "step_8",
+          "description": "在VQA测试集上评估模型性能。",
+          "anchors": [
+            "anc_00094",
+            "anc_00134"
+          ]
+        }
+      ],
+      "missing_details": [],
+      "risk_points": []
+    }
+  },
+  "scope": null,
+  "visual_state": null,
+  "schema_version": "0.1.0",
+  "generated_at": "2026-05-03T16:12:48+00:00",
+  "generation_mode": "mimo_v2_5_pro_pipeline",
+  "analysis_provider": {
+    "provider": "openai_compatible",
+    "model": "mimo-v2.5-pro",
+    "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+    "api_key_loaded": true,
+    "note": "All Paper IR analysis fields are generated by the configured Mimo API. Local code only downloads PDFs, parses blocks, attaches anchors, normalizes JSON, and runs grounding verification."
+  },
+  "metadata": {
+    "paper_id": "paper_cv_069_vqa_visual_question_answering_2015",
+    "title": "VQA: Visual Question Answering",
+    "authors": [
+      "Aishwarya Agrawal",
+      "Jiasen Lu",
+      "Stanislaw Antol",
+      "Margaret Mitchell",
+      "C. L. Zitnick",
+      "Devi Parikh",
+      "Dhruv Batra"
+    ],
+    "venue": "International Journal of Computer Vision",
+    "year": 2015,
+    "arxiv_id": "1505.00468",
+    "doi": null,
+    "language": "en",
+    "source_mode": "pdf",
+    "uploaded_at": "2026-05-03T16:10:55+00:00",
+    "paper_type": "Computer Vision / Pose Estimation / Vision-Language / Captioning / Vision-Language / VQA / Computer Vision / Top-cited Computer Vision paper",
+    "citation_count": 6347,
+    "influential_citation_count": 910,
+    "semantic_scholar_id": "97ad70a9fa3f99adf18030e5e38ebe3d90daa2db",
+    "semantic_scholar_url": "https://www.semanticscholar.org/paper/97ad70a9fa3f99adf18030e5e38ebe3d90daa2db",
+    "importance_rank": 69,
+    "selection_source": "semantic_scholar_top_cited_cv_open_pdf_2026_05_03",
+    "open_access_pdf_url": "https://arxiv.org/pdf/1505.00468",
+    "fields_of_study": [
+      "Computer Science"
+    ],
+    "publication_types": [
+      "JournalArticle"
+    ],
+    "abstract": "We propose the task of free-form and open-ended Visual Question Answering (VQA). Given an image and a natural language question about the image, the task is to provide an accurate natural language answer. Mirroring real-world scenarios, such as helping the visually impaired, both the questions and answers are open-ended. Visual questions selectively target different areas of an image, including background details and underlying context. As a result, a system that succeeds at VQA typically needs a more detailed understanding of the image and complex reasoning than a system producing generic image captions. Moreover, VQA is amenable to automatic evaluation, since many open-ended answers contain only a few words or a closed set of answers that can be provided in a multiple-choice format. We provide a dataset containing ∼\\documentclass[12pt]{minimal} \\usepackage{amsmath} \\usepackage{wasysym} \\usepackage{amsfonts} \\usepackage{amssymb} \\usepackage{amsbsy} \\usepackage{mathrsfs} \\usepackage{upgreek} \\setlength{\\oddsidemargin}{-69pt} \\begin{document}$$\\sim $$\\end{document}0.25 M images, ∼\\documentclass[12pt]{minimal} \\usepackage{amsmath} \\usepackage{wasysym} \\usepackage{amsfonts} \\usepackage{amssymb} \\usepackage{amsbsy} \\usepackage{mathrsfs} \\usepackage{upgreek} \\setlength{\\oddsidemargin}{-69pt} \\begin{document}$$\\sim $$\\end{document}0.76 M questions, and ∼\\documentclass[12pt]{minimal} \\usepackage{amsmath} \\usepackage{wasysym} \\usepackage{amsfonts} \\usepackage{amssymb} \\usepackage{amsbsy} \\usepackage{mathrsfs} \\usepackage{upgreek} \\setlength{\\oddsidemargin}{-69pt} \\begin{document}$$\\sim $$\\end{document}10 M answers (www.visualqa.org), and discuss the information it provides. Numerous baselines and methods for VQA are provided and compared with human performance. Our VQA demo is available on CloudCV (http://cloudcv.org/vqa)."
+  },
+  "anchors": [
+    {
+      "anchor_id": "anc_00001",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "1 VQA: Visual Question Answering www.visualqa.org Aishwarya Agrawal∗, Jiasen Lu ∗, Stanislaw Antol ∗,",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00002",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Margaret Mitchell, C. Lawrence Zitnick, Dhruv Batra, Devi Parikh",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00003",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Abstract—We propose the task of free-form and open-ended Visual Question Answering (VQA). Given an image and a natural language question about the image, the task is to provide an accurate natural language answer. Mirroring real-world scenarios, such",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00004",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "as helping the visually impaired, both the questions and answers are open-ended. Visual questions selectively target different areas",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00005",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "of an image, including background details and underlying context. As a result, a system that succeeds at VQA typically needs a more detailed understanding of the image and complex reasoning than a system producing generic image captions. Moreover, VQA is amenable to automatic evaluation, since many open-ended answers contain only a few words or a closed set of answers that can be provided in a multiple-choice format. We provide a dataset containing ∼0.25M images, ∼0.76M questions, and ∼10M answers (www.visualqa.org), and discuss the information it provides. Numerous baselines and methods for VQA are provided and compared with human performance. Our VQA demo is available on CloudCV (http://cloudcv.org/vqa). !",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00006",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "1 I NTRODUCTION",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00007",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "We are witnessing a renewed excitement in multi-discipline Artiﬁcial Intelligence (AI) research problems. In particular, research in image and video captioning that combines Com- puter Vision (CV), Natural Language Processing (NLP), and Knowledge Representation & Reasoning (KR) has dramati- cally increased in the past year [16], [9], [12], [38], [26], [24], [53]. Part of this excitement stems from a belief that multi-discipline tasks like image captioning are a step towards solving AI. However, the current state of the art demonstrates that a coarse scene-level understanding of an image paired with word n-gram statistics sufﬁces to generate reasonable image captions, which suggests image captioning may not be as “AI-complete” as desired. What makes for a compelling “AI-complete” task? We believe that in order to spawn the next generation of AI algorithms, an ideal task should (i) require multi-modal knowledge beyond a single sub-domain (such as CV) and (ii) have a well-deﬁned quantita...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00008",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "• D. Batra and D. Parikh are with Georgia Institute of Technology.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00009",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Does it appear to be rainy? Does this person have 20/20 vision? Is this person expecting company? What is just under the tree? How many slices of pizza are there? Is this a vegetarian pizza? What color are her eyes? What is the mustache made of?",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00010",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "Fig. 1: Examples of free-form, open-ended questions collected for",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00011",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "images via Amazon Mechanical Turk. Note that commonsense knowledge is needed along with a visual understanding of the scene to answer many questions. many bikes are there?”), activity recognition (e.g., “Is this man crying?”), knowledge base reasoning (e.g., “Is this a vegetarian pizza?”), and commonsense reasoning ( e.g., “Does this person have 20/20 vision?”, “Is this person expecting company?”). VQA [19], [36], [50], [3] is also amenable to automatic quantitative evaluation, making it possible to effectively track progress on this task. While the answer to many questions is",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00012",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "simply “yes” or “no”, the process for determining a correct",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00013",
+      "page": 1,
+      "section": null,
+      "bbox": null,
+      "text_span": "answer is typically far from trivial (e.g. in Fig. 1, “Does this person have 20/20 vision?”). Moreover, since questions about images often tend to seek speciﬁc information, simple one- to-three word answers are sufﬁcient for many questions. In such scenarios, we can easily evaluate a proposed algorithm by the number of questions it answers correctly. In this paper, we present both an open-ended answering task and a multiple- choice task [45], [33]. Unlike the open-ended task that requires a free-form response, the multiple-choice task only requires an arXiv:1505.00468v7 [cs.CL] 27 Oct 2016",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00014",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "2 algorithm to pick from a predeﬁned list of possible answers.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00015",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "We present a large dataset that contains 204,721 images from",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00016",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "the MS COCO dataset [32] and a newly created abstract scene dataset [57], [2] that contains 50,000 scenes. The MS COCO dataset has images depicting diverse and complex scenes that are effective at eliciting compelling and diverse questions. We collected a new dataset of “realistic” abstract scenes to enable research focused only on the high-level reasoning required for VQA by removing the need to parse real images. Three questions were collected for each image or scene. Each question was answered by ten subjects along with their conﬁdence. The dataset contains over 760K questions with around 10M answers. While the use of open-ended questions offers many beneﬁts, it is still useful to understand the types of questions that are being asked and which types various algorithms may be good at answering. To this end, we analyze the types of questions asked and the types of answers provided. Through several visualizations, we demonstrate the astonishing diversity of the questions asked. We al...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00017",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "2 R ELATED WORK",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00018",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "VQA Efforts. Several recent papers have begun to study visual question answering [19], [36], [50], [3]. However, unlike our work, these are fairly restricted (sometimes synthetic) settings with small datasets. For instance, [36] only considers questions whose answers come from a predeﬁned closed world of 16 basic colors or 894 object categories. [19] also considers questions generated from templates from a ﬁxed vocabulary of objects, attributes, relationships between objects, etc. In contrast, our proposed task involves open-ended, free-form questions and answers provided by humans. Our goal is to increase the diversity of knowledge and kinds of reason- ing needed to provide correct answers. Critical to achieving success on this more difﬁcult and unconstrained task, our",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00019",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "VQA dataset is two orders of magnitude larger than [19],",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00020",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "[36] (>250,000 vs. 2,591 and 1,449 images respectively). The proposed VQA task has connections to other related work: [50] has studied joint parsing of videos and corresponding text to answer queries on two datasets containing 15 video clips each. [3] uses crowdsourced workers to answer questions about visual content asked by visually-impaired users. In concurrent work, [37] proposed combining an LSTM for the question with a CNN for the image to generate an answer. In their model, the LSTM question representation is conditioned on the CNN image features at each time step, and the ﬁnal LSTM hidden state is used to sequentially decode the answer phrase. In contrast, the model developed in this paper explores “late fusion” – i.e., the LSTM question representation and the CNN image features are computed independently, fused via an element-wise multiplication, and then passed through fully-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00021",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "connected layers to generate a softmax distribution over output",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00022",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "answer classes. [34] generates abstract scenes to capture visual common sense relevant to answering (purely textual) ﬁll-in- the-blank and visual paraphrasing questions. [47] and [52] use visual information to assess the plausibility of common sense assertions. [55] introduced a dataset of 10k images and prompted captions that describe speciﬁc aspects of a scene (e.g., individual objects, what will happen next). Concurrent with our work, [18] collected questions & answers in Chinese (later translated to English by humans) for COCO images. [44] automatically generated four types of questions (object, count, color, location) using COCO captions. Text-based Q&A is a well studied problem in the NLP and text processing communities (recent examples being [15], [14], [54], [45]). Other related textual tasks include sentence completion ( e.g., [45] with multiple-choice answers). These approaches provide inspiration for VQA techniques. One key concern in text is the grounding of questions. For...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00023",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "3 VQA D ATASET COLLECTION",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00024",
+      "page": 2,
+      "section": null,
+      "bbox": null,
+      "text_span": "We now describe the Visual Question Answering (VQA) dataset. We begin by describing the real images and abstract",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00025",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "3 Is something under the sink broken? yes yes yes no no no What number do you see? 33 33 33 5 6 7 Does this man have children? yes yes yes yes yes yes Is this man crying? no no no no yes yes Has the pizza been baked? yes yes yes yes yes yes What kind of cheese is topped on this pizza? feta feta ricotta mozzarella mozzarella mozzarella Do you think the boy on the ground has broken legs? yes yes yes no no yes Why is the boy on the right freaking out? his friend is hurt other boy fell down someone fell ghost lightning sprayed by hose How many pickles are on the plate? 1 1 1 1 1 1 What is the shape of the plate? circle round round circle round round What kind of store is this? bakery bakery pastry art supplies grocery grocery Is the display case as full as it could be? no no no no yes yes How many bikes are there? 2 2 2 3 4 12 What number is the bus? 48 48 48 4 46 number 6 What does the sign say? stop stop stop stop stop yield What shape is this sign? octagon octagon octagon diamond octag...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00026",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "Fig. 2: Examples of questions (black), (a subset of the) answers given when looking at the image (green), and answers given when not",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00027",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "looking at the image (blue) for numerous representative examples of the dataset. See the appendix for more examples. scenes used to collect the questions. Next, we describe our process of collecting questions and their corresponding an- swers. Analysis of the questions and answers gathered as well as baselines’ & methods’ results are provided in following sections. Real Images. We use the 123,287 training and validation im- ages and 81,434 test images from the newly-released Microsoft Common Objects in Context (MS COCO) [32] dataset. The MS COCO dataset was gathered to ﬁnd images containing multiple objects and rich contextual information. Given the visual complexity of these images, they are well-suited for our VQA task. The more diverse our collection of images, the more diverse, comprehensive, and interesting the resultant set of questions and their answers. Abstract Scenes. The VQA task with real images requires the use of complex and often noisy visual recognizers. To attract res...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00028",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "is used to determine the winners of the challenge.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00029",
+      "page": 3,
+      "section": null,
+      "bbox": null,
+      "text_span": "For abstract scenes, we created splits for standardization, sep- arating the scenes into 20K/10K/20K for train/val/test splits, respectively. There are no subsplits (test-dev, test-standard, test-challenge, test-reserve) for abstract scenes. Captions. The MS COCO dataset [32], [7] already contains ﬁve single-sentence captions for all images. We also collected ﬁve single-captions for all abstract scenes using the same user interface1 for collection. Questions. Collecting interesting, diverse, and well-posed questions is a signiﬁcant challenge. Many simple questions 1. https://github.com/tylin/coco-ui",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00030",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "4 may only require low-level computer vision knowledge, such as “What color is the cat?” or “How many chairs are present in the scene?”. However, we also want questions that require commonsense knowledge about the scene, such as “What sound does the pictured animal make?”. Importantly, questions should also require the image to correctly answer and not be answerable using just commonsense information, e.g., in Fig. 1, “What is the mustache made of?”. By having a wide variety of question types and difﬁculty, we may be able to measure the continual progress of both visual understanding and commonsense reasoning. We tested and evaluated a number of user interfaces for collecting such “interesting” questions. Speciﬁcally, we ran pilot studies asking human subjects to ask questions about a given image that they believe a “toddler”, “alien”, or “smart robot” would have trouble answering. We found the “smart robot” interface to elicit the most interesting and diverse questions. As shown in t...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00031",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "accuracy = min( # humans that provided that answer",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00032",
+      "page": 4,
+      "section": null,
+      "bbox": null,
+      "text_span": "3 , 1) i.e., an answer is deemed 100% accurate if at least 3 workers provided that exact answer.2 Before comparison, all responses are made lowercase, numbers converted to digits, and punctu- ation & articles removed. We avoid using soft metrics such as Word2Vec [39], since they often group together words that we wish to distinguish, such as “left” and “right”. We also avoid using evaluation metrics from machine translation such as BLEU and ROUGE because such metrics are typi- cally applicable and reliable for sentences containing multiple words. In VQA, most answers (89.32%) are single word; thus there no high-order n-gram matches between predicted answers and ground-truth answers, and low-order n-gram matches degenerate to exact-string matching. Moreover, these automatic metrics such as BLEU and ROUGE have been found to poorly correlate with human judgement for tasks such as image caption evaluation [6]. For multiple-choice task, 18 candidate answers are created for each question. A...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00033",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "5 Real Images Abstract Scenes",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00034",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "Fig. 3: Distribution of questions by their ﬁrst four words for a random sample of 60K questions for real images (left) and all questions",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00035",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "for abstract scenes (right). The ordering of the words starts towards the center and radiates outwards. The arc length is proportional to the number of questions containing the word. White areas are words with contributions too small to show.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00036",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "4 VQA D ATASET ANALYSIS",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00037",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "In this section, we provide an analysis of the questions and answers in the VQA train dataset. To gain an understanding of the types of questions asked and answers provided, we visualize the distribution of question types and answers. We also explore how often the questions may be answered without the image using just commonsense information. Finally, we analyze whether the information contained in an image caption is sufﬁcient to answer the questions. The dataset includes 614,163 questions and 7,984,119 answers (including answers provided by workers with and without looking at the image) for 204,721 images from the MS COCO dataset [32] and 150,000 questions with 1,950,000 answers for 50, 000 abstract scenes.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00038",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "4.1 Questions",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00039",
+      "page": 5,
+      "section": null,
+      "bbox": null,
+      "text_span": "Types of Question. Given the structure of questions generated in the English language, we can cluster questions into different types based on the words that start the question. Fig. 3 shows the distribution of questions based on the ﬁrst four words of the questions for both the real images (left) and abstract scenes (right). Interestingly, the distribution of questions is quite similar for both real images and abstract scenes. This helps demonstrate that the type of questions elicited by the abstract scenes is similar to those elicited by the real images. There exists a surprising variety of question types, including “What is. . .”, “Is there . . .”, “How many . . .”, and “Does the . . .”. Quantitatively, the percentage of questions for different types is shown in Table 3. Several example questions and answers are shown in Fig. 2. A particularly interesting type of question is the “What is . . .” questions, since they have a diverse set 2. In order to be consistent with ‘human accurac...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00040",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Abstract Scenes",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00041",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 4: Percentage of questions with different word lengths for real",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00042",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "images and abstract scenes. of possible answers. See the appendix for visualizations for “What is . . .” questions. Lengths. Fig. 4 shows the distribution of question lengths. We see that most questions range from four to ten words.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00043",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4.2 Answers",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00044",
+      "page": 5,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Typical Answers. Fig. 5 (top) shows the distribution of answers for several question types. We can see that a number of question types, such as “Is the. . . ”, “Are. . . ”, and “Does. . . ” are typically answered using “yes” and “no” as answers. Other questions such as “What is. . . ” and “What type. . . ” have a rich diversity of responses. Other question types such as “What color. . . ” or “Which. . . ” have more specialized responses, such as colors, or “left” and “right”. See the appendix for a list of the most popular answers. Lengths. Most answers consist of a single word, with the distribution of answers containing one, two, or three words, respectively being 89.32%, 6.91%, and 2.74% for real images and 90.51%, 5.89%, and 2.49% for abstract scenes. The brevity of answers is not surprising, since the questions tend to elicit speciﬁc information from the images. This is in contrast",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00045",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "6 Answers with Images Answers without Images",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00046",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 5: Distribution of answers per question type for a random sample of 60K questions for real images when subjects provide answers when",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00047",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "given the image (top) and when not given the image (bottom). with image captions that generically describe the entire image and hence tend to be longer. The brevity of our answers makes automatic evaluation feasible. While it may be tempting to believe the brevity of the answers makes the problem easier, recall that they are human-provided open-ended answers to open-ended questions. The questions typically require complex reasoning to arrive at these deceptively simple answers (see",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00048",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 2). There are currently 23,234 unique one-word answers",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00049",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "in our dataset for real images and 3,770 for abstract scenes. ‘Yes/No’ and ‘Number’ Answers. Many questions are an- swered using either “yes” or “no” (or sometimes “maybe”) – 38.37% and 40.66% of the questions on real images and abstract scenes respectively. Among these ‘yes/no’ questions, there is a bias towards “yes” – 58.83% and 55.86% of ‘yes/no’ answers are “yes” for real images and abstract scenes. Question types such as “How many. . . ” are answered using numbers – 12.31% and 14.48% of the questions on real images and abstract scenes are ‘number’ questions. “2” is the most popular answer among the ‘number’ questions, making up 26.04% of the ‘number’ answers for real images and 39.85% for abstract scenes. Subject Conﬁdence. When the subjects answered the ques- tions, we asked “Do you think you were able to answer the question correctly?”. Fig. 6 shows the distribution of responses. A majority of the answers were labeled as conﬁdent for both real images and abstract scenes. Inter...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00050",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 6 shows the percentage of questions in which (i) 7 or",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00051",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "more, (ii) 3−7, or (iii) less than 3 subjects agree on the answers",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00052",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "given their average conﬁdence score (0 = not conﬁdent, 1",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00053",
+      "page": 6,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "= conﬁdent). As expected, the agreement between subjects",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00054",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "7 7 or more same 3-7 same less than 3 same # of Questions",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00055",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 6: Number of questions per average conﬁdence score (0 = not",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00056",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "conﬁdent, 1 = conﬁdent) for real images and abstract scenes (black",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00057",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "lines). Percentage of questions where 7 or more answers are same, 3-7 are same, less than 3 are same (color bars). increases with conﬁdence. However, even if all of the subjects are conﬁdent the answers may still vary. This is not surprising since some answers may vary, yet have very similar meaning, such as “happy” and “joyful”. As shown in Table 1 (Question + Image), there is signiﬁcant inter-human agreement in the answers for both real images (83.30%) and abstract scenes ( 87.49%). Note that on average each question has 2.70 unique answers for real images and 2.39 for abstract scenes. The agreement is signiﬁcantly higher (> 95%) for “yes/no” questions and lower for other questions (< 76%), possibly due to the fact that we perform exact string matching and do not account for synonyms, plurality, etc. Note",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00058",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "that the automatic determination of synonyms is a difﬁcult",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00059",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "problem, since the level of answer granularity can vary across questions.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00060",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4.3 Commonsense Knowledge",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00061",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Is the Image Necessary? Clearly, some questions can some- times be answered correctly using commonsense knowledge alone without the need for an image, e.g., “What is the color of the ﬁre hydrant?”. We explore this issue by asking three subjects to answer the questions without seeing the image (see the examples in blue in Fig. 2). In Table 1 (Question), we show the percentage of questions for which the correct answer is provided over all questions, “yes/no” questions, and the other questions that are not “yes/no”. For “yes/no” questions, the human subjects respond better than chance. For other questions, humans are only correct about 21% of the time. This demonstrates that understanding the visual information is critical to VQA and that commonsense information alone is not sufﬁcient. To show the qualitative difference in answers provided with and without images, we show the distribution of answers for various question types in Fig. 5 (bottom). The distribution of colors, numbers, and e...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00062",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "TABLE 1: Test-standard accuracy of human subjects when asked to",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00063",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "answer the question without seeing the image (Question), seeing just a caption of the image and not the image itself (Question + Caption), and seeing the image (Question + Image). Results are shown for all questions, “yes/no” & “number” questions, and other questions that are neither answered “yes/no” nor number. All answers are free-form and not multiple-choice. *These accuracies are evaluated on a subset of 3K train questions (1K images). 2) The youngest age group that they believe a person must be in order to be able to correctly answer the question – toddler (3-4), younger child (5-8), older child (9-12), teenager (13-17), adult (18+). Each question was shown to 10 subjects. We found that for 47.43% of questions 3 or more subjects voted ‘yes’ to com- monsense, (18.14%: 6 or more). In the ‘perceived human age required to answer question’ study, we found the following dis- tribution of responses: toddler: 15.3%, younger child: 39.7%, older child: 28.4%, teenager: 11.2%, adult: 5.5%....",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00064",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "largely correlated (Pearson’s rank correlation: 0.58).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00065",
+      "page": 7,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "4.4 Captions vs. Questions Do generic image captions provide enough information to answer the questions? Table 1 (Question + Caption) shows the percentage of questions answered correctly when human",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00066",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "8 3-4 (15.3%) 5-8 (39.7%) 9-12 (28.4%) 13-17 (11.2%) 18+ (5.5%) Is that a bird in the sky? How many pizzas are shown? Where was this picture taken? Is he likely to get mugged if he walked down a dark alleyway like this? What type of architecture is this? What color is the shoe? What are the sheep eating? What ceremony does the cake commemorate? Is this a vegetarian meal? Is this a Flemish bricklaying pattern? How many zebras are there? What color is his hair? Are these boats too tall to fit under the bridge? What type of beverage is in the glass? How many calories are in this pizza? Is there food on the table? What sport is being played? What is the name of the white shape under the batter? Can you name the performer in the purple costume? What government document is needed to partake in this activity? Is this man wearing shoes? Name one ingredient in the skillet. Is this at the stadium? Besides these humans, what other animals eat here? What is the make and model of this vehicle?",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00067",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 7: Example questions judged by Mturk workers to be answerable by different age groups. The percentage of questions falling into each",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00068",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "age group is shown in parentheses. subjects are given the question and a human-provided caption describing the image, but not the image. As expected, the results are better than when humans are shown the questions alone. However, the accuracies are signiﬁcantly lower than when subjects are shown the actual image. This demonstrates that in order to answer the questions correctly, deeper image understanding (beyond what image captions typically capture) is necessary. In fact, we ﬁnd that the distributions of nouns, verbs, and adjectives mentioned in captions is statistically signiﬁcantly different from those mentioned in our questions + answers (Kolmogorov-Smirnov test, p < . 001) for both real images and abstract scenes. See the appendix for details.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00069",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "5 VQA B ASELINES AND METHODS",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00070",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "In this section, we explore the difﬁculty of the VQA dataset for the MS COCO images using several baselines and novel methods. We train on VQA train+val. Unless stated otherwise, all human accuracies are on test-standard, machine accuracies are on test-dev, and results involving human captions (in gray font) are trained on train and tested on val (because captions are not available for test).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00071",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "5.1 Baselines",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00072",
+      "page": 8,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "We implemented the following baselines: 1) random: We randomly choose an answer from the top 1K answers of the VQA train/val dataset. 2) prior (“yes”): We always select the most popular answer (“yes”) for both the open-ended and multiple-choice tasks. Note that “yes” is always one of the choices for the multiple-choice questions. 3) per Q-type prior: For the open-ended task, we pick the most popular answer per question type (see the appendix for details). For the multiple-choice task, we pick the answer (from the provided choices) that is most similar to the picked answer for the open-ended task using cosine similarity in Word2Vec[39] feature space. 4) nearest neighbor: Given a test image, question pair, we ﬁrst ﬁnd theK nearest neighbor questions and associated images from the training set. See appendix for details on how neighbors are found. Next, for the open-ended task, we pick the most frequent ground truth answer from this set of nearest neighbor question, image pairs. Similar t...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00073",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "5.2 Methods",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00074",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "For our methods, we develop a 2-channel vision (image) +",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00075",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "language (question) model that culminates with a softmax",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00076",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "over K possible outputs. We choose the top K = 1000 most",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00077",
+      "page": 8,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "frequent answers as possible outputs. This set of answers covers 82.67% of the train+val answers. We describe the different components of our model below: Image Channel: This channel provides an embedding for the image. We experiment with two embeddings – 1) I: The activations from the last hidden layer of VG- GNet [48] are used as 4096-dim image embedding. 2) norm I: These are ℓ2 normalized activations from the last hidden layer of VGGNet [48]. Question Channel: This channel provides an embedding for the question. We experiment with three embeddings – 1) Bag-of-Words Question (BoW Q): The top 1,000 words in the questions are used to create a bag-of-words repre- sentation. Since there is a strong correlation between the words that start a question and the answer (see Fig. 5), we ﬁnd the top 10 ﬁrst, second, and third words of the questions and create a 30 dimensional bag-of-words representation. These features are concatenated to get a 1,030-dim embedding for the question. 2) LSTM Q:...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00078",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "9 Convolution Layer + Non-Linearity Pooling Layer Convolution Layer + Non-Linearity Pooling Layer Fully-Connected MLP 4096 output units from last hidden layer (VGGNet, Normalized) “How many horses are in this image?” 2×2×512 LSTM Fully-Connected 1024 1024 Point-wise multiplication Fully-Connected 1000 Softmax “2” 1024 Fully-Connected 1000",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00079",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "Fig. 8: Our best performing model (deeper LSTM Q + norm I). This model uses a two layer LSTM to encode the questions and the last",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00080",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "hidden layer of VGGNet [48] to encode the images. The image features are then ℓ2 normalized. Both the question and image features are transformed to a common space and fused via element-wise multiplication, which is then passed through a fully connected layer followed",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00081",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "by a softmax layer to obtain a distribution over answers.",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00082",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "being 512-dim) from each of the two hidden layers of the LSTM. Hence 2 (hidden layers) x 2 (cell state and hidden state) x 512 (dimensionality of each of the cell states, as well as hidden states) in Fig. 8. This is followed by a fully-connected layer + tanh non-linearity to transform 2048-dim embedding to 1024-dim. The question words are encoded in the same way as in LSTM Q. Multi-Layer Perceptron (MLP): The image and question embeddings are combined to obtain a single embedding. 1) For BoW Q + I method, we simply concatenate the BoW Q and I embeddings. 2) For LSTM Q + I, and deeper LSTM Q + norm I (Fig. 8) methods, the image embedding is ﬁrst transformed to 1024-dim by a fully-connected layer + tanh non-linearity to match the LSTM embedding of the question. The transformed image and LSTM embeddings (being in a common space) are then fused via element-wise multi- plication. This combined image + question embedding is then passed to an MLP – a fully connected neural network classiﬁer...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00083",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "with tanh non-linearity, followed by a softmax layer to obtain",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00084",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "a distribution over K answers. The entire model is learned end-to-end with a cross-entropy loss. VGGNet parameters are frozen to those learned for ImageNet classiﬁcation and not ﬁne-tuned in the image channel. We also experimented with providing captions as input to our model. Similar to Table 1, we assume that a human-generated caption is given as input. We use a bag-of-words representation containing the 1,000 most popular words in the captions as the caption embedding (Caption). For BoW Question + Caption (BoW Q + C) method, we simply concatenate the BoW Q and C embeddings. For testing, we report the result on two different tasks: open- ended selects the answer with highest activation from all Open-Ended Multiple-Choice All Yes/No Number Other All Yes/No Number Other prior (“yes”) 29.66 70.81 00.39 01.15 29.66 70.81 00.39 01.15 per Q-type prior 37.54 71.03 35.77 09.38 39.45 71.02 35.86 13.34 nearest neighbor 42.70 71.89 24.36 21.94 48.49 71.94 26.00 33.56 BoW Q 48.09 75.66 36.70 27...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00085",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "TABLE 2: Accuracy of our methods for the open-ended and multiple-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00086",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "choice tasks on the VQA test-dev for real images. Q = Question, I",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00087",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "= Image, C = Caption. (Caption and BoW Q + C results are on val).",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00088",
+      "page": 9,
+      "section": "Method",
+      "bbox": null,
+      "text_span": "See text for details. possible K answers and multiple-choice picks the answer that has the highest activation from the potential answers.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00089",
+      "page": 9,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "5.3 Results",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00090",
+      "page": 9,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Table 2 shows the accuracy of our baselines and methods for",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00091",
+      "page": 9,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "both the open-ended and multiple-choice tasks on the VQA test-dev for real images. As expected, the vision-alone model (I) that completely ignores the question performs rather poorly (open-ended: 28.13% / multiple-choice: 30.53%). In fact, on open-ended task, the vision-alone model (I) performs worse than the prior (“yes”) baseline, which ignores both the image and question (responding to every question with a “yes”). Interestingly, the language-alone methods (per Q-type prior, BoW Q, LSTM Q) that ignore the image perform surprisingly well, with BoW Q achieving 48.09% on open-ended (53.68% on multiple-choice) and LSTM Q achieving 48.76% on open-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00092",
+      "page": 9,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "ended (54.75% on multiple-choice); both outperforming the",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00093",
+      "page": 9,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "nearest neighbor baseline (open-ended: 42.70%, multiple-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00094",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "10 choice: 48.49%). Our quantitative results and analyses suggest that this might be due to the language-model exploiting subtle statistical priors about the question types (e.g. “What color is the banana?” can be answered with “yellow” without looking at the image). For a detailed discussion of the subtle biases in the questions, please see [56]. The accuracy of our best model (deeper LSTM Q + norm I (Fig. 8), selected using VQA test-dev accuracies) on VQA test- standard is 58.16% (open-ended) / 63.09% (multiple-choice). We can see that our model is able to signiﬁcantly outper- form both the vision-alone and language-alone baselines. As a general trend, results on multiple-choice are better than open-ended. All methods are signiﬁcantly worse than human performance. Our VQA demo is available on CloudCV [1] – http://cloudcv. org/vqa. This will be updated with newer models as we develop them. To gain further insights into these results, we computed accuracies by question type in Table 3...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00095",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "is somewhat underwhelming for counts ( e.g., “2”, “1”, “3”),",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00096",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "and particularly poor for higher counts ( e.g., “5”, “6”, “10”, “8”, “7”). In Fig. 10, we show the distribution of 50 most frequently predicted answers when the system is correct on the VQA validation set (plot is sorted by prediction frequency, not accuracy). In this analysis, “system is correct” implies that it has VQA accuracy 1.0 (see section 3 for accuracy metric). We can see that the frequent ground truth answers ( e.g., “yes”, “no”, “2”, “white”, “red”, “blue”, “1”, “green”) are more frequently predicted than others when the model is correct. Finally, evaluating our best model (deeper LSTM Q + norm I) on the validation questions for which we have age annota- tions (how old a human needs to be to answer the question correctly), we estimate that our model performs as well as a 4.74 year old child! The average age required on the same set of questions is 8.98. Evaluating the same model on the validation questions for which we have commonsense annotations (whether the question requ...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00097",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Question K = 1000 Human To Be Able To Be Able",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00098",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Type Q Q + I Q + C Q Q + I To Answer To Answer (%) what is (13.84) 23.57 34.28 43.88 16.86 73.68 09.07 27.52 what color (08.98) 33.37 43.53 48.61 28.71 86.06 06.60 13.22 what kind (02.49) 27.78 42.72 43.88 19.10 70.11 10.55 40.34 what are (02.32) 25.47 39.10 47.27 17.72 69.49 09.03 28.72 what type (01.78) 27.68 42.62 44.32 19.53 70.65 11.04 38.92 is the (10.16) 70.76 69.87 70.50 65.24 95.67 08.51 30.30 is this (08.26) 70.34 70.79 71.54 63.35 95.43 10.13 45.32 how many (10.28) 43.78 40.33 47.52 30.45 86.32 07.67 15.93 are (07.57) 73.96 73.58 72.43 67.10 95.24 08.65 30.63 does (02.75) 76.81 75.81 75.88 69.96 95.70 09.29 38.97 where (02.90) 16.21 23.49 29.47 11.09 43.56 09.54 36.51 is there (03.60) 86.50 86.37 85.88 72.48 96.43 08.25 19.88 why (01.20) 16.24 13.94 14.54 11.80 21.50 11.18 73.56 which (01.21) 29.50 34.83 40.84 25.64 67.44 09.27 30.00 do (01.15) 77.73 79.31 74.63 71.33 95.44 09.23 37.68 what does (01.12) 19.58 20.00 23.19 11.12 75.88 10.02 33.27 what time (00.67) 8.35 14.00...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00099",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "TABLE 3: Open-ended test-dev results for different question types",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00100",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "on real images (Q+C is reported on val). Machine performance is reported using the bag-of-words representation for questions.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00101",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Questions types are determined by the one or two words that start",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00102",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "the question. The percentage of questions for each type is shown in parentheses. Last and second last columns respectively show the average human age and average degree of commonsense required to answer the questions (as reported by AMT workers), respectively. See text for details. the age and commonsense perceived by MTurk workers that would be required to answer the question. See the appendix for details. We further analyzed the performance of the model for different age groups on the validation questions for which we have age annotations. In Fig. 11, we computed the average accuracy of the predictions made by the model for questions belonging to different age groups. Perhaps as expected, the accuracy of the model decreases as the age of the question increases (from 61.07% at 3− 4 age group to 47.83% at 18+ age group). In Fig. 12, we show the distribution of age of questions for different levels of accuracies achieved by our system on the validation questions for which we have age a...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00103",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Table 4 shows the accuracy of different ablated versions of",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00104",
+      "page": 10,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "our best model (deeper LSTM Q + norm I) for both the open- ended and multiple-choice tasks on the VQA test-dev for real images. The different ablated versions are as follows – 1) Without I Norm: In this model, the activations from the last hidden layer of VGGNet [48] are not ℓ2-normalized. Comparing the accuracies in Table 4 and Table 2, we can see that ℓ2-normalization of image features boosts the performance by 0.16% for open-ended task and by 0.24% for multiple-choice task. 2) Concatenation: In this model, the transformed image and LSTM embeddings are concatenated (instead of element- wise multiplied), resulting in doubling the number of",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00105",
+      "page": 11,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "11 0 10 20 30 40 50 60 70 80 90 100Average Accuracy",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00106",
+      "page": 11,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Fig. 9: Pr (system is correct | answer) for 50 most frequent ground truth answers on the VQA validation set (plot is sorted by accuracy, not",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00107",
+      "page": 11,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "frequency). System refers to our best model (deeper LSTM Q + norm I). 0.1 1 10 100 Percentage of correct questions",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00108",
+      "page": 11,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Fig. 10: Pr (answer | system is correct) for 50 most frequently predicted answers on the VQA validation set (plot is sorted by prediction",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00109",
+      "page": 11,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "frequency, not accuracy). System refers to our best model (deeper LSTM Q + norm I). 0 10 20 30 40 50 60 70 80 90 100 3--4 5--8 9--12 13-17 18+ Average Accuracy Age",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00110",
+      "page": 11,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Fig. 11: Pr (system is correct | age of question) on the VQA valida-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00111",
+      "page": 11,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "tion set. System refers to our best model (deeper LSTM Q + norm I). 0 10 20 30 40 50 60 70 80 90 100 0 30 60 90 100 Distribution of age of questions per accuracy bin Accuracy 3--4 5--8 9--12 13--17 18+",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00112",
+      "page": 11,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Fig. 12: Pr (age of question | system is correct) on the VQA valida-",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00113",
+      "page": 11,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "tion set. System refers to our best model (deeper LSTM Q + norm I). parameters in the following fully-connected layer. Com- paring the accuracies in Table 4 and Table 2, we can see that element-wise fusion performs better by 0.95% for open-ended task and by 1.24% for multiple-choice task.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00114",
+      "page": 11,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "3) K = 500: In this model, we use K = 500 most frequent",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00115",
+      "page": 11,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "answers as possible outputs. Comparing the accuracies in",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00116",
+      "page": 11,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Table 4 and Table 2, we can see that K = 1000 performs",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00117",
+      "page": 11,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "better than K = 500 by 0.82% for open-ended task and",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00118",
+      "page": 11,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "by 1.92% for multiple-choice task.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00119",
+      "page": 11,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "4) K = 2000: In this model, we use K = 2000 most frequent",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00120",
+      "page": 11,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "answers as possible outputs. Comparing the accuracies in",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00121",
+      "page": 11,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "Table 4 and Table 2, we can see that K = 2000 performs",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00122",
+      "page": 11,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "better then K = 1000 by 0.40% for open-ended task and",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00123",
+      "page": 11,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "by 1.16% for multiple-choice task. 5) Truncated Q Vocab @ 5: In this model, the input vocabulary to the embedding layer (which encodes the question words) consists of only those question words which occur atleast 5 times in the training dataset, thus re- ducing the vocabulary size from 14770 (when all question words are used) to 5134 (65.24% reduction). Remaining question words are replaced with UNK (unknown) tokens. Comparing the accuracies in Table 4 and Table 2, we can see that truncating the question vocabulary @ 5 performs better than using all questions words by 0.24% for open- ended task and by 0.17% for multiple-choice task. 6) Truncated Q Vocab @ 11: In this model, the input vocabulary to the embedding layer (which encodes the question words) consists of only those question words which occur atleast 11 times in the training dataset, thus reducing the vocabulary size from 14770 (when all question words are used) to 3561 (75.89% reduction). Remaining question words are replaced...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00124",
+      "page": 12,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "12 Open-Ended Multiple-Choice All Yes/No Number Other All Yes/No Number Other Without I Norm 57.59 80.41 36.63 42.84 62.46 80.43 38.10 52.62 Concatenation 56.80 78.49 35.08 43.19 61.46 78.52 36.43 52.54 K = 500 56.93 80.61 36.24 41.39 60.78 80.64 37.44 49.10 K = 2000 58.15 80.56 37.04 43.79 63.86 80.59 38.97 55.20 Truncated Q V ocab @ 5 57.99 80.67 36.99 43.38 62.87 80.71 38.22 53.20 Truncated Q V ocab @ 11 57.81 80.42 36.97 43.22 62.72 80.45 38.30 53.09 Filtered Dataset 56.62 80.19 37.48 40.95 60.82 80.19 37.48 49.57",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00125",
+      "page": 12,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "TABLE 4: Accuracy of ablated versions of our best model (deeper",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00126",
+      "page": 12,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "LSTM Q + norm I) for the open-ended and multiple-choice tasks on",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00127",
+      "page": 12,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "the VQA test-dev for real images. Q = Question, I = Image. See text",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00128",
+      "page": 12,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "for details. compared to 369861 questions in the original dataset, thus leading to only 6.83% reduction in the size of the dataset. The ﬁltered dataset has 8.77 answers per question on average. We did not ﬁlter the test set so that accuracies of the model trained on the ﬁltered dataset can be compared with that of the model trained on the original dataset. The row “Filtered Dataset” in Table 4 shows the performance of the deeper LSTM Q + norm I model when trained on the ﬁltered dataset. Comparing these accuracies with the corresponding accuracies in Table 2, we can see that the model trained on ﬁltered version performs worse by 1.13% for open-ended task and by 1.88% for multiple- choice task.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00129",
+      "page": 12,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "6 VQA C HALLENGE AND WORKSHOP",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00130",
+      "page": 12,
+      "section": "Results",
+      "bbox": null,
+      "text_span": "We have set up an evaluation server 3 where results may be uploaded for the test set and it returns an accuracy breakdown. We are organizing an annual challenge and workshop to facilitate systematic progress in this area; the ﬁrst instance of the workshop will be held at CVPR 2016 4. We suggest that papers reporting results on the VQA dataset – 1) Report test-standard accuracies, which can be calculated using either of the non-test-dev phases, i.e., “test2015” or “Challenge test2015” on the following links: [oe-real | oe-abstract| mc-real| mc-abstract]. 2) Compare their test-standard accuracies with those on the corresponding test2015 leaderboards [oe-real-leaderboard | oe-abstract-leaderboard | mc-real-leaderboard | mc-",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00131",
+      "page": 12,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "abstract-leaderboard].",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00132",
+      "page": 12,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "For more details, please see the challenge page 5. Screenshots of leaderboards for open-ended-real and multiple-choice-real are shown in Fig. 13. We also compare the test-standard accuracies of our best model (deeper LSTM Q + norm I) for both open-ended and multiple-choice tasks (real images) with other entries (as of October 28, 2016) on the corresponding leaderboards in Table 5.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00133",
+      "page": 12,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "7 C ONCLUSION AND DISCUSSION",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00134",
+      "page": 12,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "In conclusion, we introduce the task of Visual Question Answering (VQA). Given an image and an open-ended, natural 3. http://visualqa.org/challenge.html 4. http://www.visualqa.org/workshop.html 5. http://visualqa.org/challenge.html Open-Ended Multiple-Choice All Yes/No Number Other All Yes/No Number Other snubi-naverlabs 60.60 82.23 38.22 46.99 64.95 82.25 39.56 55.68 MM PaloAlto 60.36 80.43 36.82 48.33 – – – – LV-NUS 59.54 81.34 35.67 46.10 64.18 81.25 38.30 55.20 ACVT Adelaide 59.44 81.07 37.12 45.83 – – – – global vision 58.43 78.24 36.27 46.32 – – – – deeper LSTM Q + norm I 58.16 80.56 36.53 43.73 63.09 80.59 37.70 53.64 iBOWIMG – – – – 61.97 76.86 37.30 54.60",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00135",
+      "page": 12,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "TABLE 5: Test-standard accuracy of our best model (deeper LSTM",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00136",
+      "page": 12,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Q + norm I) compared to test-standard accuracies of other entries for the open-ended and multiple-choice tasks in the respective VQA Real Image Challenge leaderboards (as of October 28, 2016). language question about the image, the task is to provide an accurate natural language answer. We provide a dataset containing over 250K images, 760K questions, and around 10M answers. We demonstrate the wide variety of questions and answers in our dataset, as well as the diverse set of AI capabilities in computer vision, natural language processing, and commonsense reasoning required to answer these ques- tions accurately. The questions we solicited from our human subjects were open-ended and not task-speciﬁc. For some application do- mains, it would be useful to collect task-speciﬁc questions. For instance, questions may be gathered from subjects who are visually impaired [3], or the questions could focused on one speciﬁc domain (say sports). Bigham et al. [3] created an application that allow...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00137",
+      "page": 13,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "13",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00138",
+      "page": 13,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 13: Leaderboard showing test-standard accuracies for VQA Real Image Challenge (Open-Ended) on left and leaderboard showing",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00139",
+      "page": 13,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "test-standard accuracies for VQA Real Image Challenge (Multiple-Choice) on right (snapshot from October 28, 2016). IX - Additional examples from the VQA dataset APPENDIX I: C APTIONS vs. Q UESTIONS Do questions and answers provide further information about the visual world beyond that captured by captions? One",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00140",
+      "page": 13,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "method for determining whether the information captured by",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00141",
+      "page": 13,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "questions & answers is different from the information captured by captions is to measure some of the differences in the word distributions from the two datasets. We cast this comparison in terms of nouns, verbs, and adjectives by extracting all words from the caption data (MS COCO captions for real images and captions collected by us for abstract scenes) using the Stanford part-of-speech (POS) 6 tagger [49]. We normalize the word frequencies from captions, questions, and answers per image, and compare captions vs. questions and answers",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00142",
+      "page": 13,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "combined. Using a Kolmogorov-Smirnov test to determine",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00143",
+      "page": 13,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "whether the underlying distributions of the two datasets differ, we ﬁnd a signiﬁcant difference for all three parts of speech (p < .001) for both real images and abstract scenes. This helps motivate the VQA task as a way to learn information about visual scenes; although both captions and questions & answers provide information about the visual world, they do it from different perspectives, with different underlying biases [20], and can function as complementary to one another. 6. Noun tags begin with NN, verb tags begin with VB, adjective tags begin with JJ, and prepositions are tagged as IN. We illustrate the similarities and differences between the word distributions in captions vs. questions & answers as Venn-style word clouds [10] with size indicating the normalized count –",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00144",
+      "page": 13,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 15 (nouns), Fig. 16 (verbs), and Fig. 17 (adjectives) for",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00145",
+      "page": 13,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "real images and Fig. 18 (nouns), Fig. 19 (verbs), and Fig. 20 (adjectives) for abstract scenes. 7 The left side shows the top words in questions & answers, the right the top words in captions, and the center the words common to both, with size indicating the harmonic mean of the counts. We see that adjectives in captions capture some clearly visual properties discussed in previous work on vision to language [41], such as material and pattern, while the questions & answers have more adjectives that capture what is usual",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00146",
+      "page": 13,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(e.g., “dominant”, “approximate”, “higher”) and other kinds of",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00147",
+      "page": 13,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "commonsense properties ( e.g., “edible”, “possible”, “unsafe”, “acceptable”). Interestingly, we see that question & answer nouns capture information about “ethnicity” and “hairstyle”, while caption nouns capture information about pluralized vis- ible objects (e.g., “cellphones”, “daughters”) and groups ( e.g., “trio”, “some”), among other differences. “Man” and “people” are common in both captions and questions & answers. One key piece to understanding the visual world is understand- ing spatial relationships, and so we additionally extract spatial prepositions and plot their proportions in the captions vs. the questions & answers data in Fig. 14 (left) for real images and",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00148",
+      "page": 13,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 14 (right) for abstract scenes. We see that questions &",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00149",
+      "page": 13,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "7. Visualization created using http://worditout.com/.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00150",
+      "page": 14,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "14 answers have a higher proportion of speciﬁc spatial relations (i.e., “in”, “on”) compared to captions, which have a higher proportion of general spatial relations ( i.e., “with”, “near”).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00151",
+      "page": 15,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "15",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00152",
+      "page": 15,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 14: Proportions of spatial prepositions in the captions and question & answers for real images (left) and abstract scenes (right).",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00153",
+      "page": 15,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 15: Venn-style word clouds [10] for nouns with size indicating the normalized count for real images.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00154",
+      "page": 15,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 16: Venn-style word clouds [10] for verbs with size indicating the normalized count for real images.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00155",
+      "page": 15,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 17: Venn-style word clouds [10] for adjectives with size indicating the normalized count for real images.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00156",
+      "page": 16,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "16",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00157",
+      "page": 16,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 18: Venn-style word clouds [10] for nouns with size indicating the normalized count for abstract scenes.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00158",
+      "page": 16,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 19: Venn-style word clouds [10] for verbs with size indicating the normalized count for abstract scenes.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00159",
+      "page": 16,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 20: Venn-style word clouds [10] for adjectives with size indicating the normalized count for abstract scenes.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00160",
+      "page": 17,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "17 Dataset Accuracy Metric All Yes/No Number Other MC majority vote 91.54 97.40 86.97 87.91 Real MC average 88.53 94.40 84.99 84.64 Open-Ended 80.62 94.78 78.46 69.69 MC majority vote 93.57 97.78 96.71 88.73",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00161",
+      "page": 17,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Abstract MC average 90.40 94.59 94.36 85.32",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00162",
+      "page": 17,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Open-Ended 85.66 95.32 94.17 74.12",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00163",
+      "page": 17,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "TABLE 6: For each of the two datasets, real and abstract, ﬁrst two",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00164",
+      "page": 17,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "rows are the human accuracies for multiple-choice questions when subjects were shown both the image and the question. Majority vote means we consider the answer picked by majority of the three subjects to be the predicted answer by humans and compute accuracy of that answer for each question. Average means we compute the accuracy of each of the answers picked by the subjects and record their average for each question. The last row is the inter-human agreement for open-ended answers task when subjects were shown both the image and the question. All accuracies are evaluated on a random subset of 3000 questions. APPENDIX II: “W HAT IS ” A NALYSIS In Fig. 21, we show the distribution of questions starting with “What is” by their ﬁrst ﬁve words for both real images and abstract scenes. Note the diversity of objects referenced in the questions, as well as, the relations between objects, such as “holding” and “sitting on”. In Fig. 22, we show the distribution of answers for “What is” questio...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00165",
+      "page": 17,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "same for “yes/no” questions and signiﬁcantly better ( ≈ 15%",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00166",
+      "page": 17,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "increase for real images and ≈ 11% increase for abstract",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00167",
+      "page": 17,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "scenes) for “other” questions. Since “other” questions may be ambiguous, the increase in accuracy using multiple choice is not surprising. APPENDIX IV: D ETAILS ON VQA BASELINES “per Q-type prior” baseline. We decide on different question types based on ﬁrst few words of questions in the real images training set and ensure that each question type has at least 30 questions in the training dataset. The most popular answer for each question type is also computed on real images training set. “nearest neighbor” baseline. For every question in the VQA test-standard set, we ﬁnd its k nearest neighbor questions in the training set using cosine similarity in Skip-Thought [27] feature space. We also experimented with bag of words and Word2Vec [39] feature spaces but we obtained the best performance with Skip-Thought. In this set of k questions and their associated images, we ﬁnd the image which is most similar to the query image using cosine similarity in fc7 feature space. We use the fc7 featu...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00168",
+      "page": 17,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "answer for the query image and question pair. We pick k = 4",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00169",
+      "page": 17,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "on the test-dev set. APPENDIX V: “A GE” AND “C OMMONSENSE ” OF OUR MODEL We estimate the age and degree of commonsense of our best model (deeper LSTM Q + norm I), selected using VQA test- dev accuracies). To estimate the age, we compute a weighted average of the average age per question, weighted by the accuracy of the model’s predicted answer for that question, on the subset of questions in the VQA validation set for which we have age annotations (how old a human needs to be to answer the question correctly). To estimate the degree of commonsense, we compute a weighted average of the average degree of commonsense per question, weighted by the accuracy of the model’s predicted answer for that question, on the subset of questions in the VQA validation set for which we have commonsense annotations (whether the question requires commonsense to answer it). APPENDIX VI: A BSTRACT SCENES DATASET In Fig. 23 (left), we show a subset of the objects that are present in the abstract scenes datas...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00170",
+      "page": 17,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "object determined the rendering order of the objects. Many",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00171",
+      "page": 17,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "objects have different attributes corresponding to different poses or types. Most animals have ﬁve different discrete poses. Humans have eight discrete expressions and their poses may be continuously adjusted using a “paperdoll” model [2]. APPENDIX VII: U SER INTERFACES In Fig. 24, we show the AMT interface that we used to collect questions for images. Note that we tell the workers that the robot already knows the answer to the previously asked question(s), inspiring them to ask different kinds of questions, thereby increasing the diversity of our dataset.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00172",
+      "page": 17,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 25 shows the AMT interface used for collecting answers",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00173",
+      "page": 17,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "to the previously collected questions when subjects were shown the corresponding images. Fig. 26 shows the interface that was used to collect answers to questions when subjects were not shown the corresponding image ( i.e., to help in gathering incorrect, but plausible, answers for the multiple- choice task and to assess how accurately the questions can be answered using common sense knowledge alone).",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00174",
+      "page": 18,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "18 Real Images Abstract Scenes What is What is",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00175",
+      "page": 18,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 21: Distribution of questions starting with “What is” by their ﬁrst ﬁve words for a random sample of 60K questions for real images",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00176",
+      "page": 18,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(left) and all questions for abstract scenes (right). The ordering of the words starts towards the center and radiates outwards. The arc length is proportional to the number of questions containing the word. White areas are words with contributions too small to show. Real Images",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00177",
+      "page": 18,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Abstract Scenes",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00178",
+      "page": 18,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 22: Distribution of answers for questions starting with “What is” for a random sample of 60K questions for real images (top) and all",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00179",
+      "page": 18,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "questions for abstract scenes (bottom). Each column corresponds to questions ending in different words, such as “doing?”, “on?”, etc.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00180",
+      "page": 19,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "19",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00181",
+      "page": 19,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 23: Left: A small subset of the objects present in the abstract scene dataset. Right: The AMT interface for collecting abstract scenes.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00182",
+      "page": 19,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "The light green circles indicate where users can select to manipulate a person’s pose. Different objects may be added to the scene using the folders to the right.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00183",
+      "page": 19,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 24: Our AMT interface for collecting the third question for an image, when subjects were shown previous questions that were collected",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00184",
+      "page": 19,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "and were asked to ask a question different from previous questions.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00185",
+      "page": 20,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "20",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00186",
+      "page": 20,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 25: The AMT interface used to collect answers to a question when subjects were shown the image while answering the question.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00187",
+      "page": 20,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 26: The AMT interface used to collect answers to a question when subjects were not shown the image while answering the question",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00188",
+      "page": 20,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "using only commonsense to collect the plausible, but incorrect, multiple-choice answers.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00189",
+      "page": 21,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "21 APPENDIX VIII: A NSWER DISTRIBUTION The top 250 answers in our real images dataset along with their counts and percentage counts are given below. The answers have been presented in different colors to show the different Part-of-Speech (POS) tagging of the answers with the following color code: yes/no, noun, verb, adjective, adverb, and numeral. “yes” (566613, 22.82%), “no” (381307, 15.35%), “2” (80031, 3.22%), “1” (46537, 1.87%), “white” (41753, 1.68%), “3” (41334, 1.66%), “red” (33834, 1.36%), “blue” (28881, 1.16%), “4” (27174, 1.09%), “green” (22453, 0.9%), “black” (21852, 0.88%), “yellow” (17312, 0.7%), “brown” (14488, 0.58%), “5” (14373, 0.58%), “tennis” (10941, 0.44%),“baseball” (10299, 0.41%), “6” (10103, 0.41%), “orange” (9136, 0.37%), “0” (8812, 0.35%), “bathroom” (8473, 0.34%), “wood” (8219, 0.33%), “right” (8209, 0.33%), “left” (8058, 0.32%), “frisbee” (7671, 0.31%), “pink” (7519, 0.3%), “gray” (7385, 0.3%), “pizza” (6892, 0.28%), “7” (6005, 0.24%), “kitchen” (5926, 0.24%...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00190",
+      "page": 22,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "22 What part of the body are these worn around? neck neck neck legs neck wrist How many ties are there? 2 10 many 3 4 4 Does this look like a group of nerds? no no no no yes yes What are the people throwing? frisbee frisbee frisbee balls rice frsibee Which player on the field head-butted the ball? 18 18 player on left 1 in front of goal number 13 number 22 What number is on the girl in black? 18 18 18 1 4 8 How many people are wearing an orange shirt? 3 3 3 1 3 3 Is this a trained elephant? yes yes yes yes yes yes What is the type of meat under the bread? beef roast beef roast beef bologna ham tan How much fluid is in the bottom of the bowl? 0 1 oz little 3 ounces a lot some How many stories is this home? 1 1 2 2 3 3",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00191",
+      "page": 22,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Is the table large enough for",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00192",
+      "page": 22,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "10 average people to eat at? no no no no yes yes How many boats are visible? 3 4 5 2 3 4 How many umbrellas are in the image? 4 4 4 2 2 9734 Why does this male have his arms in this position? balance for balance for balance angry he’s carrying bags hug Are the clouds high in the sky? yes yes yes no no yes Is it raining? no no no yes yes Yes Are there any people sitting on the bench? No No No No No Yes What is the woman carrying? umbrella umbrella umbrella phone purse suitcase What is the most colorful object in the picture? umbrella umbrella umbrella art flower flowers What is in the child’s mouth? her thumb it’s thumg thumb candy cookie lollipop What is the child harnessed to? her thumb high chair seat bike child seat seat What color are the shoe laces? Blue Blue Light blue Black Red White What is he sitting on? Skateboard Skateboard Skateboard Bench Chair Chair What is the horse missing to be able to ride it? saddle saddle saddle saddle saddle saddle What shape is the building on th...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00193",
+      "page": 22,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 27: Random examples of questions (black), (a subset of the) answers given when looking at the image (green), and answers given when",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00194",
+      "page": 22,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "not looking at the image (blue) for numerous representative examples of the real image dataset.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00195",
+      "page": 23,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "23 Who is holding the football? man man man boy girl man How is the weather? cool and sunny mostly sunny partly cloudy nice sunny sunny What is the dog looking at? ball ball soccerball cat cat tree Will the boy play with the dog? yes yes yes yes yes yes What is the little girl playing with? jump rope jump rope jumprope doll dolls teddy bear What is in the pond? frog lillypad lily pad fish fish turtle What part of the chair is the lady sitting on? arm arm arm arm seat seat Is the woman sad? her cat died yes yes no no no What color is the book the woman is reading? blue blue book blue green red Is the lady reading? no yes yes no yes yes What are the boy and girl sitting on? seesaw see saw teeter-totter bench bench couch What geometric shape is the base of the seesaw? triangle triangle triangle triangle triangle triangle What color is the bike? orange orange orange blue pink red Is the man injured? no no no no no yes What color is the scooter? red red red red red yellow How many turtles?...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00196",
+      "page": 23,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 28: Random examples of questions (black), (a subset of the) answers given when looking at the image (green), and answers given when",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00197",
+      "page": 23,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "not looking at the image (blue) for numerous representative examples of the abstract scene dataset.",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00198",
+      "page": 24,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "24 Q: What is the color of freebee? (a) yes (b) no (c) 1 (d) 2 (e) 3 (f) 4 (g) white (h) red (i) blue (j) green",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00199",
+      "page": 24,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(k) brick (l) peach (m) hill (n) vitamin c",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00200",
+      "page": 24,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(o) brown (p) christleton (q) bonsai tree (r) black Q: How old is the child? (a) yes (b) no (c) 1 (d) 2 (e) 3 (f) 4 (g) white (h) red (i) blue (j) green (k) 6 (l) 12 (m) 10 (n) mechanics (o) 5 (p) wait here (q) mad (r) recording studio Q: Where is the kid pointing? (a) yes (b) no (c) 1 (d) 2 (e) 3 (f) 4 (g) white (h) red (i) blue (j) green (k) park (l) up (m) floor mat (n) so people don't get wet (o) down (p) mom (q) pharos (r) ketchup pickle relish mustard Q: How many people are in the picture on side of refrigerator? (a) yes (b) no (c) 1 (d) 2 (e) 3 (f) 4 (g) white (h) red (i) blue (j) green (k) 108 mph (l) banana, apple (m) 7 (n) 10 many (o) fruit salad (p) full swing (q) 5 (r) vattenfall strom fur gewinner Q: How many of the deer are sleeping? (a) yes (b) no (c) 1 (d) 2 (e) 3 (f) 4 (g) white (h) red (i) blue (j) yellow (k) 5 (l) left of pond (m) 13 (n) plants and cat (o) tree base (p) cement (q) 0 (r) green, blue and yellow Q: What type of wildlife is this park overrun with? (a) y...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00201",
+      "page": 24,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(k) 20 (l) 54 (m) max payne (n) 62",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00202",
+      "page": 24,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "(o) 12 (p) dresses (q) 3 to 5 (r) two way traffic Q: Where is the blanket? (a) yes (b) no (c) 1 (d) 2 (e) 3 (f) 4 (g) white (h) red (i) blue (j) yellow (k) fat (l) lying down (m) bed (n) utensils (o) on bed (p) grass (q) ground (r) watching child Q: What is for dessert? (a) yes (b) no (c) 1 (d) 2 (e) 3 (f) 4 (g) white (h) red (i) blue (j) yellow (k) cake (l) pie (m) a (n) doll and dollhouse (o) ice cream (p) yellow book (q) cheesecake (r) there are no fish Q: Why does the little girl not look happy? (a) yes (b) no (c) 1 (d) 2 (e) 3 (f) 4 (g) white (h) red (i) blue (j) yellow (k) indian (l) upset (m) dog left (n) smiling at it (o) corner (p) to be pet (q) she fell (r) boy is playing with her toys Q: Why is the boy playing with his sister's toys? (a) yes (b) no (c) 1 (d) 2 (e) 3 (f) 4 (g) white (h) red (i) blue (j) yellow (k) he likes them (l) parking it (m) dogs (n) shelf (o) he feeds them (p) lonely (q) bored (r) likes them Q: Why are they standing? (a) yes (b) no (c) 1 (d) 2 (e) 3 (f...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00203",
+      "page": 24,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Fig. 29: Random examples of multiple-choice questions for numerous representative examples of the real and abstract scene dataset.",
+      "source_type": "caption"
+    },
+    {
+      "anchor_id": "anc_00204",
+      "page": 25,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "25",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00205",
+      "page": 25,
+      "section": "References",
+      "bbox": null,
+      "text_span": "REFERENCES",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00206",
+      "page": 25,
+      "section": "References",
+      "bbox": null,
+      "text_span": "[1] H. Agrawal, C. S. Mathialagan, Y . Goyal, N. Chavali, P. Banik, A. Mo-",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00207",
+      "page": 25,
+      "section": "References",
+      "bbox": null,
+      "text_span": "hapatra, A. Osman, and D. Batra. Cloudcv: Large-scale distributed",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00208",
+      "page": 25,
+      "section": "References",
+      "bbox": null,
+      "text_span": "computer vision as a cloud service. In Mobile Cloud Visual Media Computing, pages 265–290. Springer International Publishing, 2015. 10 [2] S. Antol, C. L. Zitnick, and D. Parikh. Zero-Shot Learning via Visual",
+      "source_type": "reference"
+    },
+    {
+      "anchor_id": "anc_00209",
+      "page": 25,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Abstraction. In ECCV, 2014. 2, 3, 17",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00210",
+      "page": 25,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "[3] J. P. Bigham, C. Jayant, H. Ji, G. Little, A. Miller, R. C. Miller, R. Miller, A. Tatarowicz, B. White, S. White, and T. Yeh. VizWiz: Nearly Real- time Answers to Visual Questions. In User Interface Software and Technology, 2010. 1, 2, 12 [4] K. Bollacker, C. Evans, P. Paritosh, T. Sturge, and J. Taylor. Freebase: A Collaboratively Created Graph Database for Structuring Human Knowledge. In International Conference on Management of Data, 2008. 2 [5] A. Carlson, J. Betteridge, B. Kisiel, B. Settles, E. R. H. Jr., and T. M. Mitchell. Toward an Architecture for Never-Ending Language Learning. In AAAI, 2010. 2 [6] X. Chen, H. Fang, T. Lin, R. Vedantam, S. Gupta, P. Doll ´ar, and C. L. Zitnick. Microsoft COCO captions: Data collection and evaluation server. CoRR, abs/1504.00325, 2015. 4 [7] X. Chen, H. Fang, T.-Y . Lin, R. Vedantam, S. Gupta, P. Doll ´ar, and C. L. Zitnick. Microsoft COCO Captions: Data Collection and Evaluation Server. arXiv preprint arXiv:1504.00325 , 2015. 3 [8] X. C...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00211",
+      "page": 25,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "for Large Scale Image Retrieval. In CVPR, 2011. 2",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00212",
+      "page": 25,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "[12] J. Donahue, L. A. Hendricks, S. Guadarrama, M. Rohrbach, S. Venu- gopalan, K. Saenko, and T. Darrell. Long-term Recurrent Convolutional Networks for Visual Recognition and Description. In CVPR, 2015. 1, 2 [13] D. Elliott and F. Keller. Comparing Automatic Evaluation Measures for Image Description. In ACL, 2014. 1 [14] A. Fader, L. Zettlemoyer, and O. Etzioni. Paraphrase-Driven Learning for Open Question Answering. In ACL, 2013. 2 [15] A. Fader, L. Zettlemoyer, and O. Etzioni. Open Question Answering over Curated and Extracted Knowledge Bases. In International Conference on Knowledge Discovery and Data Mining , 2014. 2 [16] H. Fang, S. Gupta, F. N. Iandola, R. Srivastava, L. Deng, P. Doll ´ar, J. Gao, X. He, M. Mitchell, J. C. Platt, C. L. Zitnick, and G. Zweig. From Captions to Visual Concepts and Back. In CVPR, 2015. 1, 2 [17] A. Farhadi, M. Hejrati, A. Sadeghi, P. Young, C. Rashtchian, J. Hocken- maier, and D. Forsyth. Every Picture Tells a Story: Generating Sentences for Image...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00213",
+      "page": 25,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "[22] M. Hodosh, P. Young, and J. Hockenmaier. Framing Image Description",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00214",
+      "page": 25,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "as a Ranking Task: Data, Models and Evaluation Metrics. JAIR, 2013. 1 [23] Y . Jia, E. Shelhamer, J. Donahue, S. Karayev, J. Long, R. Girshick, S. Guadarrama, and T. Darrell. Caffe: Convolutional architecture for fast feature embedding. arXiv preprint arXiv:1408.5093 , 2014. 17 [24] A. Karpathy and L. Fei-Fei. Deep Visual-Semantic Alignments for Generating Image Descriptions. In CVPR, 2015. 1, 2 [25] S. Kazemzadeh, V . Ordonez, M. Matten, and T. L. Berg. ReferItGame: Referring to Objects in Photographs of Natural Scenes. In EMNLP, 2014. 2 [26] R. Kiros, R. Salakhutdinov, and R. S. Zemel. Unifying Visual-Semantic Embeddings with Multimodal Neural Language Models. TACL, 2015. 1, 2 [27] R. Kiros, Y . Zhu, R. Salakhutdinov, R. S. Zemel, A. Torralba, R. Urtasun, and S. Fidler. Skip-thought vectors. arXiv preprint arXiv:1506.06726 , 2015. 17 [28] C. Kong, D. Lin, M. Bansal, R. Urtasun, and S. Fidler. What Are You Talking About? Text-to-Image Coreference. In CVPR, 2014. 2 [29] A. Krizhevsky,...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00215",
+      "page": 25,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "[31] D. B. Lenat and R. V . Guha. Building Large Knowledge-Based Systems;",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00216",
+      "page": 25,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Representation and Inference in the Cyc Project . Addison-Wesley Longman Publishing Co., Inc., 1989. 2 [32] T.-Y . Lin, M. Maire, S. Belongie, J. Hays, P. Perona, D. Ramanan, P. Doll ´ar, and C. L. Zitnick. Microsoft COCO: Common Objects in Context. In ECCV, 2014. 2, 3, 5, 21 [33] X. Lin and D. Parikh. Don’t Just Listen, Use Your Imagination: Leveraging Visual Common Sense for Non-Visual Tasks. In CVPR, 2015. 1 [34] X. Lin and D. Parikh. Don’t just listen, use your imagination: Leveraging visual common sense for non-visual tasks. In CVPR, 2015. 2 [35] H. Liu and P. Singh. ConceptNet — A Practical Commonsense",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00217",
+      "page": 25,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "Reasoning Tool-Kit. BT Technology Journal, 2004. 2",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00218",
+      "page": 25,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "[36] M. Malinowski and M. Fritz. A Multi-World Approach to Question Answering about Real-World Scenes based on Uncertain Input. In NIPS, 2014. 1, 2 [37] M. Malinowski, M. Rohrbach, and M. Fritz. Ask your neurons: A neural- based approach to answering questions about images. In ICCV, 2015. 2 [38] J. Mao, W. Xu, Y . Yang, J. Wang, and A. L. Yuille. Explain Images with Multimodal Recurrent Neural Networks. CoRR, abs/1410.1090, 2014. 1, 2 [39] T. Mikolov, I. Sutskever, K. Chen, G. S. Corrado, and J. Dean. Distributed Representations of Words and Phrases and their Compo- sitionality. In NIPS, 2013. 4, 8, 17 [40] M. Mitchell, J. Dodge, A. Goyal, K. Yamaguchi, K. Stratos, X. Han, A. Mensch, A. Berg, T. L. Berg, and H. Daume III. Midge: Generating Image Descriptions From Computer Vision Detections. In ACL, 2012. 2 [41] M. Mitchell, K. van Deemter, and E. Reiter. Attributes in visual reference. In PRE-CogSci, 2013. 13 [42] M. Mitchell, K. Van Deemter, and E. Reiter. Generating Expressions that...",
+      "source_type": "paragraph"
+    },
+    {
+      "anchor_id": "anc_00219",
+      "page": 25,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "large-scale image recognition. CoRR, abs/1409.1556, 2014. 8, 9, 10",
+      "source_type": "formula"
+    },
+    {
+      "anchor_id": "anc_00220",
+      "page": 25,
+      "section": "Abstract",
+      "bbox": null,
+      "text_span": "[49] K. Toutanova, D. Klein, C. D. Manning, and Y . Singer. Feature-rich part- of-speech tagging with a cyclic dependency network. In ACL, 2003. 13 [50] K. Tu, M. Meng, M. W. Lee, T. E. Choe, and S. C. Zhu. Joint Video and Text Parsing for Understanding Events and Answering Queries. IEEE MultiMedia, 2014. 1, 2 [51] R. Vedantam, C. L. Zitnick, and D. Parikh. CIDEr: Consensus-based Image Description Evaluation. In CVPR, 2015. 1 [52] R. Vendantam, X. Lin, T. Batra, C. L. Zitnick, and D. Parikh. Learning common sense through visual abstraction. In ICCV, 2015. 2 [53] O. Vinyals, A. Toshev, S. Bengio, and D. Erhan. Show and Tell: A Neural Image Caption Generator. In CVPR, 2015. 1, 2 [54] J. Weston, A. Bordes, S. Chopra, and T. Mikolov. Towards AI- Complete Question Answering: A Set of Prerequisite Toy Tasks. CoRR, abs/1502.05698, 2015. 2 [55] L. Yu, E. Park, A. C. Berg, and T. L. Berg. Visual madlibs: Fill-in-the- blank description generation and question answering. In ICCV, 2015. 2 [56] P....",
+      "source_type": "paragraph"
+    }
+  ],
+  "verification": {
+    "status": "passed",
+    "warnings": [
+      {
+        "code": "ok",
+        "message": "Grounding verification passed with current v1 checks.",
+        "target": null,
+        "severity": "info"
+      }
+    ],
+    "anchor_count": 220
+  }
+}
